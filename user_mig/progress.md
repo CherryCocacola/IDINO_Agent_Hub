@@ -12,7 +12,7 @@
 |---|---|
 | **현재 Phase** | Phase 0 (셋업) — **완료** |
 | **다음 Phase** | Phase 1 (AI 호출 인벤토리) — **사용자 승인 대기** |
-| **마지막 commit** | `1da04ab [infra] IDINO_Agent_Hub monorepo 초기 셋업` (1,921 files) |
+| **마지막 commit** | `c3fc024 [docs] CLAUDE.md 최상단에 신규 세션 자동 로드 규칙 추가` |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **분석 보고서** | `source_AGENTHUB.md`, `source_DOCUTIL.md`, `source_CAREER.md`, `source_NEXUS.md` (4개 완료) |
@@ -151,6 +151,19 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-05
+- **GitHub push 차단 발견** — 첫 commit `1da04ab`에 평문 API 키 4개 (OpenAI/Gemini/Perplexity/Tavily). 위치: `agenthub/iis-setting.ps1` + `agenthub/TODO.md`. 사용자 결정 대기 (키 무효화 + B1/B2/B3 옵션)
+- CLAUDE.md 최상단에 **신규 세션 자동 로드 규칙** 추가 (`progress.md` + `TECHSPEC.md` 필수 Read). commit `c3fc024`
+- 글로벌 메모리 7개 작성:
+  - `MEMORY.md` (인덱스)
+  - `idino_agent_hub_migration.md` (project, 작업 dir 이전)
+  - `idino_agent_hub_status.md` (project, Phase 0 완료/Push 차단)
+  - `idino_agent_hub_secret_leak.md` (project, 4개 평문 키 + 처리 옵션)
+  - `idino_agent_hub_docs.md` (reference, 문서 위치)
+  - `idino_agent_hub_session_entry.md` (feedback, 진입 절차)
+  - `idino_agent_hub_decisions.md` (project, 15개 ADR 요약)
+- 메모리는 `D--workspace-AIAgentManagement` + `D--workspace-IDINO_Agent_Hub` 양쪽에 보존 (작업 dir 전환 대비)
 
 ### 2026-05-04
 - 통합 TECHSPEC v1.0 작성 (`user_mig/TECHSPEC.md`, 21개 섹션 + 부록 3개)
