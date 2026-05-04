@@ -1,0 +1,46 @@
+name: Documentation Sync Check
+
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**', 'user_mig/project_status.md', 'docs/**']
+  pull_request:
+    branches: [main]
+    paths: ['backend/**', 'user_mig/project_status.md', 'docs/**']
+
+jobs:
+  api-docs-sync:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - run: pip install -r backend/requirements.txt
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      - name: Extract OpenAPI spec and diff
+        run: python scripts/sync_api_docs.py
+        env:
+          JWT_SECRET_KEY: ci-dummy-key
+          ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+      - name: Upload api-spec.json artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-spec
+          path: docs/api-spec.json
+          if-no-files-found: ignore
+
+  doc-freshness:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check documentation freshness
+        run: python scripts/check_doc_freshness.py

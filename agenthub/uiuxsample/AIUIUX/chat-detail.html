@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 통합관리시스템 - AI 채팅</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" rel="stylesheet">
+  <link href="assets/css/common.css" rel="stylesheet">
+  <link href="assets/css/chat-detail.css" rel="stylesheet">
+</head>
+<body class="cd-body">
+
+<!-- ===================== SIDEBAR ===================== -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon"><i class="fas fa-brain"></i></div>
+    <div class="sidebar-brand-text">
+      <span class="brand-title">AI Manager</span>
+      <span class="brand-sub">통합관리시스템</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">메인</div>
+    <a href="index.html"      class="nav-item"><i class="fas fa-th-large"></i><span>대시보드</span></a>
+    <a href="chat.html"       class="nav-item"><i class="fas fa-comments"></i><span>AI 채팅</span></a>
+    <a href="chat-detail.html"class="nav-item active"><i class="fas fa-comment-dots"></i><span>채팅 상세</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="agents.html"     class="nav-item"><i class="fas fa-robot"></i><span>AI Agents</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="image-gen.html"  class="nav-item"><i class="fas fa-image"></i><span>이미지 생성기</span></a>
+    <a href="models.html"     class="nav-item"><i class="fas fa-microchip"></i><span>AI 모델 관리</span><span class="nav-badge">12</span></a>
+    <a href="monitoring.html" class="nav-item"><i class="fas fa-chart-line"></i><span>모니터링</span></a>
+    <a href="pipelines.html"  class="nav-item"><i class="fas fa-code-branch"></i><span>파이프라인</span></a>
+    <div class="nav-section-label">관리</div>
+    <a href="apikeys.html"    class="nav-item"><i class="fas fa-key"></i><span>API 키 관리</span></a>
+    <a href="users.html"      class="nav-item"><i class="fas fa-users"></i><span>사용자 관리</span></a>
+    <a href="logs.html"       class="nav-item"><i class="fas fa-file-alt"></i><span>로그 &amp; 감사</span></a>
+    <a href="billing.html"    class="nav-item"><i class="fas fa-credit-card"></i><span>비용 관리</span></a>
+    <div class="nav-section-label">시스템</div>
+    <a href="settings.html"   class="nav-item"><i class="fas fa-cog"></i><span>설정</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="system-status"><span class="status-dot status-ok"></span><span>시스템 정상 운영 중</span></div>
+  </div>
+</div>
+
+<!-- ===================== MAIN WRAPPER ===================== -->
+<div class="main-wrapper" id="mainWrapper">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+      <div class="breadcrumb-area">
+        <span class="page-title">AI 채팅</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current" id="topbarChatTitle">새 대화</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <!-- Status badge -->
+      <div class="cd-status-badge" id="connectionBadge">
+        <span class="cd-status-dot online"></span>
+        <span id="connectionLabel">연결됨</span>
+      </div>
+      <div class="topbar-divider"></div>
+      <button class="topbar-btn" id="btnAdvSettings" title="고급 설정">
+        <i class="fas fa-gear"></i>
+      </button>
+      <button class="topbar-btn" title="알림"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-info"><span class="user-name">관리자</span><span class="user-role">Super Admin</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== CHAT LAYOUT ===================== -->
+  <div class="cd-layout">
+
+    <!-- ── LEFT SIDEBAR: Settings ── -->
+    <aside class="cd-left-panel" id="cdLeftPanel">
+
+      <!-- Stats Row -->
+      <div class="cd-stats-row">
+        <div class="cd-stat-card">
+          <i class="fas fa-comment-dots"></i>
+          <strong id="statMessages">0</strong>
+          <span>메시지</span>
+        </div>
+        <div class="cd-stat-card">
+          <i class="fas fa-hashtag" style="color:var(--success);"></i>
+          <strong id="statTokens">0</strong>
+          <span>토큰</span>
+        </div>
+        <div class="cd-stat-card">
+          <i class="fas fa-dollar-sign" style="color:var(--warning);"></i>
+          <strong id="statCost">$0.00</strong>
+          <span>비용</span>
+        </div>
+      </div>
+
+      <!-- Model Settings -->
+      <div class="cd-panel-card">
+        <div class="cd-panel-header">
+          <i class="fas fa-sliders"></i> 모델 설정
+        </div>
+        <div class="cd-panel-body">
+
+          <!-- Service Selector -->
+          <div class="cd-field">
+            <label class="cd-label">AI 서비스</label>
+            <div class="cd-service-chips" id="serviceChips">
+              <button class="cd-svc-chip active" data-svc="chatgpt" data-color="#00C9FF" style="--svc:#00C9FF;">
+                <i class="fas fa-comment-dots"></i> ChatGPT
+              </button>
+              <button class="cd-svc-chip" data-svc="claude" data-color="#D97706" style="--svc:#D97706;">
+                <i class="fas fa-robot"></i> Claude
+              </button>
+              <button class="cd-svc-chip" data-svc="gemini" data-color="#3B82F6" style="--svc:#3B82F6;">
+                <i class="fab fa-google"></i> Gemini
+              </button>
+              <button class="cd-svc-chip" data-svc="cursor" data-color="#8B5CF6" style="--svc:#8B5CF6;">
+                <i class="fas fa-code"></i> Cursor
+              </button>
+              <button class="cd-svc-chip" data-svc="copilot" data-color="#6B7280" style="--svc:#6B7280;">
+                <i class="fab fa-github"></i> Copilot
+              </button>
+              <button class="cd-svc-chip" data-svc="mistral" data-color="#F59E0B" style="--svc:#F59E0B;">
+                <i class="fas fa-stars"></i> Mistral
+              </button>
+              <button class="cd-svc-chip" data-svc="dalle" data-color="#10B981" style="--svc:#10B981;">
+                <i class="fas fa-image"></i> DALL-E 3
+              </button>
+              <button class="cd-svc-chip" data-svc="gemini-img" data-color="#3B82F6" style="--svc:#3B82F6;">
+                <i class="fas fa-image"></i> Gemini Img
+              </button>
+              <button class="cd-svc-chip" data-svc="gen4-video" data-color="#DC2626" style="--svc:#DC2626;">
+                <i class="fas fa-video"></i> Gen4 Video
+              </button>
+              <button class="cd-svc-chip" data-svc="veo" data-color="#7C3AED" style="--svc:#7C3AED;">
+                <i class="fas fa-film"></i> Veo 3.1
+              </button>
+            </div>
+          </div>
+
+          <!-- Model Select -->
+          <div class="cd-field">
+            <label class="cd-label">모델</label>
+            <select class="cd-select" id="modelSelect">
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-4-turbo" selected>gpt-4-turbo</option>
+              <option value="gpt-4">gpt-4</option>
+              <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+            </select>
+            <div class="cd-hint" id="modelHint">ChatGPT 서비스 · 5개 모델</div>
+          </div>
+
+          <!-- Temperature -->
+          <div class="cd-field">
+            <label class="cd-label cd-label-row">
+              <span>Temperature</span>
+              <span class="cd-val-badge" id="tempVal">0.7</span>
+            </label>
+            <input type="range" class="cd-range" id="tempSlider" min="0" max="100" value="70">
+            <div class="cd-range-labels">
+              <span>정확함</span><span>창의적</span>
+            </div>
+          </div>
+
+          <!-- Max Tokens -->
+          <div class="cd-field">
+            <label class="cd-label">Max Tokens</label>
+            <input type="number" class="cd-input" id="maxTokens" min="256" max="32000" step="256" value="4096" placeholder="4096">
+          </div>
+
+          <!-- Answer Language -->
+          <div class="cd-field">
+            <label class="cd-label">답변 언어</label>
+            <select class="cd-select" id="langSelect">
+              <option value="auto">자동 감지</option>
+              <option value="ko">한국어</option>
+              <option value="en">영어</option>
+              <option value="ja">일본어</option>
+              <option value="zh">중국어</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Feature Toggles -->
+      <div class="cd-panel-card">
+        <div class="cd-panel-header">
+          <i class="fas fa-bolt"></i> 기능 설정
+        </div>
+        <div class="cd-panel-body">
+
+          <div class="cd-toggle-item">
+            <div class="cd-toggle-info">
+              <div class="cd-toggle-title"><i class="fas fa-search"></i> 웹 검색</div>
+              <div class="cd-toggle-desc">최신 정보를 웹에서 검색하여 답변에 포함합니다 (Tavily)</div>
+            </div>
+            <label class="cd-switch">
+              <input type="checkbox" id="toggleWebSearch">
+              <span class="cd-switch-knob"></span>
+            </label>
+          </div>
+
+          <div class="cd-toggle-item">
+            <div class="cd-toggle-info">
+              <div class="cd-toggle-title"><i class="fas fa-database"></i> RAG</div>
+              <div class="cd-toggle-desc">Knowledge Base 문서를 검색하여 답변에 포함합니다</div>
+            </div>
+            <label class="cd-switch">
+              <input type="checkbox" id="toggleRag">
+              <span class="cd-switch-knob"></span>
+            </label>
+          </div>
+
+          <div class="cd-toggle-item" id="toggleDeepResearchWrap">
+            <div class="cd-toggle-info">
+              <div class="cd-toggle-title">
+                <i class="fas fa-magnifying-glass-chart"></i> 심층 리서치
+                <span class="cd-toggle-badge">BETA</span>
+              </div>
+              <div class="cd-toggle-desc">웹 검색 + RAG를 종합 분석합니다</div>
+            </div>
+            <label class="cd-switch">
+              <input type="checkbox" id="toggleDeepResearch" disabled>
+              <span class="cd-switch-knob"></span>
+            </label>
+          </div>
+
+          <div class="cd-toggle-item">
+            <div class="cd-toggle-info">
+              <div class="cd-toggle-title"><i class="fas fa-lightbulb"></i> 더 오래 생각하기</div>
+              <div class="cd-toggle-desc">단계별 추론으로 정확도를 높입니다 (비용 증가)</div>
+            </div>
+            <label class="cd-switch">
+              <input type="checkbox" id="toggleDeepThink">
+              <span class="cd-switch-knob"></span>
+            </label>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Quota -->
+      <div class="cd-panel-card">
+        <div class="cd-panel-header">
+          <i class="fas fa-chart-pie"></i> 할당량 현황
+        </div>
+        <div class="cd-panel-body">
+          <div class="cd-quota-item">
+            <div class="cd-quota-row">
+              <span class="cd-quota-label">오늘 사용</span>
+              <span class="cd-quota-val" id="quotaToday">0 / 100</span>
+            </div>
+            <div class="cd-quota-bar">
+              <div class="cd-quota-fill success" id="quotaTodayBar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="cd-quota-item">
+            <div class="cd-quota-row">
+              <span class="cd-quota-label">이번 달 사용</span>
+              <span class="cd-quota-val" id="quotaMonth">0 / 1000</span>
+            </div>
+            <div class="cd-quota-bar">
+              <div class="cd-quota-fill warning" id="quotaMonthBar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="cd-quota-remaining">
+            <div class="cd-quota-remaining-label">남은 할당량</div>
+            <div class="cd-quota-remaining-val" id="quotaRemaining">1,000</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="cd-panel-card">
+        <div class="cd-panel-header">
+          <i class="fas fa-bolt"></i> 빠른 액션
+        </div>
+        <div class="cd-panel-body">
+          <div class="cd-quick-actions">
+            <button class="cd-action-btn danger" id="btnClearChat">
+              <i class="fas fa-trash"></i> 대화 초기화
+            </button>
+            <button class="cd-action-btn secondary" id="btnSaveChat">
+              <i class="fas fa-download"></i> 대화 저장
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </aside><!-- /.cd-left-panel -->
+
+    <!-- ── CENTER: Chat Area ── -->
+    <main class="cd-chat-area">
+
+      <!-- Chat Header: Service selector strip + current model -->
+      <div class="cd-chat-header">
+
+        <!-- Service selector (horizontal pill strip) -->
+        <div class="cd-svc-strip-wrap">
+          <label class="cd-strip-label"><i class="fas fa-microchip"></i> AI 서비스 선택</label>
+          <div class="cd-svc-strip" id="svcStrip">
+            <button class="cd-strip-btn active" data-svc="chatgpt" data-color="#00C9FF">
+              <i class="fas fa-comment-dots"></i><span>ChatGPT</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="claude" data-color="#D97706">
+              <i class="fas fa-robot"></i><span>Claude</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="cursor" data-color="#8B5CF6">
+              <i class="fas fa-code"></i><span>Cursor</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="copilot" data-color="#6B7280">
+              <i class="fab fa-github"></i><span>Copilot</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="gemini" data-color="#3B82F6">
+              <i class="fab fa-google"></i><span>Gemini</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="mistral" data-color="#F59E0B">
+              <i class="fas fa-star"></i><span>Mistral</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="dalle" data-color="#10B981">
+              <i class="fas fa-image"></i><span>DALL-E 3</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="gemini-img" data-color="#3B82F6">
+              <i class="fas fa-image"></i><span>Gemini Img</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="imagen4" data-color="#059669">
+              <i class="fas fa-image"></i><span>Imagen 4</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="gen4-img" data-color="#6D28D9">
+              <i class="fas fa-image"></i><span>Gen4 Image</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="flux2" data-color="#B45309">
+              <i class="fas fa-image"></i><span>Flux 2</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="gen4-video" data-color="#DC2626">
+              <i class="fas fa-video"></i><span>Gen4 Video</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="veo" data-color="#7C3AED">
+              <i class="fas fa-film"></i><span>Veo 3.1</span>
+            </button>
+            <button class="cd-strip-btn" data-svc="openai-video" data-color="#0EA5E9">
+              <i class="fas fa-camera-movie"></i><span>OpenAI Video</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Current service info bar -->
+        <div class="cd-current-bar">
+          <div class="cd-current-svc" id="currentSvcInfo">
+            <div class="cd-current-icon" id="currentSvcIcon" style="color:#00C9FF;">
+              <i class="fas fa-comment-dots"></i>
+            </div>
+            <div class="cd-current-meta">
+              <span class="cd-current-name" id="currentSvcName" style="color:#00C9FF;">ChatGPT</span>
+              <span class="cd-current-model" id="currentModelLabel">gpt-4-turbo</span>
+            </div>
+          </div>
+          <div class="cd-current-right">
+            <span class="cd-connected-badge">
+              <span class="cd-status-dot online"></span> 연결됨
+            </span>
+            <button class="cd-icon-btn" id="btnAdvSettings2" title="고급 설정">
+              <i class="fas fa-gear"></i>
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /.cd-chat-header -->
+
+      <!-- Messages Area -->
+      <div class="cd-messages" id="messagesArea">
+
+        <!-- Date divider -->
+        <div class="cd-date-divider">
+          <span id="todayLabel">2026년 2월 23일</span>
+        </div>
+
+        <!-- Welcome message -->
+        <div class="cd-msg cd-msg-assistant" id="welcomeMsg">
+          <div class="cd-msg-avatar assistant">
+            <i class="fas fa-comment-dots"></i>
+          </div>
+          <div class="cd-msg-content">
+            <div class="cd-msg-bubble">
+              <p>안녕하세요! <strong>ChatGPT</strong>에 연결되었습니다.</p>
+              <p>무엇을 도와드릴까요? 아래 제안 프롬프트를 눌러보거나 직접 메시지를 입력해 보세요.</p>
+            </div>
+            <div class="cd-msg-time">방금 전</div>
+          </div>
+        </div>
+
+      </div><!-- /.cd-messages -->
+
+      <!-- Suggested Prompts -->
+      <div class="cd-suggestions" id="suggestionsArea">
+        <div class="cd-suggest-label"><i class="fas fa-lightbulb"></i> 제안 프롬프트</div>
+        <div class="cd-suggest-chips">
+          <button class="cd-suggest-chip" data-text="이 코드를 리뷰하고 개선사항을 알려주세요.">
+            <i class="fas fa-code"></i> 코드 리뷰
+          </button>
+          <button class="cd-suggest-chip" data-text="다음 주제로 보고서를 작성해 주세요.">
+            <i class="fas fa-file-lines"></i> 문서 작성
+          </button>
+          <button class="cd-suggest-chip" data-text="이 주제에 대한 창의적인 아이디어를 제안해 주세요.">
+            <i class="fas fa-lightbulb"></i> 브레인스토밍
+          </button>
+          <button class="cd-suggest-chip" data-text="다음 데이터를 분석하고 인사이트를 도출해 주세요.">
+            <i class="fas fa-chart-bar"></i> 데이터 분석
+          </button>
+          <button class="cd-suggest-chip" data-text="다음 문장을 영어로 번역해 주세요.">
+            <i class="fas fa-language"></i> 번역
+          </button>
+          <button class="cd-suggest-chip" data-text="이 주제에 대해 요약해 주세요.">
+            <i class="fas fa-list-check"></i> 요약
+          </button>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="cd-input-area">
+
+        <!-- Attachment preview -->
+        <div class="cd-attachments" id="attachmentPreview" style="display:none;"></div>
+
+        <!-- Input row -->
+        <div class="cd-input-row">
+
+          <!-- Attach buttons -->
+          <div class="cd-attach-btns">
+            <button class="cd-attach-btn" id="btnAttachFile" title="파일 첨부 (.pdf, .txt, .docx ...)">
+              <i class="fas fa-paperclip"></i>
+            </button>
+            <button class="cd-attach-btn" id="btnAttachImage" title="이미지 첨부">
+              <i class="fas fa-image"></i>
+            </button>
+            <button class="cd-attach-btn" id="btnVoice" title="음성 녹음">
+              <i class="fas fa-microphone"></i>
+            </button>
+            <button class="cd-attach-btn" id="btnAudioFile" title="음성 파일 선택">
+              <i class="fas fa-file-audio"></i>
+            </button>
+            <input type="file" id="fileInputDoc"   style="display:none;" accept=".pdf,.txt,.csv,.xls,.xlsx,.doc,.docx,.hwp,.hwpx,.ppt,.pptx" multiple>
+            <input type="file" id="fileInputImage" style="display:none;" accept="image/*" multiple>
+            <input type="file" id="fileInputAudio" style="display:none;" accept="audio/*,video/*">
+          </div>
+
+          <!-- Textarea -->
+          <textarea
+            class="cd-textarea"
+            id="chatInput"
+            rows="1"
+            placeholder="메시지를 입력하세요... (Shift+Enter 줄바꿈 / Enter 전송)"
+          ></textarea>
+
+          <!-- Send button -->
+          <button class="cd-send-btn" id="btnSend">
+            <i class="fas fa-paper-plane" id="sendIcon"></i>
+          </button>
+
+        </div>
+
+        <!-- Footer info row -->
+        <div class="cd-input-footer">
+          <span class="cd-footer-svc" id="footerSvcLabel">
+            <i class="fas fa-circle-check" style="color:var(--success);"></i>
+            연결: <strong id="footerSvcName">ChatGPT</strong> (<span id="footerModelName">gpt-4-turbo</span>)
+          </span>
+          <span class="cd-footer-hint">Shift+Enter 줄바꿈 &nbsp;·&nbsp; Enter 전송</span>
+        </div>
+
+      </div><!-- /.cd-input-area -->
+
+    </main><!-- /.cd-chat-area -->
+
+  </div><!-- /.cd-layout -->
+</div><!-- /.main-wrapper -->
+
+
+<!-- ===================== ADVANCED SETTINGS MODAL ===================== -->
+<div class="cd-modal-overlay" id="modalAdvSettings">
+  <div class="cd-modal">
+    <div class="cd-modal-header">
+      <div class="cd-modal-title-wrap">
+        <div class="cd-modal-icon"><i class="fas fa-gear"></i></div>
+        <div>
+          <h4>고급 설정</h4>
+          <p>AI 응답 방식을 세밀하게 조정합니다</p>
+        </div>
+      </div>
+      <button class="cd-modal-close" onclick="closeAdvModal()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="cd-modal-body">
+
+      <div class="cd-modal-field">
+        <label class="cd-modal-label">시스템 프롬프트</label>
+        <textarea class="cd-modal-textarea" id="systemPrompt" rows="4"
+          placeholder="AI의 역할이나 행동 방식을 지정하세요...&#10;예) 당신은 친절한 코드 리뷰어입니다. 항상 구체적인 피드백을 제공하세요."></textarea>
+      </div>
+
+      <div class="cd-modal-row">
+        <div class="cd-modal-field">
+          <label class="cd-modal-label">응답 형식</label>
+          <select class="cd-modal-select" id="responseFormat">
+            <option value="text">일반 텍스트</option>
+            <option value="markdown" selected>마크다운</option>
+            <option value="json">JSON</option>
+            <option value="code">코드 중심</option>
+          </select>
+        </div>
+        <div class="cd-modal-field">
+          <label class="cd-modal-label">컨텍스트 창</label>
+          <select class="cd-modal-select" id="contextWindow">
+            <option value="5">최근 5개</option>
+            <option value="10" selected>최근 10개</option>
+            <option value="20">최근 20개</option>
+            <option value="all">전체</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="cd-modal-checks">
+        <label class="cd-modal-check-row">
+          <div class="cd-modal-switch">
+            <input type="checkbox" id="modalStreaming" checked>
+            <span class="cd-switch-knob"></span>
+          </div>
+          <div>
+            <strong>스트리밍 응답</strong>
+            <small>실시간으로 응답을 표시합니다</small>
+          </div>
+        </label>
+        <label class="cd-modal-check-row">
+          <div class="cd-modal-switch">
+            <input type="checkbox" id="modalSaveHistory" checked>
+            <span class="cd-switch-knob"></span>
+          </div>
+          <div>
+            <strong>대화 기록 저장</strong>
+            <small>브라우저 세션에 대화 내용을 저장합니다</small>
+          </div>
+        </label>
+        <label class="cd-modal-check-row">
+          <div class="cd-modal-switch">
+            <input type="checkbox" id="modalWebSearch">
+            <span class="cd-switch-knob"></span>
+          </div>
+          <div>
+            <strong><i class="fas fa-search" style="font-size:11px;color:var(--primary);"></i> 웹 검색 (Tavily)</strong>
+            <small>최신 웹 검색 결과를 활용하여 더 정확한 답변을 제공합니다</small>
+          </div>
+        </label>
+      </div>
+
+    </div>
+    <div class="cd-modal-footer">
+      <button class="cd-modal-cancel" onclick="closeAdvModal()">취소</button>
+      <button class="cd-modal-apply" id="btnApplySettings">
+        <i class="fas fa-check"></i> 적용
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="cd-toast" id="cdToast">
+  <i class="fas fa-check-circle"></i>
+  <span id="cdToastText">완료되었습니다.</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/chat-detail.js"></script>
+</body>
+</html>

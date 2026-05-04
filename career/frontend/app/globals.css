@@ -1,0 +1,236 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #eef2f8;
+  --surface: #ffffff;
+  --primary: #5b6dff;
+  --secondary: #00b7a8;
+  --accent: #ff8a5c;
+  --ethics: #f6c343;
+  --text: #1d2437;
+  --muted: #717a95;
+  --border: #dbe3f4;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Utility classes */
+.text-gradient {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animation classes */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Section styling */
+.section {
+  @apply bg-surface rounded-2xl p-6 shadow-sm;
+}
+
+.section-title {
+  @apply text-xl font-bold text-text mb-4 flex items-center gap-2;
+}
+
+/* Tile styling */
+.tile {
+  @apply bg-surface rounded-xl p-5 border border-border hover:shadow-md transition-shadow cursor-pointer;
+}
+
+.tile-header {
+  @apply flex items-center justify-between mb-3;
+}
+
+.tile-icon {
+  @apply w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl;
+}
+
+.tile-label {
+  @apply text-sm text-muted;
+}
+
+.tile-value {
+  @apply text-2xl font-bold text-text;
+}
+
+/* Badge styling */
+.badge {
+  @apply px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-primary {
+  @apply bg-primary/10 text-primary;
+}
+
+.badge-secondary {
+  @apply bg-secondary/10 text-secondary;
+}
+
+.badge-accent {
+  @apply bg-accent/10 text-accent;
+}
+
+.badge-success {
+  @apply bg-green-100 text-green-700;
+}
+
+.badge-warning {
+  @apply bg-yellow-100 text-yellow-700;
+}
+
+/* Progress bar base */
+.progress-bar {
+  @apply h-3 bg-gray-200 rounded-full overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full rounded-full transition-all duration-500;
+}
+
+/* Button styling */
+.btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+}
+
+.btn-primary {
+  @apply bg-primary text-white hover:bg-primary/90;
+}
+
+.btn-secondary {
+  @apply bg-secondary text-white hover:bg-secondary/90;
+}
+
+.btn-outline {
+  @apply border border-border text-text hover:bg-gray-50;
+}
+
+/* Modal styling */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-surface rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto;
+}
+
+/* Card styling */
+.card {
+  @apply bg-surface rounded-xl border border-border overflow-hidden;
+}
+
+.card-header {
+  @apply p-4 border-b border-border;
+}
+
+.card-body {
+  @apply p-4;
+}
+
+/* Table styling */
+.data-table {
+  @apply w-full text-sm;
+}
+
+.data-table th {
+  @apply text-left text-muted font-medium py-3 px-4 bg-gray-50;
+}
+
+.data-table td {
+  @apply py-3 px-4 border-b border-border;
+}
+
+.data-table tr:hover td {
+  @apply bg-gray-50;
+}
+
+/* Quick Nav styling */
+.quick-nav {
+  @apply flex gap-2 p-1 bg-surface rounded-xl shadow-sm;
+}
+
+.quick-nav-item {
+  @apply px-4 py-2 rounded-lg text-sm font-medium text-muted transition-all cursor-pointer;
+}
+
+.quick-nav-item:hover {
+  @apply text-text bg-gray-100;
+}
+
+.quick-nav-item.active {
+  @apply text-white bg-primary;
+}
+
+/* Hero section */
+.hero {
+  @apply bg-gradient-to-r from-primary to-secondary text-white rounded-2xl p-8;
+}
+
+.hero-title {
+  @apply text-3xl font-bold mb-2;
+}
+
+.hero-subtitle {
+  @apply text-white/80 text-lg;
+}
+
+/* Grid layouts */
+.grid-tiles {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4;
+}
+
+.grid-sections {
+  @apply grid grid-cols-1 lg:grid-cols-2 gap-6;
+}

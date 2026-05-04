@@ -1,0 +1,30 @@
+from functools import lru_cache
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    SERVICE_NAME: str = "badge-service"
+    SERVICE_PORT: int = 8012
+    DEBUG: bool = True
+
+    # CORS
+    CORS_ORIGINS: list = ["*"]
+
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 5432
+    DB_NAME: str = "postgres"
+    DB_USER: str = "postgres"
+    DB_PASSWORD: str = "2012"
+    DB_SCHEMA: str = "idino_career"
+
+    DB_POOL_MIN: int = 2
+    DB_POOL_MAX: int = 10
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()

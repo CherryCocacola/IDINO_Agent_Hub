@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI 플랫폼 구성도</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+      background: #f1f5f9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1e293b;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+    .sub {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    /* ── 전체 캔버스 ── */
+    .canvas {
+      display: grid;
+      grid-template-columns: 260px 200px 260px;
+      grid-template-rows: auto auto auto;
+      gap: 0;
+      align-items: center;
+      justify-items: center;
+      position: relative;
+    }
+
+    /* ── 박스 공통 ── */
+    .box {
+      border-radius: 14px;
+      padding: 20px 18px;
+      text-align: center;
+      position: relative;
+    }
+    .box .icon { font-size: 32px; margin-bottom: 8px; }
+    .box .title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 6px;
+    }
+    .box .desc {
+      font-size: 11.5px;
+      color: #475569;
+      line-height: 1.7;
+    }
+    .box .tag {
+      display: inline-block;
+      background: rgba(255,255,255,0.6);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 10.5px;
+      color: #334155;
+      margin: 2px 2px 0 2px;
+    }
+
+    /* ── 각 박스 색상 ── */
+    .box-rag     { background: #eff6ff; border: 2px solid #93c5fd; grid-column:1; grid-row:2; }
+    .box-platform{ background: #f0fdf4; border: 2px solid #4ade80; grid-column:2; grid-row:2; min-width:180px; }
+    .box-cloud   { background: #fdf4ff; border: 2px solid #c084fc; grid-column:3; grid-row:2; }
+    .box-user    { background: #fff7ed; border: 2px solid #fb923c; grid-column:2; grid-row:1; min-width:180px; margin-bottom: 12px; }
+    .box-output  { background: #f0f9ff; border: 2px solid #38bdf8; grid-column:2; grid-row:3; min-width:180px; margin-top: 12px; }
+
+    /* ── 화살표 영역 ── */
+    .arrow-h {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      position: relative;
+    }
+    .arrow-label {
+      font-size: 10px;
+      color: #64748b;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 3px 8px;
+      white-space: nowrap;
+      z-index: 2;
+    }
+
+    /* ── SVG 화살표 오버레이 ── */
+    .svg-layer {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .wrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    /* ── 하단 라벨 ── */
+    .legend {
+      display: flex;
+      gap: 24px;
+      margin-top: 36px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #475569;
+    }
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>AI 플랫폼 시스템 구성도</h1>
+<p class="sub">외부 LLM API 연동 + RAG 기반 지식베이스 활용 아키텍처</p>
+
+<div class="wrapper">
+  <!-- SVG 화살표 -->
+  <svg class="svg-layer" id="arrows" xmlns="http://www.w3.org/2000/svg"></svg>
+
+  <div class="canvas" id="canvas">
+
+    <!-- Row 1: 사용자 -->
+    <div style="grid-column:1;grid-row:1;"></div>
+    <div class="box box-user" id="b-user">
+      <div class="icon">👤</div>
+      <div class="title">사용자 (User)</div>
+      <div class="desc">
+        <span class="tag">채팅</span>
+        <span class="tag">이미지생성</span>
+        <span class="tag">영상생성</span>
+        <span class="tag">에이전트</span>
+      </div>
+    </div>
+    <div style="grid-column:3;grid-row:1;"></div>
+
+    <!-- Row 2: RAG ← PLATFORM → CLOUD -->
+    <div class="box box-rag" id="b-rag">
+      <div class="icon">📚</div>
+      <div class="title">RAG 지식베이스</div>
+      <div class="desc">
+        문서 업로드 / 청킹<br/>
+        벡터 임베딩<br/>
+        유사도 검색<br/>
+        <br/>
+        <span class="tag">PDF / DOCX / TXT</span>
+        <span class="tag">SQLite 벡터 DB</span>
+      </div>
+    </div>
+
+    <div class="box box-platform" id="b-platform">
+      <div class="icon">⚙️</div>
+      <div class="title">AI 플랫폼</div>
+      <div class="desc">
+        ASP.NET Core 8.0<br/>
+        + Vue.js 3<br/>
+        <br/>
+        <span class="tag">라우팅</span>
+        <span class="tag">인증</span>
+        <span class="tag">쿼터관리</span>
+      </div>
+    </div>
+
+    <div class="box box-cloud" id="b-cloud">
+      <div class="icon">☁️</div>
+      <div class="title">클라우드 LLM API</div>
+      <div class="desc">
+        OpenAI — gpt-5, gpt-4o<br/>
+        Anthropic — claude-4.x<br/>
+        Google — Gemini 2.5<br/>
+        Mistral — large, codestral<br/>
+        Azure OpenAI<br/>
+        Stability AI (이미지/영상)
+      </div>
+    </div>
+
+    <!-- Row 3: 응답 출력 -->
+    <div style="grid-column:1;grid-row:3;"></div>
+    <div class="box box-output" id="b-output">
+      <div class="icon">💬</div>
+      <div class="title">응답 출력</div>
+      <div class="desc">
+        <span class="tag">스트리밍 텍스트</span>
+        <span class="tag">이미지</span>
+        <span class="tag">영상</span>
+        <span class="tag">대화 저장</span>
+      </div>
+    </div>
+    <div style="grid-column:3;grid-row:3;"></div>
+
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#93c5fd;"></div> RAG / 지식 검색</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4ade80;"></div> AI 플랫폼 (코어)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#c084fc;"></div> 외부 LLM API</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fb923c;"></div> 사용자 요청</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div> 응답 출력</div>
+</div>
+
+<script>
+  // 두 박스 중심 좌표 계산 후 SVG 화살표 그리기
+  function getCenter(el, container) {
+    const r = el.getBoundingClientRect();
+    const cr = container.getBoundingClientRect();
+    return {
+      x: r.left - cr.left + r.width / 2,
+      y: r.top  - cr.top  + r.height / 2,
+      w: r.width,
+      h: r.height,
+      top:    r.top  - cr.top,
+      bottom: r.bottom - cr.top,
+      left:   r.left - cr.left,
+      right:  r.right - cr.left,
+    };
+  }
+
+  function arrowPath(x1, y1, x2, y2) {
+    const dx = (x2 - x1) * 0.5;
+    return `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+  }
+
+  function drawArrow(svg, x1, y1, x2, y2, label, color, bidirectional) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const id = 'arr' + Math.random().toString(36).slice(2);
+    path.setAttribute('id', id);
+    path.setAttribute('d', arrowPath(x1, y1, x2, y2));
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('marker-end', `url(#arrow-${color.replace('#','')})`);
+    if (bidirectional) path.setAttribute('marker-start', `url(#arrow-start-${color.replace('#','')})`);
+    svg.appendChild(path);
+
+    if (label) {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      const mx = (x1 + x2) / 2;
+      const my = (y1 + y2) / 2 - 7;
+      text.setAttribute('x', mx);
+      text.setAttribute('y', my);
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('fill', color);
+      text.setAttribute('font-size', '10');
+      text.setAttribute('font-family', 'Malgun Gothic, sans-serif');
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      const tw = label.length * 6 + 10;
+      bg.setAttribute('x', mx - tw/2); bg.setAttribute('y', my - 12);
+      bg.setAttribute('width', tw); bg.setAttribute('height', 16);
+      bg.setAttribute('rx', '4'); bg.setAttribute('fill', 'white');
+      bg.setAttribute('opacity', '0.85');
+      svg.appendChild(bg);
+      text.textContent = label;
+      svg.appendChild(text);
+    }
+  }
+
+  function addMarker(svg, color, id, isStart) {
+    const defs = svg.querySelector('defs') || svg.insertBefore(
+      document.createElementNS('http://www.w3.org/2000/svg','defs'), svg.firstChild);
+    const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+    marker.setAttribute('id', id);
+    marker.setAttribute('markerWidth','8'); marker.setAttribute('markerHeight','8');
+    marker.setAttribute('refX', isStart ? '0' : '6'); marker.setAttribute('refY','3');
+    marker.setAttribute('orient','auto');
+    const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    poly.setAttribute('points', isStart ? '6,0 0,3 6,6' : '0,0 6,3 0,6');
+    poly.setAttribute('fill', color);
+    marker.appendChild(poly);
+    defs.appendChild(marker);
+  }
+
+  function draw() {
+    const container = document.querySelector('.wrapper');
+    const svg = document.getElementById('arrows');
+    svg.innerHTML = '';
+
+    // 컨테이너 크기 맞추기
+    const cr = container.getBoundingClientRect();
+    svg.setAttribute('width', cr.width);
+    svg.setAttribute('height', cr.height);
+
+    const boxes = {
+      user:     getCenter(document.getElementById('b-user'),     container),
+      platform: getCenter(document.getElementById('b-platform'), container),
+      rag:      getCenter(document.getElementById('b-rag'),      container),
+      cloud:    getCenter(document.getElementById('b-cloud'),    container),
+      output:   getCenter(document.getElementById('b-output'),   container),
+    };
+
+    const colors = {
+      userPlatform: '#f97316',
+      ragPlatform:  '#3b82f6',
+      cloudPlatform:'#a855f7',
+      platformOut:  '#0ea5e9',
+    };
+
+    // 마커 등록
+    Object.values(colors).forEach(c => {
+      addMarker(svg, c, `arrow-${c.replace('#','')}`, false);
+      addMarker(svg, c, `arrow-start-${c.replace('#','')}`, true);
+    });
+
+    // User → Platform (위 → 중앙)
+    drawArrow(svg,
+      boxes.user.x, boxes.user.bottom,
+      boxes.platform.x, boxes.platform.top,
+      '질문 / 요청', colors.userPlatform, false);
+
+    // Platform ↔ RAG (좌우)
+    drawArrow(svg,
+      boxes.platform.left, boxes.platform.y,
+      boxes.rag.right,     boxes.rag.y,
+      '컨텍스트 검색', colors.ragPlatform, true);
+
+    // Platform ↔ Cloud (좌우)
+    drawArrow(svg,
+      boxes.platform.right, boxes.platform.y,
+      boxes.cloud.left,     boxes.cloud.y,
+      'API 호출', colors.cloudPlatform, true);
+
+    // Platform → Output (아래)
+    drawArrow(svg,
+      boxes.platform.x, boxes.platform.bottom,
+      boxes.output.x,   boxes.output.top,
+      '스트리밍 응답', colors.platformOut, false);
+  }
+
+  window.addEventListener('load', () => setTimeout(draw, 200));
+  window.addEventListener('resize', draw);
+</script>
+</body>
+</html>

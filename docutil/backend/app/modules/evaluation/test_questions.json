@@ -1,0 +1,65 @@
+{
+  "description": "Default test questions for AI response quality evaluation",
+  "questions": [
+    {
+      "question": "이 프로젝트의 주요 기술 스택은 무엇인가요?",
+      "category": "general"
+    },
+    {
+      "question": "문서 업로드 후 처리 과정을 설명해주세요.",
+      "category": "workflow"
+    },
+    {
+      "question": "검색 기능은 어떤 방식으로 동작하나요?",
+      "category": "search"
+    },
+    {
+      "question": "사용자 권한 체계는 어떻게 구성되어 있나요?",
+      "category": "auth"
+    },
+    {
+      "question": "보고서 생성 기능에 대해 설명해주세요.",
+      "category": "reports"
+    },
+    {
+      "question": "문서의 보안 등급은 어떻게 분류되나요?",
+      "category": "security"
+    },
+    {
+      "question": "벡터 검색과 키워드 검색의 차이점은 무엇인가요?",
+      "category": "search"
+    },
+    {
+      "question": "조직 내 부서 관리는 어떻게 하나요?",
+      "category": "organization"
+    },
+    {
+      "question": "API 키를 생성하고 관리하는 방법을 알려주세요.",
+      "category": "api"
+    },
+    {
+      "question": "챗봇의 대화 맥락은 어떻게 유지되나요?",
+      "category": "chat"
+    },
+    {
+      "question": "문서 템플릿의 종류와 사용법을 설명해주세요.",
+      "category": "templates"
+    },
+    {
+      "question": "최근 업로드된 문서의 상태를 확인하려면 어떻게 하나요?",
+      "category": "documents"
+    },
+    {
+      "question": "프로젝트에 참여하는 부서를 추가하는 방법은?",
+      "category": "projects"
+    },
+    {
+      "question": "감사 로그에서 특정 사용자의 활동을 조회할 수 있나요?",
+      "category": "audit"
+    },
+    {
+      "question": "검색 범위를 제한하는 방법을 알려주세요.",
+      "category": "search"
+    }
+  ]
+}

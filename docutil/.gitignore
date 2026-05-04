@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+venv/
+*.egg
+
+# Environment files (sensitive)
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env.local
+
+# Node
+node_modules/
+.next/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker volumes
+data/
+volumes/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+uploads/
+
+# Logs
+*.log
+logs/
+
+# Test & cache
+.pytest_cache/
+.coverage
+htmlcov/
+.nyc_output/
+coverage/
+
+# Build artifacts
+*.pyc
+nul
+
+# Claude Code
+.claude/

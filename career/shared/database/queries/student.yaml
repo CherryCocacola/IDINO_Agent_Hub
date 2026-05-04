@@ -1,0 +1,211 @@
+# Student Domain SQL Queries
+# 수정 시 코드 변경 없이 바로 적용됨
+
+queries:
+  # ==========================================
+  # 학생 조회
+  # ==========================================
+  get_student_by_id:
+    description: "학생 ID로 상세 정보 조회"
+    sql: |
+      SELECT
+        s.student_id,
+        s.student_nm,
+        s.department_cd,
+        d.department_nm,
+        c.college_nm,
+        s.current_grade as grade,
+        s.current_semester as semester,
+        s.career_goal,
+        s.email,
+        s.phone,
+        s.admission_year,
+        s.status as status_cd,
+        s.ins_dt as created_at,
+        s.upd_dt as updated_at
+      FROM tb_student s
+      LEFT JOIN tb_department d ON s.department_cd = d.department_cd
+      LEFT JOIN tb_college c ON d.college_cd = c.college_cd
+      WHERE s.student_id = :student_id
+
+  get_students_list:
+    description: "학생 목록 조회 (페이징)"
+    sql: |
+      SELECT
+        s.student_id,
+        s.student_nm,
+        d.department_nm,
+        s.current_grade as grade,
+        s.career_goal,
+        s.status as status_cd
+      FROM tb_student s
+      LEFT JOIN tb_department d ON s.department_cd = d.department_cd
+      WHERE (:department_cd IS NULL OR s.department_cd = :department_cd)
+        AND (:grade IS NULL OR s.current_grade = :grade)
+        AND (:status_cd IS NULL OR s.status = :status_cd)
+      ORDER BY s.student_id
+      LIMIT :limit OFFSET :offset
+
+  get_students_count:
+    description: "학생 수 조회"
+    sql: |
+      SELECT COUNT(*) as total
+      FROM tb_student s
+      WHERE (:department_cd IS NULL OR s.department_cd = :department_cd)
+        AND (:grade IS NULL OR s.current_grade = :grade)
+        AND (:status_cd IS NULL OR s.status = :status_cd)
+
+  # ==========================================
+  # 수강 기록 조회
+  # ==========================================
+  get_student_enrollments:
+    description: "학생 수강 기록 조회"
+    sql: |
+      SELECT
+        e.enrollment_id,
+        e.course_offering_id,
+        co.course_cd,
+        c.course_nm,
+        c.course_cd,
+        c.credits,
+        co.term_cd,
+        t.term_nm,
+        e.status_cd as status_cd,
+        e.ins_dt as enrolled_at
+      FROM tb_enrollment e
+      JOIN tb_course_offering co ON e.course_offering_id = co.offering_id
+      JOIN tb_course c ON co.course_cd = c.course_cd
+      JOIN tb_term t ON co.term_cd = t.term_cd
+      WHERE e.student_id = :student_id
+      ORDER BY t.term_cd DESC, c.course_nm
+
+  get_student_enrollments_with_grades:
+    description: "학생 수강 기록 + 성적 조회"
+    sql: |
+      SELECT
+        e.enrollment_id,
+        c.course_nm,
+        c.course_cd,
+        c.credits,
+        c.course_type,
+        t.term_nm,
+        g.grade_letter as letter_grade,
+        g.grade_point,
+        e.status_cd as status_cd
+      FROM tb_enrollment e
+      JOIN tb_course_offering co ON e.course_offering_id = co.offering_id
+      JOIN tb_course c ON co.course_cd = c.course_cd
+      JOIN tb_term t ON co.term_cd = t.term_cd
+      LEFT JOIN tb_grade g ON e.enrollment_id = g.enrollment_id
+      WHERE e.student_id = :student_id
+      ORDER BY t.term_cd DESC
+
+  get_student_grades:
+    description: "학생 성적 조회"
+    sql: |
+      SELECT
+        g.grade_id,
+        c.course_nm,
+        c.course_cd,
+        c.credits,
+        t.term_nm,
+        g.grade_letter as letter_grade,
+        g.grade_point,
+        g.credits_earned
+      FROM tb_grade g
+      JOIN tb_enrollment e ON g.enrollment_id = e.enrollment_id
+      JOIN tb_course_offering co ON e.course_offering_id = co.offering_id
+      JOIN tb_course c ON co.course_cd = c.course_cd
+      JOIN tb_term t ON co.term_cd = t.term_cd
+      WHERE e.student_id = :student_id
+      ORDER BY t.term_cd DESC
+
+  # ==========================================
+  # 활동 조회 (tb_program_participation 테이블 없음 - 빈 결과 반환)
+  # ==========================================
+  get_student_activities:
+    description: "학생 비교과 활동 조회 - 테이블 미존재로 빈 결과"
+    sql: |
+      SELECT
+        NULL::integer as participation_id,
+        NULL::varchar as program_cd,
+        NULL::varchar as program_nm,
+        NULL::varchar as program_type,
+        NULL::varchar as organizer,
+        NULL::date as participation_date,
+        NULL::integer as hours_completed,
+        NULL::numeric as score,
+        NULL::text as feedback
+      WHERE false
+
+  # ==========================================
+  # 성취 조회
+  # ==========================================
+  get_student_achievements:
+    description: "학생 성취/자격증 조회"
+    sql: |
+      SELECT
+        a.achievement_id,
+        a.achievement_type,
+        a.title as achievement_nm,
+        a.issuer as issuing_org,
+        a.issue_date,
+        a.expire_date as expiry_date,
+        a.level,
+        a.score,
+        a.verified as verified_fg
+      FROM tb_achievement a
+      WHERE a.student_id = :student_id
+      ORDER BY a.issue_date DESC
+
+  # ==========================================
+  # 대시보드 요약
+  # ==========================================
+  get_student_dashboard_summary:
+    description: "학생 대시보드 요약 정보"
+    sql: |
+      SELECT
+        s.student_id,
+        s.student_nm,
+        d.department_nm,
+        s.current_grade as grade,
+        s.current_semester as semester,
+        s.career_goal,
+        (SELECT COUNT(*) FROM tb_enrollment e WHERE e.student_id = s.student_id) as total_courses,
+        0 as total_activities,
+        (SELECT COUNT(*) FROM tb_achievement a WHERE a.student_id = s.student_id) as total_achievements
+      FROM tb_student s
+      LEFT JOIN tb_department d ON s.department_cd = d.department_cd
+      WHERE s.student_id = :student_id
+
+  # ==========================================
+  # 학과 및 교수 조회
+  # ==========================================
+  get_departments:
+    description: "모든 학과 조회"
+    sql: |
+      SELECT
+        d.department_cd,
+        d.department_nm,
+        d.department_nm_en,
+        c.college_nm
+      FROM tb_department d
+      LEFT JOIN tb_college c ON d.college_cd = c.college_cd
+      WHERE d.use_fg = 'Y'
+      ORDER BY c.college_nm, d.department_nm
+
+  get_courses_by_department:
+    description: "학과별 과목 조회"
+    sql: |
+      SELECT
+        c.course_cd,
+        c.course_nm,
+        c.course_nm_en,
+        c.credits,
+        c.course_type,
+        c.grade_level as target_grade,
+        c.description
+      FROM tb_course c
+      WHERE c.department_cd = :department_cd
+        AND c.use_fg = 'Y'
+      ORDER BY c.grade_level, c.course_type, c.course_nm

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 통합관리시스템 - 모니터링</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="assets/css/common.css" rel="stylesheet">
+  <link href="assets/css/monitoring.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon"><i class="fas fa-brain"></i></div>
+    <div class="sidebar-brand-text">
+      <span class="brand-title">AI Manager</span>
+      <span class="brand-sub">통합관리시스템</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">메인</div>
+    <a href="index.html" class="nav-item"><i class="fas fa-th-large"></i><span>대시보드</span></a>
+    <a href="chat.html" class="nav-item"><i class="fas fa-comments"></i><span>AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="models.html" class="nav-item"><i class="fas fa-robot"></i><span>AI 모델 관리</span><span class="nav-badge">12</span></a>
+    <a href="monitoring.html" class="nav-item active"><i class="fas fa-chart-line"></i><span>모니터링</span><span class="nav-badge nav-badge-warning">!</span></a>
+    <a href="pipelines.html" class="nav-item"><i class="fas fa-code-branch"></i><span>파이프라인</span></a>
+    <div class="nav-section-label">관리</div>
+    <a href="apikeys.html" class="nav-item"><i class="fas fa-key"></i><span>API 키 관리</span></a>
+    <a href="users.html" class="nav-item"><i class="fas fa-users"></i><span>사용자 관리</span></a>
+    <a href="logs.html" class="nav-item"><i class="fas fa-file-alt"></i><span>로그 &amp; 감사</span></a>
+    <a href="billing.html" class="nav-item"><i class="fas fa-credit-card"></i><span>비용 관리</span></a>
+    <div class="nav-section-label">시스템</div>
+    <a href="settings.html" class="nav-item"><i class="fas fa-cog"></i><span>설정</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="system-status"><span class="status-dot status-warn"></span><span>경고 1건 감지됨</span></div>
+  </div>
+</div>
+
+<div class="main-wrapper" id="mainWrapper">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+      <div class="breadcrumb-area">
+        <span class="page-title">모니터링</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">실시간 현황</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="live-indicator">
+        <span class="live-dot"></span>
+        <span class="live-text">LIVE</span>
+      </div>
+      <button class="topbar-btn"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-info"><span class="user-name">관리자</span><span class="user-role">Super Admin</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-content">
+
+    <!-- Alert Banner -->
+    <div class="alert-banner alert-banner-error mb-4">
+      <div class="d-flex align-items-center gap-3">
+        <i class="fas fa-times-circle fa-lg"></i>
+        <div>
+          <strong>DALL-E 3 API 오류</strong> — API 키 인증 실패로 서비스가 중단되었습니다.
+          <a href="#" class="ms-2 text-decoration-underline">즉시 조치</a>
+        </div>
+      </div>
+      <button class="alert-banner-close"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-heading">시스템 모니터링</h1>
+        <p class="page-desc">마지막 업데이트: <span id="lastUpdate">방금 전</span></p>
+      </div>
+      <div class="page-actions">
+        <select class="form-select form-select-sm" style="width:140px">
+          <option>최근 1시간</option>
+          <option>최근 6시간</option>
+          <option selected>최근 24시간</option>
+          <option>최근 7일</option>
+        </select>
+        <button class="btn btn-outline-secondary btn-sm"><i class="fas fa-sync-alt me-1"></i>새로고침</button>
+      </div>
+    </div>
+
+    <!-- KPI Row -->
+    <div class="row g-3 mb-4">
+      <div class="col-xl col-md-4 col-6">
+        <div class="kpi-card">
+          <div class="kpi-value">99.2%</div>
+          <div class="kpi-label">시스템 가용성</div>
+          <div class="kpi-trend kpi-up"><i class="fas fa-arrow-up"></i> 0.1%</div>
+        </div>
+      </div>
+      <div class="col-xl col-md-4 col-6">
+        <div class="kpi-card">
+          <div class="kpi-value">234ms</div>
+          <div class="kpi-label">평균 응답시간</div>
+          <div class="kpi-trend kpi-down"><i class="fas fa-arrow-up"></i> +18ms</div>
+        </div>
+      </div>
+      <div class="col-xl col-md-4 col-6">
+        <div class="kpi-card">
+          <div class="kpi-value">0.15%</div>
+          <div class="kpi-label">전체 오류율</div>
+          <div class="kpi-trend kpi-down"><i class="fas fa-arrow-up"></i> +0.03%</div>
+        </div>
+      </div>
+      <div class="col-xl col-md-4 col-6">
+        <div class="kpi-card">
+          <div class="kpi-value">2,018</div>
+          <div class="kpi-label">현재 req/min</div>
+          <div class="kpi-trend kpi-up"><i class="fas fa-arrow-up"></i> +12%</div>
+        </div>
+      </div>
+      <div class="col-xl col-md-4 col-6">
+        <div class="kpi-card">
+          <div class="kpi-value">10/12</div>
+          <div class="kpi-label">정상 모델</div>
+          <div class="kpi-trend kpi-down"><i class="fas fa-exclamation-circle"></i> 2건 이상</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row g-4 mb-4">
+      <!-- Throughput Chart -->
+      <div class="col-xl-8">
+        <div class="card h-100">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <div>
+              <h5 class="card-title mb-0">실시간 처리량</h5>
+              <p class="card-subtitle mb-0">분당 요청 수 (requests/min)</p>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <span class="legend-pill" style="--c:#4F46E5">GPT-4o</span>
+              <span class="legend-pill" style="--c:#8B5CF6">Claude</span>
+              <span class="legend-pill" style="--c:#10B981">Gemini</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="chart-container" style="height:240px">
+              <canvas id="throughputCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Response Time Distribution -->
+      <div class="col-xl-4">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="card-title mb-0">응답시간 분포</h5>
+            <p class="card-subtitle mb-0">P50 / P95 / P99</p>
+          </div>
+          <div class="card-body">
+            <div class="latency-table">
+              <div class="latency-row">
+                <div class="latency-model">
+                  <div class="model-dot model-gpt"></div>GPT-4o
+                </div>
+                <span class="latency-val">152ms</span>
+                <span class="latency-val">312ms</span>
+                <span class="latency-val">891ms</span>
+              </div>
+              <div class="latency-row">
+                <div class="latency-model">
+                  <div class="model-dot model-claude"></div>Claude
+                </div>
+                <span class="latency-val">178ms</span>
+                <span class="latency-val">389ms</span>
+                <span class="latency-val">1.1s</span>
+              </div>
+              <div class="latency-row">
+                <div class="latency-model">
+                  <div class="model-dot model-gemini"></div>Gemini
+                </div>
+                <span class="latency-val">241ms</span>
+                <span class="latency-val">498ms</span>
+                <span class="latency-val">1.4s</span>
+              </div>
+              <div class="latency-header-row">
+                <span></span>
+                <span class="latency-header">P50</span>
+                <span class="latency-header">P95</span>
+                <span class="latency-header">P99</span>
+              </div>
+            </div>
+            <div class="chart-container mt-3" style="height:140px">
+              <canvas id="latencyCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Rate & Model Health -->
+    <div class="row g-4 mb-4">
+      <!-- Error Rate Chart -->
+      <div class="col-xl-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="card-title mb-0">오류율 추이</h5>
+            <p class="card-subtitle mb-0">시간대별 오류 발생 현황</p>
+          </div>
+          <div class="card-body">
+            <div class="chart-container" style="height:200px">
+              <canvas id="errorRateCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Model Health Grid -->
+      <div class="col-xl-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="card-title mb-0">모델별 헬스 매트릭스</h5>
+            <p class="card-subtitle mb-0">핵심 지표 한눈에 보기</p>
+          </div>
+          <div class="card-body p-0">
+            <div class="health-grid">
+              <div class="health-row health-header">
+                <span>모델</span>
+                <span>가용성</span>
+                <span>응답</span>
+                <span>오류율</span>
+                <span>처리량</span>
+              </div>
+              <div class="health-row">
+                <div class="health-model">
+                  <div class="model-dot model-gpt"></div>GPT-4o
+                </div>
+                <div class="health-bar-cell"><div class="health-bar" style="--pct:99.3%;--c:var(--success)"></div><span>99.3%</span></div>
+                <span class="health-val">198ms</span>
+                <span class="health-val text-success-color">0.12%</span>
+                <span class="health-val">2,481/hr</span>
+              </div>
+              <div class="health-row">
+                <div class="health-model">
+                  <div class="model-dot model-claude"></div>Claude
+                </div>
+                <div class="health-bar-cell"><div class="health-bar" style="--pct:99.8%;--c:var(--success)"></div><span>99.8%</span></div>
+                <span class="health-val">241ms</span>
+                <span class="health-val text-success-color">0.08%</span>
+                <span class="health-val">1,892/hr</span>
+              </div>
+              <div class="health-row">
+                <div class="health-model">
+                  <div class="model-dot model-gemini"></div>Gemini
+                </div>
+                <div class="health-bar-cell"><div class="health-bar" style="--pct:98.7%;--c:var(--success)"></div><span>98.7%</span></div>
+                <span class="health-val">312ms</span>
+                <span class="health-val text-success-color">0.21%</span>
+                <span class="health-val">943/hr</span>
+              </div>
+              <div class="health-row health-row-warn">
+                <div class="health-model">
+                  <div class="model-dot model-llama"></div>Llama
+                </div>
+                <div class="health-bar-cell"><div class="health-bar" style="--pct:0%;--c:var(--warning)"></div><span>점검중</span></div>
+                <span class="health-val">-</span>
+                <span class="health-val">-</span>
+                <span class="health-val">0/hr</span>
+              </div>
+              <div class="health-row health-row-error">
+                <div class="health-model">
+                  <div class="model-dot model-error"></div>DALL-E
+                </div>
+                <div class="health-bar-cell"><div class="health-bar" style="--pct:0%;--c:var(--danger)"></div><span class="text-danger-color">오류</span></div>
+                <span class="health-val text-danger-color">-</span>
+                <span class="health-val text-danger-color">100%</span>
+                <span class="health-val text-danger-color">0/hr</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Incidents -->
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <h5 class="card-title mb-0">최근 인시던트</h5>
+          <p class="card-subtitle mb-0">오류 및 경고 이력</p>
+        </div>
+        <div class="d-flex gap-2">
+          <select class="form-select form-select-sm" style="width:120px">
+            <option>전체</option>
+            <option>오류</option>
+            <option>경고</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>시간</th>
+              <th>심각도</th>
+              <th>모델</th>
+              <th>이벤트</th>
+              <th>영향</th>
+              <th>상태</th>
+              <th>액션</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-muted fs-xs">14:23:15</td>
+              <td><span class="severity-badge severity-critical"><i class="fas fa-circle"></i> 심각</span></td>
+              <td>DALL-E 3</td>
+              <td>API 키 인증 실패 (50회 연속)</td>
+              <td>이미지 생성 서비스 중단</td>
+              <td><span class="status-badge status-error">처리중</span></td>
+              <td><button class="btn btn-xs btn-outline-secondary">상세</button></td>
+            </tr>
+            <tr>
+              <td class="text-muted fs-xs">13:12:42</td>
+              <td><span class="severity-badge severity-warning"><i class="fas fa-circle"></i> 경고</span></td>
+              <td>GPT-4o</td>
+              <td>응답시간 임계값 초과 (300ms)</td>
+              <td>응답 지연 경험</td>
+              <td><span class="status-badge status-online">해결됨</span></td>
+              <td><button class="btn btn-xs btn-outline-secondary">상세</button></td>
+            </tr>
+            <tr>
+              <td class="text-muted fs-xs">12:00:00</td>
+              <td><span class="severity-badge severity-info"><i class="fas fa-circle"></i> 정보</span></td>
+              <td>Llama 3.1-70B</td>
+              <td>정기 유지보수 시작</td>
+              <td>해당 모델 일시 중단</td>
+              <td><span class="status-badge status-warning">진행중</span></td>
+              <td><button class="btn btn-xs btn-outline-secondary">상세</button></td>
+            </tr>
+            <tr>
+              <td class="text-muted fs-xs">08:34:21</td>
+              <td><span class="severity-badge severity-warning"><i class="fas fa-circle"></i> 경고</span></td>
+              <td>전체</td>
+              <td>월간 API 예산 75% 도달</td>
+              <td>비용 임계값 초과 예상</td>
+              <td><span class="status-badge status-online">확인됨</span></td>
+              <td><button class="btn btn-xs btn-outline-secondary">상세</button></td>
+            </tr>
+            <tr>
+              <td class="text-muted fs-xs">02:15:08</td>
+              <td><span class="severity-badge severity-info"><i class="fas fa-circle"></i> 정보</span></td>
+              <td>Custom-FinanceBot</td>
+              <td>v2.1 배포 완료</td>
+              <td>모델 업데이트 성공</td>
+              <td><span class="status-badge status-online">완료</span></td>
+              <td><button class="btn btn-xs btn-outline-secondary">상세</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/monitoring.js"></script>
+</body>
+</html>

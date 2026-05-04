@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Hub — 랜딩 페이지 미리보기</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #4F46E5;
+    --primary-light: #6366f1;
+    --secondary: #0EA5E9;
+    --accent: #10B981;
+    --dark: #0f172a;
+    --dark2: #1e293b;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --bg: #f8fafc;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    color: var(--text);
+    background: white;
+    line-height: 1.6;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 48px;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 800; font-size: 20px; color: var(--primary);
+    text-decoration: none;
+  }
+  .nav-logo .logo-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--primary), #8b5cf6);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 18px;
+  }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a {
+    text-decoration: none; color: var(--text-muted); font-size: 14px; font-weight: 500;
+    transition: color .2s;
+  }
+  .nav-links a:hover { color: var(--primary); }
+  .nav-actions { display: flex; align-items: center; gap: 12px; }
+  .btn-ghost {
+    background: none; border: none; padding: 8px 16px;
+    color: var(--text-muted); font-size: 14px; cursor: pointer;
+    border-radius: 8px; font-weight: 500; transition: background .2s;
+  }
+  .btn-ghost:hover { background: var(--bg); color: var(--primary); }
+  .btn-primary {
+    background: var(--primary); color: white; border: none;
+    padding: 8px 20px; border-radius: 8px; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: opacity .2s;
+    text-decoration: none; display: inline-block;
+  }
+  .btn-primary:hover { opacity: .88; }
+
+  /* ─── HERO ─── */
+  .hero {
+    min-height: 100vh;
+    display: flex; align-items: center;
+    background: linear-gradient(160deg, #f8f9ff 0%, #eef2ff 40%, #f0f9ff 100%);
+    padding: 120px 48px 80px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; top: -200px; right: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(99,102,241,.12) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .hero::after {
+    content: '';
+    position: absolute; bottom: -150px; left: -150px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(14,165,233,.1) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .hero-inner {
+    max-width: 1200px; margin: 0 auto; width: 100%;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+    position: relative; z-index: 1;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(79,70,229,.1); color: var(--primary);
+    border: 1px solid rgba(79,70,229,.2); border-radius: 20px;
+    padding: 5px 14px; font-size: 12px; font-weight: 600;
+    margin-bottom: 20px; letter-spacing: .03em;
+  }
+  .hero-badge i { font-size: 11px; }
+  .hero h1 {
+    font-size: 52px; font-weight: 800; line-height: 1.15;
+    color: var(--dark); margin-bottom: 20px;
+    word-break: keep-all;
+  }
+  .hero h1 .highlight {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-desc {
+    font-size: 17px; color: var(--text-muted); margin-bottom: 36px;
+    line-height: 1.8; word-break: keep-all;
+  }
+  .hero-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .btn-hero-primary {
+    background: linear-gradient(135deg, var(--primary), #6366f1);
+    color: white; border: none; padding: 14px 28px;
+    border-radius: 12px; font-size: 16px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 4px 20px rgba(79,70,229,.35);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .btn-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(79,70,229,.45); }
+  .btn-hero-ghost {
+    background: white; color: var(--text); border: 1.5px solid var(--border);
+    padding: 13px 24px; border-radius: 12px; font-size: 15px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; gap: 8px;
+    transition: border-color .2s, background .2s;
+  }
+  .btn-hero-ghost:hover { border-color: var(--primary); color: var(--primary); background: #fafaff; }
+  .hero-stats {
+    display: flex; gap: 32px; margin-top: 40px; padding-top: 32px;
+    border-top: 1px solid rgba(0,0,0,.06);
+  }
+  .hero-stat-item { text-align: left; }
+  .hero-stat-item .num {
+    font-size: 28px; font-weight: 800; color: var(--dark);
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-stat-item .label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ─── HERO CHAT PREVIEW ─── */
+  .hero-visual {
+    position: relative; display: flex; justify-content: center; align-items: center;
+  }
+  .chat-preview {
+    background: white; border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.12), 0 4px 16px rgba(0,0,0,.06);
+    width: 100%; max-width: 380px; overflow: hidden;
+    border: 1px solid rgba(0,0,0,.06);
+    animation: float 4s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-10px); }
+  }
+  .chat-preview-header {
+    background: linear-gradient(135deg, #4F46E5, #7c3aed);
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .chat-preview-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: white;
+  }
+  .chat-preview-info { color: white; }
+  .chat-preview-info strong { font-size: 14px; font-weight: 700; display: block; }
+  .chat-preview-info small { font-size: 11px; opacity: .8; }
+  .online-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #4ade80;
+    display: inline-block; margin-right: 4px;
+  }
+  .chat-preview-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .chat-bubble {
+    padding: 10px 14px; border-radius: 16px; font-size: 13px; line-height: 1.5;
+    max-width: 85%;
+  }
+  .chat-bubble.bot {
+    background: #f1f5f9; color: #334155;
+    border-bottom-left-radius: 4px; align-self: flex-start;
+  }
+  .chat-bubble.user {
+    background: linear-gradient(135deg, #4F46E5, #6366f1);
+    color: white; border-bottom-right-radius: 4px;
+    align-self: flex-end;
+  }
+  .chat-bubble.typing {
+    display: flex; align-items: center; gap: 4px; padding: 12px 16px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; animation: blink 1.2s infinite; }
+  .dot:nth-child(2) { animation-delay: .2s; }
+  .dot:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100% { opacity:.3; } 40% { opacity:1; } }
+  .chat-preview-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-top: 1px solid #f1f5f9;
+    background: #fafafa;
+  }
+  .chat-preview-input span {
+    flex: 1; font-size: 12px; color: #94a3b8;
+    padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+  }
+  .chat-preview-input button {
+    width: 30px; height: 30px; border-radius: 8px; border: none;
+    background: var(--primary); color: white; font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* 플로팅 배지들 */
+  .floating-badge {
+    position: absolute; background: white; border-radius: 12px;
+    padding: 8px 14px; font-size: 12px; font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0,0,0,.1); display: flex; align-items: center; gap: 6px;
+    animation: float 3s ease-in-out infinite;
+  }
+  .floating-badge.top-right {
+    top: -20px; right: -20px; animation-delay: .5s;
+    color: #10b981;
+  }
+  .floating-badge.bottom-left {
+    bottom: 20px; left: -30px; animation-delay: 1s;
+    color: var(--primary);
+  }
+  .floating-badge.mid-right {
+    top: 50%; right: -50px; animation-delay: 1.5s;
+    color: #f59e0b;
+  }
+
+  /* ─── SECTION COMMON ─── */
+  section { padding: 80px 48px; }
+  .section-inner { max-width: 1200px; margin: 0 auto; }
+  .section-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(79,70,229,.08); color: var(--primary);
+    border-radius: 20px; padding: 4px 14px;
+    font-size: 12px; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 36px; font-weight: 800; color: var(--dark);
+    margin-bottom: 14px; line-height: 1.25; word-break: keep-all;
+  }
+  .section-desc {
+    font-size: 16px; color: var(--text-muted); max-width: 560px;
+    line-height: 1.8; word-break: keep-all;
+  }
+
+  /* ─── FEATURES ─── */
+  .features { background: var(--bg); }
+  .features-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 48px;
+  }
+  .feature-card {
+    background: white; border-radius: 16px; padding: 28px;
+    border: 1px solid var(--border);
+    transition: transform .2s, box-shadow .2s;
+    position: relative; overflow: hidden;
+  }
+  .feature-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    opacity: 0; transition: opacity .2s;
+  }
+  .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
+  .feature-card:hover::before { opacity: 1; }
+  .feature-icon {
+    width: 52px; height: 52px; border-radius: 14px; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+  }
+  .feature-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+  .feature-card p { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+  .feature-tag {
+    display: inline-block; margin-top: 14px;
+    background: var(--bg); color: var(--text-muted);
+    border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600;
+  }
+
+  /* ─── HOW IT WORKS ─── */
+  .how { background: white; }
+  .steps {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    margin-top: 56px; position: relative;
+  }
+  .steps::before {
+    content: ''; position: absolute; top: 36px; left: calc(12.5% + 24px); right: calc(12.5% + 24px);
+    height: 2px; background: linear-gradient(90deg, var(--primary), var(--secondary));
+    z-index: 0;
+  }
+  .step {
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 0 16px; position: relative; z-index: 1;
+  }
+  .step-num {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), #6366f1);
+    color: white; font-size: 28px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(79,70,229,.3); margin-bottom: 20px;
+    border: 4px solid white;
+  }
+  .step h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+  .step p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+  /* ─── DEMO ─── */
+  .demo { background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%); }
+  .demo .section-label { background: rgba(255,255,255,.1); color: #a5b4fc; }
+  .demo .section-title { color: white; }
+  .demo .section-desc { color: #94a3b8; }
+  .demo-inner {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+    margin-top: 48px;
+  }
+  .demo-text-list { display: flex; flex-direction: column; gap: 16px; margin-top: 28px; }
+  .demo-item {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 16px; border-radius: 12px; background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.08); transition: background .2s;
+    cursor: pointer;
+  }
+  .demo-item:hover, .demo-item.active { background: rgba(99,102,241,.15); border-color: rgba(99,102,241,.3); }
+  .demo-item-icon {
+    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .demo-item h5 { font-size: 14px; font-weight: 700; color: white; margin-bottom: 4px; }
+  .demo-item p { font-size: 12px; color: #64748b; line-height: 1.5; }
+
+  .demo-chat-wrap {
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 20px; overflow: hidden;
+  }
+  .demo-chat-header {
+    background: linear-gradient(135deg, #4F46E5, #7c3aed);
+    padding: 16px 20px; display: flex; align-items: center; gap: 12px;
+  }
+  .demo-chat-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: white;
+  }
+  .demo-chat-info strong { color: white; font-size: 15px; display: block; }
+  .demo-chat-info small { color: rgba(255,255,255,.7); font-size: 12px; }
+  .demo-chat-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 260px; }
+  .demo-bubble {
+    padding: 12px 16px; border-radius: 16px; font-size: 13px; line-height: 1.6; max-width: 90%;
+  }
+  .demo-bubble.bot {
+    background: rgba(255,255,255,.1); color: #e2e8f0;
+    border-bottom-left-radius: 4px; align-self: flex-start;
+  }
+  .demo-bubble.user {
+    background: #4F46E5; color: white;
+    border-bottom-right-radius: 4px; align-self: flex-end;
+  }
+  .demo-chat-input {
+    display: flex; gap: 8px; padding: 14px 16px;
+    border-top: 1px solid rgba(255,255,255,.08); background: rgba(0,0,0,.2);
+  }
+  .demo-chat-input input {
+    flex: 1; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px; padding: 10px 14px; color: white; font-size: 13px; outline: none;
+    font-family: inherit;
+  }
+  .demo-chat-input input::placeholder { color: rgba(255,255,255,.3); }
+  .demo-chat-input button {
+    width: 40px; height: 40px; border-radius: 10px; border: none;
+    background: var(--primary); color: white; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+    transition: opacity .2s;
+  }
+  .demo-note {
+    text-align: center; margin-top: 16px; font-size: 12px; color: #64748b;
+  }
+  .demo-note a { color: #818cf8; text-decoration: none; }
+
+  /* ─── AI SERVICES ─── */
+  .ai-services { background: var(--bg); padding: 60px 48px; }
+  .services-label { text-align: center; font-size: 14px; color: var(--text-muted); margin-bottom: 28px; }
+  .services-logos {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; flex-wrap: wrap;
+  }
+  .service-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: white; border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text);
+  }
+  .service-chip .dot-green { color: #10b981; font-size: 8px; }
+  .service-chip .dot-blue  { color: #0ea5e9; font-size: 8px; }
+  .service-chip .dot-orange{ color: #f59e0b; font-size: 8px; }
+  .service-chip .dot-purple{ color: #8b5cf6; font-size: 8px; }
+
+  /* ─── USE CASES ─── */
+  .use-cases { background: white; }
+  .use-cases-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 48px;
+  }
+  .use-case-card {
+    border-radius: 16px; padding: 28px; position: relative; overflow: hidden;
+    color: white; min-height: 200px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .use-case-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+  .use-case-card p { font-size: 13px; opacity: .85; line-height: 1.7; }
+  .use-case-tag {
+    display: inline-block; margin-top: 16px;
+    background: rgba(255,255,255,.2); border-radius: 6px;
+    padding: 3px 10px; font-size: 11px; font-weight: 700;
+  }
+  .uc-1 { background: linear-gradient(135deg, #4F46E5, #7c3aed); }
+  .uc-2 { background: linear-gradient(135deg, #0EA5E9, #0284c7); }
+  .uc-3 { background: linear-gradient(135deg, #10B981, #059669); }
+  .uc-4 { background: linear-gradient(135deg, #F59E0B, #d97706); }
+  .uc-5 { background: linear-gradient(135deg, #EF4444, #dc2626); }
+  .uc-6 { background: linear-gradient(135deg, #8B5CF6, #7c3aed); }
+  .uc-bg-icon {
+    position: absolute; right: 16px; bottom: 16px;
+    font-size: 72px; opacity: .12;
+  }
+
+  /* ─── CTA ─── */
+  .cta {
+    background: linear-gradient(135deg, #4F46E5 0%, #7c3aed 50%, #0EA5E9 100%);
+    padding: 80px 48px; text-align: center;
+  }
+  .cta h2 { font-size: 40px; font-weight: 800; color: white; margin-bottom: 16px; line-height: 1.25; word-break: keep-all; }
+  .cta p { font-size: 17px; color: rgba(255,255,255,.8); margin-bottom: 36px; line-height: 1.7; }
+  .cta-actions { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+  .btn-cta-white {
+    background: white; color: var(--primary); border: none;
+    padding: 14px 32px; border-radius: 12px; font-size: 16px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.15); transition: transform .2s;
+  }
+  .btn-cta-white:hover { transform: translateY(-2px); }
+  .btn-cta-ghost {
+    background: rgba(255,255,255,.15); color: white; border: 1.5px solid rgba(255,255,255,.3);
+    padding: 13px 28px; border-radius: 12px; font-size: 15px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; gap: 8px;
+    backdrop-filter: blur(4px); transition: background .2s;
+  }
+  .btn-cta-ghost:hover { background: rgba(255,255,255,.25); }
+  .cta-note { margin-top: 20px; font-size: 13px; color: rgba(255,255,255,.5); }
+
+  /* ─── FOOTER ─── */
+  footer {
+    background: var(--dark); padding: 40px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 16px;
+  }
+  footer .logo { font-size: 16px; font-weight: 700; color: white; display: flex; align-items: center; gap: 8px; }
+  footer .logo i { color: #818cf8; font-size: 20px; }
+  footer .copy { font-size: 13px; color: #475569; }
+  footer .footer-links { display: flex; gap: 20px; }
+  footer .footer-links a { font-size: 13px; color: #475569; text-decoration: none; transition: color .2s; }
+  footer .footer-links a:hover { color: #818cf8; }
+
+  /* ─── SCROLL ANIM ─── */
+  .fade-in { opacity: 0; transform: translateY(20px); transition: opacity .6s ease, transform .6s ease; }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="logo-icon"><i class="bi bi-robot"></i></div>
+    AgentHub
+  </a>
+  <div class="nav-links">
+    <a href="#features">기능</a>
+    <a href="#how">사용방법</a>
+    <a href="#demo">데모</a>
+    <a href="#usecases">활용 사례</a>
+  </div>
+  <div class="nav-actions">
+    <button class="btn-ghost" onclick="alert('로그인 페이지로 이동')">로그인</button>
+    <button class="btn-primary" onclick="alert('회원가입 또는 대시보드로 이동')">무료 시작하기</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-content fade-in visible">
+      <div class="hero-badge">
+        <i class="bi bi-stars"></i> 코딩 없이 만드는 AI 에이전트
+      </div>
+      <h1>
+        나만의 AI를<br>
+        <span class="highlight">5분 만에 만들고</span><br>
+        어디서나 공유하세요
+      </h1>
+      <p class="hero-desc">
+        GPT, Claude, Mistral 등 최고의 AI 모델 위에<br>
+        나만의 에이전트를 만들고, 링크로 공유하거나<br>
+        웹사이트에 바로 임베드하세요.
+      </p>
+      <div class="hero-actions">
+        <button class="btn-hero-primary" onclick="alert('에이전트 빌더로 이동')">
+          <i class="bi bi-plus-circle-fill"></i> 무료로 
+        </button>
+        <button class="btn-hero-ghost" onclick="document.getElementById('demo').scrollIntoView({behavior:'smooth'})">
+          <i class="bi bi-play-circle"></i> 라이브 데모 보기
+        </button>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat-item">
+          <div class="num">3+</div>
+          <div class="label">지원 AI 서비스</div>
+        </div>
+        <div class="hero-stat-item">
+          <div class="num">5분</div>
+          <div class="label">에이전트 생성 시간</div>
+        </div>
+        <div class="hero-stat-item">
+          <div class="num">무제한</div>
+          <div class="label">에이전트 생성 가능</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual fade-in visible" style="animation-delay:.2s">
+      <div class="floating-badge top-right">
+        <i class="bi bi-check-circle-fill"></i> 응답 생성 완료
+      </div>
+      <div class="floating-badge bottom-left">
+        <i class="bi bi-lightning-charge-fill"></i> gpt-4o 연결됨
+      </div>
+      <div class="floating-badge mid-right" style="font-size:11px">
+        <i class="bi bi-bar-chart-fill" style="color:#f59e0b"></i> 토큰: 142
+      </div>
+
+      <div class="chat-preview">
+        <div class="chat-preview-header">
+          <div class="chat-preview-avatar">🤖</div>
+          <div class="chat-preview-info">
+            <strong>마케팅 분석 Agent</strong>
+            <small><span class="online-dot"></span>온라인 · GPT-4o</small>
+          </div>
+        </div>
+        <div class="chat-preview-body">
+          <div class="chat-bubble bot">
+            안녕하세요! 마케팅 분석을 도와드릴 준비가 됐습니다. 무엇이 궁금하신가요?
+          </div>
+          <div class="chat-bubble user">
+            우리 제품의 SNS 마케팅 전략 좀 짜줄 수 있어?
+          </div>
+          <div class="chat-bubble bot">
+            물론이죠! 먼저 타겟 고객층과 예산 규모를 알려주시면 더 정확한 전략을 제안해 드릴게요 😊
+          </div>
+          <div class="chat-bubble typing">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+        <div class="chat-preview-input">
+          <span>메시지를 입력하세요...</span>
+          <button><i class="bi bi-send-fill"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI SERVICES -->
+<section class="ai-services">
+  <div class="services-label">다음 AI 서비스와 연동 가능합니다</div>
+  <div class="services-logos">
+    <div class="service-chip"><i class="bi bi-circle-fill dot-green"></i> OpenAI GPT-4o</div>
+    <div class="service-chip"><i class="bi bi-circle-fill dot-blue"></i> Claude 3.5 Sonnet</div>
+    <div class="service-chip"><i class="bi bi-circle-fill dot-orange"></i> Mistral Large</div>
+    <div class="service-chip"><i class="bi bi-circle-fill dot-purple"></i> GPT-o3</div>
+    <div class="service-chip"><i class="bi bi-circle-fill dot-green"></i> Claude Opus</div>
+    <div class="service-chip" style="color:#94a3b8; border-style:dashed">+ 더 많은 모델 준비 중</div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="section-inner">
+    <div class="fade-in">
+      <div class="section-label"><i class="bi bi-grid-3x3-gap"></i> 핵심 기능</div>
+      <div class="section-title">필요한 모든 기능이 한 곳에</div>
+      <p class="section-desc">복잡한 설정 없이 AI 에이전트를 만들고, 공유하고, 분석하세요.</p>
+    </div>
+    <div class="features-grid fade-in">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#eef2ff; color:#4F46E5"><i class="bi bi-magic"></i></div>
+        <h3>에이전트 빌더</h3>
+        <p>5단계 위저드로 시스템 프롬프트, 모델, 동작 방식을 설정하세요. 코딩은 전혀 필요 없습니다.</p>
+        <span class="feature-tag">No-code</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#f0fdf4; color:#10b981"><i class="bi bi-share-fill"></i></div>
+        <h3>링크로 공유</h3>
+        <p>에이전트 URL을 생성해 누구에게나 공유하세요. 로그인 없이도 대화 가능한 챗봇 페이지가 제공됩니다.</p>
+        <span class="feature-tag">Public URL</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#fff7ed; color:#f59e0b"><i class="bi bi-code-slash"></i></div>
+        <h3>웹 임베드</h3>
+        <p>한 줄의 iframe 코드로 어떤 웹사이트에도 챗봇을 심을 수 있습니다. 테마도 커스터마이즈 가능합니다.</p>
+        <span class="feature-tag">iframe embed</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#f0f9ff; color:#0ea5e9"><i class="bi bi-database-fill"></i></div>
+        <h3>RAG 문서 연동</h3>
+        <p>내부 문서나 Knowledge Base를 연결해 에이전트가 정확한 정보를 바탕으로 답변하도록 만드세요.</p>
+        <span class="feature-tag">Knowledge Base</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#fdf4ff; color:#a855f7"><i class="bi bi-graph-up-arrow"></i></div>
+        <h3>사용 분석</h3>
+        <p>토큰 사용량, 비용, 응답 속도 등을 대시보드에서 실시간으로 확인하세요. 팀별 할당량도 설정 가능합니다.</p>
+        <span class="feature-tag">Analytics</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#fff1f2; color:#ef4444"><i class="bi bi-shield-check-fill"></i></div>
+        <h3>보안 & 컴플라이언스</h3>
+        <p>PII 보호, 금칙어 필터, 감사 로그 등 기업 환경에 필요한 보안 기능이 기본으로 탑재되어 있습니다.</p>
+        <span class="feature-tag">Enterprise</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <div class="section-inner">
+    <div class="fade-in" style="text-align:center">
+      <div class="section-label"><i class="bi bi-signpost-split"></i> 사용 방법</div>
+      <div class="section-title">딱 4단계면 충분합니다</div>
+      <p class="section-desc" style="margin: 0 auto;">처음 사용자도 5분 안에 나만의 AI 에이전트를 만들고 공유할 수 있습니다.</p>
+    </div>
+    <div class="steps fade-in">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h4>AI 서비스 선택</h4>
+        <p>GPT, Claude, Mistral 중<br>원하는 AI 모델을 고르세요</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h4>에이전트 설정</h4>
+        <p>역할, 말투, 지식 범위를<br>시스템 프롬프트로 정의하세요</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h4>테스트 & 저장</h4>
+        <p>바로 대화해보며 동작을<br>확인하고 저장하세요</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h4>공유 & 임베드</h4>
+        <p>URL을 공유하거나<br>웹에 임베드하세요</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO -->
+<section class="demo" id="demo">
+  <div class="section-inner">
+    <div class="fade-in">
+      <div class="section-label"><i class="bi bi-play-circle-fill"></i> 라이브 데모</div>
+      <div class="section-title">지금 바로 체험해보세요</div>
+      <p class="section-desc">로그인 없이 샘플 에이전트와 대화해볼 수 있습니다.</p>
+    </div>
+    <div class="demo-inner fade-in">
+      <div>
+        <div class="demo-text-list">
+          <div class="demo-item active" onclick="setDemo(this, 'platform')">
+            <div class="demo-item-icon" style="background:rgba(99,102,241,.2); font-size:22px">🤖</div>
+            <div>
+              <h5>플랫폼 안내 에이전트</h5>
+              <p>이 플랫폼의 기능과 사용 방법에 대해 무엇이든 물어보세요</p>
+            </div>
+          </div>
+          <div class="demo-item" onclick="setDemo(this, 'hr')">
+            <div class="demo-item-icon" style="background:rgba(16,185,129,.2); font-size:22px">💼</div>
+            <div>
+              <h5>HR 도우미 에이전트</h5>
+              <p>사내 규정, 휴가 신청, 복리후생 등 HR 관련 질문 답변</p>
+            </div>
+          </div>
+          <div class="demo-item" onclick="setDemo(this, 'code')">
+            <div class="demo-item-icon" style="background:rgba(245,158,11,.2); font-size:22px">💻</div>
+            <div>
+              <h5>코딩 도우미 에이전트</h5>
+              <p>코드 리뷰, 버그 찾기, 코드 설명 등 개발 업무 지원</p>
+            </div>
+          </div>
+        </div>
+        <p class="demo-note" style="color:#475569; margin-top:16px; font-size:12px;">
+          실제 에이전트는 로그인 후 직접 만들 수 있습니다.<br>
+          <a href="#" style="color:#818cf8">지금 무료로 시작하기 →</a>
+        </p>
+      </div>
+
+      <div>
+        <div class="demo-chat-wrap">
+          <div class="demo-chat-header">
+            <div class="demo-chat-avatar" id="demo-avatar">🤖</div>
+            <div class="demo-chat-info">
+              <strong id="demo-name">플랫폼 안내 에이전트</strong>
+              <small><span style="color:#4ade80; font-size:8px">●</span> 온라인 데모</small>
+            </div>
+          </div>
+          <div class="demo-chat-body" id="demo-chat">
+            <div class="demo-bubble bot">
+              안녕하세요! 저는 AgentHub 안내 에이전트입니다. 플랫폼 사용법, 기능, 요금 등 무엇이든 물어보세요 😊
+            </div>
+          </div>
+          <div class="demo-chat-input">
+            <input type="text" id="demo-input" placeholder="메시지를 입력하세요..." onkeydown="if(event.key==='Enter') sendDemo()">
+            <button onclick="sendDemo()"><i class="bi bi-send-fill"></i></button>
+          </div>
+        </div>
+        <p class="demo-note">※ 실제 AI가 아닌 시나리오 기반 데모입니다. <a href="#">실제 버전 체험하기</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- USE CASES -->
+<section class="use-cases" id="usecases">
+  <div class="section-inner">
+    <div class="fade-in">
+      <div class="section-label"><i class="bi bi-lightbulb-fill"></i> 활용 사례</div>
+      <div class="section-title">이런 곳에 활용하고 있어요</div>
+      <p class="section-desc">업무 자동화부터 고객 서비스까지, 다양한 분야에서 AI 에이전트를 활용해보세요.</p>
+    </div>
+    <div class="use-cases-grid fade-in">
+      <div class="use-case-card uc-1">
+        <div>
+          <h3>고객 지원 챗봇</h3>
+          <p>FAQ, 주문 조회, 반품 안내 등을 자동화해 24시간 고객 응대를 구현하세요.</p>
+        </div>
+        <span class="use-case-tag">고객 서비스</span>
+        <div class="uc-bg-icon"><i class="bi bi-headset"></i></div>
+      </div>
+      <div class="use-case-card uc-2">
+        <div>
+          <h3>사내 HR 도우미</h3>
+          <p>사내 정책, 복지, 온보딩 정보를 에이전트에 연결해 직원 질문에 즉시 답변합니다.</p>
+        </div>
+        <span class="use-case-tag">HR & 총무</span>
+        <div class="uc-bg-icon"><i class="bi bi-people-fill"></i></div>
+      </div>
+      <div class="use-case-card uc-3">
+        <div>
+          <h3>제품 설명 도우미</h3>
+          <p>상품 카탈로그, 사용 설명서를 RAG로 연결해 정확한 제품 정보를 제공합니다.</p>
+        </div>
+        <span class="use-case-tag">영업 & 마케팅</span>
+        <div class="uc-bg-icon"><i class="bi bi-box-seam-fill"></i></div>
+      </div>
+      <div class="use-case-card uc-4">
+        <div>
+          <h3>교육 & 트레이닝</h3>
+          <p>학습 자료를 연결해 개인화된 교육 튜터를 만들고 직원 교육에 활용하세요.</p>
+        </div>
+        <span class="use-case-tag">교육</span>
+        <div class="uc-bg-icon"><i class="bi bi-mortarboard-fill"></i></div>
+      </div>
+      <div class="use-case-card uc-5">
+        <div>
+          <h3>코드 리뷰 도우미</h3>
+          <p>개발팀만의 코딩 컨벤션과 규칙을 학습시켜 일관된 코드 리뷰를 자동화합니다.</p>
+        </div>
+        <span class="use-case-tag">개발</span>
+        <div class="uc-bg-icon"><i class="bi bi-code-square"></i></div>
+      </div>
+      <div class="use-case-card uc-6">
+        <div>
+          <h3>리서치 & 분석</h3>
+          <p>보고서, 데이터를 연결해 빠른 정보 요약 및 인사이트 도출을 지원합니다.</p>
+        </div>
+        <span class="use-case-tag">분석</span>
+        <div class="uc-bg-icon"><i class="bi bi-graph-up-arrow"></i></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="section-inner">
+    <div class="fade-in">
+      <h2>지금 바로 첫 번째<br>AI 에이전트를 만들어보세요</h2>
+      <p>복잡한 설정도, 개발 지식도 필요 없습니다.<br>5분이면 나만의 AI가 준비됩니다.</p>
+      <div class="cta-actions">
+        <button class="btn-cta-white" onclick="alert('에이전트 빌더로 이동')">
+          <i class="bi bi-rocket-takeoff-fill"></i> 무료로 시작하기
+        </button>
+        <button class="btn-cta-ghost" onclick="alert('로그인 페이지로 이동')">
+          <i class="bi bi-box-arrow-in-right"></i> 로그인
+        </button>
+      </div>
+      <!--p class="cta-note">계정 생성 후 즉시 이용 가능 · 신용카드 불필요</p-->
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="logo"><i class="bi bi-robot"></i> Agent Hub</div>
+  <div class="footer-links">
+    <a href="#">이용약관</a>
+    <a href="#">개인정보처리방침</a>
+    <a href="#">도움말</a>
+  </div>
+  <div class="copy">© 2026 Agent Hub. All rights reserved.</div>
+</footer>
+
+<script>
+// Scroll fade-in
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible') })
+}, { threshold: 0, rootMargin: '0px 0px -50px 0px' })
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el))
+// 페이지 로드 즉시 viewport 내 요소 표시
+setTimeout(() => {
+  document.querySelectorAll('.fade-in').forEach(el => {
+    const rect = el.getBoundingClientRect()
+    if (rect.top < window.innerHeight) el.classList.add('visible')
+  })
+}, 50)
+
+// Demo chat
+const demos = {
+  platform: {
+    name: '플랫폼 안내 에이전트', avatar: '🤖',
+    welcome: '안녕하세요! 저는 Agent Hub 안내 에이전트입니다. 플랫폼 사용법, 기능, 요금 등 무엇이든 물어보세요 😊',
+    replies: {
+      default: '좋은 질문이에요! 이 플랫폼에서는 코딩 없이 나만의 AI 에이전트를 만들 수 있습니다. 에이전트 빌더에서 5단계만 따라하면 됩니다.',
+      '기능': 'AI 에이전트 생성, 링크 공유, 웹 임베드, RAG 문서 연동, 사용량 분석, 멀티 AI 지원 등 다양한 기능을 제공합니다!',
+      '요금': '기본 기능은 무료로 이용 가능합니다. AI API 비용만 별도로 발생합니다.',
+      '임베드': 'iframe 코드 한 줄로 어떤 웹사이트에도 챗봇을 삽입할 수 있습니다. 테마(라이트/다크)도 선택 가능해요!',
+    }
+  },
+  hr: {
+    name: 'HR 도우미 에이전트', avatar: '💼',
+    welcome: '안녕하세요! HR 도우미 에이전트입니다. 휴가, 복리후생, 사내 규정에 대해 편하게 질문하세요.',
+    replies: {
+      default: '사내 HR 정책과 관련한 문의를 도와드릴게요. 더 자세한 사항은 HR팀에 문의해주세요.',
+      '휴가': '연차 휴가는 입사 1년 후 15일이 부여됩니다. 신청은 사내 시스템에서 3일 전에 해주세요.',
+    }
+  },
+  code: {
+    name: '코딩 도우미 에이전트', avatar: '💻',
+    welcome: '안녕하세요! 코딩 관련 질문이 있으신가요? 코드 리뷰, 버그 찾기, 설명 등 도와드릴게요.',
+    replies: {
+      default: '코드를 붙여넣어주시면 검토해드리겠습니다! 어떤 언어나 프레임워크든 도움을 드릴 수 있어요.',
+      '버그': '버그를 찾으려면 코드와 오류 메시지를 함께 알려주세요. 빠르게 원인을 파악해드릴게요!',
+    }
+  }
+}
+
+let currentDemo = 'platform'
+
+function setDemo(el, type) {
+  document.querySelectorAll('.demo-item').forEach(e => e.classList.remove('active'))
+  el.classList.add('active')
+  currentDemo = type
+  const d = demos[type]
+  document.getElementById('demo-name').textContent = d.name
+  document.getElementById('demo-avatar').textContent = d.avatar
+  document.getElementById('demo-chat').innerHTML = `<div class="demo-bubble bot">${d.welcome}</div>`
+}
+
+function sendDemo() {
+  const input = document.getElementById('demo-input')
+  const msg = input.value.trim()
+  if (!msg) return
+  const chat = document.getElementById('demo-chat')
+  chat.innerHTML += `<div class="demo-bubble user">${msg}</div>`
+  input.value = ''
+  chat.scrollTop = chat.scrollHeight
+
+  setTimeout(() => {
+    const d = demos[currentDemo]
+    let reply = d.replies.default
+    for (const [key, val] of Object.entries(d.replies)) {
+      if (key !== 'default' && msg.includes(key)) { reply = val; break }
+    }
+    chat.innerHTML += `<div class="demo-bubble bot">${reply}</div>`
+    chat.scrollTop = chat.scrollHeight
+  }, 700)
+}
+</script>
+</body>
+</html>

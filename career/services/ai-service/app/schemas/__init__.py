@@ -1,0 +1,31 @@
+from .ai_schemas import (
+    Priority,
+    ActionRecommendation,
+    ActionRecommendationResponse,
+    CompetencyScore,
+    CompetencyAnalysisRequest,
+    CompetencyAnalysisResponse,
+    ChatMessage,
+    ChatRequest,
+    ChatResponse,
+    HeatStripData,
+    HeatStripResponse,
+    SemesterGoal,
+    SemesterSprintResponse,
+)
+
+__all__ = [
+    "Priority",
+    "ActionRecommendation",
+    "ActionRecommendationResponse",
+    "CompetencyScore",
+    "CompetencyAnalysisRequest",
+    "CompetencyAnalysisResponse",
+    "ChatMessage",
+    "ChatRequest",
+    "ChatResponse",
+    "HeatStripData",
+    "HeatStripResponse",
+    "SemesterGoal",
+    "SemesterSprintResponse",
+]

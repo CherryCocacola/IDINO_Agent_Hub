@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 통합관리시스템 - AI 모델 관리</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="assets/css/common.css" rel="stylesheet">
+  <link href="assets/css/models.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon"><i class="fas fa-brain"></i></div>
+    <div class="sidebar-brand-text">
+      <span class="brand-title">AI Manager</span>
+      <span class="brand-sub">통합관리시스템</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">메인</div>
+    <a href="index.html" class="nav-item"><i class="fas fa-th-large"></i><span>대시보드</span></a>
+    <a href="chat.html" class="nav-item"><i class="fas fa-comments"></i><span>AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="models.html" class="nav-item active"><i class="fas fa-robot"></i><span>AI 모델 관리</span><span class="nav-badge">12</span></a>
+    <a href="monitoring.html" class="nav-item"><i class="fas fa-chart-line"></i><span>모니터링</span><span class="nav-badge nav-badge-warning">!</span></a>
+    <a href="pipelines.html" class="nav-item"><i class="fas fa-code-branch"></i><span>파이프라인</span></a>
+    <div class="nav-section-label">관리</div>
+    <a href="apikeys.html" class="nav-item"><i class="fas fa-key"></i><span>API 키 관리</span></a>
+    <a href="users.html" class="nav-item"><i class="fas fa-users"></i><span>사용자 관리</span></a>
+    <a href="logs.html" class="nav-item"><i class="fas fa-file-alt"></i><span>로그 &amp; 감사</span></a>
+    <a href="billing.html" class="nav-item"><i class="fas fa-credit-card"></i><span>비용 관리</span></a>
+    <div class="nav-section-label">시스템</div>
+    <a href="settings.html" class="nav-item"><i class="fas fa-cog"></i><span>설정</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="system-status"><span class="status-dot status-ok"></span><span>시스템 정상 운영 중</span></div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main-wrapper" id="mainWrapper">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+      <div class="breadcrumb-area">
+        <span class="page-title">AI 모델 관리</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">모델 목록</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-info"><span class="user-name">관리자</span><span class="user-role">Super Admin</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-content">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-heading">AI 모델 관리</h1>
+        <p class="page-desc">등록된 AI 모델을 관리하고 설정을 변경합니다</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline-secondary btn-sm"><i class="fas fa-filter me-1"></i>필터</button>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addModelModal">
+          <i class="fas fa-plus me-1"></i>모델 추가
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs mb-4">
+      <button class="filter-tab active" data-filter="all">전체 <span class="filter-count">12</span></button>
+      <button class="filter-tab" data-filter="online">운영중 <span class="filter-count">9</span></button>
+      <button class="filter-tab" data-filter="warning">점검중 <span class="filter-count">1</span></button>
+      <button class="filter-tab" data-filter="error">오류 <span class="filter-count">2</span></button>
+      <button class="filter-tab" data-filter="custom">자체개발 <span class="filter-count">3</span></button>
+    </div>
+
+    <!-- Model Cards Grid -->
+    <div class="row g-4 mb-4">
+
+      <!-- GPT-4o -->
+      <div class="col-xl-4 col-md-6">
+        <div class="model-card">
+          <div class="model-card-header">
+            <div class="model-card-icon model-gpt"><i class="fas fa-robot"></i></div>
+            <div class="model-card-meta">
+              <h3 class="model-card-name">GPT-4o</h3>
+              <p class="model-card-provider">OpenAI</p>
+            </div>
+            <div class="model-card-actions">
+              <button class="icon-btn"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+          </div>
+          <div class="model-card-status">
+            <span class="status-badge status-online">운영중</span>
+            <span class="model-version">v2024-11-20</span>
+          </div>
+          <div class="model-stats-row">
+            <div class="model-stat">
+              <span class="model-stat-label">오늘 호출</span>
+              <span class="model-stat-value">21,432</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">평균 응답</span>
+              <span class="model-stat-value">198ms</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">오류율</span>
+              <span class="model-stat-value text-success-color">0.12%</span>
+            </div>
+          </div>
+          <div class="model-card-footer">
+            <div class="model-usage-bar">
+              <div class="model-usage-fill" style="width: 72%"></div>
+            </div>
+            <span class="model-usage-label">일일 한도 72% 사용</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Claude Sonnet 4 -->
+      <div class="col-xl-4 col-md-6">
+        <div class="model-card">
+          <div class="model-card-header">
+            <div class="model-card-icon model-claude"><i class="fas fa-brain"></i></div>
+            <div class="model-card-meta">
+              <h3 class="model-card-name">Claude Sonnet 4</h3>
+              <p class="model-card-provider">Anthropic</p>
+            </div>
+            <div class="model-card-actions">
+              <button class="icon-btn"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+          </div>
+          <div class="model-card-status">
+            <span class="status-badge status-online">운영중</span>
+            <span class="model-version">claude-sonnet-4-6</span>
+          </div>
+          <div class="model-stats-row">
+            <div class="model-stat">
+              <span class="model-stat-label">오늘 호출</span>
+              <span class="model-stat-value">15,891</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">평균 응답</span>
+              <span class="model-stat-value">241ms</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">오류율</span>
+              <span class="model-stat-value text-success-color">0.08%</span>
+            </div>
+          </div>
+          <div class="model-card-footer">
+            <div class="model-usage-bar">
+              <div class="model-usage-fill" style="width: 54%"></div>
+            </div>
+            <span class="model-usage-label">일일 한도 54% 사용</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gemini Pro -->
+      <div class="col-xl-4 col-md-6">
+        <div class="model-card">
+          <div class="model-card-header">
+            <div class="model-card-icon model-gemini"><i class="fas fa-gem"></i></div>
+            <div class="model-card-meta">
+              <h3 class="model-card-name">Gemini Pro 1.5</h3>
+              <p class="model-card-provider">Google</p>
+            </div>
+            <div class="model-card-actions">
+              <button class="icon-btn"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+          </div>
+          <div class="model-card-status">
+            <span class="status-badge status-online">운영중</span>
+            <span class="model-version">gemini-1.5-pro</span>
+          </div>
+          <div class="model-stats-row">
+            <div class="model-stat">
+              <span class="model-stat-label">오늘 호출</span>
+              <span class="model-stat-value">8,241</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">평균 응답</span>
+              <span class="model-stat-value">312ms</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">오류율</span>
+              <span class="model-stat-value text-success-color">0.21%</span>
+            </div>
+          </div>
+          <div class="model-card-footer">
+            <div class="model-usage-bar">
+              <div class="model-usage-fill" style="width: 38%"></div>
+            </div>
+            <span class="model-usage-label">일일 한도 38% 사용</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Llama (Warning) -->
+      <div class="col-xl-4 col-md-6">
+        <div class="model-card model-card-warning-state">
+          <div class="model-card-header">
+            <div class="model-card-icon model-llama"><i class="fas fa-fire"></i></div>
+            <div class="model-card-meta">
+              <h3 class="model-card-name">Llama 3.1-70B</h3>
+              <p class="model-card-provider">Meta (자체 호스팅)</p>
+            </div>
+            <div class="model-card-actions">
+              <button class="icon-btn"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+          </div>
+          <div class="model-card-status">
+            <span class="status-badge status-warning">점검중</span>
+            <span class="model-version">llama-3.1-70b</span>
+          </div>
+          <div class="model-maintenance-notice">
+            <i class="fas fa-tools me-1"></i>정기 유지보수 중 · 예상 완료 14:30
+          </div>
+          <div class="model-stats-row">
+            <div class="model-stat">
+              <span class="model-stat-label">오늘 호출</span>
+              <span class="model-stat-value">0</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">마지막 응답</span>
+              <span class="model-stat-value">289ms</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">오류율</span>
+              <span class="model-stat-value">-</span>
+            </div>
+          </div>
+          <div class="model-card-footer">
+            <div class="model-usage-bar">
+              <div class="model-usage-fill model-usage-paused" style="width: 0%"></div>
+            </div>
+            <span class="model-usage-label">일시 중단됨</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- DALL-E 3 (Error) -->
+      <div class="col-xl-4 col-md-6">
+        <div class="model-card model-card-error-state">
+          <div class="model-card-header">
+            <div class="model-card-icon model-error"><i class="fas fa-image"></i></div>
+            <div class="model-card-meta">
+              <h3 class="model-card-name">DALL-E 3</h3>
+              <p class="model-card-provider">OpenAI</p>
+            </div>
+            <div class="model-card-actions">
+              <button class="icon-btn"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+          </div>
+          <div class="model-card-status">
+            <span class="status-badge status-error">오류</span>
+            <span class="model-version">dall-e-3</span>
+          </div>
+          <div class="model-error-notice">
+            <i class="fas fa-exclamation-circle me-1"></i>API 키 인증 실패 · 5분 전
+          </div>
+          <div class="model-stats-row">
+            <div class="model-stat">
+              <span class="model-stat-label">오늘 호출</span>
+              <span class="model-stat-value text-danger-color">-</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">오류 횟수</span>
+              <span class="model-stat-value text-danger-color">50+</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">오류율</span>
+              <span class="model-stat-value text-danger-color">100%</span>
+            </div>
+          </div>
+          <div class="model-card-footer d-flex gap-2 pt-2">
+            <button class="btn btn-sm btn-outline-danger flex-fill">API 키 재설정</button>
+            <button class="btn btn-sm btn-outline-secondary">로그 확인</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom FinanceBot -->
+      <div class="col-xl-4 col-md-6">
+        <div class="model-card">
+          <div class="model-card-header">
+            <div class="model-card-icon model-custom"><i class="fas fa-chart-pie"></i></div>
+            <div class="model-card-meta">
+              <h3 class="model-card-name">Custom-FinanceBot</h3>
+              <p class="model-card-provider">자체개발 · v2.1</p>
+            </div>
+            <div class="model-card-actions">
+              <button class="icon-btn"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+          </div>
+          <div class="model-card-status">
+            <span class="status-badge status-online">운영중</span>
+            <span class="model-version">fine-tuned/gpt-4o</span>
+          </div>
+          <div class="model-stats-row">
+            <div class="model-stat">
+              <span class="model-stat-label">오늘 호출</span>
+              <span class="model-stat-value">2,105</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">평균 응답</span>
+              <span class="model-stat-value">156ms</span>
+            </div>
+            <div class="model-stat">
+              <span class="model-stat-label">정확도</span>
+              <span class="model-stat-value text-success-color">94.2%</span>
+            </div>
+          </div>
+          <div class="model-card-footer">
+            <div class="model-usage-bar">
+              <div class="model-usage-fill" style="width: 21%"></div>
+            </div>
+            <span class="model-usage-label">일일 한도 21% 사용</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Full Model Table -->
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <h5 class="card-title mb-0">전체 모델 목록</h5>
+          <p class="card-subtitle mb-0">등록된 모든 모델의 상세 현황</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+          <input type="text" class="form-control form-control-sm" placeholder="모델 검색..." style="width:200px">
+          <button class="btn btn-xs btn-outline-secondary"><i class="fas fa-columns"></i></button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>모델명</th>
+              <th>제공사</th>
+              <th>유형</th>
+              <th>상태</th>
+              <th>오늘 호출</th>
+              <th>평균 응답</th>
+              <th>오류율</th>
+              <th>월간 비용</th>
+              <th>액션</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="table-model-icon model-gpt"><i class="fas fa-robot"></i></div>
+                  <div><div class="fw-600">GPT-4o</div><div class="text-muted fs-xs">gpt-4o-2024-11-20</div></div>
+                </div>
+              </td>
+              <td>OpenAI</td>
+              <td><span class="badge bg-primary-soft">LLM</span></td>
+              <td><span class="status-badge status-online">운영중</span></td>
+              <td>21,432</td>
+              <td>198ms</td>
+              <td class="text-success-color">0.12%</td>
+              <td>₩580K</td>
+              <td>
+                <div class="d-flex gap-1">
+                  <button class="btn btn-xs btn-outline-secondary" title="설정"><i class="fas fa-cog"></i></button>
+                  <button class="btn btn-xs btn-outline-secondary" title="로그"><i class="fas fa-list"></i></button>
+                  <button class="btn btn-xs btn-outline-danger" title="비활성화"><i class="fas fa-pause"></i></button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="table-model-icon model-claude"><i class="fas fa-brain"></i></div>
+                  <div><div class="fw-600">Claude Sonnet 4</div><div class="text-muted fs-xs">claude-sonnet-4-6</div></div>
+                </div>
+              </td>
+              <td>Anthropic</td>
+              <td><span class="badge bg-primary-soft">LLM</span></td>
+              <td><span class="status-badge status-online">운영중</span></td>
+              <td>15,891</td>
+              <td>241ms</td>
+              <td class="text-success-color">0.08%</td>
+              <td>₩320K</td>
+              <td>
+                <div class="d-flex gap-1">
+                  <button class="btn btn-xs btn-outline-secondary"><i class="fas fa-cog"></i></button>
+                  <button class="btn btn-xs btn-outline-secondary"><i class="fas fa-list"></i></button>
+                  <button class="btn btn-xs btn-outline-danger"><i class="fas fa-pause"></i></button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="table-model-icon model-gemini"><i class="fas fa-gem"></i></div>
+                  <div><div class="fw-600">Gemini Pro 1.5</div><div class="text-muted fs-xs">gemini-1.5-pro</div></div>
+                </div>
+              </td>
+              <td>Google</td>
+              <td><span class="badge bg-success-soft">Multimodal</span></td>
+              <td><span class="status-badge status-online">운영중</span></td>
+              <td>8,241</td>
+              <td>312ms</td>
+              <td class="text-success-color">0.21%</td>
+              <td>₩185K</td>
+              <td>
+                <div class="d-flex gap-1">
+                  <button class="btn btn-xs btn-outline-secondary"><i class="fas fa-cog"></i></button>
+                  <button class="btn btn-xs btn-outline-secondary"><i class="fas fa-list"></i></button>
+                  <button class="btn btn-xs btn-outline-danger"><i class="fas fa-pause"></i></button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="table-model-icon model-error"><i class="fas fa-image"></i></div>
+                  <div><div class="fw-600">DALL-E 3</div><div class="text-muted fs-xs">dall-e-3</div></div>
+                </div>
+              </td>
+              <td>OpenAI</td>
+              <td><span class="badge bg-warning-soft">이미지</span></td>
+              <td><span class="status-badge status-error">오류</span></td>
+              <td class="text-danger-color">-</td>
+              <td>-</td>
+              <td class="text-danger-color">100%</td>
+              <td>₩45K</td>
+              <td>
+                <div class="d-flex gap-1">
+                  <button class="btn btn-xs btn-outline-danger">API 재설정</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="table-model-icon model-llama"><i class="fas fa-fire"></i></div>
+                  <div><div class="fw-600">Llama 3.1-70B</div><div class="text-muted fs-xs">llama-3.1-70b-instruct</div></div>
+                </div>
+              </td>
+              <td>Meta (자체호스팅)</td>
+              <td><span class="badge bg-info-soft">Open Source</span></td>
+              <td><span class="status-badge status-warning">점검중</span></td>
+              <td>0</td>
+              <td>289ms</td>
+              <td>-</td>
+              <td>₩0</td>
+              <td>
+                <div class="d-flex gap-1">
+                  <button class="btn btn-xs btn-outline-secondary"><i class="fas fa-cog"></i></button>
+                  <button class="btn btn-xs btn-outline-success"><i class="fas fa-play"></i></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Add Model Modal -->
+<div class="modal fade" id="addModelModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-plus-circle me-2 text-primary-color"></i>새 AI 모델 추가</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">모델 제공사</label>
+            <select class="form-select">
+              <option>OpenAI</option>
+              <option>Anthropic</option>
+              <option>Google</option>
+              <option>Meta</option>
+              <option>자체개발</option>
+              <option>기타</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">모델 ID / 이름</label>
+            <input type="text" class="form-control" placeholder="예: gpt-4o, claude-3-5-sonnet">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">표시명</label>
+            <input type="text" class="form-control" placeholder="관리자 화면에 표시될 이름">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">모델 유형</label>
+            <select class="form-select">
+              <option>LLM (텍스트 생성)</option>
+              <option>이미지 생성</option>
+              <option>임베딩</option>
+              <option>멀티모달</option>
+              <option>코드 생성</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">API 엔드포인트</label>
+            <input type="text" class="form-control" placeholder="https://api.openai.com/v1">
+          </div>
+          <div class="col-12">
+            <label class="form-label">API 키</label>
+            <div class="input-group">
+              <input type="password" class="form-control" placeholder="API 키를 입력하세요">
+              <button class="btn btn-outline-secondary" type="button"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">일일 호출 한도</label>
+            <input type="number" class="form-control" placeholder="0 = 무제한" value="50000">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">월간 예산 (원)</label>
+            <input type="number" class="form-control" placeholder="0 = 무제한" value="1000000">
+          </div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="modelActive" checked>
+              <label class="form-check-label" for="modelActive">즉시 활성화</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+        <button type="button" class="btn btn-outline-secondary"><i class="fas fa-plug me-1"></i>연결 테스트</button>
+        <button type="button" class="btn btn-primary"><i class="fas fa-save me-1"></i>모델 추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/common.js"></script>
+</body>
+</html>

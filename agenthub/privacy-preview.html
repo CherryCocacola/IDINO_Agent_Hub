@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>개인정보처리방침 — Agent Hub</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #4F46E5;
+    --green: #10b981;
+    --dark: #0f172a;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --bg: #f8fafc;
+  }
+  body {
+    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    color: var(--text); background: white; line-height: 1.7;
+  }
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 48px;
+    background: rgba(255,255,255,.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 800; font-size: 18px; color: var(--primary);
+    text-decoration: none;
+  }
+  .nav-logo .logo-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--primary), #8b5cf6);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 16px;
+  }
+  .nav-right { display: flex; gap: 16px; align-items: center; }
+  .nav-right a {
+    font-size: 13px; color: var(--muted); text-decoration: none;
+    padding: 6px 14px; border-radius: 8px; transition: background .2s;
+  }
+  .nav-right a:hover { background: var(--bg); color: var(--primary); }
+  .nav-right a.active { color: var(--primary); font-weight: 600; }
+
+  .page-hero {
+    background: linear-gradient(160deg, #f0fdf4 0%, #ecfdf5 100%);
+    padding: 60px 48px 48px;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-hero-inner { max-width: 900px; margin: 0 auto; }
+  .page-hero .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(16,185,129,.1); color: var(--green);
+    border-radius: 20px; padding: 4px 14px;
+    font-size: 12px; font-weight: 700; margin-bottom: 16px;
+  }
+  .page-hero h1 { font-size: 36px; font-weight: 800; color: var(--dark); margin-bottom: 12px; }
+  .page-hero p { font-size: 15px; color: var(--muted); }
+  .page-hero .meta {
+    display: flex; gap: 24px; margin-top: 20px; flex-wrap: wrap;
+  }
+  .page-hero .meta span {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--muted);
+  }
+  .page-hero .meta i { color: var(--green); }
+
+  /* 요약 카드 */
+  .summary-section {
+    max-width: 900px; margin: 40px auto; padding: 0 48px;
+  }
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .summary-card {
+    border: 1px solid var(--border); border-radius: 14px; padding: 20px;
+    background: white; transition: box-shadow .2s;
+  }
+  .summary-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.06); }
+  .summary-card .icon {
+    width: 44px; height: 44px; border-radius: 12px; margin-bottom: 12px;
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+  }
+  .summary-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .summary-card p { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+  /* LAYOUT */
+  .doc-layout {
+    display: grid; grid-template-columns: 240px 1fr;
+    gap: 0; max-width: 1100px; margin: 0 auto;
+    padding: 40px 48px; align-items: start;
+  }
+  .toc {
+    position: sticky; top: 80px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px; margin-right: 40px;
+  }
+  .toc h4 {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px;
+  }
+  .toc ol { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .toc ol li a {
+    display: block; text-decoration: none; color: var(--muted);
+    font-size: 13px; padding: 6px 10px; border-radius: 8px;
+    transition: background .15s, color .15s;
+  }
+  .toc ol li a:hover { background: white; color: var(--green); }
+  .toc ol li a.active { background: rgba(16,185,129,.08); color: var(--green); font-weight: 600; }
+
+  .doc-content { max-width: 680px; }
+  .doc-section {
+    margin-bottom: 48px; padding-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+  }
+  .doc-section:last-child { border-bottom: none; margin-bottom: 0; }
+  .section-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--green), #059669);
+    color: white; font-size: 13px; font-weight: 700;
+    margin-right: 10px; flex-shrink: 0;
+  }
+  .doc-section h2 {
+    display: flex; align-items: center;
+    font-size: 20px; font-weight: 700; color: var(--dark);
+    margin-bottom: 20px; padding-bottom: 12px;
+    border-bottom: 2px solid #f0fdf4;
+  }
+  .doc-section p { font-size: 14.5px; color: var(--text); margin-bottom: 14px; line-height: 1.85; }
+  .doc-section ul, .doc-section ol { padding-left: 20px; margin-bottom: 14px; }
+  .doc-section li { font-size: 14.5px; color: var(--text); margin-bottom: 8px; line-height: 1.75; }
+  .doc-section li::marker { color: var(--green); }
+
+  .highlight-box {
+    background: #f0fdf4; border-left: 4px solid var(--green);
+    border-radius: 0 10px 10px 0; padding: 14px 18px; margin: 16px 0;
+    font-size: 14px; color: #065f46; line-height: 1.7;
+  }
+  .warn-box {
+    background: #fff7ed; border-left: 4px solid #f59e0b;
+    border-radius: 0 10px 10px 0; padding: 14px 18px; margin: 16px 0;
+    font-size: 14px; color: #92400e; line-height: 1.7;
+  }
+  .info-table {
+    width: 100%; border-collapse: collapse; margin: 16px 0;
+    font-size: 14px; border-radius: 10px; overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .info-table th {
+    background: var(--bg); padding: 10px 16px; text-align: left;
+    font-weight: 700; font-size: 13px; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .info-table td {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    vertical-align: top; line-height: 1.6;
+  }
+  .info-table tr:last-child td { border-bottom: none; }
+  .info-table tr:nth-child(even) td { background: #fafafa; }
+
+  /* 개인정보처리방침 특이 컴포넌트 */
+  .rights-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0;
+  }
+  .right-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--bg); border-radius: 10px; padding: 14px;
+  }
+  .right-item i { color: var(--green); font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+  .right-item strong { display: block; font-size: 13px; margin-bottom: 3px; }
+  .right-item span { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  .contact-box {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; margin-top: 16px;
+  }
+  .contact-box h4 { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+  .contact-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  .contact-row:last-child { border-bottom: none; }
+  .contact-row i { color: var(--green); font-size: 16px; width: 20px; }
+  .contact-row .label { color: var(--muted); width: 100px; flex-shrink: 0; }
+  .contact-row .value { color: var(--dark); font-weight: 500; }
+
+  footer {
+    background: var(--dark); padding: 32px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-top: 60px;
+  }
+  footer .logo { font-size: 15px; font-weight: 700; color: white; display: flex; align-items: center; gap: 8px; }
+  footer .logo i { color: #818cf8; }
+  footer .copy { font-size: 13px; color: #475569; }
+  footer .footer-links { display: flex; gap: 20px; }
+  footer .footer-links a { font-size: 13px; color: #475569; text-decoration: none; }
+  footer .footer-links a:hover { color: #818cf8; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="landing-preview.html" class="nav-logo">
+    <div class="logo-icon"><i class="bi bi-robot"></i></div>
+    Agent Hub
+  </a>
+  <div class="nav-right">
+    <a href="landing-preview.html">홈</a>
+    <a href="terms-preview.html">이용약관</a>
+    <a href="privacy-preview.html" class="active">개인정보처리방침</a>
+  </div>
+</nav>
+
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="badge"><i class="bi bi-shield-check"></i> 개인정보 보호</div>
+    <h1>개인정보처리방침</h1>
+    <p>Agent Hub는 이용자의 개인정보를 소중히 여기며, 「개인정보 보호법」 및 관련 법령을 준수합니다.</p>
+    <div class="meta">
+      <span><i class="bi bi-calendar3"></i> 시행일: 2026년 3월 13일</span>
+      <span><i class="bi bi-arrow-clockwise"></i> 최종 개정: 2026년 3월 13일</span>
+      <span><i class="bi bi-translate"></i> 한국어</span>
+    </div>
+  </div>
+</div>
+
+<!-- 요약 카드 -->
+<div class="summary-section">
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="icon" style="background:#f0fdf4; color:#10b981"><i class="bi bi-collection"></i></div>
+      <h4>수집하는 정보</h4>
+      <p>이메일, 이름, 서비스 이용 기록, AI 대화 내용 등 서비스 제공에 필요한 최소한의 정보만 수집합니다.</p>
+    </div>
+    <div class="summary-card">
+      <div class="icon" style="background:#eef2ff; color:#4F46E5"><i class="bi bi-lock"></i></div>
+      <h4>안전한 보관</h4>
+      <p>수집된 정보는 암호화하여 보관하며, 접근 권한을 엄격히 통제합니다.</p>
+    </div>
+    <div class="summary-card">
+      <div class="icon" style="background:#fff7ed; color:#f59e0b"><i class="bi bi-person-check"></i></div>
+      <h4>이용자 권리</h4>
+      <p>언제든지 개인정보 열람, 수정, 삭제를 요청하실 수 있습니다.</p>
+    </div>
+  </div>
+</div>
+
+<div class="doc-layout">
+  <aside class="toc">
+    <h4>목차</h4>
+    <ol>
+      <li><a href="#p1" class="active">수집하는 개인정보</a></li>
+      <li><a href="#p2">수집 방법</a></li>
+      <li><a href="#p3">이용 목적</a></li>
+      <li><a href="#p4">보유 및 이용 기간</a></li>
+      <li><a href="#p5">제3자 제공</a></li>
+      <li><a href="#p6">처리 위탁</a></li>
+      <li><a href="#p7">AI 서비스 관련</a></li>
+      <li><a href="#p8">쿠키 및 자동 수집</a></li>
+      <li><a href="#p9">이용자 권리</a></li>
+      <li><a href="#p10">보안 조치</a></li>
+      <li><a href="#p11">아동 개인정보</a></li>
+      <li><a href="#p12">개인정보보호책임자</a></li>
+    </ol>
+  </aside>
+
+  <main class="doc-content">
+
+    <div class="doc-section" id="p1">
+      <h2><span class="section-num">1</span>수집하는 개인정보 항목</h2>
+      <p>회사는 서비스 제공을 위해 다음과 같은 개인정보를 수집합니다.</p>
+      <table class="info-table">
+        <thead>
+          <tr><th>구분</th><th>수집 항목</th><th>필수 여부</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>회원가입</strong></td>
+            <td>이메일 주소, 비밀번호(암호화), 이름</td>
+            <td>필수</td>
+          </tr>
+          <tr>
+            <td><strong>프로필</strong></td>
+            <td>부서, 직책, 연락처, 프로필 사진</td>
+            <td>선택</td>
+          </tr>
+          <tr>
+            <td><strong>서비스 이용</strong></td>
+            <td>에이전트 설정, 대화 내용, API 키, 사용 로그</td>
+            <td>자동 수집</td>
+          </tr>
+          <tr>
+            <td><strong>결제</strong></td>
+            <td>결제 수단 정보(카드 번호 일부), 결제 내역</td>
+            <td>결제 시 수집</td>
+          </tr>
+          <tr>
+            <td><strong>기기 정보</strong></td>
+            <td>IP 주소, 브라우저 종류, 운영체제, 접속 시간</td>
+            <td>자동 수집</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="highlight-box">
+        <i class="bi bi-shield-check"></i> 비로그인 게스트(공개 에이전트 이용자)의 대화 내용은 서버에 저장되지 않으며 클라이언트 메모리에만 일시적으로 보관됩니다.
+      </div>
+    </div>
+
+    <div class="doc-section" id="p2">
+      <h2><span class="section-num">2</span>개인정보 수집 방법</h2>
+      <ul>
+        <li><strong>직접 입력:</strong> 회원가입, 프로필 설정, 서비스 이용 시 회원이 직접 입력</li>
+        <li><strong>자동 수집:</strong> 서비스 이용 과정에서 자동으로 생성·수집 (접속 로그, 쿠키 등)</li>
+        <li><strong>제3자 로그인:</strong> 소셜 로그인(구글 등) 이용 시 해당 서비스로부터 제공받은 정보</li>
+        <li><strong>고객센터:</strong> 문의, 신고 접수 시 제공한 정보</li>
+      </ul>
+    </div>
+
+    <div class="doc-section" id="p3">
+      <h2><span class="section-num">3</span>개인정보 이용 목적</h2>
+      <table class="info-table">
+        <thead>
+          <tr><th>이용 목적</th><th>상세 내용</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>서비스 제공</strong></td>
+            <td>에이전트 생성·관리, AI 채팅, 공유 기능 등 핵심 서비스 제공</td>
+          </tr>
+          <tr>
+            <td><strong>회원 관리</strong></td>
+            <td>회원 인증, 계정 보안, 부정 이용 방지</td>
+          </tr>
+          <tr>
+            <td><strong>결제 및 정산</strong></td>
+            <td>유료 서비스 결제 처리, 환불, 영수증 발행</td>
+          </tr>
+          <tr>
+            <td><strong>서비스 개선</strong></td>
+            <td>이용 통계 분석, 기능 개선, 신규 서비스 개발</td>
+          </tr>
+          <tr>
+            <td><strong>고객 지원</strong></td>
+            <td>문의 대응, 불편 사항 처리, 공지 사항 전달</td>
+          </tr>
+          <tr>
+            <td><strong>보안</strong></td>
+            <td>접근 로그 분석, 이상 행동 탐지, 서비스 보호</td>
+          </tr>
+          <tr>
+            <td><strong>마케팅</strong></td>
+            <td>동의한 회원에 한해 신기능, 프로모션 안내 (거부 가능)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="doc-section" id="p4">
+      <h2><span class="section-num">4</span>개인정보 보유 및 이용 기간</h2>
+      <p>개인정보는 수집·이용 목적이 달성된 후 지체 없이 파기합니다. 단, 관련 법령에 따라 다음과 같이 보존합니다.</p>
+      <table class="info-table">
+        <thead>
+          <tr><th>보존 항목</th><th>보존 기간</th><th>근거 법령</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>회원정보 (탈퇴 후)</td>
+            <td>30일</td>
+            <td>부정 이용 방지</td>
+          </tr>
+          <tr>
+            <td>계약·청약 기록</td>
+            <td>5년</td>
+            <td>전자상거래법</td>
+          </tr>
+          <tr>
+            <td>결제·거래 기록</td>
+            <td>5년</td>
+            <td>전자상거래법</td>
+          </tr>
+          <tr>
+            <td>접속 로그</td>
+            <td>3개월</td>
+            <td>통신비밀보호법</td>
+          </tr>
+          <tr>
+            <td>소비자 불만 기록</td>
+            <td>3년</td>
+            <td>전자상거래법</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="doc-section" id="p5">
+      <h2><span class="section-num">5</span>개인정보 제3자 제공</h2>
+      <p>회사는 원칙적으로 이용자의 개인정보를 제3자에게 제공하지 않습니다. 다만, 다음의 경우는 예외입니다.</p>
+      <ul>
+        <li>이용자가 사전에 동의한 경우</li>
+        <li>법령의 규정에 의하거나 수사기관의 적법한 요청이 있는 경우</li>
+        <li>서비스 제공을 위해 업무 위탁이 필요한 경우 (아래 위탁 내역 참조)</li>
+      </ul>
+      <div class="warn-box">
+        <i class="bi bi-exclamation-triangle"></i> 회사는 개인정보를 수익 목적으로 제3자에게 판매하거나 임대하지 않습니다.
+      </div>
+    </div>
+
+    <div class="doc-section" id="p6">
+      <h2><span class="section-num">6</span>개인정보 처리 위탁</h2>
+      <p>회사는 원활한 서비스 제공을 위해 다음 업체에 개인정보 처리를 위탁합니다.</p>
+      <table class="info-table">
+        <thead>
+          <tr><th>수탁 업체</th><th>위탁 업무</th><th>보유 기간</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Microsoft Azure</td>
+            <td>서버 인프라 운영, 데이터 저장</td>
+            <td>계약 종료 시</td>
+          </tr>
+          <tr>
+            <td>OpenAI</td>
+            <td>GPT 기반 AI 응답 생성</td>
+            <td>처리 즉시 파기</td>
+          </tr>
+          <tr>
+            <td>Anthropic</td>
+            <td>Claude 기반 AI 응답 생성</td>
+            <td>처리 즉시 파기</td>
+          </tr>
+          <tr>
+            <td>Mistral AI</td>
+            <td>Mistral 기반 AI 응답 생성</td>
+            <td>처리 즉시 파기</td>
+          </tr>
+          <tr>
+            <td>결제 대행사 (PG사)</td>
+            <td>결제 처리 및 정산</td>
+            <td>5년 (전자상거래법)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="doc-section" id="p7">
+      <h2><span class="section-num">7</span>AI 서비스 관련 개인정보 처리</h2>
+      <p>AI 에이전트와의 대화 내용은 응답 생성을 위해 해당 AI 서비스 제공사(OpenAI, Anthropic, Mistral 등)의 API를 경유합니다. 이와 관련하여 다음 사항에 유의하세요.</p>
+      <ul>
+        <li>AI 대화 내용은 각 서비스 제공사의 개인정보 처리방침의 적용을 받습니다.</li>
+        <li>로그인 회원의 대화 내용은 서비스 개선을 위해 암호화하여 저장될 수 있습니다.</li>
+        <li>비로그인 게스트의 대화는 서버에 저장되지 않습니다.</li>
+        <li>개인 식별 정보, 금융 정보, 민감 정보는 AI에 입력하지 않도록 권고합니다.</li>
+      </ul>
+      <div class="highlight-box">
+        <i class="bi bi-cpu"></i> AI 학습 데이터 활용 여부는 각 AI 제공사의 정책에 따릅니다. API 이용 약관상 비학습 처리가 기본 설정으로 적용됩니다.
+      </div>
+    </div>
+
+    <div class="doc-section" id="p8">
+      <h2><span class="section-num">8</span>쿠키 및 자동 수집 정보</h2>
+      <p>회사는 서비스 이용 편의와 분석을 위해 쿠키를 사용합니다.</p>
+      <table class="info-table">
+        <thead>
+          <tr><th>쿠키 종류</th><th>목적</th><th>보관 기간</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>필수 쿠키</strong></td>
+            <td>로그인 세션 유지, 보안 기능</td>
+            <td>세션 종료 시</td>
+          </tr>
+          <tr>
+            <td><strong>기능 쿠키</strong></td>
+            <td>언어 설정, 테마 설정 등 사용자 환경 저장</td>
+            <td>1년</td>
+          </tr>
+          <tr>
+            <td><strong>분석 쿠키</strong></td>
+            <td>서비스 이용 통계 (동의 시)</td>
+            <td>2년</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>브라우저 설정에서 쿠키를 거부할 수 있으나, 일부 서비스 기능 이용이 제한될 수 있습니다.</p>
+    </div>
+
+    <div class="doc-section" id="p9">
+      <h2><span class="section-num">9</span>이용자의 권리</h2>
+      <p>이용자는 언제든지 다음 권리를 행사할 수 있습니다.</p>
+      <div class="rights-grid">
+        <div class="right-item">
+          <i class="bi bi-eye"></i>
+          <div>
+            <strong>열람권</strong>
+            <span>본인의 개인정보 처리 현황을 확인할 수 있습니다.</span>
+          </div>
+        </div>
+        <div class="right-item">
+          <i class="bi bi-pencil"></i>
+          <div>
+            <strong>정정권</strong>
+            <span>부정확한 개인정보의 수정을 요청할 수 있습니다.</span>
+          </div>
+        </div>
+        <div class="right-item">
+          <i class="bi bi-trash3"></i>
+          <div>
+            <strong>삭제권</strong>
+            <span>개인정보의 삭제를 요청할 수 있습니다.</span>
+          </div>
+        </div>
+        <div class="right-item">
+          <i class="bi bi-pause-circle"></i>
+          <div>
+            <strong>처리 정지권</strong>
+            <span>개인정보 처리의 정지를 요청할 수 있습니다.</span>
+          </div>
+        </div>
+        <div class="right-item">
+          <i class="bi bi-x-circle"></i>
+          <div>
+            <strong>동의 철회권</strong>
+            <span>선택적 수집에 대한 동의를 언제든지 철회할 수 있습니다.</span>
+          </div>
+        </div>
+        <div class="right-item">
+          <i class="bi bi-download"></i>
+          <div>
+            <strong>이동권</strong>
+            <span>본인 데이터를 구조화된 형태로 내려받을 수 있습니다.</span>
+          </div>
+        </div>
+      </div>
+      <p style="margin-top:16px">권리 행사는 서비스 내 설정 페이지 또는 고객센터(support@agenthub.kr)를 통해 하실 수 있으며, 요청 후 <strong>10일 이내</strong>에 처리됩니다.</p>
+    </div>
+
+    <div class="doc-section" id="p10">
+      <h2><span class="section-num">10</span>개인정보 보안 조치</h2>
+      <p>회사는 개인정보의 안전한 보관을 위해 다음과 같은 기술적·관리적 조치를 시행합니다.</p>
+      <ul>
+        <li><strong>암호화:</strong> 비밀번호는 단방향 해시(bcrypt)로 암호화 저장. DB 데이터는 TLS 1.3으로 암호화 전송</li>
+        <li><strong>접근 통제:</strong> 최소 권한 원칙에 따른 DB 접근 제한, 내부 직원 접근 로그 관리</li>
+        <li><strong>취약점 관리:</strong> 정기적인 보안 점검 및 패치 적용</li>
+        <li><strong>침해 대응:</strong> 개인정보 침해 발생 시 72시간 이내 관계 기관 신고 및 이용자 통지</li>
+        <li><strong>물리적 보안:</strong> 클라우드 데이터센터의 물리적 보안 통제 적용</li>
+      </ul>
+    </div>
+
+    <div class="doc-section" id="p11">
+      <h2><span class="section-num">11</span>아동 개인정보 보호</h2>
+      <p>본 서비스는 만 14세 미만 아동을 대상으로 하지 않습니다. 만 14세 미만 아동의 개인정보가 수집된 사실이 확인되는 경우 즉시 삭제 조치합니다.</p>
+      <div class="warn-box">
+        <i class="bi bi-exclamation-triangle"></i> 만 14세 미만의 경우 법정 대리인(부모 등)의 동의 없이 서비스에 가입하거나 이용할 수 없습니다.
+      </div>
+    </div>
+
+    <div class="doc-section" id="p12">
+      <h2><span class="section-num">12</span>개인정보보호책임자 및 연락처</h2>
+      <p>개인정보 처리와 관련한 문의, 불만, 피해 구제 등은 아래 책임자에게 연락해 주시기 바랍니다.</p>
+      <div class="contact-box">
+        <h4><i class="bi bi-person-badge" style="color:var(--green)"></i> 개인정보보호책임자</h4>
+        <div class="contact-row">
+          <i class="bi bi-person"></i>
+          <span class="label">성명</span>
+          <span class="value">홍길동 (개인정보보호팀장)</span>
+        </div>
+        <div class="contact-row">
+          <i class="bi bi-envelope"></i>
+          <span class="label">이메일</span>
+          <span class="value">privacy@agenthub.kr</span>
+        </div>
+        <div class="contact-row">
+          <i class="bi bi-telephone"></i>
+          <span class="label">전화</span>
+          <span class="value">02-000-0000 (평일 09:00~18:00)</span>
+        </div>
+        <div class="contact-row">
+          <i class="bi bi-building"></i>
+          <span class="label">주소</span>
+          <span class="value">서울특별시 강남구 테헤란로 OO, OO빌딩 O층</span>
+        </div>
+      </div>
+
+      <p style="margin-top:20px">개인정보 침해에 대한 신고·상담은 아래 기관에도 문의하실 수 있습니다.</p>
+      <ul>
+        <li>개인정보분쟁조정위원회: <strong>www.kopico.go.kr</strong> / 1833-6972</li>
+        <li>개인정보침해신고센터: <strong>privacy.kisa.or.kr</strong> / 118</li>
+        <li>대검찰청 사이버수사과: <strong>www.spo.go.kr</strong> / 1301</li>
+        <li>경찰청 사이버안전국: <strong>cyberbureau.police.go.kr</strong> / 182</li>
+      </ul>
+    </div>
+
+  </main>
+</div>
+
+<footer>
+  <div class="logo"><i class="bi bi-robot"></i> Agent Hub</div>
+  <div class="footer-links">
+    <a href="terms-preview.html">이용약관</a>
+    <a href="privacy-preview.html">개인정보처리방침</a>
+    <a href="#">고객센터</a>
+  </div>
+  <div class="copy">© 2026 Agent Hub. All rights reserved.</div>
+</footer>
+
+<script>
+const sections = document.querySelectorAll('.doc-section')
+const tocLinks = document.querySelectorAll('.toc a')
+window.addEventListener('scroll', () => {
+  let current = ''
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 120) current = s.id
+  })
+  tocLinks.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current)
+  })
+})
+</script>
+</body>
+</html>

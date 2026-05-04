@@ -1,0 +1,240 @@
+# Roadmap Domain SQL Queries
+# 로드맵 관련 쿼리
+
+queries:
+  # ==========================================
+  # 과목 조회
+  # ==========================================
+  get_courses_by_grade_semester:
+    description: "학년/학기별 권장 과목 조회"
+    sql: |
+      SELECT
+        c.course_cd,
+        c.course_nm,
+        c.course_nm_en,
+        c.department_cd,
+        d.department_nm,
+        c.credits,
+        c.course_type,
+        c.course_category,
+        c.grade_level,
+        c.description
+      FROM tb_course c
+      LEFT JOIN tb_department d ON c.department_cd = d.department_cd
+      WHERE c.use_fg = 'Y'
+        AND c.grade_level = :grade_level
+        AND (:department_cd IS NULL OR c.department_cd = :department_cd)
+      ORDER BY
+        CASE c.course_type
+          WHEN '전공필수' THEN 1
+          WHEN '전공선택' THEN 2
+          WHEN '교양필수' THEN 3
+          WHEN '교양선택' THEN 4
+          ELSE 5
+        END,
+        c.course_nm
+
+  get_course_with_competencies:
+    description: "과목과 역량 기여도 함께 조회"
+    sql: |
+      SELECT
+        c.course_cd,
+        c.course_nm,
+        c.course_nm_en,
+        c.credits,
+        c.course_type,
+        c.course_category,
+        c.grade_level,
+        c.description,
+        ccm.competency_cd,
+        comp.competency_nm,
+        ccm.contribution_weight
+      FROM tb_course c
+      LEFT JOIN tb_course_competency_map ccm ON c.course_cd = ccm.course_cd
+      LEFT JOIN tb_competency comp ON ccm.competency_cd = comp.competency_cd
+      WHERE c.use_fg = 'Y'
+        AND c.grade_level = :grade_level
+        AND (:department_cd IS NULL OR c.department_cd = :department_cd)
+      ORDER BY c.course_type, c.course_nm, comp.competency_nm
+
+  get_all_courses_with_competencies:
+    description: "전체 과목과 역량 기여도 조회"
+    sql: |
+      SELECT
+        c.course_cd,
+        c.course_nm,
+        c.course_nm_en,
+        c.department_cd,
+        c.credits,
+        c.course_type,
+        c.course_category,
+        c.grade_level,
+        c.description,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'competency_cd', ccm.competency_cd,
+              'contribution_weight', ccm.contribution_weight
+            )
+          ) FILTER (WHERE ccm.competency_cd IS NOT NULL),
+          '[]'
+        ) as competency_contributions
+      FROM tb_course c
+      LEFT JOIN tb_course_competency_map ccm ON c.course_cd = ccm.course_cd
+      WHERE c.use_fg = 'Y'
+      GROUP BY c.course_cd, c.course_nm, c.course_nm_en, c.department_cd,
+               c.credits, c.course_type, c.course_category, c.grade_level, c.description
+      ORDER BY c.grade_level, c.course_type, c.course_nm
+
+  # ==========================================
+  # 비교과 프로그램 조회
+  # ==========================================
+  get_programs_by_type:
+    description: "유형별 비교과 프로그램 조회"
+    sql: |
+      SELECT
+        p.program_cd,
+        p.program_nm,
+        p.program_type,
+        p.organizer,
+        p.start_date,
+        p.end_date,
+        p.description,
+        p.competency_contributions
+      FROM tb_program p
+      WHERE p.use_fg = 'Y'
+        AND (:program_type IS NULL OR p.program_type = :program_type)
+      ORDER BY p.program_type, p.program_nm
+
+  get_recommended_programs:
+    description: "학년별 추천 비교과 프로그램"
+    sql: |
+      SELECT
+        p.program_cd,
+        p.program_nm,
+        p.program_type,
+        p.organizer,
+        p.start_date,
+        p.end_date,
+        p.description,
+        p.competency_contributions
+      FROM tb_program p
+      WHERE p.use_fg = 'Y'
+        AND p.start_date >= CURRENT_DATE
+      ORDER BY
+        CASE p.program_type
+          WHEN 'internship' THEN 1
+          WHEN 'certificate' THEN 2
+          WHEN 'contest' THEN 3
+          WHEN 'project' THEN 4
+          WHEN 'club' THEN 5
+          ELSE 6
+        END,
+        p.start_date
+
+  # ==========================================
+  # 학생 수강/참여 현황
+  # ==========================================
+  get_student_completed_courses:
+    description: "학생 이수 완료 과목 조회"
+    sql: |
+      SELECT
+        c.course_cd,
+        c.course_nm,
+        c.credits,
+        c.grade_level,
+        g.grade_letter,
+        g.grade_point,
+        t.term_nm
+      FROM tb_enrollment e
+      JOIN tb_course_offering co ON e.course_offering_id = co.offering_id
+      JOIN tb_course c ON co.course_cd = c.course_cd
+      JOIN tb_term t ON co.term_cd = t.term_cd
+      LEFT JOIN tb_grade g ON e.enrollment_id = g.enrollment_id
+      WHERE e.student_id = :student_id
+        AND e.status_cd = 'completed'
+      ORDER BY t.term_cd DESC, c.course_nm
+
+  get_student_program_participations:
+    description: "학생 비교과 참여 현황 조회"
+    sql: |
+      SELECT
+        p.program_cd,
+        p.program_nm,
+        p.program_type,
+        p.organizer,
+        pt.status,
+        pt.completed_at
+      FROM tb_participation pt
+      JOIN tb_program p ON pt.program_cd = p.program_cd
+      WHERE pt.student_id = :student_id
+      ORDER BY pt.ins_dt DESC
+
+  # ==========================================
+  # 로드맵 추천 쿼리
+  # ==========================================
+  get_roadmap_courses_for_student:
+    description: "학생 맞춤 로드맵 과목 추천"
+    sql: |
+      WITH completed_courses AS (
+        SELECT DISTINCT co.course_cd
+        FROM tb_enrollment e
+        JOIN tb_course_offering co ON e.course_offering_id = co.offering_id
+        WHERE e.student_id = :student_id
+          AND e.status_cd IN ('completed', 'enrolled')
+      )
+      SELECT
+        c.course_cd,
+        c.course_nm,
+        c.course_nm_en,
+        c.credits,
+        c.course_type,
+        c.course_category,
+        c.grade_level,
+        c.description,
+        CASE
+          WHEN cc.course_cd IS NOT NULL THEN 'completed'
+          WHEN c.grade_level < :current_grade THEN 'overdue'
+          WHEN c.grade_level = :current_grade THEN 'current'
+          ELSE 'planned'
+        END as status,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'competency_cd', ccm.competency_cd,
+              'contribution_weight', ccm.contribution_weight
+            )
+          ) FILTER (WHERE ccm.competency_cd IS NOT NULL),
+          '[]'
+        ) as competency_contributions
+      FROM tb_course c
+      LEFT JOIN completed_courses cc ON c.course_cd = cc.course_cd
+      LEFT JOIN tb_course_competency_map ccm ON c.course_cd = ccm.course_cd
+      WHERE c.use_fg = 'Y'
+        AND (:department_cd IS NULL OR c.department_cd = :department_cd OR c.department_cd IS NULL)
+        AND c.grade_level = :grade_level
+      GROUP BY c.course_cd, c.course_nm, c.course_nm_en, c.credits,
+               c.course_type, c.course_category, c.grade_level, c.description, cc.course_cd
+      ORDER BY
+        CASE c.course_type
+          WHEN '전공필수' THEN 1
+          WHEN '전공선택' THEN 2
+          WHEN '교양필수' THEN 3
+          ELSE 4
+        END,
+        c.course_nm
+
+  get_prerequisite_courses:
+    description: "선수과목 정보 조회"
+    sql: |
+      SELECT
+        p.course_cd,
+        c1.course_nm as course_nm,
+        p.prerequisite_course_cd,
+        c2.course_nm as prerequisite_course_nm,
+        p.prerequisite_type
+      FROM tb_prerequisite p
+      JOIN tb_course c1 ON p.course_cd = c1.course_cd
+      JOIN tb_course c2 ON p.prerequisite_course_cd = c2.course_cd
+      WHERE p.course_cd = :course_cd OR p.prerequisite_course_cd = :course_cd
+      ORDER BY c1.course_nm

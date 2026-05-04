@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* IDINO corporate color palette */
+  --color-background: #f4f7fc;
+  --color-foreground: #1e293b;
+  --color-card: #ffffff;
+  --color-card-foreground: #1e293b;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1e293b;
+
+  /* Primary - IDINO Navy Blue #174ea9 */
+  --color-primary: #174ea9;
+  --color-primary-foreground: #ffffff;
+
+  /* Secondary */
+  --color-secondary: #eef2f8;
+  --color-secondary-foreground: #1e293b;
+
+  /* Muted */
+  --color-muted: #eef2f8;
+  --color-muted-foreground: #64748b;
+
+  /* Accent */
+  --color-accent: #eef2f8;
+  --color-accent-foreground: #1e293b;
+
+  /* Destructive - Red */
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+
+  /* Border */
+  --color-border: #dce3ed;
+  --color-input: #dce3ed;
+  --color-ring: #2c59ac;
+
+  /* Chart colors */
+  --color-chart-1: #174ea9;
+  --color-chart-2: #37ace9;
+  --color-chart-3: #22c55e;
+  --color-chart-4: #eab308;
+  --color-chart-5: #ef4444;
+
+  /* Sidebar - IDINO dark navy */
+  --color-sidebar: #38497c;
+  --color-sidebar-foreground: #e2e8f0;
+  --color-sidebar-primary: #ffffff;
+  --color-sidebar-primary-foreground: #38497c;
+  --color-sidebar-accent: #4a5a8e;
+  --color-sidebar-accent-foreground: #ffffff;
+  --color-sidebar-border: #4a5a8e;
+  --color-sidebar-ring: #37ace9;
+
+  --radius: 0.5rem;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
+
+  /* Metric card backgrounds */
+  --color-metric-pink: #fce7f3;
+  --color-metric-green: #dcfce7;
+  --color-metric-yellow: #fef9c3;
+
+  /* Status colors */
+  --color-status-progress: #2c59ac;
+  --color-status-complete: #22c55e;
+  --color-status-waiting: #eab308;
+  --color-status-error: #ef4444;
+}
+
+.dark {
+  --color-background: #0f1525;
+  --color-foreground: #f0f4f8;
+  --color-card: #1a2338;
+  --color-card-foreground: #f0f4f8;
+  --color-popover: #1a2338;
+  --color-popover-foreground: #f0f4f8;
+  --color-primary: #37ace9;
+  --color-primary-foreground: #0f1525;
+  --color-secondary: #1e2d45;
+  --color-secondary-foreground: #f0f4f8;
+  --color-muted: #1e2d45;
+  --color-muted-foreground: #8899aa;
+  --color-accent: #1e2d45;
+  --color-accent-foreground: #f0f4f8;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #f0f4f8;
+  --color-border: #2a3a52;
+  --color-input: #2a3a52;
+  --color-ring: #37ace9;
+  --color-chart-1: #37ace9;
+  --color-chart-2: #22c55e;
+  --color-chart-3: #174ea9;
+  --color-chart-4: #eab308;
+  --color-chart-5: #ef4444;
+  --color-sidebar: #1a2338;
+  --color-sidebar-foreground: #f0f4f8;
+  --color-sidebar-primary: #37ace9;
+  --color-sidebar-primary-foreground: #f0f4f8;
+  --color-sidebar-accent: #243352;
+  --color-sidebar-accent-foreground: #f0f4f8;
+  --color-sidebar-border: #2a3a52;
+  --color-sidebar-ring: #37ace9;
+
+  /* Dark mode metric cards */
+  --color-metric-pink: #3a1530;
+  --color-metric-green: #0d3320;
+  --color-metric-yellow: #3d3d00;
+
+  /* Dark mode status colors */
+  --color-status-progress: #2c59ac;
+  --color-status-complete: #22c55e;
+  --color-status-waiting: #eab308;
+  --color-status-error: #ef4444;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

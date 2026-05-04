@@ -1,0 +1,190 @@
+/*
+ * document-tokens.css — DocumentSchema.design_tokens의 CSS 변수 스펙
+ *
+ * Phase 1 설계 기준선 (docs/phase1_architecture.md §2.5, §3.5).
+ *
+ * 원칙:
+ *   1. 모든 document-schema/components/*.tsx는 hex 색상을 **절대로 하드코딩하지 않고**
+ *      var(--doc-*)만 참조한다. (anti-patterns.md의 하드코딩 금지 규칙 확장)
+ *   2. iframe 프리뷰 루트(<html>)에 design_tokens를 주입할 때 이 변수들을 덮어쓴다.
+ *   3. Design Token Picker는 여기 나열된 변수만 런타임으로 변경한다.
+ *   4. 애플리케이션 shell(globals.css)의 --color-* 토큰과는 **네임스페이스 분리**(--doc-*)
+ *      를 유지해 designer UI가 프리뷰 내부 색을 오염시키지 않게 한다.
+ *
+ * 기본값은 IDINO brand_preset=idino_default와 동일.
+ */
+
+:root,
+.document-preview-root {
+  /* ── 색상 (phase1_architecture.md §2.5) ──────────────────────────────── */
+  --doc-primary: #0a4fc2; /* IDINO 코퍼레이트 */
+  --doc-primary-foreground: #ffffff;
+  --doc-accent: #ff6b35;
+  --doc-accent-foreground: #ffffff;
+  --doc-text: #1f2937;
+  --doc-text-muted: #64748b;
+  --doc-background: #ffffff;
+  --doc-surface: #f8fafc;
+  --doc-border: #e2e8f0;
+
+  /* ── 상태/의미 색(Callout 등에서 사용) ─────────────────────────────── */
+  --doc-info: #2563eb;
+  --doc-warning: #eab308;
+  --doc-success: #22c55e;
+  --doc-danger: #ef4444;
+
+  /* ── Soft 배경 (하이라이트·강조 배경에 사용, accent 20% / primary 10%) ── */
+  --doc-accent-soft: rgba(255, 107, 53, 0.18);
+  --doc-primary-soft: rgba(10, 79, 194, 0.08);
+  /* Callout 등에서 의미색 배경으로 사용 (success/danger/info/warning soft tone). */
+  --doc-success-soft: rgba(34, 197, 94, 0.14);
+  --doc-danger-soft: rgba(239, 68, 68, 0.12);
+  --doc-info-soft: rgba(37, 99, 235, 0.1);
+  --doc-warning-soft: rgba(234, 179, 8, 0.16);
+
+  /* ── 차트 시리즈 (Chart 컴포넌트 기본 팔레트) ──────────────────────── */
+  --doc-chart-1: var(--doc-primary);
+  --doc-chart-2: #37ace9;
+  --doc-chart-3: var(--doc-success);
+  --doc-chart-4: var(--doc-warning);
+  --doc-chart-5: var(--doc-danger);
+
+  /* ── 타이포그래피 ───────────────────────────────────────────────── */
+  --doc-font-family: "Pretendard", "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
+  --doc-font-size-xs: 0.75rem; /* 12px */
+  --doc-font-size-sm: 0.875rem; /* 14px */
+  --doc-font-size-base: 1rem; /* 16px */
+  --doc-font-size-lg: 1.125rem; /* 18px */
+  --doc-font-size-xl: 1.5rem; /* 24px */
+  --doc-font-size-2xl: 2rem; /* 32px */
+  --doc-font-size-3xl: 2.5rem; /* 40px, SlideTitle */
+  --doc-line-height-tight: 1.2;
+  --doc-line-height-normal: 1.5;
+  --doc-line-height-relaxed: 1.75;
+
+  /* ── 간격 (spacing enum: compact/normal/relaxed의 normal 값) ───────── */
+  --doc-spacing-xs: 0.25rem;
+  --doc-spacing-sm: 0.5rem;
+  --doc-spacing-md: 1rem;
+  --doc-spacing-lg: 1.5rem;
+  --doc-spacing-xl: 2rem;
+  --doc-spacing-2xl: 3rem;
+  --doc-page-padding: 3rem; /* slide 기본 패딩 */
+
+  /* ── 라디우스 (카드·표·KPI 공통) ────────────────────────────────── */
+  --doc-radius-sm: 0.25rem;
+  --doc-radius-md: 0.5rem;
+  --doc-radius-lg: 1rem;
+  --doc-radius-xl: 1.5rem;
+
+  /* ── 그림자 ──────────────────────────────────────────────────────── */
+  --doc-shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --doc-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.1);
+  --doc-shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.1);
+
+  /* ── 페이지 치수(프리뷰 iframe에서 참조) ──────────────────────────── */
+  --doc-page-aspect-slide: 16 / 9;
+  --doc-page-width-slide: 1280px;
+  --doc-page-width-section-a4: 794px; /* A4 @96dpi */
+}
+
+/* spacing=compact일 때 document-preview-root에 data-spacing="compact" 부여 */
+.document-preview-root[data-spacing="compact"] {
+  --doc-spacing-md: 0.75rem;
+  --doc-spacing-lg: 1rem;
+  --doc-spacing-xl: 1.5rem;
+  --doc-page-padding: 2rem;
+  --doc-line-height-normal: 1.4;
+}
+
+/* spacing=relaxed일 때 */
+.document-preview-root[data-spacing="relaxed"] {
+  --doc-spacing-md: 1.25rem;
+  --doc-spacing-lg: 2rem;
+  --doc-spacing-xl: 3rem;
+  --doc-page-padding: 4rem;
+  --doc-line-height-normal: 1.7;
+}
+
+/* ── 브랜드 프리셋 ───────────────────────────────────────────────────────
+ *
+ * design-token-picker(Phase 4 S1 D5) 에서 최상단 row 버튼으로 전체 교체한다.
+ * 각 프리셋은 `data-brand-preset="..."` 속성으로 활성화되며, 두 가지 셀렉터를
+ * 동시에 선언해:
+ *   1. `.document-preview-root[data-brand-preset="..."]` — iframe 프리뷰 내부
+ *   2. `:root[data-brand-preset="..."]` — picker UI 자체가 preset 을 즉시 반영할 때
+ *
+ * 원칙:
+ *   - 프리셋은 hex 를 직접 쓰지만, 이건 "토큰의 기본값" 계층이므로 허용.
+ *   - 컴포넌트 / 폼 / picker UI 는 여전히 var(--doc-*) 만 참조한다.
+ *   - brand_preset=idino_* 일 때 picker 의 개별 색상 슬라이더는 locked.
+ *   - brand_preset=custom 일 때만 색상 자유 편집.
+ */
+
+/* idino_mono — IDINO 단색 변형 (흑백 계열) */
+.document-preview-root[data-brand-preset="idino_mono"],
+:root[data-brand-preset="idino_mono"] {
+  --doc-primary: #2b2b2b;
+  --doc-primary-foreground: #ffffff;
+  --doc-accent: #666666;
+  --doc-accent-foreground: #ffffff;
+  --doc-accent-soft: rgba(102, 102, 102, 0.18);
+  --doc-primary-soft: rgba(43, 43, 43, 0.08);
+  --doc-chart-1: #2b2b2b;
+  --doc-chart-2: #4f4f4f;
+  --doc-chart-3: #808080;
+  --doc-chart-4: #a8a8a8;
+  --doc-chart-5: #d0d0d0;
+}
+
+/* navy — 공공기관·금융 톤 (진한 네이비 + 금색 accent) */
+.document-preview-root[data-brand-preset="navy"],
+:root[data-brand-preset="navy"] {
+  --doc-primary: #0f2f5a;
+  --doc-primary-foreground: #ffffff;
+  --doc-accent: #d4a017;
+  --doc-accent-foreground: #1f2937;
+  --doc-accent-soft: rgba(212, 160, 23, 0.18);
+  --doc-primary-soft: rgba(15, 47, 90, 0.08);
+  --doc-chart-1: #0f2f5a;
+  --doc-chart-2: #2563eb;
+  --doc-chart-3: #d4a017;
+  --doc-chart-4: #22c55e;
+  --doc-chart-5: #ef4444;
+}
+
+/* forest — 지속가능경영·ESG 톤 (짙은 그린 + 라임 accent) */
+.document-preview-root[data-brand-preset="forest"],
+:root[data-brand-preset="forest"] {
+  --doc-primary: #1f5f3f;
+  --doc-primary-foreground: #ffffff;
+  --doc-accent: #a3d65c;
+  --doc-accent-foreground: #1f2937;
+  --doc-accent-soft: rgba(163, 214, 92, 0.22);
+  --doc-primary-soft: rgba(31, 95, 63, 0.1);
+  --doc-chart-1: #1f5f3f;
+  --doc-chart-2: #4aa363;
+  --doc-chart-3: #a3d65c;
+  --doc-chart-4: #eab308;
+  --doc-chart-5: #ef4444;
+}
+
+/* brand_preset=custom — 기본 토큰을 그대로 사용하되, picker 가 개별 슬라이더로
+ * CSS 변수를 직접 override 한다. 별도 셀렉터 선언은 불필요. */
+
+/* ── spacing 프리셋 (:root 레벨에서도 적용 가능하도록 중복 선언) ───── */
+:root[data-spacing="compact"] {
+  --doc-spacing-md: 0.75rem;
+  --doc-spacing-lg: 1rem;
+  --doc-spacing-xl: 1.5rem;
+  --doc-page-padding: 2rem;
+  --doc-line-height-normal: 1.4;
+}
+
+:root[data-spacing="relaxed"] {
+  --doc-spacing-md: 1.25rem;
+  --doc-spacing-lg: 2rem;
+  --doc-spacing-xl: 3rem;
+  --doc-page-padding: 4rem;
+  --doc-line-height-normal: 1.7;
+}

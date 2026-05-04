@@ -1,0 +1,628 @@
+version: '3.9'
+
+services:
+  # ============================================
+  # Infrastructure Services
+  # ============================================
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: idino_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 2012
+      POSTGRES_DB: idino_career
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./dump:/dump
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - idino_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: idino_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - idino_network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: idino_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - idino_network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: idino_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - idino_network
+
+  # ============================================
+  # API Gateway
+  # ============================================
+
+  kong:
+    image: kong:3.5
+    container_name: idino_kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    volumes:
+      - ../../gateway/kong.yml:/kong/declarative/kong.yml:ro
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+      - "8001:8001"
+    depends_on:
+      - auth-service
+      - student-service
+      - competency-service
+      - alumni-service
+      - ai-service
+      - skill-service
+      - opportunity-service
+      - coaching-service
+      - risk-service
+      - badge-service
+      - simulation-service
+      - advisor-service
+      - roadmap-service
+      - portfolio-service
+      - privacy-service
+      - worknet-service
+      - integration-service
+      - notification-service
+    networks:
+      - idino_network
+
+  # ============================================
+  # Core Services
+  # ============================================
+
+  auth-service:
+    build:
+      context: ../..
+      dockerfile: services/auth-service/Dockerfile
+    container_name: idino_auth
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-super-secret-key-change-me}
+      - JWT_ALGORITHM=HS256
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+      - LOG_LEVEL=INFO
+    ports:
+      - "8011:8011"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  student-service:
+    build:
+      context: ../..
+      dockerfile: services/student-service/Dockerfile
+    container_name: idino_student
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - LOG_LEVEL=INFO
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  competency-service:
+    build:
+      context: ../..
+      dockerfile: services/competency-service/Dockerfile
+    container_name: idino_competency
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - STUDENT_SERVICE_URL=http://student-service:8002
+      - AI_SERVICE_URL=http://ai-service:8006
+      - LOG_LEVEL=INFO
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  alumni-service:
+    build:
+      context: ../..
+      dockerfile: services/alumni-service/Dockerfile
+    container_name: idino_alumni
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - STUDENT_SERVICE_URL=http://student-service:8002
+      - COMPETENCY_SERVICE_URL=http://competency-service:8003
+      - LOG_LEVEL=INFO
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      student-service:
+        condition: service_started
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  ai-service:
+    build:
+      context: ../..
+      dockerfile: services/ai-service/Dockerfile
+    container_name: idino_ai
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - STUDENT_SERVICE_URL=http://student-service:8002
+      - COMPETENCY_SERVICE_URL=http://competency-service:8003
+      - ALUMNI_SERVICE_URL=http://alumni-service:8005
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LOG_LEVEL=INFO
+    ports:
+      - "8006:8006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      student-service:
+        condition: service_started
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  # ============================================
+  # P1 Services
+  # ============================================
+
+  skill-service:
+    build:
+      context: ../..
+      dockerfile: services/skill-service/Dockerfile
+    container_name: idino_skill
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - LOG_LEVEL=INFO
+    ports:
+      - "8007:8007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  opportunity-service:
+    build:
+      context: ../..
+      dockerfile: services/opportunity-service/Dockerfile
+    container_name: idino_opportunity
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - LOG_LEVEL=INFO
+    ports:
+      - "8008:8008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  coaching-service:
+    build:
+      context: ../..
+      dockerfile: services/coaching-service/Dockerfile
+    container_name: idino_coaching
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - AI_SERVICE_URL=http://ai-service:8006
+      - LOG_LEVEL=INFO
+    ports:
+      - "8009:8009"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  risk-service:
+    build:
+      context: ../..
+      dockerfile: services/risk-service/Dockerfile
+    container_name: idino_risk
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - STUDENT_SERVICE_URL=http://student-service:8002
+      - LOG_LEVEL=INFO
+    ports:
+      - "8010:8010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  # ============================================
+  # P2 Services
+  # ============================================
+
+  badge-service:
+    build:
+      context: ../..
+      dockerfile: services/badge-service/Dockerfile
+    container_name: idino_badge
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - LOG_LEVEL=INFO
+    ports:
+      - "8012:8012"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  simulation-service:
+    build:
+      context: ../..
+      dockerfile: services/simulation-service/Dockerfile
+    container_name: idino_simulation
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - AI_SERVICE_URL=http://ai-service:8006
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LOG_LEVEL=INFO
+    ports:
+      - "8013:8013"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  advisor-service:
+    build:
+      context: ../..
+      dockerfile: services/advisor-service/Dockerfile
+    container_name: idino_advisor
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - AI_SERVICE_URL=http://ai-service:8006
+      - LOG_LEVEL=INFO
+    ports:
+      - "8014:8014"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  roadmap-service:
+    build:
+      context: ../..
+      dockerfile: services/roadmap-service/Dockerfile
+    container_name: idino_roadmap
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - AI_SERVICE_URL=http://ai-service:8006
+      - ALUMNI_SERVICE_URL=http://alumni-service:8005
+      - STUDENT_SERVICE_URL=http://student-service:8002
+      - COMPETENCY_SERVICE_URL=http://competency-service:8003
+      - SKILL_SERVICE_URL=http://skill-service:8007
+      - LOG_LEVEL=INFO
+    ports:
+      - "8015:8015"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      student-service:
+        condition: service_started
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  portfolio-service:
+    build:
+      context: ../..
+      dockerfile: services/portfolio-service/Dockerfile
+    container_name: idino_portfolio
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - STUDENT_SERVICE_URL=http://student-service:8002
+      - LOG_LEVEL=INFO
+    ports:
+      - "8016:8016"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  # ============================================
+  # Additional Services
+  # ============================================
+
+  privacy-service:
+    build:
+      context: ../..
+      dockerfile: services/privacy-service/Dockerfile
+    container_name: idino_privacy
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - LOG_LEVEL=INFO
+    ports:
+      - "8017:8017"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  worknet-service:
+    build:
+      context: ../..
+      dockerfile: services/worknet-service/Dockerfile
+    container_name: idino_worknet
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - REDIS_URL=redis://redis:6379/1
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - LOG_LEVEL=INFO
+    ports:
+      - "8018:8018"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  integration-service:
+    build:
+      context: ../..
+      dockerfile: services/integration-service/Dockerfile
+    container_name: idino_integration
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - REDIS_URL=redis://redis:6379/1
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - LOG_LEVEL=INFO
+    ports:
+      - "8019:8019"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ../..
+      dockerfile: services/notification-service/Dockerfile
+    container_name: idino_notification
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=idino_career
+      - DB_USER=postgres
+      - DB_PASSWORD=2012
+      - DB_SCHEMA=idino_career
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - AUTH_SERVICE_URL=http://auth-service:8011
+      - LOG_LEVEL=INFO
+    ports:
+      - "8020:8020"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+  # ============================================
+  # Frontend
+  # ============================================
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    container_name: idino_frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_SWC_DOWNLOAD=false
+    ports:
+      - "3010:3000"
+    depends_on:
+      - kong
+    networks:
+      - idino_network
+    restart: unless-stopped
+
+networks:
+  idino_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

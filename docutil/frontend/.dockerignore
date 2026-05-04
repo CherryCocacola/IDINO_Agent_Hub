@@ -1,0 +1,17 @@
+node_modules/
+.next/
+.env
+.env.*
+.env.local
+.env.production
+*.test.ts
+*.test.tsx
+__tests__/
+coverage/
+.git
+.gitignore
+*.md
+.vscode
+.idea
+vitest.config.ts
+src/test/

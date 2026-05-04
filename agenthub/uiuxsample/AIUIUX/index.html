@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 통합관리시스템 - 대시보드</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="assets/css/common.css" rel="stylesheet">
+  <link href="assets/css/dashboard.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon">
+      <i class="fas fa-brain"></i>
+    </div>
+    <div class="sidebar-brand-text">
+      <span class="brand-title">AI Manager</span>
+      <span class="brand-sub">통합관리시스템</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">메인</div>
+    <a href="index.html" class="nav-item active">
+      <i class="fas fa-th-large"></i>
+      <span>대시보드</span>
+    </a>
+    <a href="chat.html" class="nav-item"><i class="fas fa-comments"></i><span>AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="models.html" class="nav-item">
+      <i class="fas fa-robot"></i>
+      <span>AI 모델 관리</span>
+      <span class="nav-badge">12</span>
+    </a>
+    <a href="monitoring.html" class="nav-item">
+      <i class="fas fa-chart-line"></i>
+      <span>모니터링</span>
+      <span class="nav-badge nav-badge-warning">!</span>
+    </a>
+    <a href="pipelines.html" class="nav-item">
+      <i class="fas fa-code-branch"></i>
+      <span>파이프라인</span>
+    </a>
+
+    <div class="nav-section-label">관리</div>
+    <a href="apikeys.html" class="nav-item">
+      <i class="fas fa-key"></i>
+      <span>API 키 관리</span>
+    </a>
+    <a href="users.html" class="nav-item">
+      <i class="fas fa-users"></i>
+      <span>사용자 관리</span>
+    </a>
+    <a href="logs.html" class="nav-item">
+      <i class="fas fa-file-alt"></i>
+      <span>로그 &amp; 감사</span>
+    </a>
+    <a href="billing.html" class="nav-item">
+      <i class="fas fa-credit-card"></i>
+      <span>비용 관리</span>
+    </a>
+
+    <div class="nav-section-label">시스템</div>
+    <a href="settings.html" class="nav-item">
+      <i class="fas fa-cog"></i>
+      <span>설정</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="system-status">
+      <span class="status-dot status-ok"></span>
+      <span>시스템 정상 운영 중</span>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main-wrapper" id="mainWrapper">
+
+  <!-- Top Navigation -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-bars"></i>
+      </button>
+      <div class="breadcrumb-area">
+        <span class="page-title">대시보드</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">개요</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn" title="알림">
+        <i class="fas fa-bell"></i>
+        <span class="badge-dot"></span>
+      </button>
+      <button class="topbar-btn" title="검색">
+        <i class="fas fa-search"></i>
+      </button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="user-avatar">
+          <i class="fas fa-user"></i>
+        </div>
+        <div class="user-info">
+          <span class="user-name">관리자</span>
+          <span class="user-role">Super Admin</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page Content -->
+  <main class="page-content">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-heading">시스템 대시보드</h1>
+        <p class="page-desc">AI 통합관리시스템 현황을 한눈에 확인하세요</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline-secondary btn-sm">
+          <i class="fas fa-download me-1"></i>리포트 내보내기
+        </button>
+        <button class="btn btn-primary btn-sm">
+          <i class="fas fa-plus me-1"></i>모델 추가
+        </button>
+      </div>
+    </div>
+
+    <!-- Stat Cards Row -->
+    <div class="row g-4 mb-4">
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card stat-card-primary">
+          <div class="stat-icon-wrap">
+            <div class="stat-icon"><i class="fas fa-robot"></i></div>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">활성 AI 모델</p>
+            <h2 class="stat-value">12</h2>
+            <p class="stat-change stat-up"><i class="fas fa-arrow-up"></i> 2 증가 (이번 달)</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card stat-card-success">
+          <div class="stat-icon-wrap">
+            <div class="stat-icon"><i class="fas fa-exchange-alt"></i></div>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">오늘 API 호출</p>
+            <h2 class="stat-value">48,291</h2>
+            <p class="stat-change stat-up"><i class="fas fa-arrow-up"></i> 12.5% 증가</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card stat-card-warning">
+          <div class="stat-icon-wrap">
+            <div class="stat-icon"><i class="fas fa-tachometer-alt"></i></div>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">평균 응답속도</p>
+            <h2 class="stat-value">234ms</h2>
+            <p class="stat-change stat-down"><i class="fas fa-arrow-up"></i> 18ms 증가</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card stat-card-danger">
+          <div class="stat-icon-wrap">
+            <div class="stat-icon"><i class="fas fa-won-sign"></i></div>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">이번 달 비용</p>
+            <h2 class="stat-value">₩1.2M</h2>
+            <p class="stat-change stat-down"><i class="fas fa-arrow-up"></i> 예산 75% 사용</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts & Model Status Row -->
+    <div class="row g-4 mb-4">
+
+      <!-- Usage Chart -->
+      <div class="col-xl-8">
+        <div class="card h-100">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <div>
+              <h5 class="card-title mb-0">API 사용량 추이</h5>
+              <p class="card-subtitle mb-0">지난 7일간 모델별 호출 현황</p>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-xs btn-outline-secondary active" id="btnDay">일별</button>
+              <button class="btn btn-xs btn-outline-secondary" id="btnWeek">주별</button>
+              <button class="btn btn-xs btn-outline-secondary" id="btnMonth">월별</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="apiUsageCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Model Status -->
+      <div class="col-xl-4">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="card-title mb-0">모델 상태 현황</h5>
+            <p class="card-subtitle mb-0">실시간 모델 헬스체크</p>
+          </div>
+          <div class="card-body p-0">
+            <div class="model-status-list">
+              <div class="model-status-item">
+                <div class="model-status-icon model-gpt"><i class="fas fa-robot"></i></div>
+                <div class="model-status-info">
+                  <p class="model-name">GPT-4o</p>
+                  <p class="model-meta">OpenAI · 2,481 req/hr</p>
+                </div>
+                <span class="status-badge status-online">운영중</span>
+              </div>
+              <div class="model-status-item">
+                <div class="model-status-icon model-claude"><i class="fas fa-brain"></i></div>
+                <div class="model-status-info">
+                  <p class="model-name">Claude Sonnet 4</p>
+                  <p class="model-meta">Anthropic · 1,892 req/hr</p>
+                </div>
+                <span class="status-badge status-online">운영중</span>
+              </div>
+              <div class="model-status-item">
+                <div class="model-status-icon model-gemini"><i class="fas fa-gem"></i></div>
+                <div class="model-status-info">
+                  <p class="model-name">Gemini Pro</p>
+                  <p class="model-meta">Google · 943 req/hr</p>
+                </div>
+                <span class="status-badge status-online">운영중</span>
+              </div>
+              <div class="model-status-item">
+                <div class="model-status-icon model-llama"><i class="fas fa-fire"></i></div>
+                <div class="model-status-info">
+                  <p class="model-name">Llama 3.1-70B</p>
+                  <p class="model-meta">Meta · 0 req/hr</p>
+                </div>
+                <span class="status-badge status-warning">점검중</span>
+              </div>
+              <div class="model-status-item">
+                <div class="model-status-icon model-custom"><i class="fas fa-code"></i></div>
+                <div class="model-status-info">
+                  <p class="model-name">Custom-FinanceBot</p>
+                  <p class="model-meta">자체개발 · 312 req/hr</p>
+                </div>
+                <span class="status-badge status-online">운영중</span>
+              </div>
+              <div class="model-status-item">
+                <div class="model-status-icon model-error"><i class="fas fa-exclamation"></i></div>
+                <div class="model-status-info">
+                  <p class="model-name">DALL-E 3</p>
+                  <p class="model-meta">OpenAI · 오류 발생</p>
+                </div>
+                <span class="status-badge status-error">오류</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer text-center">
+            <a href="models.html" class="link-primary">전체 모델 보기 <i class="fas fa-chevron-right ms-1 fs-xs"></i></a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="row g-4">
+
+      <!-- Recent Alerts -->
+      <div class="col-xl-4">
+        <div class="card h-100">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <div>
+              <h5 class="card-title mb-0">최근 알림</h5>
+              <p class="card-subtitle mb-0">지난 24시간 이벤트</p>
+            </div>
+            <button class="btn btn-xs btn-outline-secondary">전체 보기</button>
+          </div>
+          <div class="card-body p-0">
+            <div class="alert-list">
+              <div class="alert-item alert-item-error">
+                <div class="alert-icon"><i class="fas fa-times-circle"></i></div>
+                <div class="alert-content">
+                  <p class="alert-title">DALL-E 3 API 오류</p>
+                  <p class="alert-desc">연속 오류 임계값 초과 (50회)</p>
+                  <span class="alert-time">5분 전</span>
+                </div>
+              </div>
+              <div class="alert-item alert-item-warning">
+                <div class="alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="alert-content">
+                  <p class="alert-title">API 사용량 경고</p>
+                  <p class="alert-desc">월간 예산의 75% 도달</p>
+                  <span class="alert-time">1시간 전</span>
+                </div>
+              </div>
+              <div class="alert-item alert-item-warning">
+                <div class="alert-icon"><i class="fas fa-clock"></i></div>
+                <div class="alert-content">
+                  <p class="alert-title">응답 지연 감지</p>
+                  <p class="alert-desc">GPT-4o 평균 응답 300ms 초과</p>
+                  <span class="alert-time">2시간 전</span>
+                </div>
+              </div>
+              <div class="alert-item alert-item-info">
+                <div class="alert-icon"><i class="fas fa-info-circle"></i></div>
+                <div class="alert-content">
+                  <p class="alert-title">Llama 모델 점검</p>
+                  <p class="alert-desc">정기 유지보수 시작 (예정 2hr)</p>
+                  <span class="alert-time">3시간 전</span>
+                </div>
+              </div>
+              <div class="alert-item alert-item-success">
+                <div class="alert-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="alert-content">
+                  <p class="alert-title">신규 모델 배포 완료</p>
+                  <p class="alert-desc">Custom-FinanceBot v2.1 배포 성공</p>
+                  <span class="alert-time">6시간 전</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top API Consumers -->
+      <div class="col-xl-4">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="card-title mb-0">상위 API 사용자</h5>
+            <p class="card-subtitle mb-0">오늘 기준 호출량</p>
+          </div>
+          <div class="card-body p-0">
+            <div class="consumer-list">
+              <div class="consumer-item">
+                <div class="consumer-rank">1</div>
+                <div class="consumer-avatar consumer-app"><i class="fas fa-globe"></i></div>
+                <div class="consumer-info">
+                  <p class="consumer-name">웹 챗봇 서비스</p>
+                  <div class="consumer-bar"><div class="consumer-bar-fill" style="width:88%"></div></div>
+                </div>
+                <span class="consumer-count">21,432</span>
+              </div>
+              <div class="consumer-item">
+                <div class="consumer-rank">2</div>
+                <div class="consumer-avatar consumer-mobile"><i class="fas fa-mobile-alt"></i></div>
+                <div class="consumer-info">
+                  <p class="consumer-name">모바일 앱</p>
+                  <div class="consumer-bar"><div class="consumer-bar-fill" style="width:65%"></div></div>
+                </div>
+                <span class="consumer-count">15,891</span>
+              </div>
+              <div class="consumer-item">
+                <div class="consumer-rank">3</div>
+                <div class="consumer-avatar consumer-analytics"><i class="fas fa-chart-bar"></i></div>
+                <div class="consumer-info">
+                  <p class="consumer-name">데이터 분석팀</p>
+                  <div class="consumer-bar"><div class="consumer-bar-fill" style="width:45%"></div></div>
+                </div>
+                <span class="consumer-count">8,241</span>
+              </div>
+              <div class="consumer-item">
+                <div class="consumer-rank">4</div>
+                <div class="consumer-avatar consumer-auto"><i class="fas fa-cogs"></i></div>
+                <div class="consumer-info">
+                  <p class="consumer-name">자동화 파이프라인</p>
+                  <div class="consumer-bar"><div class="consumer-bar-fill" style="width:32%"></div></div>
+                </div>
+                <span class="consumer-count">5,831</span>
+              </div>
+              <div class="consumer-item">
+                <div class="consumer-rank">5</div>
+                <div class="consumer-avatar consumer-dev"><i class="fas fa-laptop-code"></i></div>
+                <div class="consumer-info">
+                  <p class="consumer-name">개발팀 테스트</p>
+                  <div class="consumer-bar"><div class="consumer-bar-fill" style="width:15%"></div></div>
+                </div>
+                <span class="consumer-count">2,105</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cost Breakdown -->
+      <div class="col-xl-4">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="card-title mb-0">비용 분석</h5>
+            <p class="card-subtitle mb-0">이번 달 모델별 비용</p>
+          </div>
+          <div class="card-body">
+            <div class="cost-donut-wrap">
+              <canvas id="costDonutCanvas"></canvas>
+              <div class="cost-donut-center">
+                <span class="cost-total-label">총 비용</span>
+                <span class="cost-total-value">₩1.2M</span>
+              </div>
+            </div>
+            <div class="cost-legend">
+              <div class="cost-legend-item">
+                <span class="legend-dot" style="background:#4F46E5"></span>
+                <span class="legend-label">GPT-4o</span>
+                <span class="legend-value">₩580K</span>
+              </div>
+              <div class="cost-legend-item">
+                <span class="legend-dot" style="background:#8B5CF6"></span>
+                <span class="legend-label">Claude Sonnet 4</span>
+                <span class="legend-value">₩320K</span>
+              </div>
+              <div class="cost-legend-item">
+                <span class="legend-dot" style="background:#10B981"></span>
+                <span class="legend-label">Gemini Pro</span>
+                <span class="legend-value">₩185K</span>
+              </div>
+              <div class="cost-legend-item">
+                <span class="legend-dot" style="background:#F59E0B"></span>
+                <span class="legend-label">기타</span>
+                <span class="legend-value">₩115K</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <!-- /Bottom Row -->
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/dashboard.js"></script>
+</body>
+</html>

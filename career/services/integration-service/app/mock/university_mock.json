@@ -1,0 +1,113 @@
+{
+  "students": [
+    {
+      "student_id": "STU001",
+      "name": "김철수",
+      "department_id": "CS",
+      "department_name": "컴퓨터공학과",
+      "major": "소프트웨어",
+      "grade": 3,
+      "status": "재학",
+      "total_credits": 90,
+      "gpa": 3.8,
+      "semester_gpa": 3.9,
+      "admission_year": 2022,
+      "expected_graduation": "2026-02",
+      "courses": [
+        {
+          "course_code": "CS101",
+          "course_name": "프로그래밍 기초",
+          "department_id": "CS",
+          "credits": 3,
+          "course_type": "전필",
+          "semester": "2022-1",
+          "grade": "A+",
+          "grade_point": 4.5,
+          "competency_mappings": {"C001": 0.8, "C002": 0.3}
+        },
+        {
+          "course_code": "CS201",
+          "course_name": "자료구조",
+          "department_id": "CS",
+          "credits": 3,
+          "course_type": "전필",
+          "semester": "2022-2",
+          "grade": "A0",
+          "grade_point": 4.0,
+          "competency_mappings": {"C001": 0.9, "C002": 0.4}
+        },
+        {
+          "course_code": "CS301",
+          "course_name": "알고리즘",
+          "department_id": "CS",
+          "credits": 3,
+          "course_type": "전필",
+          "semester": "2023-1",
+          "grade": "A+",
+          "grade_point": 4.5,
+          "competency_mappings": {"C001": 0.95, "C002": 0.5}
+        }
+      ]
+    },
+    {
+      "student_id": "STU002",
+      "name": "이영희",
+      "department_id": "BA",
+      "department_name": "경영학과",
+      "major": "마케팅",
+      "grade": 4,
+      "status": "재학",
+      "total_credits": 120,
+      "gpa": 3.5,
+      "semester_gpa": 3.6,
+      "admission_year": 2021,
+      "expected_graduation": "2025-02",
+      "courses": [
+        {
+          "course_code": "BA101",
+          "course_name": "경영학원론",
+          "department_id": "BA",
+          "credits": 3,
+          "course_type": "전필",
+          "semester": "2021-1",
+          "grade": "A0",
+          "grade_point": 4.0,
+          "competency_mappings": {"C002": 0.6, "C003": 0.7}
+        },
+        {
+          "course_code": "BA201",
+          "course_name": "마케팅원론",
+          "department_id": "BA",
+          "credits": 3,
+          "course_type": "전필",
+          "semester": "2021-2",
+          "grade": "B+",
+          "grade_point": 3.5,
+          "competency_mappings": {"C003": 0.8, "C004": 0.6}
+        }
+      ]
+    }
+  ],
+  "departments": [
+    {
+      "department_id": "CS",
+      "department_name": "컴퓨터공학과",
+      "college": "공과대학"
+    },
+    {
+      "department_id": "BA",
+      "department_name": "경영학과",
+      "college": "경영대학"
+    },
+    {
+      "department_id": "EE",
+      "department_name": "전자공학과",
+      "college": "공과대학"
+    },
+    {
+      "department_id": "DS",
+      "department_name": "디자인학과",
+      "college": "예술대학"
+    }
+  ]
+}

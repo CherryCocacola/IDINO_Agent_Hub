@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 통합관리시스템 - AI 채팅</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" rel="stylesheet">
+  <link href="assets/css/common.css" rel="stylesheet">
+  <link href="assets/css/chat.css" rel="stylesheet">
+</head>
+<body class="chat-page">
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon"><i class="fas fa-brain"></i></div>
+    <div class="sidebar-brand-text">
+      <span class="brand-title">AI Manager</span>
+      <span class="brand-sub">통합관리시스템</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">메인</div>
+    <a href="index.html" class="nav-item"><i class="fas fa-th-large"></i><span>대시보드</span></a>
+    <a href="chat.html" class="nav-item active"><i class="fas fa-comments"></i><span>AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="models.html" class="nav-item"><i class="fas fa-robot"></i><span>AI 모델 관리</span><span class="nav-badge">12</span></a>
+    <a href="monitoring.html" class="nav-item"><i class="fas fa-chart-line"></i><span>모니터링</span></a>
+    <a href="pipelines.html" class="nav-item"><i class="fas fa-code-branch"></i><span>파이프라인</span></a>
+    <div class="nav-section-label">관리</div>
+    <a href="apikeys.html" class="nav-item"><i class="fas fa-key"></i><span>API 키 관리</span></a>
+    <a href="users.html" class="nav-item"><i class="fas fa-users"></i><span>사용자 관리</span></a>
+    <a href="logs.html" class="nav-item"><i class="fas fa-file-alt"></i><span>로그 &amp; 감사</span></a>
+    <a href="billing.html" class="nav-item"><i class="fas fa-credit-card"></i><span>비용 관리</span></a>
+    <div class="nav-section-label">시스템</div>
+    <a href="settings.html" class="nav-item"><i class="fas fa-cog"></i><span>설정</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="system-status"><span class="status-dot status-ok"></span><span>시스템 정상 운영 중</span></div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main-wrapper" id="mainWrapper">
+
+  <!-- Top Navigation -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+      <div class="breadcrumb-area">
+        <span class="page-title">AI 채팅</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current" id="currentChatName">새 대화</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn" title="알림"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-info"><span class="user-name">관리자</span><span class="user-role">Super Admin</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Chat Layout -->
+  <div class="chat-layout">
+
+    <!-- Chat History Sidebar -->
+    <aside class="chat-history-panel" id="chatHistoryPanel">
+      <div class="chat-history-header">
+        <button class="btn btn-primary btn-sm w-100" id="btnNewChat">
+          <i class="fas fa-plus me-2"></i>새 대화 시작
+        </button>
+      </div>
+
+      <div class="chat-search-wrap">
+        <i class="fas fa-search chat-search-icon"></i>
+        <input type="text" class="chat-search-input" placeholder="대화 검색...">
+      </div>
+
+      <div class="chat-history-list" id="chatHistoryList">
+        <div class="history-section-label">오늘</div>
+
+        <div class="history-item history-item-active" data-id="1">
+          <div class="history-item-icon history-icon-claude"><i class="fas fa-brain"></i></div>
+          <div class="history-item-content">
+            <p class="history-item-title">Python 코드 최적화</p>
+            <p class="history-item-meta">Claude · 방금 전</p>
+          </div>
+          <button class="history-item-del"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="history-item" data-id="2">
+          <div class="history-item-icon history-icon-gpt"><i class="fas fa-robot"></i></div>
+          <div class="history-item-content">
+            <p class="history-item-title">마케팅 이메일 초안</p>
+            <p class="history-item-meta">GPT-4o · 2시간 전</p>
+          </div>
+          <button class="history-item-del"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="history-item" data-id="3">
+          <div class="history-item-icon history-icon-gemini"><i class="fas fa-gem"></i></div>
+          <div class="history-item-content">
+            <p class="history-item-title">재무 데이터 분석 요약</p>
+            <p class="history-item-meta">Gemini Pro · 5시간 전</p>
+          </div>
+          <button class="history-item-del"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="history-section-label">어제</div>
+
+        <div class="history-item" data-id="4">
+          <div class="history-item-icon history-icon-gpt"><i class="fas fa-robot"></i></div>
+          <div class="history-item-content">
+            <p class="history-item-title">React 컴포넌트 설계</p>
+            <p class="history-item-meta">GPT-4o · 어제</p>
+          </div>
+          <button class="history-item-del"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="history-item" data-id="5">
+          <div class="history-item-icon history-icon-claude"><i class="fas fa-brain"></i></div>
+          <div class="history-item-content">
+            <p class="history-item-title">SQL 쿼리 작성 도움</p>
+            <p class="history-item-meta">Claude · 어제</p>
+          </div>
+          <button class="history-item-del"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="history-item" data-id="6">
+          <div class="history-item-icon history-icon-claude"><i class="fas fa-brain"></i></div>
+          <div class="history-item-content">
+            <p class="history-item-title">API 문서 작성</p>
+            <p class="history-item-meta">Claude · 어제</p>
+          </div>
+          <button class="history-item-del"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="history-section-label">이번 주</div>
+
+        <div class="history-item" data-id="7">
+          <div class="history-item-icon history-icon-gpt"><i class="fas fa-robot"></i></div>
+          <div class="history-item-content">
+            <p class="history-item-title">비즈니스 전략 보고서</p>
+            <p class="history-item-meta">GPT-4o · 3일 전</p>
+          </div>
+          <button class="history-item-del"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="history-item" data-id="8">
+          <div class="history-item-icon history-icon-gemini"><i class="fas fa-gem"></i></div>
+          <div class="history-item-content">
+            <p class="history-item-title">이미지 분석 및 설명</p>
+            <p class="history-item-meta">Gemini · 4일 전</p>
+          </div>
+          <button class="history-item-del"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <div class="chat-main" id="chatMain">
+
+      <!-- Model Selector Bar -->
+      <div class="model-selector-bar">
+        <div class="model-selector-left">
+          <div class="model-select-wrap" id="modelSelectWrap">
+            <button class="model-select-btn" id="modelSelectBtn">
+              <div class="model-select-icon model-claude"><i class="fas fa-brain"></i></div>
+              <div class="model-select-info">
+                <span class="model-select-name">Claude Sonnet 4</span>
+                <span class="model-select-provider">Anthropic</span>
+              </div>
+              <i class="fas fa-chevron-down model-select-arrow"></i>
+            </button>
+            <!-- Dropdown -->
+            <div class="model-dropdown" id="modelDropdown">
+              <div class="model-dropdown-header">모델 선택</div>
+              <div class="model-dropdown-list">
+                <div class="model-dropdown-item" data-model="gpt4o" data-name="GPT-4o" data-provider="OpenAI">
+                  <div class="model-select-icon model-gpt"><i class="fas fa-robot"></i></div>
+                  <div class="model-dropdown-info">
+                    <span class="model-dropdown-name">GPT-4o</span>
+                    <span class="model-dropdown-meta">OpenAI · 최고 성능</span>
+                  </div>
+                  <span class="model-dropdown-badge">추천</span>
+                </div>
+                <div class="model-dropdown-item model-dropdown-selected" data-model="claude" data-name="Claude Sonnet 4" data-provider="Anthropic">
+                  <div class="model-select-icon model-claude"><i class="fas fa-brain"></i></div>
+                  <div class="model-dropdown-info">
+                    <span class="model-dropdown-name">Claude Sonnet 4</span>
+                    <span class="model-dropdown-meta">Anthropic · 균형 성능</span>
+                  </div>
+                  <i class="fas fa-check model-dropdown-check"></i>
+                </div>
+                <div class="model-dropdown-item" data-model="gemini" data-name="Gemini Pro 1.5" data-provider="Google">
+                  <div class="model-select-icon model-gemini"><i class="fas fa-gem"></i></div>
+                  <div class="model-dropdown-info">
+                    <span class="model-dropdown-name">Gemini Pro 1.5</span>
+                    <span class="model-dropdown-meta">Google · 멀티모달</span>
+                  </div>
+                </div>
+                <div class="model-dropdown-item model-dropdown-disabled" data-model="dalle">
+                  <div class="model-select-icon model-error"><i class="fas fa-image"></i></div>
+                  <div class="model-dropdown-info">
+                    <span class="model-dropdown-name">DALL-E 3</span>
+                    <span class="model-dropdown-meta text-danger-color">오류 - 이미지 생성 불가</span>
+                  </div>
+                  <span class="model-dropdown-badge model-dropdown-badge-error">오류</span>
+                </div>
+                <div class="model-dropdown-item" data-model="finance" data-name="FinanceBot" data-provider="자체개발">
+                  <div class="model-select-icon model-custom"><i class="fas fa-chart-pie"></i></div>
+                  <div class="model-dropdown-info">
+                    <span class="model-dropdown-name">Custom-FinanceBot</span>
+                    <span class="model-dropdown-meta">자체개발 · 금융 특화</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="model-selector-right">
+          <button class="chat-option-btn" id="btnSystemPrompt" title="시스템 프롬프트">
+            <i class="fas fa-terminal"></i>
+            <span>시스템 프롬프트</span>
+          </button>
+          <button class="chat-option-btn" id="btnParams" title="파라미터 설정">
+            <i class="fas fa-sliders-h"></i>
+            <span>파라미터</span>
+          </button>
+          <button class="chat-option-btn" id="btnClearChat" title="대화 초기화">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+          <button class="chat-option-btn" id="btnExport" title="내보내기">
+            <i class="fas fa-download"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- System Prompt Panel (hidden by default) -->
+      <div class="system-prompt-panel" id="systemPromptPanel" style="display:none">
+        <div class="system-prompt-header">
+          <label><i class="fas fa-terminal me-2"></i>시스템 프롬프트</label>
+          <button class="icon-btn" id="btnCloseSystemPrompt"><i class="fas fa-times"></i></button>
+        </div>
+        <textarea class="system-prompt-textarea" id="systemPromptInput" rows="4" placeholder="AI의 역할과 행동 방식을 정의하는 시스템 프롬프트를 입력하세요...&#10;예) 당신은 전문 코드 리뷰어입니다. 코드의 문제점과 개선 방향을 구체적으로 설명해주세요."></textarea>
+      </div>
+
+      <!-- Parameters Panel (hidden by default) -->
+      <div class="params-panel" id="paramsPanel" style="display:none">
+        <div class="params-grid">
+          <div class="param-item">
+            <label class="param-label">Temperature <span class="param-value-display" id="tempDisplay">0.7</span></label>
+            <input type="range" class="param-range" id="tempSlider" min="0" max="2" step="0.1" value="0.7">
+            <div class="param-range-labels"><span>정확</span><span>창의적</span></div>
+          </div>
+          <div class="param-item">
+            <label class="param-label">Max Tokens <span class="param-value-display" id="maxTokensDisplay">2048</span></label>
+            <input type="range" class="param-range" id="maxTokensSlider" min="256" max="8192" step="256" value="2048">
+            <div class="param-range-labels"><span>256</span><span>8192</span></div>
+          </div>
+          <div class="param-item">
+            <label class="param-label">Top P <span class="param-value-display" id="topPDisplay">0.9</span></label>
+            <input type="range" class="param-range" id="topPSlider" min="0" max="1" step="0.05" value="0.9">
+            <div class="param-range-labels"><span>0</span><span>1</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages Area -->
+      <div class="chat-messages" id="chatMessages">
+
+        <!-- Welcome Screen -->
+        <div class="chat-welcome" id="chatWelcome">
+          <div class="welcome-icon">
+            <i class="fas fa-brain"></i>
+          </div>
+          <h2 class="welcome-title">무엇을 도와드릴까요?</h2>
+          <p class="welcome-desc">AI 모델을 선택하고 질문하거나 작업을 요청하세요</p>
+          <div class="welcome-suggestions">
+            <button class="suggestion-chip" data-text="Python으로 REST API를 만드는 방법을 알려주세요">
+              <i class="fas fa-code"></i>
+              <span>Python REST API 만들기</span>
+            </button>
+            <button class="suggestion-chip" data-text="마케팅 이메일 초안을 작성해주세요. 대상은 기업 고객이며 AI 솔루션을 소개하는 내용입니다.">
+              <i class="fas fa-envelope"></i>
+              <span>마케팅 이메일 작성</span>
+            </button>
+            <button class="suggestion-chip" data-text="다음 SQL 쿼리를 최적화해주세요: SELECT * FROM orders WHERE status = 'pending'">
+              <i class="fas fa-database"></i>
+              <span>SQL 쿼리 최적화</span>
+            </button>
+            <button class="suggestion-chip" data-text="다음 데이터를 분석하고 핵심 인사이트를 3가지 도출해주세요:">
+              <i class="fas fa-chart-bar"></i>
+              <span>데이터 분석 요청</span>
+            </button>
+            <button class="suggestion-chip" data-text="아래 코드를 리뷰하고 개선점을 알려주세요:">
+              <i class="fas fa-search"></i>
+              <span>코드 리뷰</span>
+            </button>
+            <button class="suggestion-chip" data-text="한국 시장 진출 전략에 대해 SWOT 분석을 해주세요">
+              <i class="fas fa-lightbulb"></i>
+              <span>SWOT 분석</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Messages will be rendered here by JS -->
+
+      </div>
+
+      <!-- Input Area -->
+      <div class="chat-input-area">
+        <!-- Token & Cost Meter -->
+        <div class="chat-meta-bar">
+          <div class="token-meter">
+            <i class="fas fa-coins text-warning-color me-1"></i>
+            <span>이번 대화: <strong id="tokenCount">0</strong> 토큰</span>
+            <span class="meta-sep">·</span>
+            <span>예상 비용: <strong id="costEstimate">₩0</strong></span>
+          </div>
+          <div class="d-flex gap-3 align-items-center">
+            <label class="chat-check-label">
+              <input type="checkbox" id="chkStream" checked>
+              <span>스트리밍</span>
+            </label>
+            <label class="chat-check-label">
+              <input type="checkbox" id="chkMarkdown" checked>
+              <span>마크다운</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- File Attachment Preview -->
+        <div class="attachment-preview" id="attachmentPreview" style="display:none"></div>
+
+        <!-- Input Box -->
+        <div class="chat-input-box">
+          <button class="input-action-btn" id="btnAttach" title="파일 첨부">
+            <i class="fas fa-paperclip"></i>
+          </button>
+          <input type="file" id="fileInput" multiple accept=".txt,.pdf,.py,.js,.ts,.html,.css,.json,.md,.csv" style="display:none">
+          <textarea
+            class="chat-textarea"
+            id="chatInput"
+            placeholder="메시지를 입력하세요... (Shift+Enter로 줄바꿈, Enter로 전송)"
+            rows="1"
+          ></textarea>
+          <button class="input-action-btn" id="btnVoice" title="음성 입력">
+            <i class="fas fa-microphone"></i>
+          </button>
+          <button class="chat-send-btn" id="btnSend" disabled>
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+        <p class="chat-disclaimer">AI 응답은 오류가 있을 수 있습니다. 중요한 정보는 반드시 확인하세요.</p>
+      </div>
+    </div>
+    <!-- /chat-main -->
+
+  </div>
+  <!-- /chat-layout -->
+
+</div>
+<!-- /main-wrapper -->
+
+<!-- Context Menu for messages -->
+<div class="msg-context-menu" id="msgContextMenu" style="display:none">
+  <button class="msg-context-item" id="ctxCopy"><i class="fas fa-copy"></i> 복사</button>
+  <button class="msg-context-item" id="ctxRegenerate"><i class="fas fa-sync"></i> 재생성</button>
+  <button class="msg-context-item" id="ctxEdit"><i class="fas fa-edit"></i> 편집</button>
+  <div class="msg-context-divider"></div>
+  <button class="msg-context-item msg-context-del" id="ctxDelete"><i class="fas fa-trash"></i> 삭제</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/chat.js"></script>
+</body>
+</html>

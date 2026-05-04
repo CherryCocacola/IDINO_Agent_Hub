@@ -1,0 +1,202 @@
+{
+  "measured_at_utc": "2026-04-23T02:27:05.770481+00:00",
+  "known_idino_colors": [
+    "0A4FC2",
+    "10B981",
+    "14B8A6",
+    "1F2937",
+    "34495E",
+    "6B7280",
+    "8B5CF6",
+    "E5E7EB",
+    "EF4444",
+    "F3F4F6",
+    "F59E0B",
+    "F9FAFB",
+    "FF6B35",
+    "FFFFFF"
+  ],
+  "expected_slide_size_in": [
+    13.333,
+    7.5
+  ],
+  "samples": [
+    {
+      "file_name": "sample_a_text.pptx",
+      "file_size_kb": 32.94,
+      "slide_count": 1,
+      "slide_width_in": 13.333,
+      "slide_height_in": 7.5,
+      "is_16_9": true,
+      "per_slide": [
+        {
+          "slide_index": 0,
+          "layout_name": "Blank",
+          "shape_count": 4,
+          "color_sample_count": 16
+        }
+      ],
+      "schema_component_counts": {
+        "SlideTitle": 1,
+        "Heading": 1,
+        "Paragraph": 1,
+        "BulletList": 1
+      },
+      "schema_component_total": 4,
+      "total_top_level_shapes": 4,
+      "components_likely_missing": false,
+      "idino_palette_match_ratio": 1.0,
+      "color_samples_total": 16,
+      "color_histogram_top10": {
+        "1F2937": 10,
+        "0A4FC2": 4,
+        "FF6B35": 2
+      },
+      "sample_id": "sample_a_text",
+      "rebuild_time_ms": 12.61
+    },
+    {
+      "file_name": "sample_b_kpi.pptx",
+      "file_size_kb": 28.27,
+      "slide_count": 1,
+      "slide_width_in": 13.333,
+      "slide_height_in": 7.5,
+      "is_16_9": true,
+      "per_slide": [
+        {
+          "slide_index": 0,
+          "layout_name": "Blank",
+          "shape_count": 14,
+          "color_sample_count": 28
+        }
+      ],
+      "schema_component_counts": {
+        "SlideTitle": 1,
+        "KPI": 4,
+        "Paragraph": 1
+      },
+      "schema_component_total": 6,
+      "total_top_level_shapes": 14,
+      "components_likely_missing": false,
+      "idino_palette_match_ratio": 1.0,
+      "color_samples_total": 28,
+      "color_histogram_top10": {
+        "0A4FC2": 10,
+        "6B7280": 10,
+        "10B981": 4,
+        "EF4444": 2,
+        "1F2937": 2
+      },
+      "sample_id": "sample_b_kpi",
+      "rebuild_time_ms": 11.37
+    },
+    {
+      "file_name": "sample_c_table.pptx",
+      "file_size_kb": 28.4,
+      "slide_count": 1,
+      "slide_width_in": 13.333,
+      "slide_height_in": 7.5,
+      "is_16_9": true,
+      "per_slide": [
+        {
+          "slide_index": 0,
+          "layout_name": "Blank",
+          "shape_count": 3,
+          "color_sample_count": 52
+        }
+      ],
+      "schema_component_counts": {
+        "SlideTitle": 1,
+        "DataTable": 1,
+        "Paragraph": 1
+      },
+      "schema_component_total": 3,
+      "total_top_level_shapes": 3,
+      "components_likely_missing": false,
+      "idino_palette_match_ratio": 1.0,
+      "color_samples_total": 52,
+      "color_histogram_top10": {
+        "1F2937": 22,
+        "FFFFFF": 16,
+        "F9FAFB": 8,
+        "34495E": 4,
+        "0A4FC2": 2
+      },
+      "sample_id": "sample_c_table",
+      "rebuild_time_ms": 17.26
+    },
+    {
+      "file_name": "sample_d_chart.pptx",
+      "file_size_kb": 40.56,
+      "slide_count": 1,
+      "slide_width_in": 13.333,
+      "slide_height_in": 7.5,
+      "is_16_9": true,
+      "per_slide": [
+        {
+          "slide_index": 0,
+          "layout_name": "Blank",
+          "shape_count": 4,
+          "color_sample_count": 4
+        }
+      ],
+      "schema_component_counts": {
+        "SlideTitle": 1,
+        "Chart": 2,
+        "Heading": 1
+      },
+      "schema_component_total": 4,
+      "total_top_level_shapes": 4,
+      "components_likely_missing": false,
+      "idino_palette_match_ratio": 1.0,
+      "color_samples_total": 4,
+      "color_histogram_top10": {
+        "0A4FC2": 4
+      },
+      "sample_id": "sample_d_chart",
+      "rebuild_time_ms": 42.71
+    },
+    {
+      "file_name": "sample_e_media.pptx",
+      "file_size_kb": 28.28,
+      "slide_count": 1,
+      "slide_width_in": 13.333,
+      "slide_height_in": 7.5,
+      "is_16_9": true,
+      "per_slide": [
+        {
+          "slide_index": 0,
+          "layout_name": "Blank",
+          "shape_count": 6,
+          "color_sample_count": 15
+        }
+      ],
+      "schema_component_counts": {
+        "SlideTitle": 1,
+        "Image": 1,
+        "Paragraph": 1,
+        "BulletList": 1
+      },
+      "schema_component_total": 4,
+      "total_top_level_shapes": 6,
+      "components_likely_missing": false,
+      "idino_palette_match_ratio": 1.0,
+      "color_samples_total": 15,
+      "color_histogram_top10": {
+        "1F2937": 8,
+        "6B7280": 4,
+        "0A4FC2": 2,
+        "F3F4F6": 1
+      },
+      "sample_id": "sample_e_media",
+      "rebuild_time_ms": 10.01
+    }
+  ],
+  "summary": {
+    "sample_count": 5,
+    "all_16_9": true,
+    "any_component_missing": false,
+    "avg_palette_match_ratio": 1.0,
+    "avg_rebuild_time_ms": 18.79
+  }
+}

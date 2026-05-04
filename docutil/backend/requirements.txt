@@ -1,0 +1,107 @@
+# ============================================================================
+# Document Utilization System - Python Dependencies (2026-02)
+# ============================================================================
+
+# -- Web Framework --
+fastapi>=0.115.6
+uvicorn[standard]>=0.34.0
+# uvloop>=0.21.0  # Not supported on Windows
+python-multipart>=0.0.18
+websockets>=14.1
+
+# -- Database --
+sqlalchemy[asyncio]>=2.0.37
+asyncpg>=0.30.0
+alembic>=1.14.1
+psycopg[binary]>=3.2.4
+
+# -- Cache & Message Queue --
+redis[hiredis]>=5.2.1
+celery[rabbitmq]>=5.4.0
+flower>=2.0.1
+kombu>=5.4.2
+
+# -- Object Storage --
+minio>=7.2.14
+
+# -- Vector Database --
+qdrant-client>=1.13.2
+
+# -- AI/ML Core --
+numpy<2.0.0  # Xeon E5 서버 x86-64-v2 비호환 → numpy 2.x 사용 불가
+docxtpl>=0.18.0     # DOCX Jinja2 템플릿 렌더링
+Jinja2>=3.1.0       # 템플릿 엔진
+openai>=1.59.0
+anthropic>=0.42.0
+sentence-transformers>=3.4.1
+fastembed>=0.5.1
+transformers>=4.48.0
+torch>=2.5.1
+
+# -- LLM Serving Client --
+sglang[openai]>=0.4.0
+
+# -- Document Processing --
+docling>=2.70.0
+docling-core>=2.21.0
+python-docx>=1.1.2
+python-pptx>=1.0.2
+openpyxl>=3.1.5
+weasyprint>=63.1
+olefile>=0.47
+
+# -- OCR --
+pdf2image>=1.17.0
+pytesseract>=0.3.13
+easyocr>=1.7.2
+surya-ocr>=0.8.0
+
+# -- Security --
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+cryptography>=44.0.0
+bcrypt>=4.2.1
+
+# -- Validation & Settings --
+pydantic>=2.10.4
+pydantic-settings>=2.7.1
+email-validator>=2.2.0
+
+# -- HTTP & Async --
+httpx>=0.28.1
+aiofiles>=24.1.0
+python-dotenv>=1.0.1
+
+# -- Image Processing --
+pillow>=10.3.0,<11.0.0
+
+# -- Chart Generation --
+matplotlib>=3.8.0
+
+# -- RAG Advanced --
+langgraph>=0.2.60
+langchain-core>=0.3.28
+ragas>=0.2.8
+
+# -- Monitoring --
+prometheus-client>=0.21.1
+prometheus-fastapi-instrumentator>=7.0.2
+opentelemetry-api>=1.29.0
+opentelemetry-sdk>=1.29.0
+opentelemetry-instrumentation-fastapi>=0.50b0
+
+# -- Fine-tuning (optional, GPU server only) --
+# unsloth>=2025.3.0
+# peft>=0.14.0
+# trl>=0.13.0
+# bitsandbytes>=0.45.0
+
+# -- Linting --
+ruff>=0.9.0
+
+# -- Testing --
+pytest>=8.3.4
+pytest-asyncio>=0.25.0
+httpx>=0.28.1
+factory-boy>=3.3.1
+aiosqlite>=0.20.0

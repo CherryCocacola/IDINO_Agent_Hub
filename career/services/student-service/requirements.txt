@@ -1,0 +1,25 @@
+# FastAPI and Server
+fastapi==0.115.0
+uvicorn[standard]==0.31.0
+python-multipart==0.0.9
+
+# Database
+sqlalchemy[asyncio]==2.0.35
+asyncpg==0.29.0
+alembic==1.13.2
+
+# Kafka
+aiokafka==0.11.0
+
+# Authentication
+python-jose[cryptography]==3.3.0
+
+# HTTP Client
+httpx==0.27.2
+
+# Validation
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# Utilities
+python-dotenv==1.0.1

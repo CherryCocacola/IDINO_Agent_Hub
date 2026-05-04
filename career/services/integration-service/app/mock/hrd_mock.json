@@ -1,0 +1,131 @@
+{
+  "alumni": [
+    {
+      "alumni_id": "ALU001",
+      "department_id": "CS",
+      "graduation_year": 2023,
+      "is_employed": true,
+      "employment_date": "2023-03-01",
+      "company_name": "네이버",
+      "job_category": "IT/정보통신",
+      "job_title": "소프트웨어 엔지니어",
+      "final_gpa": 3.9,
+      "total_credits": 140,
+      "certifications": ["정보처리기사", "SQLD"],
+      "activities": ["ACM ICPC 참가", "오픈소스 기여", "인턴십"],
+      "final_competency_scores": {
+        "C001": 92,
+        "C002": 85,
+        "C003": 78,
+        "C004": 80
+      }
+    },
+    {
+      "alumni_id": "ALU002",
+      "department_id": "CS",
+      "graduation_year": 2023,
+      "is_employed": true,
+      "employment_date": "2023-04-15",
+      "company_name": "카카오",
+      "job_category": "IT/정보통신",
+      "job_title": "백엔드 개발자",
+      "final_gpa": 3.7,
+      "total_credits": 138,
+      "certifications": ["정보처리기사", "AWS Solutions Architect"],
+      "activities": ["해커톤 우승", "동아리 활동", "인턴십"],
+      "final_competency_scores": {
+        "C001": 88,
+        "C002": 82,
+        "C003": 75,
+        "C004": 83
+      }
+    },
+    {
+      "alumni_id": "ALU003",
+      "department_id": "BA",
+      "graduation_year": 2023,
+      "is_employed": true,
+      "employment_date": "2023-02-20",
+      "company_name": "삼성전자",
+      "job_category": "마케팅/광고",
+      "job_title": "마케팅 기획자",
+      "final_gpa": 3.6,
+      "total_credits": 135,
+      "certifications": ["마케팅관리사", "구글 애널리틱스"],
+      "activities": ["마케팅 공모전 수상", "대외활동", "인턴십"],
+      "final_competency_scores": {
+        "C001": 70,
+        "C002": 78,
+        "C003": 88,
+        "C004": 85
+      }
+    },
+    {
+      "alumni_id": "ALU004",
+      "department_id": "CS",
+      "graduation_year": 2022,
+      "is_employed": true,
+      "employment_date": "2022-06-01",
+      "company_name": "라인",
+      "job_category": "IT/정보통신",
+      "job_title": "데이터 엔지니어",
+      "final_gpa": 4.0,
+      "total_credits": 142,
+      "certifications": ["빅데이터 분석기사", "정보처리기사"],
+      "activities": ["데이터 분석 대회 입상", "연구실 활동", "인턴십"],
+      "final_competency_scores": {
+        "C001": 95,
+        "C002": 88,
+        "C003": 72,
+        "C004": 78
+      }
+    },
+    {
+      "alumni_id": "ALU005",
+      "department_id": "DS",
+      "graduation_year": 2023,
+      "is_employed": true,
+      "employment_date": "2023-03-15",
+      "company_name": "쿠팡",
+      "job_category": "디자인",
+      "job_title": "UX 디자이너",
+      "final_gpa": 3.8,
+      "total_credits": 130,
+      "certifications": ["GTQ 1급", "컬러리스트"],
+      "activities": ["디자인 공모전 수상", "동아리 활동"],
+      "final_competency_scores": {
+        "C001": 65,
+        "C002": 72,
+        "C003": 90,
+        "C004": 92
+      }
+    }
+  ],
+  "statistics": {
+    "CS": {
+      "2023": {
+        "employment_rate": 92.5,
+        "avg_gpa": 3.75,
+        "avg_salary": 48000000,
+        "top_companies": ["네이버", "카카오", "삼성전자", "LG전자", "쿠팡"],
+        "top_certifications": ["정보처리기사", "SQLD", "AWS 자격증"]
+      },
+      "2022": {
+        "employment_rate": 90.2,
+        "avg_gpa": 3.68,
+        "avg_salary": 45000000,
+        "top_companies": ["네이버", "삼성전자", "LG전자", "현대자동차"],
+        "top_certifications": ["정보처리기사", "정보보안기사"]
+      }
+    },
+    "BA": {
+      "2023": {
+        "employment_rate": 85.3,
+        "avg_gpa": 3.55,
+        "avg_salary": 42000000,
+        "top_companies": ["삼성전자", "LG전자", "현대자동차", "SK"],
+        "top_certifications": ["마케팅관리사", "경영지도사"]
+      }
+    }
+  }
+}

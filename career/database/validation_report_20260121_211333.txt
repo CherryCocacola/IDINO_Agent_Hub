@@ -1,0 +1,71 @@
+======================================================================
+IDINO Career 전수 검증 리포트
+======================================================================
+검증 시각: 2026-01-21 21:13:33
+총 테이블: 53개
+총 레코드: 22,797건
+
+[테이블별 검증 결과]
+tb_university                       ✅ PASS (1 rows, 0 issues)
+tb_competency                       ✅ PASS (6 rows, 0 issues)
+tb_skill                            ✅ PASS (15 rows, 0 issues)
+tb_term                             ✅ PASS (12 rows, 0 issues)
+tb_badge                            ✅ PASS (10 rows, 0 issues)
+tb_role                             ✅ PASS (15 rows, 0 issues)
+tb_program                          ✅ PASS (30 rows, 0 issues)
+tb_college                          ✅ PASS (8 rows, 0 issues)
+tb_role_skill_map                   ✅ PASS (60 rows, 0 issues)
+tb_skill_competency_map             ✅ PASS (33 rows, 1 issues)
+  🟢 [Row Count Mismatch] *: 행 수 불일치: 목표 45, 실제 33
+tb_skill_relation                   ✅ PASS (30 rows, 0 issues)
+tb_department                       ✅ PASS (30 rows, 0 issues)
+tb_course                           ✅ PASS (100 rows, 0 issues)
+tb_professor                        ✅ PASS (50 rows, 0 issues)
+tb_advisor                          ✅ PASS (20 rows, 0 issues)
+tb_student                          ✅ PASS (204 rows, 0 issues)
+tb_prerequisite                     ✅ PASS (50 rows, 0 issues)
+tb_prerequisite_rule                ✅ PASS (30 rows, 0 issues)
+tb_course_competency_map            ✅ PASS (262 rows, 0 issues)
+tb_alumni_cohort                    ✅ PASS (150 rows, 0 issues)
+tb_success_pattern                  ✅ PASS (45 rows, 0 issues)
+tb_user                             ✅ PASS (205 rows, 0 issues)
+tb_course_offering                  ✅ PASS (600 rows, 0 issues)
+tb_professor_course                 ✅ PASS (150 rows, 0 issues)
+tb_advisor_assignment               ✅ PASS (200 rows, 0 issues)
+tb_opportunity                      ✅ PASS (50 rows, 0 issues)
+tb_enrollment                       ✅ PASS (4000 rows, 0 issues)
+tb_student_skill                    ✅ PASS (1500 rows, 0 issues)
+tb_student_competency               ✅ PASS (1224 rows, 0 issues)
+tb_student_badge                    ✅ PASS (600 rows, 0 issues)
+tb_skill_passport                   ✅ PASS (204 rows, 0 issues)
+tb_coaching_goal                    ✅ PASS (300 rows, 0 issues)
+tb_activity                         ✅ PASS (400 rows, 0 issues)
+tb_achievement                      ✅ PASS (300 rows, 0 issues)
+tb_risk_alert                       ✅ PASS (100 rows, 0 issues)
+tb_simulation_scenario              ✅ PASS (200 rows, 0 issues)
+tb_recommendation_run               ✅ PASS (200 rows, 0 issues)
+tb_opportunity_recommendation       ✅ PASS (400 rows, 0 issues)
+tb_opportunity_application          ✅ PASS (300 rows, 0 issues)
+tb_user_session                     ✅ PASS (500 rows, 0 issues)
+tb_cohort_snapshot                  ✅ PASS (500 rows, 0 issues)
+tb_advisor_intervention             ✅ PASS (100 rows, 0 issues)
+tb_advisor_note                     ✅ PASS (300 rows, 0 issues)
+tb_grade                            ✅ PASS (4000 rows, 0 issues)
+tb_grade_summary                    ✅ PASS (1290 rows, 0 issues)
+tb_cumulative_summary               ✅ PASS (204 rows, 0 issues)
+tb_coaching_plan                    ✅ PASS (909 rows, 1 issues)
+  🟢 [Row Count Mismatch] *: 행 수 불일치: 목표 300, 실제 909
+tb_coaching_checkin                 ✅ PASS (600 rows, 0 issues)
+tb_coaching_retrospective           ✅ PASS (150 rows, 0 issues)
+tb_recommendation_item              ✅ PASS (500 rows, 0 issues)
+tb_eval_feedback                    ✅ PASS (500 rows, 0 issues)
+tb_scenario_comparison              ✅ PASS (150 rows, 0 issues)
+tb_skill_gap_analysis               ✅ PASS (1000 rows, 0 issues)
+
+[요약]
+통과: 53/53 테이블
+실패: 0/53 테이블
+총 이슈: 2개
+
+[이슈 유형별 통계]
+  Row Count Mismatch: 2건

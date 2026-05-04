@@ -1,0 +1,344 @@
+{
+  "info": {
+    "_postman_id": "aiagentmgmt-agent-api-v1",
+    "name": "AIAgentManagement - Agent API",
+    "description": "외부 시스템에서 Agent를 호출하기 위한 API 컬렉션.\n\n## 인증\n모든 요청에 `X-API-Key` 헤더가 필요합니다.\n\n```\nX-API-Key: ak-YOUR_API_KEY\n```\n\n또는\n```\nAuthorization: Bearer ak-YOUR_API_KEY\n```\n\n## API 키 발급\n관리자 페이지 → API 키 관리 → Agent API 키 탭에서 발급하세요.\n\n## 스코프 (Scope)\n- `chat`: 채팅 요청 권한\n- `stream`: SSE 스트리밍 채팅 권한\n- `info`: Agent 정보 조회 권한\n- `usage`: 사용량 통계 조회 권한",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://your-domain.com",
+      "description": "API 서버 기본 URL (예: https://agenthub.idino.co.kr)"
+    },
+    {
+      "key": "apiKey",
+      "value": "ak-YOUR_API_KEY_HERE",
+      "description": "발급된 Agent API 키"
+    },
+    {
+      "key": "agentId",
+      "value": "1",
+      "description": "대상 Agent ID"
+    }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-API-Key", "type": "string" },
+      { "key": "value", "value": "{{apiKey}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "💬 채팅",
+      "item": [
+        {
+          "name": "채팅 - 기본 메시지 전송",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"안녕하세요! 오늘 날씨가 어떤가요?\",\n  \"language\": \"ko\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/{{agentId}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "{{agentId}}", "chat"]
+            },
+            "description": "Agent에게 메시지를 전송하고 응답을 받습니다.\n\n**필요 Scope:** `chat` 또는 스코프 없음\n\n**요청 필드:**\n- `message` (필수): 전송할 메시지\n- `language` (선택): 응답 언어 (auto, ko, en 등)\n- `model` (선택): 사용할 AI 모델 (기본값: Agent 설정)\n- `maxTokens` (선택): 최대 토큰 수\n- `temperature` (선택): 창의성 0.0-1.0\n- `enableRag` (선택): RAG 사용 여부\n- `conversationId` (선택): 기존 대화 ID"
+          },
+          "response": [
+            {
+              "name": "성공 응답",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "X-API-Key", "value": "ak-example" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\"message\": \"안녕하세요\"}" },
+                "url": { "raw": "{{baseUrl}}/api/agents/1/chat" }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"messageId\": 1234,\n  \"conversationId\": 567,\n  \"content\": \"안녕하세요! 무엇을 도와드릴까요?\",\n  \"model\": \"gpt-4o\",\n  \"tokensUsed\": 150,\n  \"cost\": 0.003,\n  \"responseTime\": 1234,\n  \"citations\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "채팅 - 대화 계속 (conversationId 포함)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"방금 말씀하신 내용을 더 자세히 설명해주세요.\",\n  \"conversationId\": 567,\n  \"language\": \"ko\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/{{agentId}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "{{agentId}}", "chat"]
+            },
+            "description": "이전 대화(conversationId)를 이어서 메시지를 전송합니다."
+          },
+          "response": []
+        },
+        {
+          "name": "채팅 - RAG 활성화",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"우리 회사 휴가 정책이 어떻게 되나요?\",\n  \"enableRag\": true,\n  \"ragTopK\": 5,\n  \"language\": \"ko\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/{{agentId}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "{{agentId}}", "chat"]
+            },
+            "description": "Agent의 지식베이스(RAG)를 활성화하여 문서 기반으로 답변합니다."
+          },
+          "response": []
+        },
+        {
+          "name": "채팅 - Agent Code로 호출",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"안녕하세요\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/code/AGENT_CODE/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "code", "AGENT_CODE", "chat"]
+            },
+            "description": "Agent ID 대신 Agent Code(영문 고유값)를 사용하여 호출합니다.\n\nAgent Code는 Agent 설정에서 확인할 수 있습니다."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📡 스트리밍 (SSE)",
+      "item": [
+        {
+          "name": "스트리밍 채팅 - SSE",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" },
+              { "key": "Accept", "value": "text/event-stream" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"인공지능에 대해 자세히 설명해주세요.\",\n  \"language\": \"ko\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/{{agentId}}/chat/stream",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "{{agentId}}", "chat", "stream"]
+            },
+            "description": "SSE(Server-Sent Events)로 실시간 스트리밍 응답을 받습니다.\n\n**필요 Scope:** `stream`\n\n**응답 형식:**\n```\nevent: start\ndata: {\"agentId\": 1, \"agentName\": \"AI 어시스턴트\"}\n\nevent: chunk\ndata: {\"content\": \"인공\"}\n\nevent: chunk\ndata: {\"content\": \"지능은 \"}\n\nevent: done\ndata: {\"messageId\": 123, \"conversationId\": 456, \"totalTokens\": 300}\n```\n\n**클라이언트 예시 (JavaScript):**\n```javascript\nconst response = await fetch('/api/agents/1/chat/stream', {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n    'X-API-Key': 'ak-YOUR_KEY'\n  },\n  body: JSON.stringify({ message: '안녕하세요' })\n});\n\nconst reader = response.body.getReader();\nconst decoder = new TextDecoder();\n\nwhile (true) {\n  const { done, value } = await reader.read();\n  if (done) break;\n  console.log(decoder.decode(value));\n}\n```"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "ℹ️ Agent 정보",
+      "item": [
+        {
+          "name": "Agent 정보 조회",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/{{agentId}}/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "{{agentId}}", "info"]
+            },
+            "description": "Agent의 공개 메타데이터를 조회합니다. 시스템 프롬프트는 반환하지 않습니다.\n\n**필요 Scope:** `info`"
+          },
+          "response": [
+            {
+              "name": "성공 응답",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"agentId\": 1,\n  \"agentName\": \"고객지원 AI\",\n  \"agentCode\": \"customer-support\",\n  \"description\": \"고객 문의를 처리하는 AI 에이전트\",\n  \"isPublic\": true,\n  \"defaultModel\": \"gpt-4o\",\n  \"enableRag\": true,\n  \"capabilities\": [\"chat\", \"stream\", \"rag\"]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📊 사용량 통계",
+      "item": [
+        {
+          "name": "API 키 사용량 조회",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/{{agentId}}/usage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "{{agentId}}", "usage"]
+            },
+            "description": "현재 API 키의 사용량 및 Rate Limit 현황을 조회합니다.\n\n**필요 Scope:** `usage`"
+          },
+          "response": [
+            {
+              "name": "성공 응답",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"agentId\": 1,\n  \"apiKeyId\": 42,\n  \"keyName\": \"프로덕션 키\",\n  \"totalRequests\": 1523,\n  \"lastUsedAt\": \"2026-02-27T10:30:00Z\",\n  \"rateLimitPerMinute\": 30,\n  \"rateLimitPerDay\": 1000,\n  \"scopes\": \"chat,stream\",\n  \"expiresAt\": null\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔑 오류 코드 예시",
+      "item": [
+        {
+          "name": "[예시] 401 - API 키 없음",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"테스트\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/{{agentId}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "{{agentId}}", "chat"]
+            },
+            "description": "X-API-Key 헤더 없이 요청하면 401 반환"
+          },
+          "response": [
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"API Key is required\",\n  \"hint\": \"X-API-Key 헤더 또는 Authorization: Bearer <key> 헤더를 포함해주세요.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "[예시] 403 - IP 차단",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "ak-VALID_KEY_BUT_WRONG_IP" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"message\": \"테스트\"}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/agents/{{agentId}}/chat" },
+            "description": "허용되지 않은 IP에서 요청 시 403 반환"
+          },
+          "response": [
+            {
+              "name": "403 IP 차단",
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Access denied: IP address not whitelisted\",\n  \"clientIp\": \"203.0.113.100\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "[예시] 403 - 스코프 부족",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-API-Key", "value": "ak-KEY_WITH_ONLY_CHAT_SCOPE" }],
+            "url": { "raw": "{{baseUrl}}/api/agents/{{agentId}}/info" },
+            "description": "info 스코프가 없는 키로 /info 엔드포인트 호출 시 403 반환"
+          },
+          "response": [
+            {
+              "name": "403 스코프 부족",
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Insufficient scope. Required: 'info'\",\n  \"yourScopes\": \"chat,stream\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "[예시] 429 - Rate Limit 초과",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"message\": \"테스트\"}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/agents/{{agentId}}/chat" },
+            "description": "Rate Limit 초과 시 429 + Retry-After 헤더 반환"
+          },
+          "response": [
+            {
+              "name": "429 Too Many Requests",
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Retry-After", "value": "60" }],
+              "body": "{\n  \"message\": \"Rate limit exceeded (minute)\",\n  \"retryAfterSeconds\": 60\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// 환경변수 확인",
+          "if (!pm.variables.get('apiKey') || pm.variables.get('apiKey') === 'ak-YOUR_API_KEY_HERE') {",
+          "  console.warn('⚠️  apiKey 변수를 설정해주세요. API 키 관리 페이지에서 발급 후 Collection Variables에 입력하세요.');",
+          "}"
+        ]
+      }
+    }
+  ]
+}

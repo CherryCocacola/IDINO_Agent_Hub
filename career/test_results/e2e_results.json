@@ -1,0 +1,786 @@
+{
+  "2020010000": [
+    {
+      "path": "/",
+      "name": "Dashboard",
+      "student_id": "2020010000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/skills",
+      "name": "Skills Management",
+      "student_id": "2020010000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/coaching",
+      "name": "AI Coaching",
+      "student_id": "2020010000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/risks",
+      "name": "Risk Alerts",
+      "student_id": "2020010000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/opportunities",
+      "name": "Opportunities",
+      "student_id": "2020010000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/sprint",
+      "name": "Sprint",
+      "student_id": "2020010000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/simulation",
+      "name": "Simulation",
+      "student_id": "2020010000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/passport",
+      "name": "Skill Passport",
+      "student_id": "2020010000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/portfolio",
+      "name": "Portfolio",
+      "student_id": "2020010000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/roadmap-planner",
+      "name": "Roadmap Planner",
+      "student_id": "2020010000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    }
+  ],
+  "2020010020": [
+    {
+      "path": "/",
+      "name": "Dashboard",
+      "student_id": "2020010020",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/skills",
+      "name": "Skills Management",
+      "student_id": "2020010020",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/coaching",
+      "name": "AI Coaching",
+      "student_id": "2020010020",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/risks",
+      "name": "Risk Alerts",
+      "student_id": "2020010020",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/opportunities",
+      "name": "Opportunities",
+      "student_id": "2020010020",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/sprint",
+      "name": "Sprint",
+      "student_id": "2020010020",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/simulation",
+      "name": "Simulation",
+      "student_id": "2020010020",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/passport",
+      "name": "Skill Passport",
+      "student_id": "2020010020",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/portfolio",
+      "name": "Portfolio",
+      "student_id": "2020010020",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/roadmap-planner",
+      "name": "Roadmap Planner",
+      "student_id": "2020010020",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    }
+  ],
+  "2020020025": [
+    {
+      "path": "/",
+      "name": "Dashboard",
+      "student_id": "2020020025",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/skills",
+      "name": "Skills Management",
+      "student_id": "2020020025",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/coaching",
+      "name": "AI Coaching",
+      "student_id": "2020020025",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/risks",
+      "name": "Risk Alerts",
+      "student_id": "2020020025",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/opportunities",
+      "name": "Opportunities",
+      "student_id": "2020020025",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/sprint",
+      "name": "Sprint",
+      "student_id": "2020020025",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/simulation",
+      "name": "Simulation",
+      "student_id": "2020020025",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/passport",
+      "name": "Skill Passport",
+      "student_id": "2020020025",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/portfolio",
+      "name": "Portfolio",
+      "student_id": "2020020025",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/roadmap-planner",
+      "name": "Roadmap Planner",
+      "student_id": "2020020025",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    }
+  ],
+  "2020020045": [
+    {
+      "path": "/",
+      "name": "Dashboard",
+      "student_id": "2020020045",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/skills",
+      "name": "Skills Management",
+      "student_id": "2020020045",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/coaching",
+      "name": "AI Coaching",
+      "student_id": "2020020045",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/risks",
+      "name": "Risk Alerts",
+      "student_id": "2020020045",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/opportunities",
+      "name": "Opportunities",
+      "student_id": "2020020045",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/sprint",
+      "name": "Sprint",
+      "student_id": "2020020045",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/simulation",
+      "name": "Simulation",
+      "student_id": "2020020045",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/passport",
+      "name": "Skill Passport",
+      "student_id": "2020020045",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/portfolio",
+      "name": "Portfolio",
+      "student_id": "2020020045",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/roadmap-planner",
+      "name": "Roadmap Planner",
+      "student_id": "2020020045",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    }
+  ],
+  "2020030050": [
+    {
+      "path": "/",
+      "name": "Dashboard",
+      "student_id": "2020030050",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/skills",
+      "name": "Skills Management",
+      "student_id": "2020030050",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/coaching",
+      "name": "AI Coaching",
+      "student_id": "2020030050",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/risks",
+      "name": "Risk Alerts",
+      "student_id": "2020030050",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/opportunities",
+      "name": "Opportunities",
+      "student_id": "2020030050",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/sprint",
+      "name": "Sprint",
+      "student_id": "2020030050",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/simulation",
+      "name": "Simulation",
+      "student_id": "2020030050",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/passport",
+      "name": "Skill Passport",
+      "student_id": "2020030050",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/portfolio",
+      "name": "Portfolio",
+      "student_id": "2020030050",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/roadmap-planner",
+      "name": "Roadmap Planner",
+      "student_id": "2020030050",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    }
+  ],
+  "2020040075": [
+    {
+      "path": "/",
+      "name": "Dashboard",
+      "student_id": "2020040075",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/skills",
+      "name": "Skills Management",
+      "student_id": "2020040075",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/coaching",
+      "name": "AI Coaching",
+      "student_id": "2020040075",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/risks",
+      "name": "Risk Alerts",
+      "student_id": "2020040075",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/opportunities",
+      "name": "Opportunities",
+      "student_id": "2020040075",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/sprint",
+      "name": "Sprint",
+      "student_id": "2020040075",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/simulation",
+      "name": "Simulation",
+      "student_id": "2020040075",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/passport",
+      "name": "Skill Passport",
+      "student_id": "2020040075",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/portfolio",
+      "name": "Portfolio",
+      "student_id": "2020040075",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/roadmap-planner",
+      "name": "Roadmap Planner",
+      "student_id": "2020040075",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    }
+  ],
+  "2020050000": [
+    {
+      "path": "/",
+      "name": "Dashboard",
+      "student_id": "2020050000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/skills",
+      "name": "Skills Management",
+      "student_id": "2020050000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/coaching",
+      "name": "AI Coaching",
+      "student_id": "2020050000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/risks",
+      "name": "Risk Alerts",
+      "student_id": "2020050000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/opportunities",
+      "name": "Opportunities",
+      "student_id": "2020050000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/sprint",
+      "name": "Sprint",
+      "student_id": "2020050000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/simulation",
+      "name": "Simulation",
+      "student_id": "2020050000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/passport",
+      "name": "Skill Passport",
+      "student_id": "2020050000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/portfolio",
+      "name": "Portfolio",
+      "student_id": "2020050000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    },
+    {
+      "path": "/roadmap-planner",
+      "name": "Roadmap Planner",
+      "student_id": "2020050000",
+      "success": true,
+      "has_data": true,
+      "error": null,
+      "console_errors": [],
+      "has_loading": false,
+      "has_error": true
+    }
+  ]
+}

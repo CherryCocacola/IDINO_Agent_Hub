@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 통합관리시스템 - 이미지 생성</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="assets/css/common.css" rel="stylesheet">
+  <link href="assets/css/image-create.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- ===================== SIDEBAR ===================== -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon"><i class="fas fa-brain"></i></div>
+    <div class="sidebar-brand-text">
+      <span class="brand-title">AI Manager</span>
+      <span class="brand-sub">통합관리시스템</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">메인</div>
+    <a href="index.html"        class="nav-item"><i class="fas fa-th-large"></i><span>대시보드</span></a>
+    <a href="chat.html"         class="nav-item"><i class="fas fa-comments"></i><span>AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="chat-detail.html"  class="nav-item"><i class="fas fa-comment-dots"></i><span>채팅 상세</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="multi-chat.html"   class="nav-item"><i class="fas fa-layer-group"></i><span>멀티 AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="agents.html"       class="nav-item"><i class="fas fa-robot"></i><span>AI Agents</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="image-gen.html"    class="nav-item"><i class="fas fa-image"></i><span>이미지 생성기</span></a>
+    <a href="image-create.html" class="nav-item active"><i class="fas fa-wand-magic-sparkles"></i><span>이미지 생성</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="models.html"       class="nav-item"><i class="fas fa-microchip"></i><span>AI 모델 관리</span><span class="nav-badge">12</span></a>
+    <a href="monitoring.html"   class="nav-item"><i class="fas fa-chart-line"></i><span>모니터링</span></a>
+    <a href="pipelines.html"    class="nav-item"><i class="fas fa-code-branch"></i><span>파이프라인</span></a>
+    <div class="nav-section-label">관리</div>
+    <a href="apikeys.html"      class="nav-item"><i class="fas fa-key"></i><span>API 키 관리</span></a>
+    <a href="users.html"        class="nav-item"><i class="fas fa-users"></i><span>사용자 관리</span></a>
+    <a href="logs.html"         class="nav-item"><i class="fas fa-file-alt"></i><span>로그 &amp; 감사</span></a>
+    <a href="billing.html"      class="nav-item"><i class="fas fa-credit-card"></i><span>비용 관리</span></a>
+    <div class="nav-section-label">시스템</div>
+    <a href="settings.html"     class="nav-item"><i class="fas fa-cog"></i><span>설정</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="system-status"><span class="status-dot status-ok"></span><span>시스템 정상 운영 중</span></div>
+  </div>
+</div>
+
+<!-- ===================== MAIN WRAPPER ===================== -->
+<div class="main-wrapper" id="mainWrapper">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+      <div class="breadcrumb-area">
+        <span class="page-title">이미지 생성</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn" title="알림"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-info">
+          <span class="user-name">관리자</span>
+          <span class="user-role">Super Admin</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== PAGE CONTENT ===================== -->
+  <div class="page-content ic-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-heading">이미지 생성</h1>
+        <p class="page-desc">AI로 이미지를 생성합니다. 서비스와 모델을 선택한 뒤 프롬프트를 입력하세요.</p>
+      </div>
+    </div>
+
+    <div class="row g-4">
+
+      <!-- ── LEFT: Settings Panel ── -->
+      <div class="col-lg-4">
+        <div class="card ic-card ic-settings-card">
+          <div class="card-header ic-card-header">
+            <div>
+              <h5 class="card-title mb-0">생성 설정</h5>
+              <p class="card-subtitle mb-0 mt-1">서비스·모델·크기 선택</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <form id="icForm" novalidate>
+
+              <!-- Service -->
+              <div class="mb-3">
+                <label class="form-label ic-label">
+                  이미지 생성 서비스 <span class="text-danger">*</span>
+                </label>
+                <select class="form-select ic-select" id="icService" required>
+                  <option value="">서비스를 선택하세요</option>
+                  <option value="dalle">DALL-E 3</option>
+                  <option value="gemini-img">Gemini 3 Pro Image</option>
+                  <option value="imagen4">Imagen 4</option>
+                  <option value="gen4-img">Gen4 Image</option>
+                  <option value="flux2">Flux 2</option>
+                </select>
+              </div>
+
+              <!-- Model -->
+              <div class="mb-3">
+                <label class="form-label ic-label">모델</label>
+                <select class="form-select ic-select" id="icModel">
+                  <option value="">기본 모델 사용</option>
+                </select>
+                <small class="text-muted mt-1 d-block">기본 모델을 사용하려면 비워두세요</small>
+              </div>
+
+              <!-- Prompt -->
+              <div class="mb-3">
+                <label class="form-label ic-label">
+                  프롬프트 <span class="text-danger">*</span>
+                </label>
+                <textarea
+                  class="form-control ic-textarea"
+                  id="icPrompt"
+                  rows="5"
+                  placeholder="생성하고 싶은 이미지를 설명해주세요...&#10;&#10;예) 석양이 지는 해변가에 서 있는 고독한 등대, 수채화 스타일"
+                  required
+                ></textarea>
+                <div class="ic-char-row">
+                  <span id="icCharCount">0</span> / 1000
+                </div>
+              </div>
+
+              <!-- Image Size -->
+              <div class="mb-3">
+                <label class="form-label ic-label">이미지 크기</label>
+                <div class="ic-size-grid" id="icSizeGrid">
+                  <button type="button" class="ic-size-btn active" data-val="1024x1024">
+                    <i class="fas fa-square"></i>
+                    <span>1024×1024</span>
+                    <small>정사각형</small>
+                  </button>
+                  <button type="button" class="ic-size-btn" data-val="1792x1024">
+                    <i class="fas fa-panorama"></i>
+                    <span>1792×1024</span>
+                    <small>가로</small>
+                  </button>
+                  <button type="button" class="ic-size-btn" data-val="1024x1792">
+                    <i class="fas fa-mobile-screen"></i>
+                    <span>1024×1792</span>
+                    <small>세로</small>
+                  </button>
+                  <button type="button" class="ic-size-btn" data-val="512x512">
+                    <i class="fas fa-compress"></i>
+                    <span>512×512</span>
+                    <small>소형</small>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Quality -->
+              <div class="mb-3">
+                <label class="form-label ic-label">품질</label>
+                <select class="form-select ic-select" id="icQuality">
+                  <option value="standard">Standard</option>
+                  <option value="hd">HD (고화질)</option>
+                </select>
+              </div>
+
+              <!-- Count -->
+              <div class="mb-3">
+                <label class="form-label ic-label">생성 개수</label>
+                <div class="ic-count-row">
+                  <button type="button" class="ic-count-btn" id="icCountDown"><i class="fas fa-minus"></i></button>
+                  <input type="number" class="form-control ic-count-input" id="icCount" min="1" max="10" value="1">
+                  <button type="button" class="ic-count-btn" id="icCountUp"><i class="fas fa-plus"></i></button>
+                </div>
+                <small class="text-muted mt-1 d-block">일부 서비스는 1개만 지원합니다</small>
+              </div>
+
+              <!-- Cost estimate -->
+              <div class="ic-cost-box mb-3">
+                <div class="ic-cost-row">
+                  <div class="ic-cost-icon"><i class="fas fa-dollar-sign"></i></div>
+                  <span class="ic-cost-label">예상 크레딧:</span>
+                  <span class="ic-cost-val" id="icCostVal">$0.0000</span>
+                </div>
+              </div>
+
+              <!-- Submit -->
+              <button type="submit" class="btn btn-primary w-100 ic-submit-btn" id="icSubmitBtn">
+                <i class="fas fa-wand-magic-sparkles me-2"></i>
+                <span id="icSubmitText">이미지 생성</span>
+              </button>
+
+            </form>
+          </div>
+        </div>
+      </div><!-- /col settings -->
+
+      <!-- ── RIGHT: Results Panel ── -->
+      <div class="col-lg-8">
+        <div class="card ic-card">
+          <div class="card-header ic-card-header ic-result-header">
+            <h5 class="mb-0">생성 결과</h5>
+            <button class="btn btn-sm btn-outline-primary ic-download-all-btn" id="icDownloadAll" style="display:none;">
+              <i class="fas fa-download me-1"></i> 모두 다운로드
+            </button>
+          </div>
+          <div class="card-body ic-result-body" id="icResultBody">
+
+            <!-- Empty state -->
+            <div class="ic-empty-state" id="icEmptyState">
+              <div class="ic-empty-icon">
+                <i class="fas fa-image"></i>
+              </div>
+              <h6 class="ic-empty-title">아직 생성된 이미지가 없습니다</h6>
+              <p class="ic-empty-desc">왼쪽에서 서비스와 프롬프트를 설정하고<br>이미지 생성 버튼을 눌러보세요.</p>
+            </div>
+
+            <!-- Loading state (hidden) -->
+            <div class="ic-loading-state" id="icLoadingState" style="display:none;">
+              <div class="ic-loading-spinner">
+                <div class="ic-spinner-ring"></div>
+                <div class="ic-spinner-ring ic-ring2"></div>
+                <div class="ic-spinner-ring ic-ring3"></div>
+              </div>
+              <p class="ic-loading-text" id="icLoadingText">이미지를 생성하는 중입니다...</p>
+              <div class="ic-loading-bar-wrap">
+                <div class="ic-loading-bar" id="icLoadingBar"></div>
+              </div>
+              <small class="ic-loading-hint">AI가 프롬프트를 분석하고 이미지를 그리고 있어요</small>
+            </div>
+
+            <!-- Image results grid (hidden) -->
+            <div id="icResultGrid" style="display:none;">
+              <div class="row g-3" id="icImageGrid">
+                <!-- Image cards injected by JS -->
+              </div>
+
+              <!-- Generation info -->
+              <div class="ic-gen-info" id="icGenInfo">
+                <!-- Injected by JS -->
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div><!-- /col results -->
+
+    </div><!-- /row -->
+  </div><!-- /page-content -->
+</div><!-- /main-wrapper -->
+
+<!-- ===================== LIGHTBOX ===================== -->
+<div class="ic-lightbox" id="icLightbox">
+  <div class="ic-lb-backdrop" id="icLbBackdrop"></div>
+  <div class="ic-lb-box">
+    <button class="ic-lb-close" id="icLbClose"><i class="fas fa-xmark"></i></button>
+    <button class="ic-lb-nav ic-lb-prev" id="icLbPrev"><i class="fas fa-chevron-left"></i></button>
+    <button class="ic-lb-nav ic-lb-next" id="icLbNext"><i class="fas fa-chevron-right"></i></button>
+    <div class="ic-lb-img-wrap">
+      <img class="ic-lb-img" id="icLbImg" src="" alt="">
+    </div>
+    <div class="ic-lb-footer">
+      <span id="icLbLabel"></span>
+      <button class="ic-lb-download" id="icLbDownload">
+        <i class="fas fa-download me-1"></i> 다운로드
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="ic-toast" id="icToast">
+  <i class="fas fa-check-circle"></i>
+  <span id="icToastText">완료</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/image-create.js"></script>
+</body>
+</html>

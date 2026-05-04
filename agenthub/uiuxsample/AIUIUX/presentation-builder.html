@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 통합관리시스템 - 프레젠테이션 생성</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="assets/css/common.css" rel="stylesheet">
+  <link href="assets/css/presentation-builder.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- ===================== SIDEBAR ===================== -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon"><i class="fas fa-brain"></i></div>
+    <div class="sidebar-brand-text">
+      <span class="brand-title">AI Manager</span>
+      <span class="brand-sub">통합관리시스템</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">메인</div>
+    <a href="index.html"                 class="nav-item"><i class="fas fa-th-large"></i><span>대시보드</span></a>
+    <a href="chat.html"                  class="nav-item"><i class="fas fa-comments"></i><span>AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="chat-detail.html"           class="nav-item"><i class="fas fa-comment-dots"></i><span>채팅 상세</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="multi-chat.html"            class="nav-item"><i class="fas fa-layer-group"></i><span>멀티 AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="agents.html"                class="nav-item"><i class="fas fa-robot"></i><span>AI Agents</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="image-gen.html"             class="nav-item"><i class="fas fa-image"></i><span>이미지 생성기</span></a>
+    <a href="image-create.html"          class="nav-item"><i class="fas fa-wand-magic-sparkles"></i><span>이미지 생성</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="presentation-builder.html"  class="nav-item active"><i class="fas fa-file-powerpoint"></i><span>프레젠테이션</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="quick-image.html"           class="nav-item"><i class="fas fa-bolt"></i><span>간편 이미지</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="models.html"                class="nav-item"><i class="fas fa-microchip"></i><span>AI 모델 관리</span><span class="nav-badge">12</span></a>
+    <a href="monitoring.html"            class="nav-item"><i class="fas fa-chart-line"></i><span>모니터링</span></a>
+    <a href="pipelines.html"             class="nav-item"><i class="fas fa-code-branch"></i><span>파이프라인</span></a>
+    <div class="nav-section-label">관리</div>
+    <a href="apikeys.html"               class="nav-item"><i class="fas fa-key"></i><span>API 키 관리</span></a>
+    <a href="users.html"                 class="nav-item"><i class="fas fa-users"></i><span>사용자 관리</span></a>
+    <a href="logs.html"                  class="nav-item"><i class="fas fa-file-alt"></i><span>로그 &amp; 감사</span></a>
+    <a href="billing.html"               class="nav-item"><i class="fas fa-credit-card"></i><span>비용 관리</span></a>
+    <div class="nav-section-label">시스템</div>
+    <a href="settings.html"              class="nav-item"><i class="fas fa-cog"></i><span>설정</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="system-status"><span class="status-dot status-ok"></span><span>시스템 정상 운영 중</span></div>
+  </div>
+</div>
+
+<!-- ===================== MAIN WRAPPER ===================== -->
+<div class="main-wrapper" id="mainWrapper">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+      <div class="breadcrumb-area">
+        <span class="page-title">프레젠테이션 생성</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn" title="알림"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-info">
+          <span class="user-name">관리자</span>
+          <span class="user-role">Super Admin</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== PAGE CONTENT ===================== -->
+  <div class="page-content pb-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-heading">프레젠테이션 생성</h1>
+        <p class="page-desc">AI로 슬라이드를 생성하거나 기존 프레젠테이션을 편집·내보내기 합니다.</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-primary" id="btnOpenCreate">
+          <i class="fas fa-wand-magic-sparkles me-2"></i>AI로 생성하기
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Main Area: empty / loading / result ── -->
+    <div id="pbMainArea">
+
+      <!-- Empty State -->
+      <div class="pb-empty-state" id="pbEmptyState">
+        <div class="pb-empty-icon">
+          <i class="fas fa-file-powerpoint"></i>
+        </div>
+        <h5 class="pb-empty-title">새 프레젠테이션을 생성하거나<br>기존 프레젠테이션을 불러오세요</h5>
+        <p class="pb-empty-desc">AI가 주제를 분석하고 슬라이드 구성부터 내용까지 자동으로 만들어 드립니다.</p>
+        <div class="pb-empty-actions">
+          <button class="btn btn-primary btn-lg" id="btnOpenCreate2">
+            <i class="fas fa-wand-magic-sparkles me-2"></i>AI로 생성하기
+          </button>
+          <button class="btn btn-outline-secondary btn-lg" id="btnImportFile">
+            <i class="fas fa-upload me-2"></i>파일 불러오기
+          </button>
+        </div>
+        <input type="file" id="pbFileInput" style="display:none;" accept=".pptx,.ppt,.pdf">
+
+        <!-- Feature chips -->
+        <div class="pb-feature-chips">
+          <span class="pb-chip"><i class="fas fa-bolt"></i> 빠른 생성</span>
+          <span class="pb-chip"><i class="fas fa-palette"></i> 다양한 테마</span>
+          <span class="pb-chip"><i class="fas fa-image"></i> AI 이미지 삽입</span>
+          <span class="pb-chip"><i class="fas fa-download"></i> PPTX 내보내기</span>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div class="pb-loading-state" id="pbLoadingState" style="display:none;">
+        <div class="pb-loading-inner">
+          <div class="pb-loading-icon">
+            <div class="pb-ring"></div>
+            <div class="pb-ring pb-ring2"></div>
+            <div class="pb-ring pb-ring3"></div>
+            <i class="fas fa-file-powerpoint pb-ring-icon"></i>
+          </div>
+          <h5 class="pb-loading-title" id="pbLoadingTitle">프레젠테이션을 생성하는 중입니다...</h5>
+          <p class="pb-loading-sub" id="pbLoadingSub">AI가 주제를 분석하고 있어요</p>
+          <div class="pb-loading-steps" id="pbLoadingSteps">
+            <div class="pb-step" id="pbStep1"><i class="fas fa-spinner fa-spin"></i> 주제 분석 중...</div>
+            <div class="pb-step" id="pbStep2"><i class="fas fa-circle"></i> 슬라이드 구성 설계</div>
+            <div class="pb-step" id="pbStep3"><i class="fas fa-circle"></i> 콘텐츠 작성</div>
+            <div class="pb-step" id="pbStep4"><i class="fas fa-circle"></i> 디자인 적용</div>
+          </div>
+          <div class="pb-progress-wrap">
+            <div class="pb-progress-bar" id="pbProgressBar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Result Area -->
+      <div id="pbResultArea" style="display:none;">
+
+        <!-- Result Topbar -->
+        <div class="pb-result-toolbar">
+          <div class="pb-result-meta">
+            <div class="pb-result-icon"><i class="fas fa-file-powerpoint"></i></div>
+            <div>
+              <div class="pb-result-title" id="pbResultTitle">프레젠테이션 제목</div>
+              <div class="pb-result-info" id="pbResultInfo">슬라이드 5개 · ChatGPT</div>
+            </div>
+          </div>
+          <div class="pb-result-actions">
+            <button class="btn btn-sm btn-outline-secondary" id="btnEditResult">
+              <i class="fas fa-pen me-1"></i>편집
+            </button>
+            <button class="btn btn-sm btn-outline-primary" id="btnExportPptx">
+              <i class="fas fa-download me-1"></i>PPTX 내보내기
+            </button>
+            <button class="btn btn-sm btn-outline-success" id="btnExportPdf">
+              <i class="fas fa-file-pdf me-1"></i>PDF
+            </button>
+            <button class="btn btn-sm btn-primary" id="btnNewPres">
+              <i class="fas fa-plus me-1"></i>새로 만들기
+            </button>
+          </div>
+        </div>
+
+        <!-- Slide Preview Grid -->
+        <div class="pb-slide-grid" id="pbSlideGrid">
+          <!-- Injected by JS -->
+        </div>
+
+        <!-- Generation info -->
+        <div class="pb-gen-info" id="pbGenInfo"></div>
+
+      </div><!-- /#pbResultArea -->
+
+    </div><!-- /#pbMainArea -->
+  </div><!-- /.page-content -->
+</div><!-- /.main-wrapper -->
+
+
+<!-- ===================== CREATE MODAL ===================== -->
+<div class="pb-modal-overlay" id="modalCreate">
+  <div class="pb-modal pb-modal-lg">
+
+    <div class="pb-modal-header">
+      <div class="pb-modal-title-wrap">
+        <div class="pb-modal-icon"><i class="fas fa-wand-magic-sparkles"></i></div>
+        <div>
+          <h4>AI로 프레젠테이션 생성</h4>
+          <p>주제와 설정을 입력하면 AI가 슬라이드를 만들어 드립니다</p>
+        </div>
+      </div>
+      <button class="pb-modal-close" id="btnCloseCreate"><i class="fas fa-xmark"></i></button>
+    </div>
+
+    <div class="pb-modal-body">
+      <form id="pbCreateForm" novalidate>
+
+        <!-- 생성 방식 -->
+        <div class="pb-form-field">
+          <label class="pb-form-label">생성 방식</label>
+          <div class="pb-method-grid" id="pbMethodGrid">
+            <button type="button" class="pb-method-btn active" data-method="topic">
+              <i class="fas fa-lightbulb"></i>
+              <strong>주제로 생성</strong>
+              <small>키워드나 주제를 입력</small>
+            </button>
+            <button type="button" class="pb-method-btn" data-method="paste">
+              <i class="fas fa-paste"></i>
+              <strong>텍스트 붙여넣기</strong>
+              <small>기존 내용을 슬라이드로</small>
+            </button>
+            <button type="button" class="pb-method-btn" data-method="import">
+              <i class="fas fa-link"></i>
+              <strong>URL에서 가져오기</strong>
+              <small>웹 페이지 내용 활용</small>
+            </button>
+          </div>
+        </div>
+
+        <!-- 주제/내용 -->
+        <div class="pb-form-field">
+          <label class="pb-form-label" id="pbContentLabel">
+            주제/내용 <span class="text-danger">*</span>
+          </label>
+          <textarea
+            class="pb-form-textarea"
+            id="pbContent"
+            rows="4"
+            placeholder="예: 인공지능의 미래와 영향력"
+            required
+          ></textarea>
+          <div class="pb-char-row"><span id="pbCharCount">0</span> / 2000</div>
+        </div>
+
+        <div class="pb-form-row">
+
+          <!-- 템플릿 -->
+          <div class="pb-form-field">
+            <label class="pb-form-label">템플릿 사용 <span class="pb-optional">선택사항</span></label>
+            <select class="pb-form-select" id="pbTemplate">
+              <option value="">템플릿 없이 생성</option>
+              <option value="business">비즈니스 기본 — 5슬라이드</option>
+              <option value="edu">교육 기본 — 8슬라이드</option>
+              <option value="pitch">스타트업 피치덱 — 10슬라이드</option>
+              <option value="report">보고서 — 7슬라이드</option>
+            </select>
+            <small class="pb-form-hint">
+              <i class="fas fa-info-circle me-1"></i>
+              템플릿은 시스템 관리 &gt; 프레젠테이션 템플릿 관리에서 등록·관리할 수 있습니다.
+            </small>
+          </div>
+
+          <!-- 슬라이드 개수 -->
+          <div class="pb-form-field">
+            <label class="pb-form-label">슬라이드 개수</label>
+            <div class="pb-count-row">
+              <button type="button" class="pb-count-btn" id="pbSlideDown"><i class="fas fa-minus"></i></button>
+              <input type="number" class="pb-count-input" id="pbSlideCount" min="3" max="20" value="5">
+              <button type="button" class="pb-count-btn" id="pbSlideUp"><i class="fas fa-plus"></i></button>
+            </div>
+            <small class="pb-form-hint">최소 3장, 최대 20장</small>
+          </div>
+
+        </div>
+
+        <div class="pb-form-row">
+
+          <!-- AI 서비스 -->
+          <div class="pb-form-field">
+            <label class="pb-form-label">AI 서비스 <span class="text-danger">*</span></label>
+            <select class="pb-form-select" id="pbService" required>
+              <option value="">서비스를 선택하세요</option>
+              <option value="chatgpt">ChatGPT</option>
+              <option value="claude">Claude</option>
+              <option value="gemini">Gemini</option>
+              <option value="cursor">Cursor</option>
+              <option value="copilot">Copilot</option>
+              <option value="mistral">Mistral</option>
+            </select>
+          </div>
+
+          <!-- 스타일 -->
+          <div class="pb-form-field">
+            <label class="pb-form-label">스타일</label>
+            <select class="pb-form-select" id="pbStyle">
+              <option value="business">비즈니스</option>
+              <option value="education">교육</option>
+              <option value="marketing">마케팅</option>
+              <option value="creative">창의적</option>
+            </select>
+          </div>
+
+        </div>
+
+        <!-- 테마 -->
+        <div class="pb-form-field">
+          <label class="pb-form-label">테마</label>
+          <div class="pb-theme-grid" id="pbThemeGrid">
+            <button type="button" class="pb-theme-btn active" data-theme="default">
+              <div class="pb-theme-preview pb-theme-default">
+                <div class="pb-th-bar"></div>
+                <div class="pb-th-lines"><span></span><span></span></div>
+              </div>
+              <span>기본</span>
+            </button>
+            <button type="button" class="pb-theme-btn" data-theme="business-blue">
+              <div class="pb-theme-preview pb-theme-blue">
+                <div class="pb-th-bar"></div>
+                <div class="pb-th-lines"><span></span><span></span></div>
+              </div>
+              <span>비즈니스 블루</span>
+            </button>
+            <button type="button" class="pb-theme-btn" data-theme="dark">
+              <div class="pb-theme-preview pb-theme-dark">
+                <div class="pb-th-bar"></div>
+                <div class="pb-th-lines"><span></span><span></span></div>
+              </div>
+              <span>다크</span>
+            </button>
+            <button type="button" class="pb-theme-btn" data-theme="minimal">
+              <div class="pb-theme-preview pb-theme-minimal">
+                <div class="pb-th-bar"></div>
+                <div class="pb-th-lines"><span></span><span></span></div>
+              </div>
+              <span>미니멀</span>
+            </button>
+            <button type="button" class="pb-theme-btn" data-theme="marketing">
+              <div class="pb-theme-preview pb-theme-marketing">
+                <div class="pb-th-bar"></div>
+                <div class="pb-th-lines"><span></span><span></span></div>
+              </div>
+              <span>마케팅</span>
+            </button>
+            <button type="button" class="pb-theme-btn" data-theme="education">
+              <div class="pb-theme-preview pb-theme-education">
+                <div class="pb-th-bar"></div>
+                <div class="pb-th-lines"><span></span><span></span></div>
+              </div>
+              <span>교육</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- AI 이미지 삽입 -->
+        <div class="pb-form-field">
+          <label class="pb-toggle-row" for="pbIncludeImages">
+            <div class="pb-toggle-switch">
+              <input type="checkbox" id="pbIncludeImages">
+              <span class="pb-toggle-knob"></span>
+            </div>
+            <div>
+              <strong>AI 이미지 자동 삽입</strong>
+              <small>각 슬라이드에 어울리는 AI 이미지를 자동으로 생성·삽입합니다 (추가 비용 발생)</small>
+            </div>
+          </label>
+        </div>
+
+      </form>
+    </div><!-- /.pb-modal-body -->
+
+    <div class="pb-modal-footer">
+      <button type="button" class="pb-btn-cancel" id="btnCancelCreate">취소</button>
+      <button type="button" class="btn btn-primary pb-btn-generate" id="btnGenerate">
+        <i class="fas fa-wand-magic-sparkles me-2"></i>생성하기
+      </button>
+    </div>
+
+  </div>
+</div><!-- /#modalCreate -->
+
+
+<!-- ===================== SLIDE DETAIL MODAL ===================== -->
+<div class="pb-modal-overlay" id="modalSlideDetail">
+  <div class="pb-modal">
+    <div class="pb-modal-header">
+      <div class="pb-modal-title-wrap">
+        <div class="pb-modal-icon pb-modal-icon-slide"><i class="fas fa-desktop"></i></div>
+        <div>
+          <h4 id="pbDetailSlideTitle">슬라이드 제목</h4>
+          <p id="pbDetailSlideNum">슬라이드 1</p>
+        </div>
+      </div>
+      <button class="pb-modal-close" id="btnCloseDetail"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="pb-modal-body">
+      <div class="pb-detail-preview" id="pbDetailPreview"></div>
+      <div class="pb-detail-content" id="pbDetailContent"></div>
+    </div>
+    <div class="pb-modal-footer">
+      <button class="pb-btn-cancel" id="btnCloseDetail2">닫기</button>
+      <button class="btn btn-outline-primary" id="btnEditSlide">
+        <i class="fas fa-pen me-1"></i>편집
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="pb-toast" id="pbToast">
+  <i class="fas fa-check-circle"></i>
+  <span id="pbToastText">완료</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/presentation-builder.js"></script>
+</body>
+</html>

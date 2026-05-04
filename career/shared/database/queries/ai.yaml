@@ -1,0 +1,325 @@
+# AI Domain SQL Queries
+# AI 추천 및 실행 관련 쿼리
+
+queries:
+  # ==========================================
+  # 추천 실행 기록
+  # ==========================================
+  insert_recommendation_run:
+    description: "추천 실행 기록 생성"
+    sql: |
+      INSERT INTO tb_recommendation_run (
+        student_id, run_type, input_snapshot, model_version,
+        prompt_version, policy_version, latency_ms, token_usage,
+        ins_user_id, ins_dt
+      ) VALUES (
+        :student_id, :run_type, :input_snapshot, :model_version,
+        :prompt_version, :policy_version, :latency_ms, :token_usage,
+        'SYSTEM', CURRENT_TIMESTAMP
+      )
+      RETURNING run_id
+
+  insert_recommendation_item:
+    description: "추천 항목 저장"
+    sql: |
+      INSERT INTO tb_recommendation_item (
+        run_id, item_order, action_type, title, description,
+        priority, deadline, target_competency_id, evidence_list,
+        constraints_checked, risk_factors, expected_impact,
+        ins_user_id, ins_dt
+      ) VALUES (
+        :run_id, :item_order, :action_type, :title, :description,
+        :priority, :deadline, :target_competency_id, :evidence_list,
+        :constraints_checked, :risk_factors, :expected_impact,
+        'SYSTEM', CURRENT_TIMESTAMP
+      )
+      RETURNING item_id
+
+  get_latest_recommendations:
+    description: "학생의 최신 추천 조회"
+    sql: |
+      SELECT
+        ri.item_id,
+        ri.item_order,
+        ri.action_type,
+        ri.title,
+        ri.description,
+        ri.priority,
+        ri.deadline,
+        c.competency_nm as target_competency,
+        ri.evidence_list,
+        ri.expected_impact,
+        rr.run_id,
+        rr.run_type,
+        rr.ins_dt as created_at
+      FROM tb_recommendation_run rr
+      JOIN tb_recommendation_item ri ON rr.run_id = ri.run_id
+      LEFT JOIN tb_competency c ON ri.target_competency_id = c.competency_id
+      WHERE rr.student_id = :student_id
+        AND rr.run_id = (
+          SELECT run_id FROM tb_recommendation_run
+          WHERE student_id = :student_id
+          ORDER BY ins_dt DESC LIMIT 1
+        )
+      ORDER BY ri.item_order
+
+  # ==========================================
+  # 피드백 기록
+  # ==========================================
+  insert_feedback:
+    description: "사용자 피드백 저장"
+    sql: |
+      INSERT INTO tb_feedback_event (
+        student_id, item_id, feedback_type, rating, comment,
+        context_data, ins_user_id, ins_dt
+      ) VALUES (
+        :student_id, :item_id, :feedback_type, :rating, :comment,
+        :context_data, :student_id, CURRENT_TIMESTAMP
+      )
+      RETURNING feedback_id
+
+  get_feedback_stats:
+    description: "피드백 통계"
+    sql: |
+      SELECT
+        ri.action_type,
+        AVG(fe.rating) as avg_rating,
+        COUNT(*) as feedback_count,
+        COUNT(CASE WHEN fe.feedback_type = 'accepted' THEN 1 END) as accepted_count,
+        COUNT(CASE WHEN fe.feedback_type = 'rejected' THEN 1 END) as rejected_count
+      FROM tb_feedback_event fe
+      JOIN tb_recommendation_item ri ON fe.item_id = ri.item_id
+      WHERE fe.ins_dt >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY ri.action_type
+
+  # ==========================================
+  # 버전 관리
+  # ==========================================
+  get_active_versions:
+    description: "활성 버전 조회"
+    sql: |
+      SELECT
+        'prompt' as version_type,
+        pv.version,
+        pv.prompt_type as sub_type,
+        pv.description,
+        pv.is_active
+      FROM tb_prompt_version pv
+      WHERE pv.is_active = TRUE
+      UNION ALL
+      SELECT
+        'policy' as version_type,
+        plv.version,
+        plv.policy_type as sub_type,
+        plv.description,
+        plv.is_active
+      FROM tb_policy_version plv
+      WHERE plv.is_active = TRUE
+      UNION ALL
+      SELECT
+        'model' as version_type,
+        mv.version,
+        mv.base_model as sub_type,
+        NULL as description,
+        mv.is_active
+      FROM tb_model_version mv
+      WHERE mv.is_active = TRUE
+
+  get_prompt_content:
+    description: "프롬프트 내용 조회"
+    sql: |
+      SELECT
+        prompt_version_id,
+        version,
+        prompt_type,
+        content,
+        description
+      FROM tb_prompt_version
+      WHERE prompt_type = :prompt_type
+        AND is_active = TRUE
+      ORDER BY ins_dt DESC
+      LIMIT 1
+
+  get_policy_rules:
+    description: "정책 규칙 조회"
+    sql: |
+      SELECT
+        policy_version_id,
+        version,
+        policy_type,
+        rules,
+        description
+      FROM tb_policy_version
+      WHERE policy_type = :policy_type
+        AND is_active = TRUE
+      ORDER BY ins_dt DESC
+      LIMIT 1
+
+  # ==========================================
+  # 히트스트립 데이터
+  # ==========================================
+  get_heatstrip_data:
+    description: "역량 변화 히트스트립 데이터"
+    sql: |
+      WITH monthly_scores AS (
+        SELECT
+          ca.competency_id,
+          DATE_TRUNC('month', ca.assessment_date) as month,
+          AVG(ca.score) as avg_score
+        FROM tb_competency_assessment ca
+        WHERE ca.student_id = :student_id
+          AND ca.assessment_date >= CURRENT_DATE - INTERVAL '12 months'
+        GROUP BY ca.competency_id, DATE_TRUNC('month', ca.assessment_date)
+      )
+      SELECT
+        c.competency_id,
+        c.competency_nm,
+        c.color_cd,
+        ms.month,
+        COALESCE(ms.avg_score, 0) as score
+      FROM tb_competency c
+      CROSS JOIN (
+        SELECT generate_series(
+          DATE_TRUNC('month', CURRENT_DATE - INTERVAL '11 months'),
+          DATE_TRUNC('month', CURRENT_DATE),
+          '1 month'::interval
+        ) as month
+      ) months
+      LEFT JOIN monthly_scores ms
+        ON c.competency_id = ms.competency_id
+        AND months.month = ms.month
+      WHERE c.use_fg = 'Y'
+      ORDER BY c.sort_order, months.month
+
+  # ==========================================
+  # Eval 케이스
+  # ==========================================
+  get_eval_cases:
+    description: "평가 케이스 목록"
+    sql: |
+      SELECT
+        case_id,
+        case_nm,
+        case_type,
+        input_data,
+        expected_output,
+        quality_criteria,
+        use_fg
+      FROM tb_eval_case
+      WHERE use_fg = 'Y'
+        AND (:case_type IS NULL OR case_type = :case_type)
+      ORDER BY case_nm
+
+  insert_eval_result:
+    description: "평가 결과 저장"
+    sql: |
+      INSERT INTO tb_eval_result (
+        case_id, run_id, actual_output, pass_fg,
+        score, details, ins_user_id, ins_dt
+      ) VALUES (
+        :case_id, :run_id, :actual_output, :pass_fg,
+        :score, :details, 'SYSTEM', CURRENT_TIMESTAMP
+      )
+      RETURNING result_id
+
+  # ==========================================
+  # RAG Evidence Search (Phase 2-3)
+  # ==========================================
+  search_courses_for_rag:
+    description: "RAG용 과목 검색"
+    sql: |
+      SELECT
+        c.course_cd AS source_id,
+        'course' AS source_type,
+        c.course_nm AS title,
+        COALESCE(c.description, '') AS content,
+        c.credits,
+        ts_rank(
+          to_tsvector('simple', COALESCE(c.course_nm, '') || ' ' || COALESCE(c.description, '')),
+          plainto_tsquery('simple', :query)
+        ) AS score
+      FROM tb_course c
+      WHERE
+        to_tsvector('simple', COALESCE(c.course_nm, '') || ' ' || COALESCE(c.description, ''))
+        @@ plainto_tsquery('simple', :query)
+        OR c.course_nm ILIKE :like_query
+      ORDER BY score DESC
+      LIMIT :limit
+
+  search_programs_for_rag:
+    description: "RAG용 비교과 프로그램 검색"
+    sql: |
+      SELECT
+        p.program_cd AS source_id,
+        'program' AS source_type,
+        p.program_nm AS title,
+        COALESCE(p.description, '') AS content,
+        p.category,
+        p.recognition_pts,
+        ts_rank(
+          to_tsvector('simple', COALESCE(p.program_nm, '') || ' ' || COALESCE(p.description, '')),
+          plainto_tsquery('simple', :query)
+        ) AS score
+      FROM tb_program p
+      WHERE
+        p.is_active = 'Y'
+        AND (
+          to_tsvector('simple', COALESCE(p.program_nm, '') || ' ' || COALESCE(p.description, ''))
+          @@ plainto_tsquery('simple', :query)
+          OR p.program_nm ILIKE :like_query
+        )
+      ORDER BY score DESC, p.recognition_pts DESC
+      LIMIT :limit
+
+  search_alumni_patterns_for_rag:
+    description: "RAG용 동문 성공 패턴 검색"
+    sql: |
+      SELECT
+        sp.pattern_id::text AS source_id,
+        'pattern' AS source_type,
+        sp.pattern_nm AS title,
+        sp.description AS content,
+        sp.target_role,
+        sp.evidence_count,
+        ts_rank(
+          to_tsvector('simple', COALESCE(sp.pattern_nm, '') || ' ' || COALESCE(sp.description, '') || ' ' || COALESCE(sp.target_role, '')),
+          plainto_tsquery('simple', :query)
+        ) AS score
+      FROM tb_success_pattern sp
+      WHERE
+        sp.is_active = 'Y'
+        AND (
+          to_tsvector('simple', COALESCE(sp.pattern_nm, '') || ' ' || COALESCE(sp.description, '') || ' ' || COALESCE(sp.target_role, ''))
+          @@ plainto_tsquery('simple', :query)
+          OR sp.target_role ILIKE :like_query
+        )
+      ORDER BY score DESC, sp.evidence_count DESC
+      LIMIT :limit
+
+  insert_recommendation_evidence:
+    description: "추천 근거 저장"
+    sql: |
+      INSERT INTO tb_recommendation_evidence (
+        item_id, source_type, source_id, source_version,
+        snippet_text, snippet_hash, retrieval_score, retrieval_method,
+        ins_user_id, ins_dt
+      ) VALUES (
+        :item_id, :source_type, :source_id, :source_version,
+        :snippet_text, :snippet_hash, :retrieval_score, :retrieval_method,
+        'SYSTEM', CURRENT_TIMESTAMP
+      )
+      RETURNING evidence_id
+
+  get_recommendation_evidence:
+    description: "추천 항목별 근거 조회"
+    sql: |
+      SELECT
+        evidence_id,
+        source_type,
+        source_id,
+        snippet_text,
+        retrieval_score,
+        retrieval_method
+      FROM tb_recommendation_evidence
+      WHERE item_id = :item_id
+      ORDER BY retrieval_score DESC

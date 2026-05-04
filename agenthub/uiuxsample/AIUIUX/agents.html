@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 통합관리시스템 - AI Agent 선택</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="assets/css/common.css" rel="stylesheet">
+  <link href="assets/css/agents.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- ===================== SIDEBAR ===================== -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon"><i class="fas fa-brain"></i></div>
+    <div class="sidebar-brand-text">
+      <span class="brand-title">AI Manager</span>
+      <span class="brand-sub">통합관리시스템</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">메인</div>
+    <a href="index.html"     class="nav-item"><i class="fas fa-th-large"></i><span>대시보드</span></a>
+    <a href="chat.html"      class="nav-item"><i class="fas fa-comments"></i><span>AI 채팅</span></a>
+    <a href="agents.html"    class="nav-item active"><i class="fas fa-robot"></i><span>AI Agents</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="image-gen.html" class="nav-item"><i class="fas fa-image"></i><span>이미지 생성기</span></a>
+    <a href="models.html"    class="nav-item"><i class="fas fa-microchip"></i><span>AI 모델 관리</span><span class="nav-badge">12</span></a>
+    <a href="monitoring.html"class="nav-item"><i class="fas fa-chart-line"></i><span>모니터링</span></a>
+    <a href="pipelines.html" class="nav-item"><i class="fas fa-code-branch"></i><span>파이프라인</span></a>
+    <div class="nav-section-label">관리</div>
+    <a href="apikeys.html"   class="nav-item"><i class="fas fa-key"></i><span>API 키 관리</span></a>
+    <a href="users.html"     class="nav-item"><i class="fas fa-users"></i><span>사용자 관리</span></a>
+    <a href="logs.html"      class="nav-item"><i class="fas fa-file-alt"></i><span>로그 &amp; 감사</span></a>
+    <a href="billing.html"   class="nav-item"><i class="fas fa-credit-card"></i><span>비용 관리</span></a>
+    <div class="nav-section-label">시스템</div>
+    <a href="settings.html"  class="nav-item"><i class="fas fa-cog"></i><span>설정</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="system-status">
+      <span class="status-dot status-ok"></span>
+      <span>시스템 정상 운영 중</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MAIN WRAPPER ===================== -->
+<div class="main-wrapper" id="mainWrapper">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+      <div class="breadcrumb-area">
+        <span class="page-title">AI Agents</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">Agent 선택</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn" title="알림"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-info">
+          <span class="user-name">관리자</span>
+          <span class="user-role">Super Admin</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page Content -->
+  <div class="page-content">
+
+    <!-- Page Header -->
+    <div class="ag-page-header">
+      <div class="ag-header-left">
+        <h1 class="ag-page-title">AI Agent 선택</h1>
+        <p class="ag-page-desc">실행할 Agent를 선택하거나 새로운 Agent를 생성하세요</p>
+      </div>
+      <div class="ag-header-right">
+        <button class="btn btn-primary" id="btnNewAgent">
+          <i class="fas fa-plus"></i> 새 Agent 생성
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="ag-filter-bar">
+      <div class="ag-search-wrap">
+        <i class="fas fa-search ag-search-icon"></i>
+        <input type="text" class="ag-search-input" id="agentSearch"
+               placeholder="Agent 검색... (이름, 설명, 서비스)">
+        <button class="ag-search-clear" id="searchClear" style="display:none;">
+          <i class="fas fa-xmark"></i>
+        </button>
+      </div>
+      <div class="ag-filter-selects">
+        <select class="ag-select" id="serviceFilter">
+          <option value="">모든 서비스</option>
+          <option value="chatgpt">ChatGPT</option>
+          <option value="claude">Claude</option>
+          <option value="gemini">Gemini</option>
+          <option value="cursor">Cursor</option>
+          <option value="copilot">Copilot</option>
+          <option value="mistral">Mistral</option>
+          <option value="dalle">DALL-E 3</option>
+          <option value="gemini-image">Gemini Pro Image</option>
+          <option value="imagen4">Imagen 4</option>
+          <option value="flux2">Flux 2</option>
+          <option value="gen4-video">Gen4 Video</option>
+          <option value="veo">Veo 3.1</option>
+        </select>
+        <select class="ag-select" id="categoryFilter">
+          <option value="">모든 카테고리</option>
+          <option value="text">텍스트 AI</option>
+          <option value="image">이미지 AI</option>
+          <option value="video">비디오 AI</option>
+          <option value="custom">커스텀</option>
+        </select>
+      </div>
+      <div class="ag-filter-right">
+        <div class="ag-view-btns">
+          <button class="ag-view-btn active" id="viewGrid" title="그리드 보기"><i class="fas fa-th-large"></i></button>
+          <button class="ag-view-btn" id="viewList" title="리스트 보기"><i class="fas fa-list"></i></button>
+        </div>
+        <span class="ag-count-label" id="agentCountLabel">전체 <strong>9</strong>개 Agent</span>
+      </div>
+    </div>
+
+    <!-- Agent Grid -->
+    <div class="ag-grid" id="agentGrid">
+
+      <!-- ── 기본 모드 (special card) ── -->
+      <div class="ag-card ag-card-default" data-name="기본 모드" data-service="" data-category="text">
+        <div class="ag-card-body">
+          <div class="ag-icon-wrap ag-icon-default">
+            <i class="fas fa-comments"></i>
+          </div>
+          <h5 class="ag-card-title">기본 모드</h5>
+          <p class="ag-card-desc">AI 서비스를 직접 선택하고 자유롭게 대화할 수 있는 기본 채팅 모드입니다.</p>
+          <div class="ag-service-tags">
+            <span class="ag-tag ag-tag-blue">ChatGPT</span>
+            <span class="ag-tag ag-tag-orange">Claude</span>
+            <span class="ag-tag ag-tag-teal">Cursor</span>
+            <span class="ag-tag ag-tag-gray">Copilot</span>
+          </div>
+        </div>
+        <div class="ag-card-footer">
+          <button class="ag-btn-start ag-btn-full" onclick="startAgent('default')">
+            <i class="fas fa-play"></i> 시작하기
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 아이디노 도우미 ── -->
+      <div class="ag-card" data-name="아이디노 도우미" data-service="" data-category="custom"
+           style="--ag-color:#6C757D; --ag-text:#fff;">
+        <div class="ag-card-ribbon">커스텀</div>
+        <div class="ag-card-body">
+          <div class="ag-icon-wrap ag-icon-dynamic">
+            <i class="fas fa-brain"></i>
+          </div>
+          <h5 class="ag-card-title">아이디노 도우미</h5>
+          <p class="ag-card-short">아이디노 내부 업무 전문 어시스턴트</p>
+          <div class="ag-model-badge">
+            <i class="fas fa-microchip"></i> Claude Sonnet
+          </div>
+          <div class="ag-system-preview">
+            당신은 [아이디노]의 내부 규정·지침·보안정책을 기반으로 응답하는 전문 어시스턴트입니다. 항상 회사 공식 규정과 정책을 우선으로 답변하세요...
+          </div>
+        </div>
+        <div class="ag-card-footer ag-footer-flex">
+          <button class="ag-btn-start ag-btn-dynamic" onclick="startAgent('idino')">
+            <i class="fas fa-play"></i> 실행하기
+          </button>
+          <button class="ag-btn-edit" onclick="editAgent('idino')" title="Agent 수정">
+            <i class="fas fa-pencil"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 전공단어사전 ── -->
+      <div class="ag-card" data-name="전공단어사전" data-service="claude" data-category="custom"
+           style="--ag-color:#0DCAF0; --ag-text:#212529;">
+        <div class="ag-card-ribbon">커스텀</div>
+        <div class="ag-card-body">
+          <div class="ag-icon-wrap ag-icon-dynamic">
+            <i class="fas fa-book-open"></i>
+          </div>
+          <h5 class="ag-card-title">전공단어사전</h5>
+          <p class="ag-card-short">대학생이 사용하는 보건의료 전공단어 사전</p>
+          <div class="ag-model-badge">
+            <i class="fas fa-microchip"></i> Claude Sonnet
+          </div>
+          <div class="ag-system-preview">
+            너는 작업치료과, 응급구조과 등 보건의료계열 대학생을 위한 의학용어 사전 에이전트야. 학과명과 검색 의학용어를 입력하면 상세히 설명합니다...
+          </div>
+        </div>
+        <div class="ag-card-footer ag-footer-flex">
+          <button class="ag-btn-start ag-btn-dynamic" onclick="startAgent('dictionary')">
+            <i class="fas fa-play"></i> 실행하기
+          </button>
+          <button class="ag-btn-edit" onclick="editAgent('dictionary')" title="Agent 수정">
+            <i class="fas fa-pencil"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 영어선생님 ── -->
+      <div class="ag-card" data-name="영어선생님" data-service="chatgpt" data-category="custom"
+           style="--ag-color:#F59E0B; --ag-text:#212529;">
+        <div class="ag-card-ribbon">커스텀</div>
+        <div class="ag-card-body">
+          <div class="ag-icon-wrap ag-icon-dynamic">
+            <i class="fas fa-graduation-cap"></i>
+          </div>
+          <h5 class="ag-card-title">영어선생님</h5>
+          <p class="ag-card-short">초등학생을 위한 친근한 영어 교육 Agent</p>
+          <div class="ag-model-badge">
+            <i class="fas fa-microchip"></i> GPT-4o
+          </div>
+          <div class="ag-system-preview">
+            초등학교 5학년 영어 선생님 역할을 해주세요. 학생과 대화하는 것과 같이 영어 선생님 역할을 진행 바랍니다. 쉬운 언어로...
+          </div>
+        </div>
+        <div class="ag-card-footer ag-footer-flex">
+          <button class="ag-btn-start ag-btn-dynamic" onclick="startAgent('english')">
+            <i class="fas fa-play"></i> 실행하기
+          </button>
+          <button class="ag-btn-edit" onclick="editAgent('english')" title="Agent 수정">
+            <i class="fas fa-pencil"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 코드 리뷰 Agent ── -->
+      <div class="ag-card" data-name="코드 리뷰 Agent" data-service="claude" data-category="text"
+           style="--ag-color:#0EA5E9; --ag-text:#fff;">
+        <div class="ag-card-badge ag-badge-hot">인기</div>
+        <div class="ag-card-body">
+          <div class="ag-icon-wrap ag-icon-dynamic">
+            <i class="fas fa-code"></i>
+          </div>
+          <h5 class="ag-card-title">코드 리뷰 Agent</h5>
+          <p class="ag-card-short">코드 품질, 성능, 보안을 분석하고 개선사항을 제안합니다.</p>
+          <div class="ag-model-badge">
+            <i class="fas fa-microchip"></i> Claude Sonnet 4
+          </div>
+          <div class="ag-system-preview">
+            당신은 전문 코드 리뷰어입니다. 코드 품질 및 가독성, 성능 최적화, 보안 취약점, 베스트 프랙티스를 검토합니다...
+          </div>
+        </div>
+        <div class="ag-card-footer ag-footer-flex">
+          <button class="ag-btn-start ag-btn-dynamic" onclick="startAgent('codereview')">
+            <i class="fas fa-play"></i> 실행하기
+          </button>
+          <button class="ag-btn-edit" onclick="editAgent('codereview')" title="Agent 수정">
+            <i class="fas fa-pencil"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 문서 작성 Agent ── -->
+      <div class="ag-card" data-name="문서 작성 Agent" data-service="chatgpt" data-category="text"
+           style="--ag-color:#10B981; --ag-text:#fff;">
+        <div class="ag-card-body">
+          <div class="ag-icon-wrap ag-icon-dynamic">
+            <i class="fas fa-file-lines"></i>
+          </div>
+          <h5 class="ag-card-title">문서 작성 Agent</h5>
+          <p class="ag-card-short">기술 문서, 보고서, 사용자 가이드를 전문적으로 작성합니다.</p>
+          <div class="ag-model-badge">
+            <i class="fas fa-microchip"></i> GPT-4o
+          </div>
+          <div class="ag-system-preview">
+            당신은 전문 기술 작가입니다. 목적과 대상 독자를 명확히 하고, 논리적 구조로 문서를 작성하며 예제와 코드 스니펫을 포함합니다...
+          </div>
+        </div>
+        <div class="ag-card-footer ag-footer-flex">
+          <button class="ag-btn-start ag-btn-dynamic" onclick="startAgent('docs')">
+            <i class="fas fa-play"></i> 실행하기
+          </button>
+          <button class="ag-btn-edit" onclick="editAgent('docs')" title="Agent 수정">
+            <i class="fas fa-pencil"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 데이터 분석 Agent ── -->
+      <div class="ag-card" data-name="데이터 분석 Agent" data-service="gemini" data-category="text"
+           style="--ag-color:#F59E0B; --ag-text:#212529;">
+        <div class="ag-card-badge ag-badge-hot">인기</div>
+        <div class="ag-card-body">
+          <div class="ag-icon-wrap ag-icon-dynamic">
+            <i class="fas fa-chart-bar"></i>
+          </div>
+          <h5 class="ag-card-title">데이터 분석 Agent</h5>
+          <p class="ag-card-short">데이터를 분석하고 인사이트와 시각화 방향을 도출합니다.</p>
+          <div class="ag-model-badge">
+            <i class="fas fa-microchip"></i> Gemini 1.5 Pro
+          </div>
+          <div class="ag-system-preview">
+            당신은 데이터 분석 전문가입니다. 데이터 품질 평가, 통계적 요약, 패턴 발견, 시각화 제안 및 인사이트 도출을 수행합니다...
+          </div>
+        </div>
+        <div class="ag-card-footer ag-footer-flex">
+          <button class="ag-btn-start ag-btn-dynamic" onclick="startAgent('dataanalysis')">
+            <i class="fas fa-play"></i> 실행하기
+          </button>
+          <button class="ag-btn-edit" onclick="editAgent('dataanalysis')" title="Agent 수정">
+            <i class="fas fa-pencil"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 고객 지원 Agent ── -->
+      <div class="ag-card" data-name="고객 지원 Agent" data-service="claude" data-category="text"
+           style="--ag-color:#8B5CF6; --ag-text:#fff;">
+        <div class="ag-card-body">
+          <div class="ag-icon-wrap ag-icon-dynamic">
+            <i class="fas fa-headset"></i>
+          </div>
+          <h5 class="ag-card-title">고객 지원 Agent</h5>
+          <p class="ag-card-short">고객의 문의에 친절하고 정확하게 단계별로 답변합니다.</p>
+          <div class="ag-model-badge">
+            <i class="fas fa-microchip"></i> Claude Haiku
+          </div>
+          <div class="ag-system-preview">
+            당신은 친절한 고객 지원 담당자입니다. 고객의 문제를 정확히 이해하고, 공감을 표현하며, 단계별 해결방법을 제시합니다...
+          </div>
+        </div>
+        <div class="ag-card-footer ag-footer-flex">
+          <button class="ag-btn-start ag-btn-dynamic" onclick="startAgent('support')">
+            <i class="fas fa-play"></i> 실행하기
+          </button>
+          <button class="ag-btn-edit" onclick="editAgent('support')" title="Agent 수정">
+            <i class="fas fa-pencil"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 번역 Agent ── -->
+      <div class="ag-card" data-name="번역 Agent" data-service="chatgpt" data-category="text"
+           style="--ag-color:#06B6D4; --ag-text:#fff;">
+        <div class="ag-card-body">
+          <div class="ag-icon-wrap ag-icon-dynamic">
+            <i class="fas fa-language"></i>
+          </div>
+          <h5 class="ag-card-title">번역 Agent</h5>
+          <p class="ag-card-short">원문의 뉘앙스를 살려 정확하고 자연스러운 번역을 제공합니다.</p>
+          <div class="ag-model-badge">
+            <i class="fas fa-microchip"></i> GPT-4o
+          </div>
+          <div class="ag-system-preview">
+            당신은 전문 번역가입니다. 원문의 의미와 뉘앙스를 보존하고, 대상 언어의 자연스러운 표현과 문화적 맥락을 고려합니다...
+          </div>
+        </div>
+        <div class="ag-card-footer ag-footer-flex">
+          <button class="ag-btn-start ag-btn-dynamic" onclick="startAgent('translate')">
+            <i class="fas fa-play"></i> 실행하기
+          </button>
+          <button class="ag-btn-edit" onclick="editAgent('translate')" title="Agent 수정">
+            <i class="fas fa-pencil"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 새 Agent 생성 (Add card) ── -->
+      <div class="ag-card ag-card-add" id="cardAddAgent" onclick="openNewAgentModal()">
+        <div class="ag-card-body ag-add-body">
+          <div class="ag-add-icon">
+            <i class="fas fa-plus"></i>
+          </div>
+          <h5 class="ag-add-title">새 Agent 생성</h5>
+          <p class="ag-add-desc">커스텀 Agent를 생성하고 설정할 수 있습니다.</p>
+        </div>
+      </div>
+
+    </div><!-- /.ag-grid -->
+
+    <!-- Empty state (hidden initially) -->
+    <div class="ag-empty" id="agEmpty" style="display:none;">
+      <div class="ag-empty-icon"><i class="fas fa-robot"></i></div>
+      <h5>검색 결과가 없습니다</h5>
+      <p>다른 키워드나 필터를 사용해 보세요.</p>
+      <button class="btn btn-primary" onclick="resetFilters()">
+        <i class="fas fa-rotate"></i> 필터 초기화
+      </button>
+    </div>
+
+  </div><!-- /.page-content -->
+</div><!-- /.main-wrapper -->
+
+
+<!-- ===================== MODAL: 새 Agent 생성 ===================== -->
+<div class="ag-modal-overlay" id="modalNewAgent">
+  <div class="ag-modal">
+    <div class="ag-modal-header">
+      <div class="ag-modal-title">
+        <div class="ag-modal-title-icon"><i class="fas fa-plus"></i></div>
+        <div>
+          <h4>새 Agent 생성</h4>
+          <p>커스텀 AI Agent를 만들어 팀과 공유하세요</p>
+        </div>
+      </div>
+      <button class="ag-modal-close" onclick="closeModal('modalNewAgent')">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+    <div class="ag-modal-body">
+      <form id="formNewAgent" novalidate>
+
+        <div class="ag-form-row">
+          <div class="ag-form-group">
+            <label class="ag-form-label">Agent 이름 <span class="ag-required">*</span></label>
+            <input type="text" class="ag-form-input" id="newAgentName" placeholder="예: 마케팅 분석 Agent" required>
+          </div>
+          <div class="ag-form-group">
+            <label class="ag-form-label">아이콘</label>
+            <div class="ag-icon-picker" id="iconPicker">
+              <button type="button" class="ag-icon-opt active" data-icon="fa-robot"><i class="fas fa-robot"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-brain"><i class="fas fa-brain"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-lightbulb"><i class="fas fa-lightbulb"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-rocket"><i class="fas fa-rocket"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-star"><i class="fas fa-star"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-wand-magic-sparkles"><i class="fas fa-wand-magic-sparkles"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-microchip"><i class="fas fa-microchip"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-code"><i class="fas fa-code"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ag-form-group">
+          <label class="ag-form-label">설명 <span class="ag-required">*</span></label>
+          <textarea class="ag-form-input ag-form-textarea" id="newAgentDesc" rows="2"
+                    placeholder="Agent의 역할과 기능을 간략히 설명하세요"></textarea>
+        </div>
+
+        <div class="ag-form-row">
+          <div class="ag-form-group">
+            <label class="ag-form-label">AI 서비스 <span class="ag-required">*</span></label>
+            <select class="ag-form-input" id="newAgentService" required>
+              <option value="">서비스 선택</option>
+              <optgroup label="텍스트 AI">
+                <option value="chatgpt">ChatGPT</option>
+                <option value="claude">Claude</option>
+                <option value="gemini">Gemini</option>
+                <option value="cursor">Cursor</option>
+                <option value="copilot">Copilot</option>
+                <option value="mistral">Mistral</option>
+              </optgroup>
+              <optgroup label="이미지 AI">
+                <option value="dalle">DALL-E 3</option>
+                <option value="gemini-image">Gemini Pro Image</option>
+                <option value="imagen4">Imagen 4</option>
+                <option value="flux2">Flux 2</option>
+              </optgroup>
+              <optgroup label="비디오 AI">
+                <option value="gen4-video">Gen4 Video</option>
+                <option value="veo">Veo 3.1</option>
+                <option value="openai-video">OpenAI Video</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="ag-form-group">
+            <label class="ag-form-label">모델 <span class="ag-required">*</span></label>
+            <select class="ag-form-input" id="newAgentModel" required disabled>
+              <option value="">서비스를 먼저 선택하세요</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="ag-form-group">
+          <label class="ag-form-label">
+            시스템 프롬프트 <span class="ag-required">*</span>
+            <span class="ag-form-hint">Agent의 행동과 응답 방식을 정의합니다</span>
+          </label>
+          <textarea class="ag-form-input ag-form-textarea" id="newAgentPrompt" rows="5"
+                    placeholder="예) 당신은 마케팅 전문가입니다. 고객이 제공한 제품 정보를 바탕으로..."></textarea>
+          <div class="ag-char-count"><span id="promptCharCount">0</span> / 4000자</div>
+        </div>
+
+        <div class="ag-form-row">
+          <div class="ag-form-group">
+            <label class="ag-form-label">
+              Temperature
+              <span class="ag-form-hint">높을수록 창의적 (0 ~ 2)</span>
+            </label>
+            <div class="ag-slider-wrap">
+              <input type="range" class="ag-slider" id="newTempSlider" min="0" max="2" step="0.1" value="0.7">
+              <span class="ag-slider-val" id="newTempVal">0.7</span>
+            </div>
+          </div>
+          <div class="ag-form-group">
+            <label class="ag-form-label">
+              Max Tokens
+              <span class="ag-form-hint">최대 응답 토큰 수</span>
+            </label>
+            <input type="number" class="ag-form-input" id="newMaxTokens" value="2048" min="256" max="32000" step="256">
+          </div>
+        </div>
+
+        <div class="ag-form-row">
+          <div class="ag-form-group">
+            <label class="ag-form-label">Agent 색상</label>
+            <div class="ag-color-picker" id="colorPicker">
+              <button type="button" class="ag-color-opt active" data-color="#4F46E5" style="background:#4F46E5;"></button>
+              <button type="button" class="ag-color-opt" data-color="#0EA5E9" style="background:#0EA5E9;"></button>
+              <button type="button" class="ag-color-opt" data-color="#10B981" style="background:#10B981;"></button>
+              <button type="button" class="ag-color-opt" data-color="#F59E0B" style="background:#F59E0B;"></button>
+              <button type="button" class="ag-color-opt" data-color="#EF4444" style="background:#EF4444;"></button>
+              <button type="button" class="ag-color-opt" data-color="#8B5CF6" style="background:#8B5CF6;"></button>
+              <button type="button" class="ag-color-opt" data-color="#06B6D4" style="background:#06B6D4;"></button>
+              <button type="button" class="ag-color-opt" data-color="#6C757D" style="background:#6C757D;"></button>
+            </div>
+          </div>
+          <div class="ag-form-group ag-form-switches">
+            <label class="ag-form-label">옵션</label>
+            <div class="ag-switches">
+              <label class="ag-switch-row">
+                <div class="ag-switch">
+                  <input type="checkbox" id="newIsPublic">
+                  <span class="ag-switch-knob"></span>
+                </div>
+                <span>공개 Agent <small>(다른 사용자 사용 가능)</small></span>
+              </label>
+              <label class="ag-switch-row">
+                <div class="ag-switch">
+                  <input type="checkbox" id="newEnableRag">
+                  <span class="ag-switch-knob"></span>
+                </div>
+                <span>RAG 기능 <small>(Knowledge Base 연동)</small></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+      </form>
+    </div>
+    <div class="ag-modal-footer">
+      <button class="ag-btn-cancel" onclick="closeModal('modalNewAgent')">취소</button>
+      <button class="btn btn-primary" id="btnCreateAgent" onclick="createAgent()">
+        <i class="fas fa-check"></i> Agent 생성
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: Agent 수정 ===================== -->
+<div class="ag-modal-overlay" id="modalEditAgent">
+  <div class="ag-modal">
+    <div class="ag-modal-header">
+      <div class="ag-modal-title">
+        <div class="ag-modal-title-icon" style="background: linear-gradient(135deg,#F59E0B,#D97706);">
+          <i class="fas fa-pencil"></i>
+        </div>
+        <div>
+          <h4>Agent 수정</h4>
+          <p>Agent 설정을 변경합니다</p>
+        </div>
+      </div>
+      <button class="ag-modal-close" onclick="closeModal('modalEditAgent')">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+    <div class="ag-modal-body">
+      <form id="formEditAgent" novalidate>
+        <div class="ag-form-row">
+          <div class="ag-form-group">
+            <label class="ag-form-label">Agent 이름 <span class="ag-required">*</span></label>
+            <input type="text" class="ag-form-input" id="editAgentName" placeholder="Agent 이름" required>
+          </div>
+          <div class="ag-form-group">
+            <label class="ag-form-label">아이콘</label>
+            <div class="ag-icon-picker" id="editIconPicker">
+              <button type="button" class="ag-icon-opt active" data-icon="fa-robot"><i class="fas fa-robot"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-brain"><i class="fas fa-brain"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-lightbulb"><i class="fas fa-lightbulb"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-rocket"><i class="fas fa-rocket"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-star"><i class="fas fa-star"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-wand-magic-sparkles"><i class="fas fa-wand-magic-sparkles"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-microchip"><i class="fas fa-microchip"></i></button>
+              <button type="button" class="ag-icon-opt" data-icon="fa-code"><i class="fas fa-code"></i></button>
+            </div>
+          </div>
+        </div>
+        <div class="ag-form-group">
+          <label class="ag-form-label">설명</label>
+          <textarea class="ag-form-input ag-form-textarea" id="editAgentDesc" rows="2"></textarea>
+        </div>
+        <div class="ag-form-row">
+          <div class="ag-form-group">
+            <label class="ag-form-label">AI 서비스</label>
+            <select class="ag-form-input" id="editAgentService">
+              <option value="chatgpt">ChatGPT</option>
+              <option value="claude">Claude</option>
+              <option value="gemini">Gemini</option>
+              <option value="cursor">Cursor</option>
+            </select>
+          </div>
+          <div class="ag-form-group">
+            <label class="ag-form-label">모델</label>
+            <select class="ag-form-input" id="editAgentModel">
+              <option value="">모델 선택</option>
+            </select>
+          </div>
+        </div>
+        <div class="ag-form-group">
+          <label class="ag-form-label">시스템 프롬프트</label>
+          <textarea class="ag-form-input ag-form-textarea" id="editAgentPrompt" rows="5"></textarea>
+        </div>
+        <div class="ag-form-row">
+          <div class="ag-form-group">
+            <label class="ag-form-label">Temperature</label>
+            <div class="ag-slider-wrap">
+              <input type="range" class="ag-slider" id="editTempSlider" min="0" max="2" step="0.1" value="0.7">
+              <span class="ag-slider-val" id="editTempVal">0.7</span>
+            </div>
+          </div>
+          <div class="ag-form-group">
+            <label class="ag-form-label">Max Tokens</label>
+            <input type="number" class="ag-form-input" id="editMaxTokens" value="2048">
+          </div>
+        </div>
+        <div class="ag-form-group ag-form-switches" style="margin-top:4px;">
+          <label class="ag-switch-row">
+            <div class="ag-switch">
+              <input type="checkbox" id="editIsPublic">
+              <span class="ag-switch-knob"></span>
+            </div>
+            <span>공개 Agent</span>
+          </label>
+        </div>
+      </form>
+    </div>
+    <div class="ag-modal-footer">
+      <button class="ag-btn-cancel" onclick="closeModal('modalEditAgent')">취소</button>
+      <button class="btn btn-primary" style="background:linear-gradient(135deg,#F59E0B,#D97706); box-shadow:0 4px 12px rgba(245,158,11,0.3);" onclick="saveAgent()">
+        <i class="fas fa-check"></i> 저장하기
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="ag-toast" id="agToast">
+  <i class="fas fa-check-circle"></i>
+  <span id="agToastText">완료되었습니다.</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/agents.js"></script>
+</body>
+</html>

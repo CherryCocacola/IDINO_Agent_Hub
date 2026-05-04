@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 통합관리시스템 - 프레젠테이션 편집</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="assets/css/common.css" rel="stylesheet">
+  <link href="assets/css/presentation-builder-result.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- ===================== SIDEBAR ===================== -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon"><i class="fas fa-brain"></i></div>
+    <div class="sidebar-brand-text">
+      <span class="brand-title">AI Manager</span>
+      <span class="brand-sub">통합관리시스템</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">메인</div>
+    <a href="index.html"                        class="nav-item"><i class="fas fa-th-large"></i><span>대시보드</span></a>
+    <a href="chat.html"                         class="nav-item"><i class="fas fa-comments"></i><span>AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="chat-detail.html"                  class="nav-item"><i class="fas fa-comment-dots"></i><span>채팅 상세</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="multi-chat.html"                   class="nav-item"><i class="fas fa-layer-group"></i><span>멀티 AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="agents.html"                       class="nav-item"><i class="fas fa-robot"></i><span>AI Agents</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="image-gen.html"                    class="nav-item"><i class="fas fa-image"></i><span>이미지 생성기</span></a>
+    <a href="image-create.html"                 class="nav-item"><i class="fas fa-wand-magic-sparkles"></i><span>이미지 생성</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="presentation-builder.html"         class="nav-item"><i class="fas fa-file-powerpoint"></i><span>프레젠테이션</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="presentation-builder-result.html"  class="nav-item active"><i class="fas fa-pen-ruler"></i><span>PT 편집</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="quick-image.html"                  class="nav-item"><i class="fas fa-bolt"></i><span>간편 이미지</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="models.html"                       class="nav-item"><i class="fas fa-microchip"></i><span>AI 모델 관리</span><span class="nav-badge">12</span></a>
+    <a href="monitoring.html"                   class="nav-item"><i class="fas fa-chart-line"></i><span>모니터링</span></a>
+    <a href="pipelines.html"                    class="nav-item"><i class="fas fa-code-branch"></i><span>파이프라인</span></a>
+    <div class="nav-section-label">관리</div>
+    <a href="apikeys.html"                      class="nav-item"><i class="fas fa-key"></i><span>API 키 관리</span></a>
+    <a href="users.html"                        class="nav-item"><i class="fas fa-users"></i><span>사용자 관리</span></a>
+    <a href="logs.html"                         class="nav-item"><i class="fas fa-file-alt"></i><span>로그 &amp; 감사</span></a>
+    <a href="billing.html"                      class="nav-item"><i class="fas fa-credit-card"></i><span>비용 관리</span></a>
+    <div class="nav-section-label">시스템</div>
+    <a href="settings.html"                     class="nav-item"><i class="fas fa-cog"></i><span>설정</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="system-status"><span class="status-dot status-ok"></span><span>시스템 정상 운영 중</span></div>
+  </div>
+</div>
+
+<!-- ===================== MAIN WRAPPER ===================== -->
+<div class="main-wrapper" id="mainWrapper">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+      <div class="breadcrumb-area">
+        <a href="presentation-builder.html" class="pbr-breadcrumb-link">프레젠테이션 생성</a>
+        <i class="fas fa-chevron-right pbr-breadcrumb-sep"></i>
+        <span class="page-title">편집</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn" title="알림"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-info">
+          <span class="user-name">관리자</span>
+          <span class="user-role">Super Admin</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== PAGE CONTENT (no padding override) ===================== -->
+  <div class="page-content pbr-page">
+
+    <!-- ── 3-column editor layout ── -->
+    <div class="pbr-layout">
+
+      <!-- ════ COL 1: Slide List ════ -->
+      <aside class="pbr-col-slides">
+        <div class="pbr-panel">
+          <div class="pbr-panel-header">
+            <span class="pbr-panel-title">슬라이드</span>
+            <button class="pbr-icon-btn" id="btnAddSlide" title="슬라이드 추가">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+          <div class="pbr-slide-list" id="pbrSlideList">
+            <!-- Injected by JS -->
+          </div>
+        </div>
+      </aside>
+
+      <!-- ════ COL 2: Slide Editor ════ -->
+      <main class="pbr-col-editor">
+        <div class="pbr-panel pbr-panel-fill">
+          <div class="pbr-panel-header">
+            <span class="pbr-panel-title">슬라이드 편집</span>
+            <div class="pbr-export-group">
+              <button class="btn btn-sm btn-outline-primary" id="btnExportPptx">
+                <i class="fas fa-file-powerpoint me-1"></i>PPTX
+              </button>
+              <button class="btn btn-sm btn-outline-danger" id="btnExportPdf" title="PDF 내보내기는 서버에 LibreOffice가 설치되어 있어야 합니다.">
+                <i class="fas fa-file-pdf me-1"></i>PDF
+              </button>
+            </div>
+          </div>
+          <div class="pbr-panel-body">
+
+            <!-- Slide Preview Canvas -->
+            <div class="pbr-preview-wrap" id="pbrPreviewWrap">
+              <div class="pbr-preview-slide" id="pbrPreviewSlide">
+                <div class="pbr-prev-inner" id="pbrPrevInner">
+                  <div class="pbr-prev-title" id="pbrPrevTitle"></div>
+                  <div class="pbr-prev-body"  id="pbrPrevBody"></div>
+                </div>
+                <div class="pbr-prev-num" id="pbrPrevNum">1 / 5</div>
+              </div>
+            </div>
+
+            <!-- Editor fields -->
+            <div class="pbr-fields">
+              <div class="pbr-field-group">
+                <label class="pbr-label">제목</label>
+                <input type="text" class="pbr-input" id="pbrSlideTitle" placeholder="슬라이드 제목">
+              </div>
+              <div class="pbr-field-group">
+                <label class="pbr-label">본문</label>
+                <textarea class="pbr-textarea" id="pbrSlideBody" rows="8" placeholder="슬라이드 본문 내용"></textarea>
+              </div>
+              <div class="pbr-field-row">
+                <div class="pbr-field-group">
+                  <label class="pbr-label">레이아웃</label>
+                  <select class="pbr-select" id="pbrLayout">
+                    <option value="title-content">제목 + 본문</option>
+                    <option value="title-only">제목만</option>
+                    <option value="two-column">2단 레이아웃</option>
+                    <option value="image-title">이미지 + 제목</option>
+                    <option value="section-header">섹션 헤더</option>
+                    <option value="comparison">비교</option>
+                    <option value="quote">인용</option>
+                    <option value="thank-you">감사 / 끝맺음</option>
+                  </select>
+                </div>
+                <div class="pbr-field-group">
+                  <label class="pbr-label">슬라이드 이미지 <span class="pbr-optional">선택사항</span></label>
+                  <div class="pbr-img-upload" id="pbrImgUpload">
+                    <i class="fas fa-image"></i>
+                    <span>클릭하여 이미지 추가</span>
+                    <input type="file" id="pbrImgInput" accept="image/*" style="display:none;">
+                  </div>
+                  <div class="pbr-img-preview" id="pbrImgPreview" style="display:none;">
+                    <img id="pbrImgPreviewEl" src="" alt="slide image">
+                    <button class="pbr-img-remove" id="pbrImgRemove" title="이미지 제거">
+                      <i class="fas fa-xmark"></i>
+                    </button>
+                  </div>
+                </div>슬랑
+              </div>
+              <div class="pbr-save-row">
+                <button class="btn btn-primary pbr-save-btn" id="btnSaveSlide">
+                  <i class="fas fa-check me-2"></i>저장
+                </button>
+                <span class="pbr-saved-hint" id="pbrSavedHint"></span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </main>
+
+      <!-- ════ COL 3: Properties ════ -->
+      <aside class="pbr-col-props">
+        <div class="pbr-panel">
+          <div class="pbr-panel-header">
+            <span class="pbr-panel-title">속성</span>
+          </div>
+          <div class="pbr-panel-body pbr-props-body">
+
+            <div class="pbr-field-group">
+              <label class="pbr-label">프레젠테이션 제목</label>
+              <input type="text" class="pbr-input" id="pbrPresTitle" value="재벌집 막내아들: 드라마 성공 요인 분석">
+            </div>
+
+            <div class="pbr-field-group">
+              <label class="pbr-label">테마</label>
+              <select class="pbr-select" id="pbrTheme">
+                <option value="default">기본</option>
+                <option value="business-blue" selected>비즈니스 블루</option>
+                <option value="dark">다크</option>
+                <option value="minimal">미니멀</option>
+                <option value="marketing">마케팅</option>
+                <option value="education">교육</option>
+              </select>
+            </div>
+
+            <!-- Theme mini preview -->
+            <div class="pbr-theme-preview-wrap" id="pbrThemePreviewWrap">
+              <div class="pbr-theme-mini" id="pbrThemeMini">
+                <div class="pbr-tm-bar"></div>
+                <div class="pbr-tm-lines">
+                  <span></span><span></span><span class="pbr-tm-short"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="pbr-field-group">
+              <label class="pbr-label">현재 슬라이드</label>
+              <input type="number" class="pbr-input pbr-slide-num-input" id="pbrSlideNumInput" min="1" readonly>
+            </div>
+
+            <div class="pbr-divider"></div>
+
+            <!-- Stats -->
+            <div class="pbr-stats">
+              <div class="pbr-stat">
+                <span class="pbr-stat-label">총 슬라이드</span>
+                <span class="pbr-stat-val" id="pbrStatTotal">5</span>
+              </div>
+              <div class="pbr-stat">
+                <span class="pbr-stat-label">AI 서비스</span>
+                <span class="pbr-stat-val">ChatGPT</span>
+              </div>
+            </div>
+
+            <div class="pbr-divider"></div>
+
+            <button class="btn btn-primary w-100 pbr-regen-btn" id="btnRegenerate">
+              <i class="fas fa-wand-magic-sparkles me-2"></i>새로 생성
+            </button>
+            <button class="btn btn-outline-secondary w-100 mt-2 pbr-back-btn" id="btnBackToList">
+              <i class="fas fa-arrow-left me-2"></i>목록으로
+            </button>
+
+          </div>
+        </div>
+      </aside>
+
+    </div><!-- /.pbr-layout -->
+
+  </div><!-- /.page-content -->
+</div><!-- /.main-wrapper -->
+
+<!-- Toast -->
+<div class="pbr-toast" id="pbrToast">
+  <i class="fas fa-check-circle"></i>
+  <span id="pbrToastText">저장되었습니다</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/presentation-builder-result.js"></script>
+</body>
+</html>

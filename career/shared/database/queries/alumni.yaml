@@ -1,0 +1,178 @@
+# Alumni Domain SQL Queries
+# 졸업생/동문 관련 쿼리
+
+queries:
+  # ==========================================
+  # 동문 코호트 통계
+  # ==========================================
+  get_alumni_cohort_stats:
+    description: "학과/직무별 동문 코호트 통계"
+    sql: |
+      SELECT
+        ac.cohort_id,
+        ac.department_cd,
+        d.department_nm,
+        ac.graduation_year as graduation_year_start,
+        ac.graduation_year as graduation_year_end,
+        ac.role_cd,
+        r.role_nm,
+        r.category as role_category,
+        ac.cohort_size as sample_size,
+        ac.avg_gpa,
+        0 as avg_total_credits,
+        0 as avg_employment_months,
+        ac.employment_rate,
+        ac.avg_salary as avg_starting_salary,
+        ac.avg_competency_scores as competency_profile,
+        NULL::text[] as common_courses,
+        NULL::text[] as common_certifications,
+        NULL::text[] as common_activities
+      FROM tb_alumni_cohort ac
+      JOIN tb_department d ON ac.department_cd = d.department_cd
+      LEFT JOIN tb_role r ON ac.role_cd = r.role_cd
+      WHERE (:department_cd IS NULL OR ac.department_cd = :department_cd)
+        AND (:role_cd IS NULL OR ac.role_cd = :role_cd)
+        AND ac.cohort_size >= 5  -- k-anonymity
+      ORDER BY ac.graduation_year DESC, r.role_nm
+
+  # ==========================================
+  # 성공 패턴 조회
+  # ==========================================
+  get_success_patterns:
+    description: "직무별 성공 패턴 조회"
+    sql: |
+      SELECT
+        sp.pattern_id,
+        sp.department_cd,
+        d.department_nm,
+        sp.role_cd,
+        r.role_nm,
+        r.category as role_category,
+        sp.pattern_nm,
+        sp.description,
+        sp.key_skills as required_competencies,
+        sp.key_courses as recommended_courses,
+        NULL::text[] as recommended_certifications,
+        sp.key_activities as recommended_activities,
+        sp.typical_gpa_range as success_indicators,
+        sp.sample_size,
+        sp.success_rate as confidence_score,
+        0 as priority_order
+      FROM tb_success_pattern sp
+      JOIN tb_department d ON sp.department_cd = d.department_cd
+      JOIN tb_role r ON sp.role_cd = r.role_cd
+      WHERE (:department_cd IS NULL OR sp.department_cd = :department_cd)
+        AND (:role_cd IS NULL OR sp.role_cd = :role_cd)
+      ORDER BY sp.success_rate DESC
+
+  get_success_pattern_by_id:
+    description: "성공 패턴 상세 조회"
+    sql: |
+      SELECT
+        sp.pattern_id,
+        sp.department_cd,
+        d.department_nm,
+        sp.role_cd,
+        r.role_nm,
+        r.category as role_category,
+        sp.pattern_nm,
+        sp.description,
+        sp.key_skills as required_competencies,
+        sp.key_courses as recommended_courses,
+        NULL::text[] as recommended_certifications,
+        sp.key_activities as recommended_activities,
+        sp.typical_gpa_range as success_indicators,
+        sp.timeline as timeline_months,
+        sp.sample_size,
+        sp.success_rate as confidence_score,
+        0 as priority_order
+      FROM tb_success_pattern sp
+      JOIN tb_department d ON sp.department_cd = d.department_cd
+      JOIN tb_role r ON sp.role_cd = r.role_cd
+      WHERE sp.pattern_id = :pattern_id
+
+  # ==========================================
+  # 학생-동문 비교
+  # ==========================================
+  compare_student_to_alumni:
+    description: "학생과 동문 코호트 비교"
+    sql: |
+      WITH student_data AS (
+        SELECT
+          s.student_id,
+          s.department_cd,
+          0.0 as gpa,
+          0 as total_credits,
+          s.career_goal
+        FROM tb_student s
+        WHERE s.student_id = :student_id
+      ),
+      student_competencies AS (
+        SELECT
+          sc.competency_cd,
+          sc.current_score as score
+        FROM tb_student_competency sc
+        WHERE sc.student_id = :student_id
+      ),
+      alumni_cohort AS (
+        SELECT
+          ac.cohort_id,
+          ac.role_cd,
+          r.role_nm,
+          ac.avg_gpa,
+          0 as avg_total_credits,
+          ac.avg_competency_scores as competency_profile,
+          ac.cohort_size as sample_size
+        FROM tb_alumni_cohort ac
+        JOIN tb_role r ON ac.role_cd = r.role_cd
+        WHERE ac.department_cd = (SELECT department_cd FROM student_data)
+          AND ac.cohort_size >= 5
+      )
+      SELECT
+        sd.student_id,
+        sd.gpa as student_gpa,
+        sd.total_credits as student_credits,
+        ac.role_nm,
+        ac.avg_gpa as alumni_avg_gpa,
+        ac.avg_total_credits as alumni_avg_credits,
+        ac.competency_profile as alumni_competencies,
+        ac.sample_size
+      FROM student_data sd
+      CROSS JOIN alumni_cohort ac
+
+  # ==========================================
+  # 직무 정보
+  # ==========================================
+  get_roles:
+    description: "모든 직무 목록"
+    sql: |
+      SELECT
+        r.role_cd,
+        r.role_nm,
+        r.role_nm_en,
+        r.category as role_category,
+        r.description,
+        r.average_salary as avg_salary,
+        r.growth_rate,
+        r.required_skills
+      FROM tb_role r
+      WHERE r.use_fg = 'Y'
+      ORDER BY r.category, r.role_nm
+
+  get_role_requirements:
+    description: "직무별 요구 역량 - 직접 role 테이블에서 조회"
+    sql: |
+      SELECT
+        r.role_cd,
+        r.role_nm,
+        c.competency_cd,
+        c.competency_nm,
+        0 as required_level,
+        1 as importance,
+        c.definition as description
+      FROM tb_role r
+      CROSS JOIN tb_competency c
+      WHERE r.role_cd = :role_cd
+        AND c.use_fg = 'Y'
+        AND jsonb_exists(r.required_competencies, c.competency_cd)
+      ORDER BY c.competency_nm

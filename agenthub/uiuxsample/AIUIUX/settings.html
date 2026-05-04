@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 통합관리시스템 - 설정</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="assets/css/common.css" rel="stylesheet">
+  <link href="assets/css/settings.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon"><i class="fas fa-brain"></i></div>
+    <div class="sidebar-brand-text">
+      <span class="brand-title">AI Manager</span>
+      <span class="brand-sub">통합관리시스템</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">메인</div>
+    <a href="index.html" class="nav-item"><i class="fas fa-th-large"></i><span>대시보드</span></a>
+    <a href="chat.html" class="nav-item"><i class="fas fa-comments"></i><span>AI 채팅</span><span class="nav-badge nav-badge-new">NEW</span></a>
+    <a href="models.html" class="nav-item"><i class="fas fa-robot"></i><span>AI 모델 관리</span><span class="nav-badge">12</span></a>
+    <a href="monitoring.html" class="nav-item"><i class="fas fa-chart-line"></i><span>모니터링</span></a>
+    <a href="pipelines.html" class="nav-item"><i class="fas fa-code-branch"></i><span>파이프라인</span></a>
+    <div class="nav-section-label">관리</div>
+    <a href="apikeys.html" class="nav-item"><i class="fas fa-key"></i><span>API 키 관리</span></a>
+    <a href="users.html" class="nav-item"><i class="fas fa-users"></i><span>사용자 관리</span></a>
+    <a href="logs.html" class="nav-item"><i class="fas fa-file-alt"></i><span>로그 &amp; 감사</span></a>
+    <a href="billing.html" class="nav-item"><i class="fas fa-credit-card"></i><span>비용 관리</span></a>
+    <div class="nav-section-label">시스템</div>
+    <a href="settings.html" class="nav-item active"><i class="fas fa-cog"></i><span>설정</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="system-status"><span class="status-dot status-ok"></span><span>시스템 정상 운영 중</span></div>
+  </div>
+</div>
+
+<div class="main-wrapper" id="mainWrapper">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+      <div class="breadcrumb-area">
+        <span class="page-title">시스템 설정</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">일반 설정</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-info"><span class="user-name">관리자</span><span class="user-role">Super Admin</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-content">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-heading">시스템 설정</h1>
+        <p class="page-desc">AI 통합관리시스템의 전반적인 설정을 관리합니다</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline-secondary btn-sm"><i class="fas fa-undo me-1"></i>초기화</button>
+        <button class="btn btn-primary btn-sm"><i class="fas fa-save me-1"></i>변경사항 저장</button>
+      </div>
+    </div>
+
+    <div class="settings-layout">
+
+      <!-- Settings Sidebar -->
+      <div class="settings-nav-panel">
+        <nav class="settings-nav">
+          <a href="#general" class="settings-nav-item active">
+            <i class="fas fa-sliders-h"></i>
+            <span>일반 설정</span>
+          </a>
+          <a href="#notifications" class="settings-nav-item">
+            <i class="fas fa-bell"></i>
+            <span>알림 설정</span>
+          </a>
+          <a href="#security" class="settings-nav-item">
+            <i class="fas fa-shield-alt"></i>
+            <span>보안 설정</span>
+          </a>
+          <a href="#ratelimit" class="settings-nav-item">
+            <i class="fas fa-tachometer-alt"></i>
+            <span>속도 제한</span>
+          </a>
+          <a href="#logging" class="settings-nav-item">
+            <i class="fas fa-file-alt"></i>
+            <span>로깅 설정</span>
+          </a>
+          <a href="#integrations" class="settings-nav-item">
+            <i class="fas fa-plug"></i>
+            <span>연동 설정</span>
+          </a>
+          <a href="#backup" class="settings-nav-item">
+            <i class="fas fa-database"></i>
+            <span>백업 &amp; 복원</span>
+          </a>
+        </nav>
+      </div>
+
+      <!-- Settings Content -->
+      <div class="settings-content">
+
+        <!-- General Settings -->
+        <div class="settings-section" id="general">
+          <div class="settings-section-header">
+            <i class="fas fa-sliders-h"></i>
+            <div>
+              <h3 class="settings-section-title">일반 설정</h3>
+              <p class="settings-section-desc">시스템 기본 정보 및 표시 설정</p>
+            </div>
+          </div>
+          <div class="settings-fields">
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>시스템 이름</label>
+                <p>관리자 화면 상단에 표시될 시스템 이름</p>
+              </div>
+              <div class="settings-field-input">
+                <input type="text" class="form-control" value="AI 통합관리시스템">
+              </div>
+            </div>
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>기본 언어</label>
+                <p>시스템 기본 인터페이스 언어</p>
+              </div>
+              <div class="settings-field-input">
+                <select class="form-select">
+                  <option selected>한국어 (Korean)</option>
+                  <option>English</option>
+                  <option>日本語</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>시간대</label>
+                <p>로그 및 통계 표시 기준 시간대</p>
+              </div>
+              <div class="settings-field-input">
+                <select class="form-select">
+                  <option selected>Asia/Seoul (UTC+9)</option>
+                  <option>UTC</option>
+                  <option>America/New_York (UTC-5)</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>데이터 보관 기간</label>
+                <p>로그 및 사용 이력 보관 일수</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="input-group">
+                  <input type="number" class="form-control" value="90">
+                  <span class="input-group-text">일</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notification Settings -->
+        <div class="settings-section" id="notifications">
+          <div class="settings-section-header">
+            <i class="fas fa-bell"></i>
+            <div>
+              <h3 class="settings-section-title">알림 설정</h3>
+              <p class="settings-section-desc">이벤트 발생 시 알림 채널 및 임계값 설정</p>
+            </div>
+          </div>
+          <div class="settings-fields">
+            <div class="settings-field settings-field-toggle">
+              <div class="settings-field-label">
+                <label>이메일 알림</label>
+                <p>오류 발생 시 담당자 이메일로 알림 발송</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="emailAlert" checked>
+                </div>
+              </div>
+            </div>
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>알림 이메일 주소</label>
+                <p>알림을 받을 이메일 (여러 개는 쉼표로 구분)</p>
+              </div>
+              <div class="settings-field-input">
+                <input type="text" class="form-control" value="admin@company.com, devops@company.com">
+              </div>
+            </div>
+            <div class="settings-field settings-field-toggle">
+              <div class="settings-field-label">
+                <label>슬랙 알림</label>
+                <p>슬랙 웹훅을 통한 실시간 알림</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="slackAlert">
+                </div>
+              </div>
+            </div>
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>오류율 알림 임계값</label>
+                <p>이 값 초과 시 알림 발송</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="input-group">
+                  <input type="number" class="form-control" value="1" step="0.1">
+                  <span class="input-group-text">%</span>
+                </div>
+              </div>
+            </div>
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>응답시간 알림 임계값</label>
+                <p>이 값 초과 시 성능 알림 발송</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="input-group">
+                  <input type="number" class="form-control" value="500">
+                  <span class="input-group-text">ms</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security Settings -->
+        <div class="settings-section" id="security">
+          <div class="settings-section-header">
+            <i class="fas fa-shield-alt"></i>
+            <div>
+              <h3 class="settings-section-title">보안 설정</h3>
+              <p class="settings-section-desc">인증 및 접근 제어 보안 정책</p>
+            </div>
+          </div>
+          <div class="settings-fields">
+            <div class="settings-field settings-field-toggle">
+              <div class="settings-field-label">
+                <label>2단계 인증 (MFA) 필수</label>
+                <p>모든 사용자에게 MFA 강제 적용</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="mfaRequired" checked>
+                </div>
+              </div>
+            </div>
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>세션 만료 시간</label>
+                <p>비활성 상태 유지 시 자동 로그아웃</p>
+              </div>
+              <div class="settings-field-input">
+                <select class="form-select">
+                  <option>30분</option>
+                  <option selected>1시간</option>
+                  <option>4시간</option>
+                  <option>8시간</option>
+                  <option>24시간</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>IP 화이트리스트</label>
+                <p>허용된 IP 주소만 접근 가능 (비워두면 모두 허용)</p>
+              </div>
+              <div class="settings-field-input">
+                <textarea class="form-control" rows="3" placeholder="192.168.1.0/24&#10;10.0.0.0/8"></textarea>
+              </div>
+            </div>
+            <div class="settings-field settings-field-toggle">
+              <div class="settings-field-label">
+                <label>감사 로그 활성화</label>
+                <p>모든 관리자 행동을 감사 로그에 기록</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="auditLog" checked>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rate Limit Settings -->
+        <div class="settings-section" id="ratelimit">
+          <div class="settings-section-header">
+            <i class="fas fa-tachometer-alt"></i>
+            <div>
+              <h3 class="settings-section-title">속도 제한 (Rate Limiting)</h3>
+              <p class="settings-section-desc">API 호출 속도 및 한도 정책</p>
+            </div>
+          </div>
+          <div class="settings-fields">
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>전체 분당 요청 한도</label>
+                <p>시스템 전체 RPM (Requests Per Minute)</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="input-group">
+                  <input type="number" class="form-control" value="10000">
+                  <span class="input-group-text">req/min</span>
+                </div>
+              </div>
+            </div>
+            <div class="settings-field">
+              <div class="settings-field-label">
+                <label>사용자별 일일 기본 한도</label>
+                <p>개별 사용자에게 적용되는 기본 일일 한도</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="input-group">
+                  <input type="number" class="form-control" value="1000">
+                  <span class="input-group-text">req/day</span>
+                </div>
+              </div>
+            </div>
+            <div class="settings-field settings-field-toggle">
+              <div class="settings-field-label">
+                <label>한도 초과 시 큐잉 처리</label>
+                <p>한도 초과 요청을 거부 대신 대기열에 추가</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="enableQueue">
+                </div>
+              </div>
+            </div>
+            <div class="settings-field settings-field-toggle">
+              <div class="settings-field-label">
+                <label>버스트 허용</label>
+                <p>짧은 시간 동안 한도의 2배까지 허용</p>
+              </div>
+              <div class="settings-field-input">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="enableBurst" checked>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="settings-section settings-danger-zone">
+          <div class="settings-section-header">
+            <i class="fas fa-exclamation-triangle"></i>
+            <div>
+              <h3 class="settings-section-title">위험 영역</h3>
+              <p class="settings-section-desc">되돌릴 수 없는 작업입니다. 신중하게 사용하세요.</p>
+            </div>
+          </div>
+          <div class="danger-actions">
+            <div class="danger-action-item">
+              <div>
+                <p class="danger-action-title">모든 로그 삭제</p>
+                <p class="danger-action-desc">시스템의 모든 로그 데이터를 영구 삭제합니다</p>
+              </div>
+              <button class="btn btn-outline-danger btn-sm">로그 삭제</button>
+            </div>
+            <div class="danger-action-item">
+              <div>
+                <p class="danger-action-title">설정 초기화</p>
+                <p class="danger-action-desc">모든 설정을 기본값으로 되돌립니다</p>
+              </div>
+              <button class="btn btn-outline-danger btn-sm">초기화</button>
+            </div>
+            <div class="danger-action-item">
+              <div>
+                <p class="danger-action-title">시스템 재시작</p>
+                <p class="danger-action-desc">모든 서비스를 재시작합니다. 약 30초간 서비스가 중단됩니다</p>
+              </div>
+              <button class="btn btn-danger btn-sm">재시작</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <!-- /Settings Content -->
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/common.js"></script>
+<script>
+// Settings nav active state
+document.querySelectorAll('.settings-nav-item').forEach(function(item) {
+  item.addEventListener('click', function(e) {
+    e.preventDefault();
+    document.querySelectorAll('.settings-nav-item').forEach(i => i.classList.remove('active'));
+    this.classList.add('active');
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,221 @@
+/* =============================================
+   API 키 관리 페이지 스타일
+   ============================================= */
+
+/* Security Notice */
+.security-notice {
+  display: flex;
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--info-bg);
+  border: 1px solid rgba(59,130,246,0.2);
+  border-radius: var(--radius-lg);
+  align-items: flex-start;
+}
+
+.security-notice-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--info);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 15px;
+}
+
+.security-notice-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--info-text);
+  margin: 0 0 4px;
+}
+
+.security-notice-desc {
+  font-size: 12.5px;
+  color: var(--info-text);
+  margin: 0;
+  opacity: 0.85;
+}
+
+/* Provider Cards */
+.provider-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.provider-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.provider-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.provider-openai .provider-logo { background: linear-gradient(135deg, #00C9FF, #0EA5E9); }
+.provider-anthropic .provider-logo { background: linear-gradient(135deg, #818CF8, #6366F1); }
+.provider-google .provider-logo { background: linear-gradient(135deg, #34D399, #10B981); }
+
+.provider-info { flex: 1; }
+
+.provider-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 2px;
+}
+
+.provider-count {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Add Provider Card */
+.provider-add {
+  border: 2px dashed var(--border);
+  background: var(--bg-light);
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  cursor: pointer;
+  min-height: 88px;
+}
+
+.provider-add:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.provider-add-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.provider-add:hover .provider-add-icon {
+  background: var(--primary);
+  color: #fff;
+}
+
+.provider-add-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0;
+  transition: color 0.2s ease;
+}
+
+.provider-add:hover .provider-add-text {
+  color: var(--primary);
+}
+
+/* Key Name Cell */
+.key-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.key-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.key-openai { background: linear-gradient(135deg, #00C9FF, #0EA5E9); }
+.key-anthropic { background: linear-gradient(135deg, #818CF8, #6366F1); }
+.key-google { background: linear-gradient(135deg, #34D399, #10B981); }
+
+/* Masked Key */
+.key-masked-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.key-masked {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-light);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  letter-spacing: 0.5px;
+}
+
+.key-copy-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s ease;
+}
+
+.key-copy-btn:hover {
+  background: var(--bg-light);
+  color: var(--primary);
+}
+
+/* Permission Badges */
+.perm-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid rgba(79,70,229,0.2);
+}
+
+/* Error row highlight */
+.table-row-error {
+  background: linear-gradient(90deg, rgba(239,68,68,0.03), transparent) !important;
+}
+
+.table-row-error:hover {
+  background: rgba(239,68,68,0.05) !important;
+}

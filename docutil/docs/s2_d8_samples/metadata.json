@@ -1,0 +1,97 @@
+{
+  "generated_by": "phase4_s2_d8_ab_review",
+  "generated_at_utc": "2026-04-23T02:24:24.828963+00:00",
+  "builder": {
+    "target": "pptx",
+    "class": "PptxBuilder",
+    "supported_components": [
+      "BulletList",
+      "Chart",
+      "DataTable",
+      "Heading",
+      "Image",
+      "KPI",
+      "Paragraph",
+      "SlideTitle"
+    ]
+  },
+  "samples": [
+    {
+      "sample_id": "sample_a_text",
+      "file_name": "sample_a_text.pptx",
+      "file_size_bytes": 33729,
+      "build_time_ms": 68.25,
+      "page_count": 1,
+      "component_counts": {
+        "SlideTitle": 1,
+        "Heading": 1,
+        "Paragraph": 1,
+        "BulletList": 1
+      },
+      "layouts": [
+        "content_body"
+      ]
+    },
+    {
+      "sample_id": "sample_b_kpi",
+      "file_name": "sample_b_kpi.pptx",
+      "file_size_bytes": 28953,
+      "build_time_ms": 11.88,
+      "page_count": 1,
+      "component_counts": {
+        "SlideTitle": 1,
+        "KPI": 4,
+        "Paragraph": 1
+      },
+      "layouts": [
+        "kpi_dashboard"
+      ]
+    },
+    {
+      "sample_id": "sample_c_table",
+      "file_name": "sample_c_table.pptx",
+      "file_size_bytes": 29078,
+      "build_time_ms": 16.23,
+      "page_count": 1,
+      "component_counts": {
+        "SlideTitle": 1,
+        "DataTable": 1,
+        "Paragraph": 1
+      },
+      "layouts": [
+        "content_body"
+      ]
+    },
+    {
+      "sample_id": "sample_d_chart",
+      "file_name": "sample_d_chart.pptx",
+      "file_size_bytes": 41531,
+      "build_time_ms": 35.73,
+      "page_count": 1,
+      "component_counts": {
+        "SlideTitle": 1,
+        "Chart": 2,
+        "Heading": 1
+      },
+      "layouts": [
+        "content_body"
+      ]
+    },
+    {
+      "sample_id": "sample_e_media",
+      "file_name": "sample_e_media.pptx",
+      "file_size_bytes": 28955,
+      "build_time_ms": 9.54,
+      "page_count": 1,
+      "component_counts": {
+        "SlideTitle": 1,
+        "Image": 1,
+        "Paragraph": 1,
+        "BulletList": 1
+      },
+      "layouts": [
+        "content_body"
+      ]
+    }
+  ]
+}

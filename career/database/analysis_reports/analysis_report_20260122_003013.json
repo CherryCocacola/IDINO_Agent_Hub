@@ -1,0 +1,3865 @@
+{
+  "generated_at": "2026-01-22T00:30:13.809033",
+  "excel_sheets": {
+    "tb_college": {
+      "sheet_name": "○tb_college",
+      "table_name": "tb_college",
+      "columns": [
+        "college_cd",
+        "university_cd",
+        "college_nm",
+        "college_nm_en",
+        "use_fg",
+        "sort_order",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_10"
+      ],
+      "row_count": 50,
+      "column_types": {
+        "college_cd": "int",
+        "university_cd": "int",
+        "college_nm": "str",
+        "college_nm_en": "str",
+        "use_fg": "int",
+        "sort_order": "int",
+        "ins_user_id": "int",
+        "ins_dt": "date",
+        "upd_user_id": "str",
+        "upd_dt": "date",
+        "col_10": "str"
+      }
+    },
+    "tb_department": {
+      "sheet_name": "○tb_department",
+      "table_name": "tb_department",
+      "columns": [
+        "department_cd",
+        "college_cd",
+        "department_nm",
+        "department_nm_en",
+        "dept_type",
+        "graduation_credits",
+        "use_fg",
+        "sort_order",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_12"
+      ],
+      "row_count": 602,
+      "column_types": {
+        "department_cd": "int",
+        "college_cd": "int",
+        "department_nm": "str",
+        "department_nm_en": "str",
+        "dept_type": "str",
+        "graduation_credits": "int",
+        "use_fg": "int",
+        "sort_order": "int",
+        "ins_user_id": "int",
+        "ins_dt": "date",
+        "upd_user_id": "str",
+        "upd_dt": "date",
+        "col_12": "str"
+      }
+    },
+    "tb_major": {
+      "sheet_name": "○tb_major",
+      "table_name": "tb_major",
+      "columns": [
+        "major_cd",
+        "department_cd",
+        "college_cd",
+        "department_nm",
+        "department_nm_en",
+        "department_nm2",
+        "department_nm_en2",
+        "dept_type",
+        "graduation_credits",
+        "use_fg",
+        "sort_order",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_15"
+      ],
+      "row_count": 1857,
+      "column_types": {
+        "major_cd": "int",
+        "department_cd": "int",
+        "college_cd": "int",
+        "department_nm": "str",
+        "department_nm_en": "str",
+        "department_nm2": "str",
+        "department_nm_en2": "str",
+        "dept_type": "str",
+        "graduation_credits": "int",
+        "use_fg": "int",
+        "sort_order": "int",
+        "ins_user_id": "int",
+        "ins_dt": "date",
+        "upd_user_id": "str",
+        "upd_dt": "date",
+        "col_15": "str"
+      }
+    },
+    "tb_professor": {
+      "sheet_name": "○tb_professor",
+      "table_name": "tb_professor",
+      "columns": [
+        "professor_cd",
+        "professor_nm",
+        "professor_nm_en",
+        "department_cd",
+        "email",
+        "phone",
+        "office_location",
+        "position",
+        "specialty",
+        "use_fg",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_14"
+      ],
+      "row_count": 15034,
+      "column_types": {
+        "professor_cd": "str",
+        "professor_nm": "str",
+        "professor_nm_en": "unknown",
+        "department_cd": "int",
+        "email": "str",
+        "phone": "str",
+        "office_location": "unknown",
+        "position": "str",
+        "specialty": "unknown",
+        "use_fg": "str",
+        "ins_user_id": "str",
+        "ins_dt": "str",
+        "upd_user_id": "str",
+        "upd_dt": "str",
+        "col_14": "str"
+      }
+    },
+    "tb_course": {
+      "sheet_name": "○tb_course",
+      "table_name": "tb_course",
+      "columns": [
+        "course_cd",
+        "course_nm",
+        "course_nm_en",
+        "department_cd",
+        "credits",
+        "course_type",
+        "course_category",
+        "grade_level",
+        "description",
+        "use_fg",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "course_cd,course_nm,course_nm_en,department_cd,credits,course_type,course_category,grade_level,description,use_fg,ins_user_id,upd_user_id,upd_dt"
+      ],
+      "row_count": 44601,
+      "column_types": {
+        "course_cd": "str",
+        "course_nm": "str",
+        "course_nm_en": "str",
+        "department_cd": "int",
+        "credits": "int",
+        "course_type": "int",
+        "course_category": "int",
+        "grade_level": "int",
+        "description": "unknown",
+        "use_fg": "str",
+        "ins_user_id": "str",
+        "ins_dt": "date",
+        "upd_user_id": "str",
+        "upd_dt": "date",
+        "course_cd,course_nm,course_nm_en,department_cd,credits,course_type,course_category,grade_level,description,use_fg,ins_user_id,upd_user_id,upd_dt": "str"
+      }
+    },
+    "tb_professor_course": {
+      "sheet_name": "○tb_professor_course",
+      "table_name": "tb_professor_course",
+      "columns": [
+        "professor_course_id",
+        "professor_cd",
+        "course_cd",
+        "is_primary",
+        "ins_user_id",
+        "ins_dt",
+        "col_6"
+      ],
+      "row_count": 41025,
+      "column_types": {
+        "professor_course_id": "str",
+        "professor_cd": "str",
+        "course_cd": "str",
+        "is_primary": "int",
+        "ins_user_id": "str",
+        "ins_dt": "date",
+        "col_6": "str"
+      }
+    },
+    "tb_student2": {
+      "sheet_name": "○tb_student2",
+      "table_name": "tb_student2",
+      "columns": [
+        "student_id",
+        "student_nm",
+        "student_nm_en",
+        "university_cd",
+        "department_cd",
+        "admission_year",
+        "current_grade",
+        "current_semester",
+        "email",
+        "phone",
+        "birth_date",
+        "gender",
+        "status",
+        "career_goal",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_18"
+      ],
+      "row_count": 87919,
+      "column_types": {
+        "student_id": "int",
+        "student_nm": "str",
+        "student_nm_en": "str",
+        "university_cd": "int",
+        "department_cd": "int",
+        "admission_year": "str",
+        "current_grade": "int",
+        "current_semester": "str",
+        "email": "str",
+        "phone": "str",
+        "birth_date": "str",
+        "gender": "int",
+        "status": "int",
+        "career_goal": "str",
+        "ins_user_id": "str",
+        "ins_dt": "str",
+        "upd_user_id": "str",
+        "upd_dt": "str",
+        "col_18": "str"
+      }
+    },
+    "tb_course_offering": {
+      "sheet_name": "○tb_course_offering",
+      "table_name": "tb_course_offering",
+      "columns": [
+        "offering_id",
+        "course_cd",
+        "term_cd",
+        "professor_cd",
+        "class_no",
+        "capacity",
+        "enrolled_count",
+        "schedule",
+        "classroom",
+        "use_fg",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_14"
+      ],
+      "row_count": 41426,
+      "column_types": {
+        "offering_id": "str",
+        "course_cd": "str",
+        "term_cd": "int",
+        "professor_cd": "str",
+        "class_no": "int",
+        "capacity": "str",
+        "enrolled_count": "int",
+        "schedule": "str",
+        "classroom": "str",
+        "use_fg": "str",
+        "ins_user_id": "str",
+        "ins_dt": "date",
+        "upd_user_id": "str",
+        "upd_dt": "date",
+        "col_14": "str"
+      }
+    },
+    "tb_enrollment": {
+      "sheet_name": "○tb_enrollment",
+      "table_name": "tb_enrollment",
+      "columns": [
+        "enrollment_id",
+        "student_id",
+        "offering_id",
+        "term_cd",
+        "status",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_9"
+      ],
+      "row_count": 717573,
+      "column_types": {
+        "enrollment_id": "str",
+        "student_id": "int",
+        "offering_id": "str",
+        "term_cd": "int",
+        "status": "str",
+        "ins_user_id": "str",
+        "ins_dt": "str",
+        "upd_user_id": "str",
+        "upd_dt": "date",
+        "col_9": "str"
+      }
+    },
+    "tb_grade": {
+      "sheet_name": "○tb_grade",
+      "table_name": "tb_grade",
+      "columns": [
+        "grade_id",
+        "enrollment_id",
+        "student_id",
+        "course_cd",
+        "term_cd",
+        "grade_letter",
+        "grade_point",
+        "credits_earned",
+        "is_retake",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_13"
+      ],
+      "row_count": 717552,
+      "column_types": {
+        "grade_id": "str",
+        "enrollment_id": "str",
+        "student_id": "int",
+        "course_cd": "str",
+        "term_cd": "int",
+        "grade_letter": "str",
+        "grade_point": "int",
+        "credits_earned": "int",
+        "is_retake": "int",
+        "ins_user_id": "str",
+        "ins_dt": "str",
+        "upd_user_id": "str",
+        "upd_dt": "date",
+        "col_13": "str"
+      }
+    },
+    "tb_grade_summary": {
+      "sheet_name": "○tb_grade_summary",
+      "table_name": "tb_grade_summary",
+      "columns": [
+        "summary_id",
+        "student_id",
+        "term_cd",
+        "total_credits",
+        "earned_credits",
+        "gpa",
+        "major_gpa",
+        "class_rank",
+        "total_students",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_13"
+      ],
+      "row_count": 111180,
+      "column_types": {
+        "summary_id": "int",
+        "student_id": "int",
+        "term_cd": "int",
+        "total_credits": "int",
+        "earned_credits": "int",
+        "gpa": "float",
+        "major_gpa": "int",
+        "class_rank": "str",
+        "total_students": "str",
+        "ins_user_id": "str",
+        "ins_dt": "str",
+        "upd_user_id": "str",
+        "upd_dt": "str",
+        "col_13": "str"
+      }
+    },
+    "tb_cumulative_summary": {
+      "sheet_name": "○tb_cumulative_summary",
+      "table_name": "tb_cumulative_summary",
+      "columns": [
+        "summary_id",
+        "student_id",
+        "total_credits_required",
+        "total_credits_earned",
+        "major_credits_required",
+        "major_credits_earned",
+        "liberal_credits_required",
+        "liberal_credits_earned",
+        "cumulative_gpa",
+        "major_gpa",
+        "completion_rate",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_15"
+      ],
+      "row_count": 84269,
+      "column_types": {
+        "summary_id": "int",
+        "student_id": "int",
+        "total_credits_required": "int",
+        "total_credits_earned": "float",
+        "major_credits_required": "str",
+        "major_credits_earned": "str",
+        "liberal_credits_required": "str",
+        "liberal_credits_earned": "str",
+        "cumulative_gpa": "float",
+        "major_gpa": "str",
+        "completion_rate": "str",
+        "ins_user_id": "str",
+        "ins_dt": "str",
+        "upd_user_id": "str",
+        "upd_dt": "str",
+        "col_15": "str"
+      }
+    },
+    "tb_competency": {
+      "sheet_name": "○tb_competency",
+      "table_name": "tb_competency",
+      "columns": [
+        "competency_cd",
+        "competency_nm",
+        "competency_nm_en",
+        "definition",
+        "category",
+        "weight",
+        "max_score",
+        "use_fg",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_12"
+      ],
+      "row_count": 202,
+      "column_types": {
+        "competency_cd": "int",
+        "competency_nm": "str",
+        "competency_nm_en": "str",
+        "definition": "str",
+        "category": "str",
+        "weight": "str",
+        "max_score": "str",
+        "use_fg": "str",
+        "ins_user_id": "str",
+        "ins_dt": "date",
+        "upd_user_id": "str",
+        "upd_dt": "date",
+        "col_12": "str"
+      }
+    },
+    "tb_course_competency_map": {
+      "sheet_name": "○tb_course_competency_map",
+      "table_name": "tb_course_competency_map",
+      "columns": [
+        "map_id",
+        "course_cd",
+        "competency_cd",
+        "contribution_weight",
+        "ins_user_id",
+        "col_5"
+      ],
+      "row_count": 163934,
+      "column_types": {
+        "map_id": "str",
+        "course_cd": "str",
+        "competency_cd": "int",
+        "contribution_weight": "int",
+        "ins_user_id": "str",
+        "col_5": "str"
+      }
+    },
+    "tb_student_competency": {
+      "sheet_name": "○tb_student_competency",
+      "table_name": "tb_student_competency",
+      "columns": [
+        "student_competency_id",
+        "student_id",
+        "competency_cd",
+        "current_score",
+        "target_score",
+        "gap_score",
+        "status",
+        "last_assessment_date",
+        "trend",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "tb_student_competency"
+      ],
+      "row_count": 17178,
+      "column_types": {
+        "student_competency_id": "int",
+        "student_id": "int",
+        "competency_cd": "int",
+        "current_score": "float",
+        "target_score": "str",
+        "gap_score": "str",
+        "status": "str",
+        "last_assessment_date": "str",
+        "trend": "str",
+        "ins_user_id": "str",
+        "ins_dt": "str",
+        "upd_user_id": "str",
+        "upd_dt": "str",
+        "tb_student_competency": "str"
+      }
+    },
+    "tb_program": {
+      "sheet_name": "○tb_program",
+      "table_name": "tb_program",
+      "columns": [
+        "program_cd",
+        "program_nm",
+        "program_type",
+        "organizer",
+        "start_date",
+        "end_date",
+        "description",
+        "competency_contributions",
+        "use_fg",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_13"
+      ],
+      "row_count": 5008,
+      "column_types": {
+        "program_cd": "int",
+        "program_nm": "str",
+        "program_type": "str",
+        "organizer": "int",
+        "start_date": "int",
+        "end_date": "int",
+        "description": "str",
+        "competency_contributions": "str",
+        "use_fg": "str",
+        "ins_user_id": "str",
+        "ins_dt": "date",
+        "upd_user_id": "str",
+        "upd_dt": "date",
+        "col_13": "str"
+      }
+    },
+    "tb_activity": {
+      "sheet_name": "○tb_activity",
+      "table_name": "tb_activity",
+      "columns": [
+        "activity_id",
+        "student_id",
+        "program_cd",
+        "activity_type",
+        "title",
+        "description",
+        "start_date",
+        "end_date",
+        "hours",
+        "achievement",
+        "status",
+        "verified",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_16"
+      ],
+      "row_count": 110024,
+      "column_types": {
+        "activity_id": "int",
+        "student_id": "int",
+        "program_cd": "int",
+        "activity_type": "int",
+        "title": "str",
+        "description": "str",
+        "start_date": "int",
+        "end_date": "int",
+        "hours": "str",
+        "achievement": "str",
+        "status": "int",
+        "verified": "str",
+        "ins_user_id": "str",
+        "ins_dt": "date",
+        "upd_user_id": "str",
+        "upd_dt": "str",
+        "col_16": "str"
+      }
+    },
+    "tb_achievement": {
+      "sheet_name": "tb_achievement",
+      "table_name": "tb_achievement",
+      "columns": [
+        "col_0",
+        "UUID",
+        "VARCHAR(20)",
+        "VARCHAR(50)",
+        "VARCHAR(200)",
+        "VARCHAR(200)",
+        "DATE",
+        "DATE",
+        "VARCHAR(50)",
+        "VARCHAR(50)",
+        "JSONB",
+        "CHAR(1)",
+        "VARCHAR(50)",
+        "TIMESTAMP",
+        "VARCHAR(50)",
+        "TIMESTAMP",
+        "col_16",
+        "col_17",
+        "col_18",
+        "col_19",
+        "col_20",
+        "col_21",
+        "col_22"
+      ],
+      "row_count": 3042,
+      "column_types": {
+        "col_0": "int",
+        "UUID": "int",
+        "VARCHAR(20)": "int",
+        "VARCHAR(50)": "str",
+        "VARCHAR(200)": "str",
+        "DATE": "str",
+        "JSONB": "str",
+        "CHAR(1)": "str",
+        "TIMESTAMP": "str",
+        "col_16": "str",
+        "col_17": "unknown",
+        "col_18": "unknown",
+        "col_19": "unknown",
+        "col_20": "unknown",
+        "col_21": "unknown",
+        "col_22": "unknown"
+      }
+    },
+    "tb_user": {
+      "sheet_name": "○tb_user",
+      "table_name": "tb_user",
+      "columns": [
+        "user_id",
+        "login_id",
+        "password_hash",
+        "user_nm",
+        "email",
+        "phone",
+        "user_type",
+        "student_id",
+        "professor_cd",
+        "role",
+        "status",
+        "mfa_enabled",
+        "mfa_secret",
+        "last_login",
+        "login_fail_count",
+        "locked_until",
+        "ins_user_id",
+        "ins_dt",
+        "upd_user_id",
+        "upd_dt",
+        "col_20"
+      ],
+      "row_count": 87919,
+      "column_types": {
+        "user_id": "str",
+        "login_id": "str",
+        "password_hash": "str",
+        "user_nm": "str",
+        "email": "str",
+        "phone": "str",
+        "user_type": "str",
+        "student_id": "str",
+        "professor_cd": "str",
+        "role": "str",
+        "status": "str",
+        "mfa_enabled": "bool",
+        "mfa_secret": "str",
+        "last_login": "str",
+        "login_fail_count": "str",
+        "locked_until": "str",
+        "ins_user_id": "str",
+        "ins_dt": "str",
+        "upd_user_id": "str",
+        "upd_dt": "str",
+        "col_20": "str"
+      }
+    }
+  },
+  "db_tables": {
+    "tb_achievement": [
+      "achievement_id",
+      "student_id",
+      "achievement_type",
+      "title",
+      "issuer",
+      "issue_date",
+      "expire_date",
+      "level",
+      "score",
+      "competency_contributions",
+      "verified",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_activity": [
+      "activity_id",
+      "student_id",
+      "program_cd",
+      "activity_type",
+      "title",
+      "description",
+      "start_date",
+      "end_date",
+      "hours",
+      "achievement",
+      "status",
+      "verified",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_advisor": [
+      "advisor_id",
+      "advisor_cd",
+      "advisor_nm",
+      "department_cd",
+      "email",
+      "phone",
+      "max_students",
+      "specialties",
+      "availability",
+      "is_active",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_advisor_assignment": [
+      "assignment_id",
+      "advisor_id",
+      "student_id",
+      "assigned_at",
+      "assignment_type",
+      "status",
+      "priority",
+      "notes",
+      "last_contact",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt",
+      "std_id",
+      "is_primary"
+    ],
+    "tb_advisor_intervention": [
+      "intervention_id",
+      "assignment_id",
+      "intervention_type",
+      "trigger_alert_id",
+      "scheduled_at",
+      "completed_at",
+      "status",
+      "notes",
+      "outcome",
+      "follow_up_required",
+      "follow_up_date",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_advisor_note": [
+      "note_id",
+      "assignment_id",
+      "note_type",
+      "content",
+      "is_private",
+      "created_at",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_alumni_cohort": [
+      "cohort_id",
+      "department_cd",
+      "graduation_year",
+      "cohort_size",
+      "avg_gpa",
+      "employment_rate",
+      "avg_salary",
+      "top_employers",
+      "top_roles",
+      "avg_competency_scores",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt",
+      "role_cd"
+    ],
+    "tb_auth_session": [
+      "session_id",
+      "user_id",
+      "access_token_hash",
+      "refresh_token_hash",
+      "device_id",
+      "device_type",
+      "device_name",
+      "user_agent",
+      "ip_address",
+      "is_active",
+      "mfa_verified",
+      "issued_at",
+      "expires_at",
+      "last_activity_at",
+      "revoked_at",
+      "revoked_reason",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_badge": [
+      "badge_id",
+      "badge_cd",
+      "badge_nm",
+      "badge_nm_en",
+      "description",
+      "category",
+      "level",
+      "icon_url",
+      "criteria",
+      "points",
+      "is_stackable",
+      "use_fg",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt",
+      "related_skill_cd",
+      "is_active",
+      "created_at"
+    ],
+    "tb_coaching_checkin": [
+      "checkin_id",
+      "goal_id",
+      "mood",
+      "progress_note",
+      "blockers",
+      "next_steps",
+      "reflection",
+      "ai_feedback",
+      "ai_suggestions",
+      "created_at",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_coaching_goal": [
+      "goal_id",
+      "std_id",
+      "title",
+      "description",
+      "goal_type",
+      "priority",
+      "target_date",
+      "target_role_cd",
+      "related_skills",
+      "success_criteria",
+      "motivation",
+      "status",
+      "progress_percentage",
+      "created_at",
+      "updated_at",
+      "completed_at",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_coaching_plan": [
+      "plan_id",
+      "goal_id",
+      "title",
+      "description",
+      "order_index",
+      "due_date",
+      "estimated_hours",
+      "related_skill_cd",
+      "is_completed",
+      "completed_at",
+      "actual_hours",
+      "notes",
+      "created_at",
+      "updated_at",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_coaching_retrospective": [
+      "retrospective_id",
+      "goal_id",
+      "what_went_well",
+      "what_could_improve",
+      "lessons_learned",
+      "next_goals",
+      "satisfaction_rating",
+      "ai_analysis",
+      "ai_recommendations",
+      "created_at",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_cohort_snapshot": [
+      "snapshot_id",
+      "department_cd",
+      "snapshot_date",
+      "grade_level",
+      "total_students",
+      "at_risk_count",
+      "avg_gpa",
+      "avg_completion_rate",
+      "risk_distribution",
+      "competency_distribution",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_college": [
+      "college_cd",
+      "university_cd",
+      "college_nm",
+      "college_nm_en",
+      "use_fg",
+      "sort_order",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt",
+      "ins_user_ip",
+      "ins_system_gcd",
+      "ins_menu_cd",
+      "upd_user_ip",
+      "upd_system_gcd",
+      "upd_menu_cd"
+    ],
+    "tb_competency": [
+      "competency_cd",
+      "competency_nm",
+      "competency_nm_en",
+      "definition",
+      "category",
+      "weight",
+      "max_score",
+      "use_fg",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_course": [
+      "course_cd",
+      "course_nm",
+      "course_nm_en",
+      "department_cd",
+      "credits",
+      "course_type",
+      "course_category",
+      "grade_level",
+      "description",
+      "use_fg",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_course_competency_map": [
+      "map_id",
+      "course_cd",
+      "competency_cd",
+      "contribution_weight",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_course_offering": [
+      "offering_id",
+      "course_cd",
+      "term_cd",
+      "professor_cd",
+      "class_no",
+      "capacity",
+      "enrolled_count",
+      "schedule",
+      "classroom",
+      "use_fg",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_course_registration": [
+      "registration_id",
+      "student_id",
+      "course_id",
+      "term_cd",
+      "status",
+      "ins_dt"
+    ],
+    "tb_cumulative_summary": [
+      "summary_id",
+      "student_id",
+      "total_credits_required",
+      "total_credits_earned",
+      "major_credits_required",
+      "major_credits_earned",
+      "liberal_credits_required",
+      "liberal_credits_earned",
+      "cumulative_gpa",
+      "major_gpa",
+      "completion_rate",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_department": [
+      "department_cd",
+      "college_cd",
+      "department_nm",
+      "department_nm_en",
+      "dept_type",
+      "graduation_credits",
+      "use_fg",
+      "sort_order",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt",
+      "ins_user_ip",
+      "ins_system_gcd",
+      "ins_menu_cd",
+      "upd_user_ip",
+      "upd_system_gcd",
+      "upd_menu_cd"
+    ],
+    "tb_enrollment": [
+      "enrollment_id",
+      "student_id",
+      "course_offering_id",
+      "term_cd",
+      "status_cd",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_eval_feedback": [
+      "feedback_id",
+      "run_id",
+      "item_id",
+      "user_id",
+      "feedback_type",
+      "rating",
+      "comment",
+      "is_helpful",
+      "ins_dt"
+    ],
+    "tb_grade": [
+      "grade_id",
+      "enrollment_id",
+      "student_id",
+      "course_cd",
+      "term_cd",
+      "grade_letter",
+      "grade_point",
+      "credits_earned",
+      "is_retake",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_grade_summary": [
+      "summary_id",
+      "student_id",
+      "term_cd",
+      "total_credits",
+      "earned_credits",
+      "gpa",
+      "major_gpa",
+      "class_rank",
+      "total_students",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_login_history": [
+      "history_id",
+      "user_id",
+      "login_id",
+      "login_result",
+      "ip_address",
+      "user_agent",
+      "device_type",
+      "device_fingerprint",
+      "is_suspicious",
+      "risk_score",
+      "geo_country",
+      "geo_city",
+      "attempted_at"
+    ],
+    "tb_opportunity": [
+      "opportunity_id",
+      "opportunity_type",
+      "title",
+      "organization",
+      "description",
+      "requirements",
+      "benefits",
+      "application_start",
+      "application_end",
+      "start_date",
+      "end_date",
+      "location",
+      "remote_available",
+      "slots",
+      "status",
+      "external_url",
+      "tags",
+      "department_cds",
+      "competency_contributions",
+      "skill_contributions",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_opportunity_application": [
+      "application_id",
+      "student_id",
+      "opportunity_id",
+      "applied_at",
+      "status",
+      "cover_letter",
+      "attachments",
+      "reviewer_notes",
+      "decision_at",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_opportunity_recommendation": [
+      "recommendation_id",
+      "student_id",
+      "opportunity_id",
+      "match_score",
+      "match_reasons",
+      "status",
+      "recommended_at",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_portfolio": [
+      "portfolio_id",
+      "student_id",
+      "item_type",
+      "title",
+      "description",
+      "start_date",
+      "end_date",
+      "skills_used",
+      "evidence_url",
+      "image_url",
+      "is_featured",
+      "display_order",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt",
+      "artifact_type",
+      "url",
+      "is_primary"
+    ],
+    "tb_prerequisite": [
+      "prerequisite_id",
+      "course_cd",
+      "prerequisite_course_cd",
+      "prerequisite_type",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_prerequisite_rule": [
+      "rule_id",
+      "course_cd",
+      "prerequisite_type",
+      "condition_expr",
+      "error_message",
+      "is_strict",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_professor": [
+      "professor_cd",
+      "professor_nm",
+      "professor_nm_en",
+      "department_cd",
+      "email",
+      "phone",
+      "office_location",
+      "position",
+      "specialty",
+      "use_fg",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_professor_course": [
+      "professor_course_id",
+      "professor_cd",
+      "course_cd",
+      "is_primary",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_program": [
+      "program_cd",
+      "program_nm",
+      "program_type",
+      "organizer",
+      "start_date",
+      "end_date",
+      "description",
+      "competency_contributions",
+      "use_fg",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_recommendation_item": [
+      "item_id",
+      "run_id",
+      "item_type",
+      "title",
+      "description",
+      "priority",
+      "target_competency",
+      "reasoning",
+      "confidence_score",
+      "deadline",
+      "ins_dt"
+    ],
+    "tb_recommendation_run": [
+      "run_id",
+      "student_id",
+      "run_type",
+      "model_version",
+      "prompt_tokens",
+      "completion_tokens",
+      "latency_ms",
+      "status",
+      "error_message",
+      "context_data",
+      "run_dt"
+    ],
+    "tb_risk_alert": [
+      "alert_id",
+      "student_id",
+      "risk_type",
+      "severity",
+      "title",
+      "description",
+      "trigger_value",
+      "threshold_value",
+      "related_entity_type",
+      "related_entity_id",
+      "status",
+      "resolved_at",
+      "resolution_notes",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_roadmap": [
+      "roadmap_id",
+      "student_id",
+      "title",
+      "description",
+      "target_role",
+      "target_company",
+      "target_year",
+      "status",
+      "progress_percent",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_roadmap_item": [
+      "item_id",
+      "roadmap_id",
+      "category",
+      "title",
+      "description",
+      "target_grade",
+      "target_semester",
+      "status",
+      "priority",
+      "display_order",
+      "due_date",
+      "completed_date",
+      "notes",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_role": [
+      "role_cd",
+      "role_nm",
+      "role_nm_en",
+      "category",
+      "description",
+      "average_salary",
+      "growth_rate",
+      "required_competencies",
+      "required_skills",
+      "use_fg",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_role_skill_map": [
+      "map_id",
+      "role_cd",
+      "skill_cd",
+      "required_level",
+      "importance",
+      "market_demand_score",
+      "growth_trend",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_scenario_comparison": [
+      "comparison_id",
+      "student_id",
+      "scenario_ids",
+      "comparison_metrics",
+      "recommendation",
+      "ai_analysis",
+      "created_at",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_simulation_scenario": [
+      "scenario_id",
+      "student_id",
+      "scenario_type",
+      "title",
+      "description",
+      "base_state",
+      "changes",
+      "predicted_outcomes",
+      "confidence_level",
+      "created_at",
+      "is_favorite",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_skill": [
+      "skill_cd",
+      "skill_nm",
+      "skill_nm_en",
+      "synonyms",
+      "category",
+      "difficulty",
+      "use_fg",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_skill_competency_map": [
+      "map_id",
+      "skill_cd",
+      "competency_cd",
+      "weight",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_skill_gap_analysis": [
+      "analysis_id",
+      "student_id",
+      "target_role_cd",
+      "analysis_date",
+      "overall_gap_score",
+      "gap_details",
+      "top_priority_skills",
+      "recommended_actions",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_skill_passport": [
+      "passport_id",
+      "student_id",
+      "overall_score",
+      "total_badges",
+      "total_skills",
+      "verified_skills",
+      "passport_data",
+      "last_updated",
+      "public_share_url",
+      "is_public",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_skill_relation": [
+      "relation_id",
+      "skill_cd_from",
+      "skill_cd_to",
+      "relation_type",
+      "strength",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_student": [
+      "student_id",
+      "student_nm",
+      "student_nm_en",
+      "university_cd",
+      "department_cd",
+      "admission_year",
+      "current_grade",
+      "current_semester",
+      "email",
+      "phone",
+      "birth_date",
+      "gender",
+      "status",
+      "career_goal",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt",
+      "std_id",
+      "std_nm",
+      "ins_user_ip",
+      "ins_system_gcd",
+      "ins_menu_cd",
+      "upd_user_ip",
+      "upd_system_gcd",
+      "upd_menu_cd"
+    ],
+    "tb_student_badge": [
+      "student_badge_id",
+      "student_id",
+      "badge_id",
+      "earned_at",
+      "earned_level",
+      "evidence",
+      "verified_by",
+      "ins_user_id",
+      "ins_dt"
+    ],
+    "tb_student_competency": [
+      "student_competency_id",
+      "student_id",
+      "competency_cd",
+      "current_score",
+      "target_score",
+      "gap_score",
+      "status",
+      "last_assessment_date",
+      "trend",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_student_skill": [
+      "student_skill_id",
+      "student_id",
+      "skill_cd",
+      "current_level",
+      "target_level",
+      "evidence_count",
+      "last_verified_date",
+      "verification_source",
+      "trend",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_success_pattern": [
+      "pattern_id",
+      "pattern_nm",
+      "pattern_type",
+      "department_cd",
+      "role_cd",
+      "description",
+      "typical_gpa_range",
+      "key_courses",
+      "key_activities",
+      "key_skills",
+      "timeline",
+      "success_rate",
+      "sample_size",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_term": [
+      "term_cd",
+      "term_nm",
+      "start_date",
+      "end_date",
+      "registration_start",
+      "registration_end",
+      "use_fg",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_university": [
+      "university_cd",
+      "university_nm",
+      "university_nm_en",
+      "address",
+      "phone",
+      "website",
+      "use_fg",
+      "ins_user_id",
+      "ins_user_ip",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt",
+      "ins_system_gcd",
+      "ins_menu_cd",
+      "upd_user_ip",
+      "upd_system_gcd",
+      "upd_menu_cd"
+    ],
+    "tb_user": [
+      "user_id",
+      "login_id",
+      "password_hash",
+      "user_nm",
+      "email",
+      "phone",
+      "user_type",
+      "student_id",
+      "professor_cd",
+      "role",
+      "status",
+      "mfa_enabled",
+      "mfa_secret",
+      "last_login",
+      "login_fail_count",
+      "locked_until",
+      "ins_user_id",
+      "ins_dt",
+      "upd_user_id",
+      "upd_dt"
+    ],
+    "tb_user_session": [
+      "session_id",
+      "user_id",
+      "refresh_token",
+      "device_info",
+      "ip_address",
+      "expires_at",
+      "is_active",
+      "ins_dt"
+    ]
+  },
+  "row_count_comparison": {
+    "tb_achievement": {
+      "excel": 3042,
+      "db": 300,
+      "diff": 2742
+    },
+    "tb_activity": {
+      "excel": 110024,
+      "db": 400,
+      "diff": 109624
+    },
+    "tb_advisor": {
+      "excel": 0,
+      "db": 20,
+      "diff": -20
+    },
+    "tb_advisor_assignment": {
+      "excel": 0,
+      "db": 200,
+      "diff": -200
+    },
+    "tb_advisor_intervention": {
+      "excel": 0,
+      "db": 100,
+      "diff": -100
+    },
+    "tb_advisor_note": {
+      "excel": 0,
+      "db": 300,
+      "diff": -300
+    },
+    "tb_alumni_cohort": {
+      "excel": 0,
+      "db": 150,
+      "diff": -150
+    },
+    "tb_badge": {
+      "excel": 0,
+      "db": 10,
+      "diff": -10
+    },
+    "tb_coaching_checkin": {
+      "excel": 0,
+      "db": 600,
+      "diff": -600
+    },
+    "tb_coaching_goal": {
+      "excel": 0,
+      "db": 300,
+      "diff": -300
+    },
+    "tb_coaching_plan": {
+      "excel": 0,
+      "db": 909,
+      "diff": -909
+    },
+    "tb_coaching_retrospective": {
+      "excel": 0,
+      "db": 150,
+      "diff": -150
+    },
+    "tb_cohort_snapshot": {
+      "excel": 0,
+      "db": 500,
+      "diff": -500
+    },
+    "tb_college": {
+      "excel": 50,
+      "db": 8,
+      "diff": 42
+    },
+    "tb_competency": {
+      "excel": 202,
+      "db": 6,
+      "diff": 196
+    },
+    "tb_course": {
+      "excel": 44601,
+      "db": 100,
+      "diff": 44501
+    },
+    "tb_course_competency_map": {
+      "excel": 163934,
+      "db": 262,
+      "diff": 163672
+    },
+    "tb_course_offering": {
+      "excel": 41426,
+      "db": 600,
+      "diff": 40826
+    },
+    "tb_cumulative_summary": {
+      "excel": 84269,
+      "db": 204,
+      "diff": 84065
+    },
+    "tb_department": {
+      "excel": 602,
+      "db": 30,
+      "diff": 572
+    },
+    "tb_enrollment": {
+      "excel": 717573,
+      "db": 4000,
+      "diff": 713573
+    },
+    "tb_eval_feedback": {
+      "excel": 0,
+      "db": 500,
+      "diff": -500
+    },
+    "tb_grade": {
+      "excel": 717552,
+      "db": 4000,
+      "diff": 713552
+    },
+    "tb_grade_summary": {
+      "excel": 111180,
+      "db": 1290,
+      "diff": 109890
+    },
+    "tb_major": {
+      "excel": 1857,
+      "db": 0,
+      "diff": 1857
+    },
+    "tb_opportunity": {
+      "excel": 0,
+      "db": 50,
+      "diff": -50
+    },
+    "tb_opportunity_application": {
+      "excel": 0,
+      "db": 300,
+      "diff": -300
+    },
+    "tb_opportunity_recommendation": {
+      "excel": 0,
+      "db": 400,
+      "diff": -400
+    },
+    "tb_prerequisite": {
+      "excel": 0,
+      "db": 50,
+      "diff": -50
+    },
+    "tb_prerequisite_rule": {
+      "excel": 0,
+      "db": 30,
+      "diff": -30
+    },
+    "tb_professor": {
+      "excel": 15034,
+      "db": 50,
+      "diff": 14984
+    },
+    "tb_professor_course": {
+      "excel": 41025,
+      "db": 150,
+      "diff": 40875
+    },
+    "tb_program": {
+      "excel": 5008,
+      "db": 30,
+      "diff": 4978
+    },
+    "tb_recommendation_item": {
+      "excel": 0,
+      "db": 500,
+      "diff": -500
+    },
+    "tb_recommendation_run": {
+      "excel": 0,
+      "db": 200,
+      "diff": -200
+    },
+    "tb_risk_alert": {
+      "excel": 0,
+      "db": 100,
+      "diff": -100
+    },
+    "tb_role": {
+      "excel": 0,
+      "db": 15,
+      "diff": -15
+    },
+    "tb_role_skill_map": {
+      "excel": 0,
+      "db": 60,
+      "diff": -60
+    },
+    "tb_scenario_comparison": {
+      "excel": 0,
+      "db": 150,
+      "diff": -150
+    },
+    "tb_simulation_scenario": {
+      "excel": 0,
+      "db": 200,
+      "diff": -200
+    },
+    "tb_skill": {
+      "excel": 0,
+      "db": 15,
+      "diff": -15
+    },
+    "tb_skill_competency_map": {
+      "excel": 0,
+      "db": 33,
+      "diff": -33
+    },
+    "tb_skill_gap_analysis": {
+      "excel": 0,
+      "db": 1000,
+      "diff": -1000
+    },
+    "tb_skill_passport": {
+      "excel": 0,
+      "db": 204,
+      "diff": -204
+    },
+    "tb_skill_relation": {
+      "excel": 0,
+      "db": 30,
+      "diff": -30
+    },
+    "tb_student": {
+      "excel": 0,
+      "db": 204,
+      "diff": -204
+    },
+    "tb_student2": {
+      "excel": 87919,
+      "db": 0,
+      "diff": 87919
+    },
+    "tb_student_badge": {
+      "excel": 0,
+      "db": 600,
+      "diff": -600
+    },
+    "tb_student_competency": {
+      "excel": 17178,
+      "db": 1224,
+      "diff": 15954
+    },
+    "tb_student_skill": {
+      "excel": 0,
+      "db": 1500,
+      "diff": -1500
+    },
+    "tb_success_pattern": {
+      "excel": 0,
+      "db": 45,
+      "diff": -45
+    },
+    "tb_term": {
+      "excel": 0,
+      "db": 12,
+      "diff": -12
+    },
+    "tb_university": {
+      "excel": 0,
+      "db": 1,
+      "diff": -1
+    },
+    "tb_user": {
+      "excel": 87919,
+      "db": 205,
+      "diff": 87714
+    },
+    "tb_user_session": {
+      "excel": 0,
+      "db": 500,
+      "diff": -500
+    }
+  },
+  "column_mappings": {
+    "tb_achievement": [
+      {
+        "excel_column": "col_0",
+        "db_column": null,
+        "excel_type": "int",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "UUID",
+        "db_column": null,
+        "excel_type": "int",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "VARCHAR(20)",
+        "db_column": null,
+        "excel_type": "int",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "VARCHAR(50)",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "VARCHAR(200)",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "VARCHAR(200)",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "DATE",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "DATE",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "VARCHAR(50)",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "VARCHAR(50)",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "JSONB",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "CHAR(1)",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "VARCHAR(50)",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "TIMESTAMP",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "VARCHAR(50)",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "TIMESTAMP",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "col_16",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "col_17",
+        "db_column": null,
+        "excel_type": "unknown",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "col_18",
+        "db_column": null,
+        "excel_type": "unknown",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "col_19",
+        "db_column": null,
+        "excel_type": "unknown",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "col_20",
+        "db_column": null,
+        "excel_type": "unknown",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "col_21",
+        "db_column": null,
+        "excel_type": "unknown",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "col_22",
+        "db_column": null,
+        "excel_type": "unknown",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": null,
+        "db_column": "achievement_id",
+        "excel_type": null,
+        "db_type": "uuid",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "student_id",
+        "excel_type": null,
+        "db_type": "character varying(20)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "achievement_type",
+        "excel_type": null,
+        "db_type": "character varying(50)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "title",
+        "excel_type": null,
+        "db_type": "character varying(200)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "issuer",
+        "excel_type": null,
+        "db_type": "character varying(200)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "issue_date",
+        "excel_type": null,
+        "db_type": "date",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "expire_date",
+        "excel_type": null,
+        "db_type": "date",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "level",
+        "excel_type": null,
+        "db_type": "character varying(50)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "score",
+        "excel_type": null,
+        "db_type": "character varying(50)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "competency_contributions",
+        "excel_type": null,
+        "db_type": "jsonb",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "verified",
+        "excel_type": null,
+        "db_type": "character(1)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "ins_user_id",
+        "excel_type": null,
+        "db_type": "character varying(50)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "ins_dt",
+        "excel_type": null,
+        "db_type": "timestamp without time zone",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "upd_user_id",
+        "excel_type": null,
+        "db_type": "character varying(50)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "upd_dt",
+        "excel_type": null,
+        "db_type": "timestamp without time zone",
+        "match_status": "missing_in_excel"
+      }
+    ],
+    "tb_activity": [
+      {
+        "excel_column": "activity_id",
+        "db_column": "activity_id",
+        "excel_type": "int",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "student_id",
+        "db_column": "student_id",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "program_cd",
+        "db_column": "program_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "activity_type",
+        "db_column": "activity_type",
+        "excel_type": "int",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "title",
+        "db_column": "title",
+        "excel_type": "str",
+        "db_type": "character varying(200)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "description",
+        "db_column": "description",
+        "excel_type": "str",
+        "db_type": "text",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "start_date",
+        "db_column": "start_date",
+        "excel_type": "int",
+        "db_type": "date",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "end_date",
+        "db_column": "end_date",
+        "excel_type": "int",
+        "db_type": "date",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "hours",
+        "db_column": "hours",
+        "excel_type": "str",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "achievement",
+        "db_column": "achievement",
+        "excel_type": "str",
+        "db_type": "text",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "status",
+        "db_column": "status",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "verified",
+        "db_column": "verified",
+        "excel_type": "str",
+        "db_type": "character(1)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_16",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_college": [
+      {
+        "excel_column": "college_cd",
+        "db_column": "college_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "university_cd",
+        "db_column": "university_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "college_nm",
+        "db_column": "college_nm",
+        "excel_type": "str",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "college_nm_en",
+        "db_column": "college_nm_en",
+        "excel_type": "str",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "use_fg",
+        "db_column": "use_fg",
+        "excel_type": "int",
+        "db_type": "character(1)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "sort_order",
+        "db_column": "sort_order",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "int",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_10",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": null,
+        "db_column": "ins_user_ip",
+        "excel_type": null,
+        "db_type": "character varying(50)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "ins_system_gcd",
+        "excel_type": null,
+        "db_type": "character varying(10)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "ins_menu_cd",
+        "excel_type": null,
+        "db_type": "character varying(20)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "upd_user_ip",
+        "excel_type": null,
+        "db_type": "character varying(50)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "upd_system_gcd",
+        "excel_type": null,
+        "db_type": "character varying(10)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "upd_menu_cd",
+        "excel_type": null,
+        "db_type": "character varying(20)",
+        "match_status": "missing_in_excel"
+      }
+    ],
+    "tb_competency": [
+      {
+        "excel_column": "competency_cd",
+        "db_column": "competency_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "competency_nm",
+        "db_column": "competency_nm",
+        "excel_type": "str",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "competency_nm_en",
+        "db_column": "competency_nm_en",
+        "excel_type": "str",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "definition",
+        "db_column": "definition",
+        "excel_type": "str",
+        "db_type": "text",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "category",
+        "db_column": "category",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "weight",
+        "db_column": "weight",
+        "excel_type": "str",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "max_score",
+        "db_column": "max_score",
+        "excel_type": "str",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "use_fg",
+        "db_column": "use_fg",
+        "excel_type": "str",
+        "db_type": "character(1)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_12",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_course": [
+      {
+        "excel_column": "course_cd",
+        "db_column": "course_cd",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "course_nm",
+        "db_column": "course_nm",
+        "excel_type": "str",
+        "db_type": "character varying(200)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "course_nm_en",
+        "db_column": "course_nm_en",
+        "excel_type": "str",
+        "db_type": "character varying(200)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "department_cd",
+        "db_column": "department_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "credits",
+        "db_column": "credits",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "course_type",
+        "db_column": "course_type",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "course_category",
+        "db_column": "course_category",
+        "excel_type": "int",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "grade_level",
+        "db_column": "grade_level",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "description",
+        "db_column": "description",
+        "excel_type": "unknown",
+        "db_type": "text",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "use_fg",
+        "db_column": "use_fg",
+        "excel_type": "str",
+        "db_type": "character(1)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "course_cd,course_nm,course_nm_en,department_cd,credits,course_type,course_category,grade_level,description,use_fg,ins_user_id,upd_user_id,upd_dt",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_course_competency_map": [
+      {
+        "excel_column": "map_id",
+        "db_column": "map_id",
+        "excel_type": "str",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "course_cd",
+        "db_column": "course_cd",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "competency_cd",
+        "db_column": "competency_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "contribution_weight",
+        "db_column": "contribution_weight",
+        "excel_type": "int",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_5",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": null,
+        "db_column": "ins_dt",
+        "excel_type": null,
+        "db_type": "timestamp without time zone",
+        "match_status": "missing_in_excel"
+      }
+    ],
+    "tb_course_offering": [
+      {
+        "excel_column": "offering_id",
+        "db_column": "offering_id",
+        "excel_type": "str",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "course_cd",
+        "db_column": "course_cd",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "term_cd",
+        "db_column": "term_cd",
+        "excel_type": "int",
+        "db_type": "character varying(10)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "professor_cd",
+        "db_column": "professor_cd",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "class_no",
+        "db_column": "class_no",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "capacity",
+        "db_column": "capacity",
+        "excel_type": "str",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "enrolled_count",
+        "db_column": "enrolled_count",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "schedule",
+        "db_column": "schedule",
+        "excel_type": "str",
+        "db_type": "character varying(200)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "classroom",
+        "db_column": "classroom",
+        "excel_type": "str",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "use_fg",
+        "db_column": "use_fg",
+        "excel_type": "str",
+        "db_type": "character(1)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_14",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_cumulative_summary": [
+      {
+        "excel_column": "summary_id",
+        "db_column": "summary_id",
+        "excel_type": "int",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "student_id",
+        "db_column": "student_id",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "total_credits_required",
+        "db_column": "total_credits_required",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "total_credits_earned",
+        "db_column": "total_credits_earned",
+        "excel_type": "float",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "major_credits_required",
+        "db_column": "major_credits_required",
+        "excel_type": "str",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "major_credits_earned",
+        "db_column": "major_credits_earned",
+        "excel_type": "str",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "liberal_credits_required",
+        "db_column": "liberal_credits_required",
+        "excel_type": "str",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "liberal_credits_earned",
+        "db_column": "liberal_credits_earned",
+        "excel_type": "str",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "cumulative_gpa",
+        "db_column": "cumulative_gpa",
+        "excel_type": "float",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "major_gpa",
+        "db_column": "major_gpa",
+        "excel_type": "str",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "completion_rate",
+        "db_column": "completion_rate",
+        "excel_type": "str",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_15",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_department": [
+      {
+        "excel_column": "department_cd",
+        "db_column": "department_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "college_cd",
+        "db_column": "college_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "department_nm",
+        "db_column": "department_nm",
+        "excel_type": "str",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "department_nm_en",
+        "db_column": "department_nm_en",
+        "excel_type": "str",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "dept_type",
+        "db_column": "dept_type",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "graduation_credits",
+        "db_column": "graduation_credits",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "use_fg",
+        "db_column": "use_fg",
+        "excel_type": "int",
+        "db_type": "character(1)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "sort_order",
+        "db_column": "sort_order",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "int",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_12",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": null,
+        "db_column": "ins_user_ip",
+        "excel_type": null,
+        "db_type": "character varying(50)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "ins_system_gcd",
+        "excel_type": null,
+        "db_type": "character varying(10)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "ins_menu_cd",
+        "excel_type": null,
+        "db_type": "character varying(20)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "upd_user_ip",
+        "excel_type": null,
+        "db_type": "character varying(50)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "upd_system_gcd",
+        "excel_type": null,
+        "db_type": "character varying(10)",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "upd_menu_cd",
+        "excel_type": null,
+        "db_type": "character varying(20)",
+        "match_status": "missing_in_excel"
+      }
+    ],
+    "tb_enrollment": [
+      {
+        "excel_column": "enrollment_id",
+        "db_column": "enrollment_id",
+        "excel_type": "str",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "student_id",
+        "db_column": "student_id",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "offering_id",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "term_cd",
+        "db_column": "term_cd",
+        "excel_type": "int",
+        "db_type": "character varying(10)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "status",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_9",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      },
+      {
+        "excel_column": null,
+        "db_column": "course_offering_id",
+        "excel_type": null,
+        "db_type": "uuid",
+        "match_status": "missing_in_excel"
+      },
+      {
+        "excel_column": null,
+        "db_column": "status_cd",
+        "excel_type": null,
+        "db_type": "character varying(20)",
+        "match_status": "missing_in_excel"
+      }
+    ],
+    "tb_grade": [
+      {
+        "excel_column": "grade_id",
+        "db_column": "grade_id",
+        "excel_type": "str",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "enrollment_id",
+        "db_column": "enrollment_id",
+        "excel_type": "str",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "student_id",
+        "db_column": "student_id",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "course_cd",
+        "db_column": "course_cd",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "term_cd",
+        "db_column": "term_cd",
+        "excel_type": "int",
+        "db_type": "character varying(10)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "grade_letter",
+        "db_column": "grade_letter",
+        "excel_type": "str",
+        "db_type": "character varying(5)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "grade_point",
+        "db_column": "grade_point",
+        "excel_type": "int",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "credits_earned",
+        "db_column": "credits_earned",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "is_retake",
+        "db_column": "is_retake",
+        "excel_type": "int",
+        "db_type": "character(1)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_13",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_grade_summary": [
+      {
+        "excel_column": "summary_id",
+        "db_column": "summary_id",
+        "excel_type": "int",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "student_id",
+        "db_column": "student_id",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "term_cd",
+        "db_column": "term_cd",
+        "excel_type": "int",
+        "db_type": "character varying(10)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "total_credits",
+        "db_column": "total_credits",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "earned_credits",
+        "db_column": "earned_credits",
+        "excel_type": "int",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "gpa",
+        "db_column": "gpa",
+        "excel_type": "float",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "major_gpa",
+        "db_column": "major_gpa",
+        "excel_type": "int",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "class_rank",
+        "db_column": "class_rank",
+        "excel_type": "str",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "total_students",
+        "db_column": "total_students",
+        "excel_type": "str",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_13",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_professor": [
+      {
+        "excel_column": "professor_cd",
+        "db_column": "professor_cd",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "professor_nm",
+        "db_column": "professor_nm",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "professor_nm_en",
+        "db_column": "professor_nm_en",
+        "excel_type": "unknown",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "department_cd",
+        "db_column": "department_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "email",
+        "db_column": "email",
+        "excel_type": "str",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "phone",
+        "db_column": "phone",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "office_location",
+        "db_column": "office_location",
+        "excel_type": "unknown",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "position",
+        "db_column": "position",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "specialty",
+        "db_column": "specialty",
+        "excel_type": "unknown",
+        "db_type": "character varying(500)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "use_fg",
+        "db_column": "use_fg",
+        "excel_type": "str",
+        "db_type": "character(1)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_14",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_professor_course": [
+      {
+        "excel_column": "professor_course_id",
+        "db_column": "professor_course_id",
+        "excel_type": "str",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "professor_cd",
+        "db_column": "professor_cd",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "course_cd",
+        "db_column": "course_cd",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "is_primary",
+        "db_column": "is_primary",
+        "excel_type": "int",
+        "db_type": "character(1)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_6",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_program": [
+      {
+        "excel_column": "program_cd",
+        "db_column": "program_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "program_nm",
+        "db_column": "program_nm",
+        "excel_type": "str",
+        "db_type": "character varying(200)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "program_type",
+        "db_column": "program_type",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "organizer",
+        "db_column": "organizer",
+        "excel_type": "int",
+        "db_type": "character varying(200)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "start_date",
+        "db_column": "start_date",
+        "excel_type": "int",
+        "db_type": "date",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "end_date",
+        "db_column": "end_date",
+        "excel_type": "int",
+        "db_type": "date",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "description",
+        "db_column": "description",
+        "excel_type": "str",
+        "db_type": "text",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "competency_contributions",
+        "db_column": "competency_contributions",
+        "excel_type": "str",
+        "db_type": "jsonb",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "use_fg",
+        "db_column": "use_fg",
+        "excel_type": "str",
+        "db_type": "character(1)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "date",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_13",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_student_competency": [
+      {
+        "excel_column": "student_competency_id",
+        "db_column": "student_competency_id",
+        "excel_type": "int",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "student_id",
+        "db_column": "student_id",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "competency_cd",
+        "db_column": "competency_cd",
+        "excel_type": "int",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "current_score",
+        "db_column": "current_score",
+        "excel_type": "float",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "target_score",
+        "db_column": "target_score",
+        "excel_type": "str",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "gap_score",
+        "db_column": "gap_score",
+        "excel_type": "str",
+        "db_type": "numeric",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "status",
+        "db_column": "status",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "last_assessment_date",
+        "db_column": "last_assessment_date",
+        "excel_type": "str",
+        "db_type": "date",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "trend",
+        "db_column": "trend",
+        "excel_type": "str",
+        "db_type": "character varying(10)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "tb_student_competency",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ],
+    "tb_user": [
+      {
+        "excel_column": "user_id",
+        "db_column": "user_id",
+        "excel_type": "str",
+        "db_type": "uuid",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "login_id",
+        "db_column": "login_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "password_hash",
+        "db_column": "password_hash",
+        "excel_type": "str",
+        "db_type": "character varying(255)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "user_nm",
+        "db_column": "user_nm",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "email",
+        "db_column": "email",
+        "excel_type": "str",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "phone",
+        "db_column": "phone",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "user_type",
+        "db_column": "user_type",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "student_id",
+        "db_column": "student_id",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "professor_cd",
+        "db_column": "professor_cd",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "role",
+        "db_column": "role",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "status",
+        "db_column": "status",
+        "excel_type": "str",
+        "db_type": "character varying(20)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "mfa_enabled",
+        "db_column": "mfa_enabled",
+        "excel_type": "bool",
+        "db_type": "boolean",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "mfa_secret",
+        "db_column": "mfa_secret",
+        "excel_type": "str",
+        "db_type": "character varying(100)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "last_login",
+        "db_column": "last_login",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "login_fail_count",
+        "db_column": "login_fail_count",
+        "excel_type": "str",
+        "db_type": "integer",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "locked_until",
+        "db_column": "locked_until",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_user_id",
+        "db_column": "ins_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "ins_dt",
+        "db_column": "ins_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_user_id",
+        "db_column": "upd_user_id",
+        "excel_type": "str",
+        "db_type": "character varying(50)",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "upd_dt",
+        "db_column": "upd_dt",
+        "excel_type": "str",
+        "db_type": "timestamp without time zone",
+        "match_status": "exact"
+      },
+      {
+        "excel_column": "col_20",
+        "db_column": null,
+        "excel_type": "str",
+        "db_type": null,
+        "match_status": "missing_in_db"
+      }
+    ]
+  },
+  "issues": [
+    "tb_achievement: Excel에만 있는 컬럼 23개 - ['col_0', 'UUID', 'VARCHAR(20)', 'VARCHAR(50)', 'VARCHAR(200)', 'VARCHAR(200)', 'DATE', 'DATE', 'VARCHAR(50)', 'VARCHAR(50)', 'JSONB', 'CHAR(1)', 'VARCHAR(50)', 'TIMESTAMP', 'VARCHAR(50)', 'TIMESTAMP', 'col_16', 'col_17', 'col_18', 'col_19', 'col_20', 'col_21', 'col_22']",
+    "tb_achievement: DB에만 있는 컬럼 15개 - ['achievement_id', 'student_id', 'achievement_type', 'title', 'issuer', 'issue_date', 'expire_date', 'level', 'score', 'competency_contributions', 'verified', 'ins_user_id', 'ins_dt', 'upd_user_id', 'upd_dt']",
+    "tb_activity: Excel에만 있는 컬럼 1개 - ['col_16']",
+    "tb_advisor: Excel 시트 없음",
+    "tb_advisor_assignment: Excel 시트 없음",
+    "tb_advisor_intervention: Excel 시트 없음",
+    "tb_advisor_note: Excel 시트 없음",
+    "tb_alumni_cohort: Excel 시트 없음",
+    "tb_badge: Excel 시트 없음",
+    "tb_coaching_checkin: Excel 시트 없음",
+    "tb_coaching_goal: Excel 시트 없음",
+    "tb_coaching_plan: Excel 시트 없음",
+    "tb_coaching_retrospective: Excel 시트 없음",
+    "tb_cohort_snapshot: Excel 시트 없음",
+    "tb_college: Excel에만 있는 컬럼 1개 - ['col_10']",
+    "tb_college: DB에만 있는 컬럼 6개 - ['ins_user_ip', 'ins_system_gcd', 'ins_menu_cd', 'upd_user_ip', 'upd_system_gcd', 'upd_menu_cd']",
+    "tb_competency: Excel에만 있는 컬럼 1개 - ['col_12']",
+    "tb_course: Excel에만 있는 컬럼 1개 - ['course_cd,course_nm,course_nm_en,department_cd,credits,course_type,course_category,grade_level,description,use_fg,ins_user_id,upd_user_id,upd_dt']",
+    "tb_course_competency_map: Excel에만 있는 컬럼 1개 - ['col_5']",
+    "tb_course_competency_map: DB에만 있는 컬럼 1개 - ['ins_dt']",
+    "tb_course_offering: Excel에만 있는 컬럼 1개 - ['col_14']",
+    "tb_cumulative_summary: Excel에만 있는 컬럼 1개 - ['col_15']",
+    "tb_department: Excel에만 있는 컬럼 1개 - ['col_12']",
+    "tb_department: DB에만 있는 컬럼 6개 - ['ins_user_ip', 'ins_system_gcd', 'ins_menu_cd', 'upd_user_ip', 'upd_system_gcd', 'upd_menu_cd']",
+    "tb_enrollment: Excel에만 있는 컬럼 3개 - ['offering_id', 'status', 'col_9']",
+    "tb_enrollment: DB에만 있는 컬럼 2개 - ['course_offering_id', 'status_cd']",
+    "tb_eval_feedback: Excel 시트 없음",
+    "tb_grade: Excel에만 있는 컬럼 1개 - ['col_13']",
+    "tb_grade_summary: Excel에만 있는 컬럼 1개 - ['col_13']",
+    "tb_major: DB 테이블 없음",
+    "tb_opportunity: Excel 시트 없음",
+    "tb_opportunity_application: Excel 시트 없음",
+    "tb_opportunity_recommendation: Excel 시트 없음",
+    "tb_prerequisite: Excel 시트 없음",
+    "tb_prerequisite_rule: Excel 시트 없음",
+    "tb_professor: Excel에만 있는 컬럼 1개 - ['col_14']",
+    "tb_professor_course: Excel에만 있는 컬럼 1개 - ['col_6']",
+    "tb_program: Excel에만 있는 컬럼 1개 - ['col_13']",
+    "tb_recommendation_item: Excel 시트 없음",
+    "tb_recommendation_run: Excel 시트 없음",
+    "tb_risk_alert: Excel 시트 없음",
+    "tb_role: Excel 시트 없음",
+    "tb_role_skill_map: Excel 시트 없음",
+    "tb_scenario_comparison: Excel 시트 없음",
+    "tb_simulation_scenario: Excel 시트 없음",
+    "tb_skill: Excel 시트 없음",
+    "tb_skill_competency_map: Excel 시트 없음",
+    "tb_skill_gap_analysis: Excel 시트 없음",
+    "tb_skill_passport: Excel 시트 없음",
+    "tb_skill_relation: Excel 시트 없음",
+    "tb_student: Excel 시트 없음",
+    "tb_student2: DB 테이블 없음",
+    "tb_student_badge: Excel 시트 없음",
+    "tb_student_competency: Excel에만 있는 컬럼 1개 - ['tb_student_competency']",
+    "tb_student_skill: Excel 시트 없음",
+    "tb_success_pattern: Excel 시트 없음",
+    "tb_term: Excel 시트 없음",
+    "tb_university: Excel 시트 없음",
+    "tb_user: Excel에만 있는 컬럼 1개 - ['col_20']",
+    "tb_user_session: Excel 시트 없음"
+  ]
+}

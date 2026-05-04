@@ -1,0 +1,536 @@
+/* =============================================
+   로그인 페이지 - login.css
+   ============================================= */
+
+:root {
+  --primary:       #4F46E5;
+  --primary-dark:  #4338CA;
+  --primary-light: #EEF2FF;
+  --border:        #E5E7EB;
+  --border-light:  #F3F4F6;
+  --text-primary:  #111827;
+  --text-secondary:#6B7280;
+  --text-muted:    #9CA3AF;
+  --radius:        8px;
+  --radius-lg:     12px;
+  --radius-xl:     16px;
+}
+
+/* ── Reset / Base ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ── Body ── */
+.lg-body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f2ff;
+  font-family: 'Noto Sans KR', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Background orbs ── */
+.lg-bg-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+  pointer-events: none;
+  animation: lgOrbFloat 8s ease-in-out infinite alternate;
+}
+.lg-orb1 {
+  width: 520px; height: 520px;
+  background: radial-gradient(circle, #6366f1, #4F46E5);
+  top: -180px; left: -180px;
+  animation-duration: 9s;
+}
+.lg-orb2 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, #818CF8, #6366F1);
+  bottom: -120px; right: -100px;
+  animation-duration: 11s;
+  animation-direction: alternate-reverse;
+}
+.lg-orb3 {
+  width: 260px; height: 260px;
+  background: radial-gradient(circle, #C7D2FE, #A5B4FC);
+  top: 50%; left: 55%;
+  animation-duration: 7s;
+}
+@keyframes lgOrbFloat {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(24px, 18px) scale(1.06); }
+}
+
+/* ── Wrap ── */
+.lg-wrap {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 24px 16px;
+}
+
+/* ── Logo ── */
+.lg-logo-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.lg-logo-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--primary);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(79,70,229,0.35);
+}
+.lg-logo-text {
+  display: flex;
+  flex-direction: column;
+}
+.lg-brand {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.lg-brand-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ── Card ── */
+.lg-card {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 8px 48px rgba(79,70,229,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.lg-card-inner {
+  padding: 36px 36px 32px;
+}
+
+/* ── Header ── */
+.lg-header {
+  margin-bottom: 28px;
+  text-align: center;
+}
+.lg-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.lg-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Alert ── */
+.lg-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: #DC2626;
+  margin-bottom: 20px;
+  animation: lgSlideIn 0.2s ease;
+}
+.lg-alert i { font-size: 14px; flex-shrink: 0; }
+
+@keyframes lgSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Form fields ── */
+.lg-field { margin-bottom: 18px; }
+
+.lg-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 7px;
+}
+
+.lg-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+.lg-forgot {
+  font-size: 12px;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.lg-forgot:hover { color: var(--primary-dark); text-decoration: underline; }
+
+/* Input wrapper */
+.lg-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.lg-input-icon {
+  position: absolute;
+  left: 13px;
+  font-size: 13px;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color 0.15s;
+}
+
+.lg-input {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px 10px 38px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--border-light);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  font-family: inherit;
+}
+.lg-input:focus {
+  border-color: var(--primary);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+}
+.lg-input:focus + .lg-input-icon,
+.lg-input-wrap:focus-within .lg-input-icon { color: var(--primary); }
+.lg-input::placeholder { color: var(--text-muted); font-size: 13px; }
+.lg-input.lg-input-error { border-color: #EF4444; }
+.lg-input.lg-input-error:focus { box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
+
+/* PW toggle */
+.lg-pw-toggle {
+  position: absolute;
+  right: 11px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.lg-pw-toggle:hover { color: var(--text-primary); }
+
+/* Field error */
+.lg-field-err {
+  display: block;
+  font-size: 11px;
+  color: #EF4444;
+  margin-top: 5px;
+  min-height: 16px;
+}
+
+/* ── Remember me ── */
+.lg-remember-row {
+  margin-bottom: 22px;
+}
+.lg-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  user-select: none;
+}
+.lg-check { display: none; }
+.lg-check-box {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border);
+  border-radius: 5px;
+  background: var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.18s, border-color 0.18s;
+  position: relative;
+}
+.lg-check-box::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.15s;
+  margin-top: -2px;
+}
+.lg-check:checked + .lg-check-box {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.lg-check:checked + .lg-check-box::after { transform: rotate(45deg) scale(1); }
+.lg-check-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ── Submit button ── */
+.lg-submit-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
+  box-shadow: 0 4px 14px rgba(79,70,229,0.3);
+  font-family: inherit;
+  margin-bottom: 22px;
+  letter-spacing: 0.01em;
+}
+.lg-submit-btn:hover {
+  background: var(--primary-dark);
+  box-shadow: 0 6px 20px rgba(79,70,229,0.4);
+}
+.lg-submit-btn:active { transform: scale(0.985); }
+.lg-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Submit spinner */
+.lg-submit-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: lgSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes lgSpin { to { transform: rotate(360deg); } }
+
+/* ── Divider ── */
+.lg-divider {
+  position: relative;
+  text-align: center;
+  margin-bottom: 18px;
+}
+.lg-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border);
+}
+.lg-divider span {
+  position: relative;
+  background: #fff;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── SSO buttons ── */
+.lg-sso-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lg-sso-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+.lg-sso-btn i { font-size: 16px; }
+.lg-sso-btn:hover {
+  background: var(--border-light);
+  border-color: #D1D5DB;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+#lgSsoGoogle i  { color: #EA4335; }
+#lgSsoMicrosoft i { color: #0078D4; }
+
+/* ── Footer ── */
+.lg-footer-text {
+  margin-top: 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Forgot PW Modal ── */
+.lg-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,15,40,0.55);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s, visibility 0.22s;
+}
+.lg-modal-overlay.open { opacity: 1; visibility: visible; }
+
+.lg-modal {
+  background: #fff;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+  width: 100%;
+  max-width: 420px;
+  transform: translateY(16px) scale(0.97);
+  transition: transform 0.22s;
+}
+.lg-modal-overlay.open .lg-modal { transform: translateY(0) scale(1); }
+
+.lg-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 22px 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+.lg-modal-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--primary-light);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.lg-modal-header h5 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+.lg-modal-header p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+.lg-modal-close {
+  background: none;
+  border: none;
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.lg-modal-close:hover { background: var(--border-light); color: var(--text-primary); }
+
+.lg-modal-body { padding: 20px 22px; }
+
+.lg-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px;
+  background: var(--border-light);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+.lg-modal-cancel {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.lg-modal-cancel:hover { background: #fff; }
+
+/* ── Toast ── */
+.lg-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #1F2937;
+  color: #fff;
+  padding: 11px 20px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+.lg-toast i { color: #34D399; font-size: 14px; }
+.lg-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .lg-card-inner { padding: 28px 22px 24px; }
+}

@@ -1,0 +1,302 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  # Auth Service
+  - name: auth-service
+    url: http://auth-service:8011/auth
+    routes:
+      - name: auth-route
+        paths:
+          - /api/v1/auth
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # Student Service
+  - name: student-service
+    url: http://student-service:8002/students
+    routes:
+      - name: students-route
+        paths:
+          - /api/v1/students
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  - name: student-curriculum-service
+    url: http://student-service:8002/curriculum
+    routes:
+      - name: curriculum-route
+        paths:
+          - /api/v1/curriculum
+        strip_path: true
+        methods:
+          - GET
+          - OPTIONS
+
+  # Competency Service
+  - name: competency-service
+    url: http://competency-service:8003/competency
+    routes:
+      - name: competency-route
+        paths:
+          - /api/v1/competency
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # Alumni Service
+  - name: alumni-service
+    url: http://alumni-service:8005/alumni
+    routes:
+      - name: alumni-route
+        paths:
+          - /api/v1/alumni
+        strip_path: true
+        methods:
+          - GET
+          - OPTIONS
+
+  # AI Service
+  - name: ai-service
+    url: http://ai-service:8006/ai
+    routes:
+      - name: ai-route
+        paths:
+          - /api/v1/ai
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # Skill Service
+  - name: skill-service
+    url: http://skill-service:8007/skills
+    routes:
+      - name: skills-route
+        paths:
+          - /api/v1/skills
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # Opportunity Service
+  - name: opportunity-service
+    url: http://opportunity-service:8008/opportunities
+    routes:
+      - name: opportunities-route
+        paths:
+          - /api/v1/opportunities
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # Coaching Service
+  - name: coaching-service
+    url: http://coaching-service:8009/coaching
+    routes:
+      - name: coaching-route
+        paths:
+          - /api/v1/coaching
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # Risk Service
+  - name: risk-service
+    url: http://risk-service:8010/risks
+    routes:
+      - name: risks-route
+        paths:
+          - /api/v1/risks
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # Badge Service
+  - name: badge-service
+    url: http://badge-service:8012/badges
+    routes:
+      - name: badges-route
+        paths:
+          - /api/v1/badges
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+
+  - name: badge-passport-service
+    url: http://badge-service:8012/passport
+    routes:
+      - name: passport-route
+        paths:
+          - /api/v1/passport
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # Simulation Service
+  - name: simulation-service
+    url: http://simulation-service:8013/simulation
+    routes:
+      - name: simulation-route
+        paths:
+          - /api/v1/simulation
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # Advisor Service
+  - name: advisor-service
+    url: http://advisor-service:8014/advisor
+    routes:
+      - name: advisor-route
+        paths:
+          - /api/v1/advisor
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # Roadmap Service
+  - name: roadmap-service
+    url: http://roadmap-service:8015/roadmap
+    routes:
+      - name: roadmap-route
+        paths:
+          - /api/v1/roadmap
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # Portfolio Service
+  - name: portfolio-service
+    url: http://portfolio-service:8016/portfolio
+    routes:
+      - name: portfolio-route
+        paths:
+          - /api/v1/portfolio
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # Privacy Service
+  - name: privacy-service
+    url: http://privacy-service:8017/privacy
+    routes:
+      - name: privacy-route
+        paths:
+          - /api/v1/privacy
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # WorkNet Service
+  - name: worknet-service
+    url: http://worknet-service:8018/worknet
+    routes:
+      - name: worknet-route
+        paths:
+          - /api/v1/worknet
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+
+  # Integration Service
+  - name: integration-service
+    url: http://integration-service:8019/integration
+    routes:
+      - name: integration-route
+        paths:
+          - /api/v1/integration
+        strip_path: true
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+plugins:
+  # CORS configuration
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - X-Requested-With
+      exposed_headers:
+        - X-Auth-Token
+      credentials: true
+      max_age: 3600
+
+  # Rate limiting
+  - name: rate-limiting
+    config:
+      minute: 100
+      policy: local
+
+  # Request/Response logging
+  - name: file-log
+    config:
+      path: /tmp/kong.log
+      reopen: true

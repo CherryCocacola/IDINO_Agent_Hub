@@ -1,0 +1,410 @@
+# Authentication & Authorization Queries
+# 인증/인가 관련 SQL 쿼리
+
+queries:
+  # ============================================
+  # User Queries
+  # ============================================
+
+  get_user_by_login_id:
+    description: "로그인 ID로 사용자 조회"
+    sql: |
+      SELECT
+        u.user_id,
+        u.login_id,
+        u.password_hash,
+        u.user_type,
+        u.student_id,
+        u.professor_cd,
+        u.status,
+        u.email,
+        u.email_verified,
+        u.mfa_enabled,
+        u.mfa_type,
+        u.totp_secret,
+        u.totp_verified,
+        u.failed_login_count,
+        u.locked_until,
+        u.last_login_at,
+        u.password_expires_at
+      FROM idino_career.tb_user u
+      WHERE u.login_id = :login_id
+        AND u.status != 'inactive'
+    params:
+      - login_id
+
+  get_user_with_profile:
+    description: "사용자 정보 + 프로필 조회"
+    sql: |
+      SELECT
+        u.user_id,
+        u.login_id,
+        u.user_type,
+        u.status,
+        u.email,
+        u.mfa_enabled,
+        u.mfa_type,
+        u.last_login_at,
+        CASE u.user_type
+          WHEN 'student' THEN s.student_nm
+          WHEN 'professor' THEN p.professor_nm
+          ELSE u.login_id
+        END AS user_nm,
+        CASE u.user_type
+          WHEN 'student' THEN s.department_cd
+          WHEN 'professor' THEN p.department_cd
+        END AS department_cd,
+        d.department_nm
+      FROM idino_career.tb_user u
+      LEFT JOIN idino_career.tb_student s ON u.student_id = s.student_id
+      LEFT JOIN idino_career.tb_professor p ON u.professor_cd = p.professor_cd
+      LEFT JOIN idino_career.tb_department d ON
+        COALESCE(s.department_cd, p.department_cd) = d.department_cd
+      WHERE u.user_id = :user_id
+    params:
+      - user_id
+
+  update_login_success:
+    description: "로그인 성공 시 업데이트"
+    sql: |
+      UPDATE idino_career.tb_user
+      SET
+        failed_login_count = 0,
+        locked_until = NULL,
+        last_login_at = CURRENT_TIMESTAMP,
+        last_login_ip = :ip_address,
+        upd_dt = CURRENT_TIMESTAMP
+      WHERE user_id = :user_id
+    params:
+      - user_id
+      - ip_address
+
+  update_login_failure:
+    description: "로그인 실패 시 실패 횟수 증가"
+    sql: |
+      UPDATE idino_career.tb_user
+      SET
+        failed_login_count = failed_login_count + 1,
+        locked_until = CASE
+          WHEN failed_login_count >= 4 THEN CURRENT_TIMESTAMP + INTERVAL '30 minutes'
+          ELSE locked_until
+        END,
+        upd_dt = CURRENT_TIMESTAMP
+      WHERE user_id = :user_id
+      RETURNING failed_login_count, locked_until
+    params:
+      - user_id
+
+  enable_totp:
+    description: "TOTP 2FA 활성화"
+    sql: |
+      UPDATE idino_career.tb_user
+      SET
+        mfa_enabled = TRUE,
+        mfa_type = :mfa_type,
+        totp_secret = :totp_secret,
+        totp_verified = TRUE,
+        upd_user_id = :upd_user_id,
+        upd_dt = CURRENT_TIMESTAMP
+      WHERE user_id = :user_id
+    params:
+      - user_id
+      - mfa_type
+      - totp_secret
+      - upd_user_id
+
+  # ============================================
+  # Session Queries
+  # ============================================
+
+  create_session:
+    description: "새 세션 생성"
+    sql: |
+      INSERT INTO idino_career.tb_auth_session (
+        user_id,
+        access_token_hash,
+        refresh_token_hash,
+        device_id,
+        device_type,
+        device_name,
+        user_agent,
+        ip_address,
+        expires_at,
+        mfa_verified,
+        ins_user_id
+      ) VALUES (
+        :user_id,
+        :access_token_hash,
+        :refresh_token_hash,
+        :device_id,
+        :device_type,
+        :device_name,
+        :user_agent,
+        :ip_address,
+        :expires_at,
+        :mfa_verified,
+        :user_id
+      )
+      RETURNING session_id
+    params:
+      - user_id
+      - access_token_hash
+      - refresh_token_hash
+      - device_id
+      - device_type
+      - device_name
+      - user_agent
+      - ip_address
+      - expires_at
+      - mfa_verified
+
+  get_session_by_refresh_token:
+    description: "Refresh Token으로 세션 조회"
+    sql: |
+      SELECT
+        s.session_id,
+        s.user_id,
+        s.device_id,
+        s.device_type,
+        s.is_active,
+        s.mfa_verified,
+        s.expires_at,
+        s.last_activity_at,
+        u.status AS user_status,
+        u.user_type
+      FROM idino_career.tb_auth_session s
+      JOIN idino_career.tb_user u ON s.user_id = u.user_id
+      WHERE s.refresh_token_hash = :refresh_token_hash
+        AND s.is_active = TRUE
+        AND s.expires_at > CURRENT_TIMESTAMP
+        AND u.status = 'active'
+    params:
+      - refresh_token_hash
+
+  update_session_mfa_verified:
+    description: "세션 MFA 인증 완료 업데이트"
+    sql: |
+      UPDATE idino_career.tb_auth_session
+      SET
+        mfa_verified = TRUE,
+        last_activity_at = CURRENT_TIMESTAMP
+      WHERE session_id = :session_id
+    params:
+      - session_id
+
+  revoke_session:
+    description: "세션 만료 처리"
+    sql: |
+      UPDATE idino_career.tb_auth_session
+      SET
+        is_active = FALSE,
+        revoked_at = CURRENT_TIMESTAMP,
+        revoked_reason = :reason
+      WHERE session_id = :session_id
+    params:
+      - session_id
+      - reason
+
+  revoke_all_user_sessions:
+    description: "사용자의 모든 세션 만료"
+    sql: |
+      UPDATE idino_career.tb_auth_session
+      SET
+        is_active = FALSE,
+        revoked_at = CURRENT_TIMESTAMP,
+        revoked_reason = :reason
+      WHERE user_id = :user_id
+        AND is_active = TRUE
+    params:
+      - user_id
+      - reason
+
+  # ============================================
+  # OTP Queries
+  # ============================================
+
+  create_otp:
+    description: "OTP 코드 생성"
+    sql: |
+      INSERT INTO idino_career.tb_auth_otp (
+        user_id,
+        otp_type,
+        otp_code,
+        otp_hash,
+        target_email,
+        target_phone,
+        expires_at,
+        request_ip,
+        ins_user_id
+      ) VALUES (
+        :user_id,
+        :otp_type,
+        :otp_code,
+        :otp_hash,
+        :target_email,
+        :target_phone,
+        CURRENT_TIMESTAMP + INTERVAL '5 minutes',
+        :request_ip,
+        :user_id
+      )
+      RETURNING otp_id
+    params:
+      - user_id
+      - otp_type
+      - otp_code
+      - otp_hash
+      - target_email
+      - target_phone
+      - request_ip
+
+  verify_otp:
+    description: "OTP 코드 검증"
+    sql: |
+      UPDATE idino_career.tb_auth_otp
+      SET
+        is_used = TRUE,
+        used_at = CURRENT_TIMESTAMP,
+        verification_ip = :verification_ip
+      WHERE user_id = :user_id
+        AND otp_type = :otp_type
+        AND otp_code = :otp_code
+        AND is_used = FALSE
+        AND attempt_count < max_attempts
+        AND expires_at > CURRENT_TIMESTAMP
+      RETURNING otp_id
+    params:
+      - user_id
+      - otp_type
+      - otp_code
+      - verification_ip
+
+  increment_otp_attempt:
+    description: "OTP 시도 횟수 증가"
+    sql: |
+      UPDATE idino_career.tb_auth_otp
+      SET attempt_count = attempt_count + 1
+      WHERE user_id = :user_id
+        AND otp_type = :otp_type
+        AND is_used = FALSE
+        AND expires_at > CURRENT_TIMESTAMP
+    params:
+      - user_id
+      - otp_type
+
+  # ============================================
+  # Login History Queries
+  # ============================================
+
+  log_login_attempt:
+    description: "로그인 시도 기록"
+    sql: |
+      INSERT INTO idino_career.tb_login_history (
+        user_id,
+        login_id,
+        login_result,
+        ip_address,
+        user_agent,
+        device_type,
+        device_fingerprint,
+        is_suspicious,
+        risk_score
+      ) VALUES (
+        :user_id,
+        :login_id,
+        :login_result,
+        :ip_address,
+        :user_agent,
+        :device_type,
+        :device_fingerprint,
+        :is_suspicious,
+        :risk_score
+      )
+      RETURNING history_id
+    params:
+      - user_id
+      - login_id
+      - login_result
+      - ip_address
+      - user_agent
+      - device_type
+      - device_fingerprint
+      - is_suspicious
+      - risk_score
+
+  get_recent_login_history:
+    description: "최근 로그인 이력 조회"
+    sql: |
+      SELECT
+        history_id,
+        login_result,
+        ip_address,
+        device_type,
+        geo_country,
+        geo_city,
+        is_suspicious,
+        risk_score,
+        attempted_at
+      FROM idino_career.tb_login_history
+      WHERE user_id = :user_id
+      ORDER BY attempted_at DESC
+      LIMIT :limit
+    params:
+      - user_id
+      - limit
+
+  # ============================================
+  # Device Queries
+  # ============================================
+
+  get_or_create_device:
+    description: "기기 조회 또는 생성"
+    sql: |
+      INSERT INTO idino_career.tb_user_device (
+        user_id,
+        device_fingerprint,
+        device_name,
+        device_type,
+        browser,
+        os,
+        last_ip,
+        ins_user_id
+      ) VALUES (
+        :user_id,
+        :device_fingerprint,
+        :device_name,
+        :device_type,
+        :browser,
+        :os,
+        :ip_address,
+        :user_id
+      )
+      ON CONFLICT (device_fingerprint) DO UPDATE SET
+        last_seen_at = CURRENT_TIMESTAMP,
+        last_ip = :ip_address,
+        upd_dt = CURRENT_TIMESTAMP
+      RETURNING device_id, is_trusted, trust_level
+    params:
+      - user_id
+      - device_fingerprint
+      - device_name
+      - device_type
+      - browser
+      - os
+      - ip_address
+
+  trust_device:
+    description: "기기 신뢰 설정"
+    sql: |
+      UPDATE idino_career.tb_user_device
+      SET
+        is_trusted = TRUE,
+        trust_level = :trust_level,
+        trusted_at = CURRENT_TIMESTAMP,
+        upd_user_id = :user_id,
+        upd_dt = CURRENT_TIMESTAMP
+      WHERE device_id = :device_id
+        AND user_id = :user_id
+    params:
+      - device_id
+      - user_id
+      - trust_level

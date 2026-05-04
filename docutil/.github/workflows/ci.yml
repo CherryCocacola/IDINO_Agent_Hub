@@ -1,0 +1,118 @@
+# =============================================================================
+# DocUtil — Unified CI Pipeline
+# =============================================================================
+# Trigger: push / PR to main
+# Steps: lint → structure lint → backend tests → frontend build → docker check
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Backend Lint (ruff check + ruff format)
+  # ---------------------------------------------------------------------------
+  backend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install ruff
+      - name: Ruff check
+        run: ruff check backend/
+      - name: Ruff format check
+        run: ruff format --check backend/
+
+  # ---------------------------------------------------------------------------
+  # 2. Frontend Lint (eslint)
+  # ---------------------------------------------------------------------------
+  frontend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: cd frontend && npm ci
+      - name: ESLint
+        run: cd frontend && npm run lint
+
+  # ---------------------------------------------------------------------------
+  # 3. Structure Lint (scripts/lint_structure.py)
+  # ---------------------------------------------------------------------------
+  structure-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Lint module structure
+        run: python scripts/lint_structure.py
+
+  # ---------------------------------------------------------------------------
+  # 4. Backend Tests (pytest)
+  # ---------------------------------------------------------------------------
+  backend-test:
+    runs-on: ubuntu-latest
+    needs: [backend-lint, structure-lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt && pip install aiosqlite ruff
+      - name: Run pytest
+        run: cd backend && python -m pytest --tb=short -q
+        env:
+          JWT_SECRET_KEY: test-secret-key-for-ci
+          ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef'
+
+  # ---------------------------------------------------------------------------
+  # 5. Frontend Build (next build)
+  # ---------------------------------------------------------------------------
+  frontend-build:
+    runs-on: ubuntu-latest
+    needs: [frontend-lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: cd frontend && npm ci
+      - name: Next.js build
+        run: cd frontend && npm run build
+
+  # ---------------------------------------------------------------------------
+  # 6. Docker Build Check
+  # ---------------------------------------------------------------------------
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-build]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create .env from example
+        run: cp .env.example .env
+      - name: Validate docker-compose config
+        run: docker compose config --quiet
+      - name: Build backend image
+        run: docker build -t docutil-backend ./backend
+      - name: Build frontend image
+        run: docker build -t docutil-frontend ./frontend

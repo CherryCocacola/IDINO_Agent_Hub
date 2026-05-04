@@ -1,0 +1,342 @@
+# Career Data Queries
+# 학생 진로 정보 관련 SQL 쿼리
+
+queries:
+  # ============================================
+  # Student Career Queries
+  # ============================================
+
+  get_student_career:
+    description: "학생 진로 정보 조회"
+    sql: |
+      SELECT
+        sc.career_id,
+        sc.student_id,
+        sc.primary_career_goal,
+        sc.primary_role_cd,
+        sc.interest_role_cds,
+        sc.interest_industries,
+        sc.preferred_company_size,
+        sc.preferred_work_style,
+        sc.preferred_regions,
+        sc.resume_prepared,
+        sc.portfolio_prepared,
+        sc.interview_ready,
+        sc.job_search_start_date,
+        sc.target_employment_date,
+        sc.career_notes,
+        sc.last_counseling_date,
+        sc.next_counseling_date,
+        r.role_nm AS primary_role_nm,
+        r.category AS primary_role_category,
+        r.job_outlook
+      FROM idino_career.tb_student_career sc
+      LEFT JOIN idino_career.tb_role r ON sc.primary_role_cd = r.role_cd
+      WHERE sc.student_id = :student_id
+    params:
+      - student_id
+
+  get_student_with_career:
+    description: "학생 정보 + 진로 정보 통합 조회"
+    sql: |
+      SELECT
+        s.student_id,
+        s.student_nm,
+        s.email,
+        s.phone,
+        s.current_grade AS grade,
+        s.current_semester AS semester,
+        s.admission_year,
+        s.status,
+        d.department_cd,
+        d.department_nm,
+        c.college_nm,
+        sc.primary_career_goal AS career_goal,
+        sc.primary_role_cd,
+        r.role_nm AS primary_role_nm,
+        sc.interest_role_cds,
+        sc.preferred_company_size,
+        sc.preferred_work_style,
+        sc.job_search_start_date,
+        sc.target_employment_date,
+        cs.cumulative_gpa AS gpa,
+        cs.total_credits_earned AS total_credits
+      FROM idino_career.tb_student s
+      LEFT JOIN idino_career.tb_department d ON s.department_cd = d.department_cd
+      LEFT JOIN idino_career.tb_college c ON d.college_cd = c.college_cd
+      LEFT JOIN idino_career.tb_student_career sc ON s.student_id = sc.student_id
+      LEFT JOIN idino_career.tb_role r ON sc.primary_role_cd = r.role_cd
+      LEFT JOIN idino_career.tb_cumulative_summary cs ON s.student_id = cs.student_id
+      WHERE s.student_id = :student_id
+    params:
+      - student_id
+
+  upsert_student_career:
+    description: "학생 진로 정보 생성/수정"
+    sql: |
+      INSERT INTO idino_career.tb_student_career (
+        student_id,
+        primary_career_goal,
+        primary_role_cd,
+        interest_role_cds,
+        interest_industries,
+        preferred_company_size,
+        preferred_work_style,
+        preferred_regions,
+        job_search_start_date,
+        target_employment_date,
+        career_notes,
+        ins_user_id,
+        ins_dt
+      ) VALUES (
+        :student_id,
+        :primary_career_goal,
+        :primary_role_cd,
+        :interest_role_cds,
+        :interest_industries,
+        :preferred_company_size,
+        :preferred_work_style,
+        :preferred_regions,
+        :job_search_start_date,
+        :target_employment_date,
+        :career_notes,
+        :user_id,
+        CURRENT_TIMESTAMP
+      )
+      ON CONFLICT (student_id) DO UPDATE SET
+        primary_career_goal = EXCLUDED.primary_career_goal,
+        primary_role_cd = EXCLUDED.primary_role_cd,
+        interest_role_cds = EXCLUDED.interest_role_cds,
+        interest_industries = EXCLUDED.interest_industries,
+        preferred_company_size = EXCLUDED.preferred_company_size,
+        preferred_work_style = EXCLUDED.preferred_work_style,
+        preferred_regions = EXCLUDED.preferred_regions,
+        job_search_start_date = EXCLUDED.job_search_start_date,
+        target_employment_date = EXCLUDED.target_employment_date,
+        career_notes = EXCLUDED.career_notes,
+        upd_user_id = :user_id,
+        upd_dt = CURRENT_TIMESTAMP
+      RETURNING career_id
+    params:
+      - student_id
+      - primary_career_goal
+      - primary_role_cd
+      - interest_role_cds
+      - interest_industries
+      - preferred_company_size
+      - preferred_work_style
+      - preferred_regions
+      - job_search_start_date
+      - target_employment_date
+      - career_notes
+      - user_id
+
+  update_career_preparation:
+    description: "취업 준비 상태 업데이트"
+    sql: |
+      UPDATE idino_career.tb_student_career
+      SET
+        resume_prepared = COALESCE(:resume_prepared, resume_prepared),
+        portfolio_prepared = COALESCE(:portfolio_prepared, portfolio_prepared),
+        interview_ready = COALESCE(:interview_ready, interview_ready),
+        upd_user_id = :user_id,
+        upd_dt = CURRENT_TIMESTAMP
+      WHERE student_id = :student_id
+    params:
+      - student_id
+      - resume_prepared
+      - portfolio_prepared
+      - interview_ready
+      - user_id
+
+  update_counseling_dates:
+    description: "상담 일정 업데이트"
+    sql: |
+      UPDATE idino_career.tb_student_career
+      SET
+        last_counseling_date = COALESCE(:last_counseling_date, last_counseling_date),
+        next_counseling_date = :next_counseling_date,
+        advisor_comments = COALESCE(:advisor_comments, advisor_comments),
+        upd_user_id = :user_id,
+        upd_dt = CURRENT_TIMESTAMP
+      WHERE student_id = :student_id
+    params:
+      - student_id
+      - last_counseling_date
+      - next_counseling_date
+      - advisor_comments
+      - user_id
+
+  # ============================================
+  # Career History Queries
+  # ============================================
+
+  log_career_change:
+    description: "진로 변경 이력 기록"
+    sql: |
+      INSERT INTO idino_career.tb_career_history (
+        student_id,
+        previous_career_goal,
+        new_career_goal,
+        previous_role_cd,
+        new_role_cd,
+        change_reason,
+        triggered_by,
+        ins_user_id
+      ) VALUES (
+        :student_id,
+        :previous_career_goal,
+        :new_career_goal,
+        :previous_role_cd,
+        :new_role_cd,
+        :change_reason,
+        :triggered_by,
+        :user_id
+      )
+      RETURNING history_id
+    params:
+      - student_id
+      - previous_career_goal
+      - new_career_goal
+      - previous_role_cd
+      - new_role_cd
+      - change_reason
+      - triggered_by
+      - user_id
+
+  get_career_history:
+    description: "진로 변경 이력 조회"
+    sql: |
+      SELECT
+        ch.history_id,
+        ch.previous_career_goal,
+        ch.new_career_goal,
+        ch.previous_role_cd,
+        ch.new_role_cd,
+        pr.role_nm AS previous_role_nm,
+        nr.role_nm AS new_role_nm,
+        ch.change_reason,
+        ch.triggered_by,
+        ch.changed_at
+      FROM idino_career.tb_career_history ch
+      LEFT JOIN idino_career.tb_role pr ON ch.previous_role_cd = pr.role_cd
+      LEFT JOIN idino_career.tb_role nr ON ch.new_role_cd = nr.role_cd
+      WHERE ch.student_id = :student_id
+      ORDER BY ch.changed_at DESC
+      LIMIT :limit
+    params:
+      - student_id
+      - limit
+
+  # ============================================
+  # Dashboard Queries (Updated)
+  # ============================================
+
+  get_dashboard_summary:
+    description: "대시보드 요약 정보 (진로 정보 포함)"
+    sql: |
+      SELECT
+        -- Student Info
+        s.student_id,
+        s.student_nm,
+        s.current_grade AS grade,
+        s.current_semester AS semester,
+        s.email,
+        s.status,
+        d.department_cd,
+        d.department_nm,
+
+        -- Academic Summary
+        cs.cumulative_gpa AS gpa,
+        cs.total_credits_earned AS total_credits,
+        cs.major_credits,
+        d.graduation_credits,
+        ROUND(
+          (cs.total_credits_earned::DECIMAL / NULLIF(d.graduation_credits, 0)) * 100, 1
+        ) AS graduation_progress_pct,
+
+        -- Career Info (from tb_student_career)
+        sc.primary_career_goal AS career_goal,
+        sc.primary_role_cd,
+        r.role_nm AS primary_role_nm,
+        r.category AS role_category,
+        sc.job_search_start_date,
+        sc.target_employment_date,
+        sc.resume_prepared,
+        sc.portfolio_prepared,
+
+        -- Counts
+        (SELECT COUNT(*) FROM idino_career.tb_enrollment e WHERE e.student_id = s.student_id) AS enrollment_count,
+        (SELECT COUNT(*) FROM idino_career.tb_participation p WHERE p.student_id = s.student_id) AS activity_count,
+        (SELECT COUNT(*) FROM idino_career.tb_achievement a WHERE a.student_id = s.student_id) AS achievement_count
+
+      FROM idino_career.tb_student s
+      LEFT JOIN idino_career.tb_department d ON s.department_cd = d.department_cd
+      LEFT JOIN idino_career.tb_cumulative_summary cs ON s.student_id = cs.student_id
+      LEFT JOIN idino_career.tb_student_career sc ON s.student_id = sc.student_id
+      LEFT JOIN idino_career.tb_role r ON sc.primary_role_cd = r.role_cd
+      WHERE s.student_id = :student_id
+    params:
+      - student_id
+
+  # ============================================
+  # Role & Interest Queries
+  # ============================================
+
+  get_available_roles:
+    description: "선택 가능한 직무 목록 조회"
+    sql: |
+      SELECT
+        role_cd,
+        role_nm,
+        role_nm_en,
+        category,
+        average_salary,
+        job_outlook
+      FROM idino_career.tb_role
+      ORDER BY category, role_nm
+    params: []
+
+  get_roles_by_department:
+    description: "학과별 추천 직무 조회"
+    sql: |
+      SELECT DISTINCT
+        r.role_cd,
+        r.role_nm,
+        r.category,
+        r.job_outlook,
+        ac.employment_rate
+      FROM idino_career.tb_role r
+      JOIN idino_career.tb_alumni_cohort ac ON r.role_cd = ac.role_cd
+      WHERE ac.department_cd = :department_cd
+        AND ac.sample_size >= 5
+      ORDER BY ac.employment_rate DESC
+      LIMIT :limit
+    params:
+      - department_cd
+      - limit
+
+  get_students_by_career_goal:
+    description: "동일 진로 목표 학생 조회 (비교용)"
+    sql: |
+      SELECT
+        s.student_id,
+        s.student_nm,
+        s.current_grade,
+        d.department_nm,
+        cs.cumulative_gpa,
+        cs.total_credits_earned,
+        (SELECT COUNT(*) FROM idino_career.tb_achievement a WHERE a.student_id = s.student_id) AS achievement_count
+      FROM idino_career.tb_student s
+      JOIN idino_career.tb_student_career sc ON s.student_id = sc.student_id
+      JOIN idino_career.tb_department d ON s.department_cd = d.department_cd
+      LEFT JOIN idino_career.tb_cumulative_summary cs ON s.student_id = cs.student_id
+      WHERE sc.primary_role_cd = :role_cd
+        AND s.student_id != :exclude_student_id
+        AND s.status = 'enrolled'
+      ORDER BY cs.cumulative_gpa DESC
+      LIMIT :limit
+    params:
+      - role_cd
+      - exclude_student_id
+      - limit

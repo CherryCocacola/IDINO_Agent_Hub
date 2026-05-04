@@ -1,0 +1,313 @@
+/* =============================================
+   모니터링 페이지 스타일
+   ============================================= */
+
+/* Live indicator */
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--danger-bg);
+  border-radius: var(--radius-full);
+  margin-right: 8px;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--danger);
+  border-radius: 50%;
+  animation: livePulse 1s infinite;
+}
+
+.live-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--danger-text);
+  letter-spacing: 1px;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* Alert Banner */
+.alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  gap: 12px;
+}
+
+.alert-banner-error {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid rgba(239,68,68,0.2);
+}
+
+.alert-banner-close {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.15s;
+}
+
+.alert-banner-close:hover { opacity: 1; }
+
+/* KPI Cards */
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.kpi-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+  line-height: 1;
+}
+
+.kpi-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.kpi-trend {
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.kpi-up { color: var(--success); }
+.kpi-down { color: var(--danger); }
+
+/* Legend pills */
+.legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.legend-pill::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--c);
+}
+
+/* Latency Table */
+.latency-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.latency-header-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-light);
+  border-radius: var(--radius);
+  margin-bottom: 4px;
+}
+
+.latency-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  text-align: right;
+  min-width: 48px;
+}
+
+.latency-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-light);
+  align-items: center;
+}
+
+.latency-row:last-of-type {
+  border-bottom: none;
+}
+
+.latency-model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.latency-val {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: right;
+  min-width: 48px;
+}
+
+/* Model dots */
+.model-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.model-dot.model-gpt { background: linear-gradient(135deg, #00C9FF, #0EA5E9); }
+.model-dot.model-claude { background: linear-gradient(135deg, #818CF8, #6366F1); }
+.model-dot.model-gemini { background: linear-gradient(135deg, #34D399, #10B981); }
+.model-dot.model-llama { background: linear-gradient(135deg, #FB923C, #F97316); }
+.model-dot.model-error { background: linear-gradient(135deg, #F87171, #EF4444); }
+
+/* Health Grid */
+.health-grid {
+  padding: 0;
+}
+
+.health-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 70px 70px 80px;
+  gap: 8px;
+  padding: 11px 22px;
+  align-items: center;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+
+.health-row:hover { background: var(--bg-light); }
+
+.health-row.health-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  background: var(--bg-light);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.health-row.health-row-warn {
+  background: linear-gradient(90deg, rgba(245,158,11,0.03), transparent);
+}
+
+.health-row.health-row-error {
+  background: linear-gradient(90deg, rgba(239,68,68,0.04), transparent);
+}
+
+.health-row:last-child {
+  border-bottom: none;
+}
+
+.health-model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.health-bar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.health-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--border-light);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+
+.health-bar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: var(--pct);
+  background: var(--c);
+  border-radius: var(--radius-full);
+  transition: width 0.8s ease;
+}
+
+.health-val {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Severity Badges */
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+}
+
+.severity-critical {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.severity-warning {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.severity-info {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+/* Chart container override */
+.chart-container {
+  position: relative;
+}

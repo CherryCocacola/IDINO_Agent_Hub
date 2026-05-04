@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Agent Management - 시스템 구성도</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+      background: #f0f4f8;
+      padding: 30px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      color: #1a2e4a;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 30px;
+    }
+    .diagram-section {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 32px;
+      margin-bottom: 28px;
+    }
+    .diagram-section h2 {
+      font-size: 15px;
+      color: #374151;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 2px solid #3b82f6;
+      background: white;
+      color: #3b82f6;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .tab-btn.active, .tab-btn:hover {
+      background: #3b82f6;
+      color: white;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+
+<h1>AI Agent Management 시스템 구성도</h1>
+<p class="subtitle">ASP.NET Core 8.0 + Vue.js 3 | 2026.03</p>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('overview')">전체 구성도</button>
+  <button class="tab-btn" onclick="showTab('chat')">Chat 흐름도</button>
+  <button class="tab-btn" onclick="showTab('erd')">데이터 모델</button>
+  <button class="tab-btn" onclick="showTab('ai')">AI 서비스 라우팅</button>
+</div>
+
+<!-- TAB 1: 전체 구성도 -->
+<div id="tab-overview" class="tab-content active">
+  <div class="diagram-section">
+    <h2>🏗️ 전체 시스템 아키텍처 (Frontend → Backend → DB → AI)</h2>
+    <div class="mermaid">
+flowchart LR
+    subgraph FE["🖥️ Frontend (Vue.js 3)"]
+        F1["AgentChat\n채팅"]
+        F2["AgentBuilder\n에이전트"]
+        F3["ImageGen\n이미지생성"]
+        F4["VideoGen\n영상생성"]
+        F5["Dashboard\n통계/관리"]
+        F6["KnowledgeBase\n지식베이스"]
+    end
+
+    subgraph BE["⚙️ Backend (ASP.NET Core 8.0)"]
+        direction TB
+        subgraph CTRL["Controllers"]
+            C1["AuthController"]
+            C2["ChatController"]
+            C3["AgentsController"]
+            C4["ApiServicesController"]
+        end
+        subgraph SVC["Services"]
+            S1["AiProxyService\n(AI 라우팅 핵심)"]
+            S2["KnowledgeBaseService\n+ RagService"]
+            S3["JwtService\n인증/인가"]
+            S4["QuotaService\n사용량 관리"]
+        end
+        subgraph RT["실시간"]
+            H1["SignalR\nChatHub"]
+            H2["Hangfire\nBackground Jobs"]
+        end
+    end
+
+    subgraph DB["🗄️ SQLite (EF Core)"]
+        D1[("Users / Roles")]
+        D2[("ApiServices\nApiServiceModels")]
+        D3[("Agents\nChatHistory")]
+        D4[("KnowledgeBase\nDocumentChunks")]
+        D5[("ApiUsage\nApiQuota")]
+    end
+
+    subgraph AI["🤖 External AI APIs"]
+        direction TB
+        AI1["☁️ OpenAI\ngpt-5 / gpt-4o / o3\nDALL-E 3 / Sora"]
+        AI2["🔵 Anthropic\nclaude-opus-4-6\nclaude-sonnet-4-6"]
+        AI3["🟡 Google AI\nGemini 2.5 Pro\nImagen4 / Veo"]
+        AI4["🔴 Mistral AI\nmistral-large\ncodestral"]
+        AI5["🟢 Azure OpenAI\ngpt-4o (Azure)"]
+        AI6["⚫ Stability AI\nFlux / SDXL"]
+    end
+
+    FE <-->|"REST API\nHTTPS"| CTRL
+    FE <-->|"WebSocket"| H1
+    CTRL --> SVC
+    SVC <-->|"EF Core ORM"| DB
+    S1 <-->|"API 호출\n스트리밍"| AI
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2: Chat 흐름도 -->
+<div id="tab-chat" class="tab-content">
+  <div class="diagram-section">
+    <h2>💬 Chat 요청 흐름 (Sequence Diagram)</h2>
+    <div class="mermaid">
+sequenceDiagram
+    actor User as 사용자
+    participant VUE as AgentChat.vue
+    participant AUTH as JWT 미들웨어
+    participant CTRL as ChatController
+    participant QUOTA as QuotaService
+    participant PROXY as AiProxyService
+    participant RAG as RagService
+    participant DB as SQLite DB
+    participant AIAPI as External AI API
+
+    User->>VUE: 메시지 입력 + 서비스/모델 선택
+    VUE->>AUTH: POST /api/chat/stream (Bearer Token)
+    AUTH->>DB: 토큰 검증 + 사용자 조회
+    DB-->>AUTH: 사용자 정보
+
+    AUTH->>CTRL: 요청 전달
+    CTRL->>QUOTA: 쿼터 확인
+    QUOTA->>DB: 사용량 조회
+    DB-->>QUOTA: 현재 사용량
+    QUOTA-->>CTRL: OK / 한도초과
+
+    CTRL->>RAG: RAG 컨텍스트 검색 (선택)
+    RAG->>DB: 벡터 유사도 검색
+    DB-->>RAG: 관련 문서 청크
+    RAG-->>CTRL: 컨텍스트 주입
+
+    CTRL->>PROXY: SendMessageStreamAsync(serviceCode, model, messages)
+
+    alt serviceCode = chatgpt/openai
+        PROXY->>AIAPI: OpenAI Chat Completions API
+    else serviceCode = claude
+        PROXY->>AIAPI: Anthropic Messages API
+    else serviceCode = gemini
+        PROXY->>AIAPI: Google Gemini API
+    else serviceCode = mistral
+        PROXY->>AIAPI: Mistral Chat API
+    else serviceCode = azure
+        PROXY->>AIAPI: Azure OpenAI API
+    end
+
+    AIAPI-->>PROXY: SSE Streaming Response
+    PROXY-->>CTRL: Stream chunks
+    CTRL-->>VUE: text/event-stream
+    VUE-->>User: 실시간 텍스트 출력
+
+    CTRL->>DB: ApiUsage 기록
+    CTRL->>DB: ChatMessage 저장
+    </div>
+  </div>
+</div>
+
+<!-- TAB 3: 데이터 모델 -->
+<div id="tab-erd" class="tab-content">
+  <div class="diagram-section">
+    <h2>🗄️ 데이터베이스 ERD</h2>
+    <div class="mermaid">
+erDiagram
+    Users {
+        int Id PK
+        string Username
+        string Email
+        string PasswordHash
+        bool IsActive
+        datetime CreatedAt
+    }
+    Roles {
+        int Id PK
+        string Name
+    }
+    UserRoles {
+        int UserId FK
+        int RoleId FK
+    }
+    ApiServices {
+        int Id PK
+        string ServiceCode
+        string ServiceName
+        string ServiceType
+        int SortOrder
+        bool IsActive
+    }
+    ApiServiceModels {
+        int Id PK
+        int ApiServiceId FK
+        string ModelName
+        string Description
+        int SortOrder
+        bool IsActive
+    }
+    Agents {
+        int Id PK
+        int CreatedByUserId FK
+        string Name
+        string SystemPrompt
+        string ServiceCode
+        string ModelName
+        bool IsPublic
+    }
+    ChatConversations {
+        int Id PK
+        int UserId FK
+        int AgentId FK
+        string Title
+        datetime CreatedAt
+    }
+    ChatMessages {
+        int Id PK
+        int ConversationId FK
+        string Role
+        string Content
+        int TokensUsed
+        datetime CreatedAt
+    }
+    ApiUsage {
+        int Id PK
+        int UserId FK
+        string ServiceCode
+        string ModelName
+        int PromptTokens
+        int CompletionTokens
+        datetime UsedAt
+    }
+    ApiQuota {
+        int Id PK
+        int UserId FK
+        string ServiceCode
+        int MonthlyLimit
+        int UsedCount
+        datetime ResetAt
+    }
+    KnowledgeBaseDocuments {
+        int Id PK
+        int UserId FK
+        string Title
+        string FileName
+        datetime CreatedAt
+    }
+    DocumentChunks {
+        int Id PK
+        int DocumentId FK
+        string Content
+        string EmbeddingJson
+        int ChunkIndex
+    }
+
+    Users ||--o{ UserRoles : has
+    Roles ||--o{ UserRoles : includes
+    ApiServices ||--o{ ApiServiceModels : contains
+    Users ||--o{ Agents : creates
+    Agents ||--o{ ChatConversations : uses
+    ChatConversations ||--o{ ChatMessages : contains
+    Users ||--o{ ApiUsage : tracks
+    Users ||--o{ ApiQuota : limits
+    Users ||--o{ KnowledgeBaseDocuments : owns
+    KnowledgeBaseDocuments ||--o{ DocumentChunks : split_into
+    </div>
+  </div>
+</div>
+
+<!-- TAB 4: AI 서비스 라우팅 -->
+<div id="tab-ai" class="tab-content">
+  <div class="diagram-section">
+    <h2>🤖 AI 서비스 라우팅 맵</h2>
+    <div class="mermaid">
+flowchart TB
+    PROXY["⚙️ AiProxyService\n(ServiceCode 기반 라우팅)"]
+
+    subgraph CHAT["💬 Chat / Text Generation"]
+        CH1["chatgpt / openai\n→ gpt-5, gpt-5-mini, gpt-5-nano\n→ gpt-4o, gpt-4o-mini\n→ o3, o3-mini, o1, o1-mini"]
+        CH2["claude\n→ claude-opus-4-6\n→ claude-sonnet-4-6\n→ claude-haiku-4-5-20251001\n→ claude-3-5-sonnet-20241022"]
+        CH3["gemini\n→ gemini-2.5-pro\n→ gemini-2.5-flash\n→ gemini-2.0-flash"]
+        CH4["mistral\n→ mistral-large-latest\n→ mistral-small-latest\n→ mistral-nemo\n→ codestral-latest"]
+        CH5["copilot / cursor\n→ gpt-4o, gpt-4o-mini\n→ claude-sonnet-4-6\n(GitHub Copilot API)"]
+        CH6["azure\n→ gpt-4o (Azure)\n(Azure OpenAI Service)"]
+    end
+
+    subgraph IMG["🖼️ Image Generation"]
+        IG1["dalle / openai-image\n→ DALL-E 3\n(OpenAI)"]
+        IG2["imagen\n→ Imagen 4\n(Google AI)"]
+        IG3["stability\n→ Stable Diffusion XL\n→ Flux\n(Stability AI)"]
+    end
+
+    subgraph VID["🎬 Video Generation"]
+        VD1["sora\n→ Sora\n(OpenAI)"]
+        VD2["veo\n→ Veo 2\n(Google AI)"]
+    end
+
+    PROXY --> CH1
+    PROXY --> CH2
+    PROXY --> CH3
+    PROXY --> CH4
+    PROXY --> CH5
+    PROXY --> CH6
+    PROXY --> IG1
+    PROXY --> IG2
+    PROXY --> IG3
+    PROXY --> VD1
+    PROXY --> VD2
+    </div>
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    flowchart: { curve: 'basis', padding: 20 },
+    sequence: { actorMargin: 60, messageMargin: 30 },
+    themeVariables: {
+      primaryColor: '#dbeafe',
+      primaryTextColor: '#1e3a5f',
+      primaryBorderColor: '#3b82f6',
+      lineColor: '#6b7280',
+      secondaryColor: '#f0fdf4',
+      tertiaryColor: '#fefce8',
+      fontSize: '14px'
+    }
+  });
+
+  function showTab(name) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+
+</body>
+</html>

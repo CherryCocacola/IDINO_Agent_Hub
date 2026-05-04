@@ -1,0 +1,163 @@
+# Competency Domain SQL Queries
+# 역량 관련 쿼리
+
+queries:
+  # ==========================================
+  # 역량 정의 조회
+  # ==========================================
+  get_all_competencies:
+    description: "모든 역량 정의 조회"
+    sql: |
+      SELECT
+        c.competency_cd,
+        c.competency_nm,
+        c.competency_nm_en,
+        c.category,
+        c.definition as description,
+        c.max_score,
+        NULL as icon_nm,
+        NULL as color_cd,
+        c.weight as sort_order
+      FROM tb_competency c
+      WHERE c.use_fg = 'Y'
+      ORDER BY c.weight, c.competency_nm
+
+  get_competency_with_skills:
+    description: "역량과 하위 스킬 조회"
+    sql: |
+      SELECT
+        c.competency_cd,
+        c.competency_nm,
+        c.competency_nm_en,
+        c.category,
+        c.definition as description,
+        s.skill_cd,
+        s.skill_nm,
+        s.skill_nm_en,
+        NULL as skill_description,
+        scm.weight
+      FROM tb_competency c
+      LEFT JOIN tb_skill_competency_map scm ON c.competency_cd = scm.competency_cd
+      LEFT JOIN tb_skill s ON scm.skill_cd = s.skill_cd
+      WHERE c.use_fg = 'Y'
+      ORDER BY c.weight, s.skill_nm
+
+  # ==========================================
+  # 학생 역량 평가
+  # ==========================================
+  get_student_competency_scores:
+    description: "학생의 최신 역량 점수 조회"
+    sql: |
+      SELECT
+        c.competency_cd,
+        c.competency_nm,
+        c.competency_nm_en,
+        c.category,
+        c.max_score,
+        NULL as icon_nm,
+        NULL as color_cd,
+        COALESCE(sc.current_score, 0) as score,
+        0 as percentile,
+        sc.last_assessment_date as assessment_date,
+        'system' as source_type
+      FROM tb_competency c
+      LEFT JOIN tb_student_competency sc ON c.competency_cd = sc.competency_cd
+        AND sc.student_id = :student_id
+      WHERE c.use_fg = 'Y'
+      ORDER BY c.weight
+
+  get_student_competency_history:
+    description: "학생 역량 점수 변화 이력"
+    sql: |
+      SELECT
+        sc.student_competency_id as assessment_id,
+        sc.competency_cd,
+        c.competency_nm,
+        sc.current_score as score,
+        0 as percentile,
+        'system' as source_type,
+        NULL as source_id,
+        sc.last_assessment_date as assessment_date,
+        sc.ins_dt as created_at
+      FROM tb_student_competency sc
+      JOIN tb_competency c ON sc.competency_cd = c.competency_cd
+      WHERE sc.student_id = :student_id
+      ORDER BY sc.last_assessment_date DESC
+      LIMIT :limit OFFSET :offset
+
+  # ==========================================
+  # 역량 통계
+  # ==========================================
+  get_competency_avg_by_department:
+    description: "학과별 역량 평균 점수"
+    sql: |
+      SELECT
+        c.competency_cd,
+        c.competency_nm,
+        s.department_cd,
+        d.department_nm,
+        AVG(sc.current_score) as avg_score,
+        STDDEV(sc.current_score) as std_score,
+        COUNT(DISTINCT sc.student_id) as student_count
+      FROM tb_competency c
+      CROSS JOIN tb_department d
+      LEFT JOIN tb_student s ON s.department_cd = d.department_cd
+      LEFT JOIN tb_student_competency sc ON sc.student_id = s.student_id
+        AND sc.competency_cd = c.competency_cd
+      WHERE c.use_fg = 'Y'
+        AND (:department_cd IS NULL OR d.department_cd = :department_cd)
+      GROUP BY c.competency_cd, c.competency_nm, s.department_cd, d.department_nm
+      ORDER BY d.department_nm, c.weight
+
+  get_competency_percentile:
+    description: "학생의 역량 백분위 계산"
+    sql: |
+      WITH department_students AS (
+        SELECT s.student_id
+        FROM tb_student s
+        WHERE s.department_cd = :department_cd
+      )
+      SELECT
+        sc.competency_cd,
+        PERCENT_RANK() OVER (
+          PARTITION BY sc.competency_cd
+          ORDER BY sc.current_score
+        ) * 100 as percentile
+      FROM tb_student_competency sc
+      WHERE sc.student_id IN (SELECT student_id FROM department_students)
+        AND sc.student_id = :student_id
+
+  # ==========================================
+  # 역량-과목 매핑
+  # ==========================================
+  get_course_competency_mapping:
+    description: "과목-역량 매핑 조회"
+    sql: |
+      SELECT
+        ccm.course_cd,
+        c.course_nm,
+        ccm.competency_cd,
+        comp.competency_nm,
+        ccm.contribution_weight
+      FROM tb_course_competency_map ccm
+      JOIN tb_course c ON ccm.course_cd = c.course_cd
+      JOIN tb_competency comp ON ccm.competency_cd = comp.competency_cd
+      WHERE (:course_cd IS NULL OR ccm.course_cd = :course_cd)
+      ORDER BY c.course_nm, comp.competency_nm
+
+  # ==========================================
+  # Worknet 진단 결과
+  # ==========================================
+  get_student_worknet_diagnosis:
+    description: "학생 Worknet 진단 결과 - 테이블 미존재로 빈 결과"
+    sql: |
+      SELECT
+        NULL::uuid as diagnosis_id,
+        NULL::varchar as student_id,
+        NULL::date as diagnosis_date,
+        NULL::varchar as diagnosis_type,
+        NULL::jsonb as result_data,
+        NULL::jsonb as competency_scores,
+        NULL::jsonb as recommended_jobs,
+        NULL::varchar as source_url
+      WHERE false

@@ -1,0 +1,269 @@
+﻿table_name,excel_column,db_column,excel_type,db_type,match_status
+tb_achievement,col_0,,int,,missing_in_db
+tb_achievement,UUID,,int,,missing_in_db
+tb_achievement,VARCHAR(20),,int,,missing_in_db
+tb_achievement,VARCHAR(50),,str,,missing_in_db
+tb_achievement,VARCHAR(200),,str,,missing_in_db
+tb_achievement,VARCHAR(200),,str,,missing_in_db
+tb_achievement,DATE,,str,,missing_in_db
+tb_achievement,DATE,,str,,missing_in_db
+tb_achievement,VARCHAR(50),,str,,missing_in_db
+tb_achievement,VARCHAR(50),,str,,missing_in_db
+tb_achievement,JSONB,,str,,missing_in_db
+tb_achievement,CHAR(1),,str,,missing_in_db
+tb_achievement,VARCHAR(50),,str,,missing_in_db
+tb_achievement,TIMESTAMP,,str,,missing_in_db
+tb_achievement,VARCHAR(50),,str,,missing_in_db
+tb_achievement,TIMESTAMP,,str,,missing_in_db
+tb_achievement,col_16,,str,,missing_in_db
+tb_achievement,col_17,,unknown,,missing_in_db
+tb_achievement,col_18,,unknown,,missing_in_db
+tb_achievement,col_19,,unknown,,missing_in_db
+tb_achievement,col_20,,unknown,,missing_in_db
+tb_achievement,col_21,,unknown,,missing_in_db
+tb_achievement,col_22,,unknown,,missing_in_db
+tb_achievement,,achievement_id,,uuid,missing_in_excel
+tb_achievement,,student_id,,character varying(20),missing_in_excel
+tb_achievement,,achievement_type,,character varying(50),missing_in_excel
+tb_achievement,,title,,character varying(200),missing_in_excel
+tb_achievement,,issuer,,character varying(200),missing_in_excel
+tb_achievement,,issue_date,,date,missing_in_excel
+tb_achievement,,expire_date,,date,missing_in_excel
+tb_achievement,,level,,character varying(50),missing_in_excel
+tb_achievement,,score,,character varying(50),missing_in_excel
+tb_achievement,,competency_contributions,,jsonb,missing_in_excel
+tb_achievement,,verified,,character(1),missing_in_excel
+tb_achievement,,ins_user_id,,character varying(50),missing_in_excel
+tb_achievement,,ins_dt,,timestamp without time zone,missing_in_excel
+tb_achievement,,upd_user_id,,character varying(50),missing_in_excel
+tb_achievement,,upd_dt,,timestamp without time zone,missing_in_excel
+tb_activity,activity_id,activity_id,int,uuid,exact
+tb_activity,student_id,student_id,int,character varying(20),exact
+tb_activity,program_cd,program_cd,int,character varying(20),exact
+tb_activity,activity_type,activity_type,int,character varying(50),exact
+tb_activity,title,title,str,character varying(200),exact
+tb_activity,description,description,str,text,exact
+tb_activity,start_date,start_date,int,date,exact
+tb_activity,end_date,end_date,int,date,exact
+tb_activity,hours,hours,str,numeric,exact
+tb_activity,achievement,achievement,str,text,exact
+tb_activity,status,status,int,character varying(20),exact
+tb_activity,verified,verified,str,character(1),exact
+tb_activity,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_activity,ins_dt,ins_dt,date,timestamp without time zone,exact
+tb_activity,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_activity,upd_dt,upd_dt,str,timestamp without time zone,exact
+tb_activity,col_16,,str,,missing_in_db
+tb_college,college_cd,college_cd,int,character varying(20),exact
+tb_college,university_cd,university_cd,int,character varying(20),exact
+tb_college,college_nm,college_nm,str,character varying(100),exact
+tb_college,college_nm_en,college_nm_en,str,character varying(100),exact
+tb_college,use_fg,use_fg,int,character(1),exact
+tb_college,sort_order,sort_order,int,integer,exact
+tb_college,ins_user_id,ins_user_id,int,character varying(50),exact
+tb_college,ins_dt,ins_dt,date,timestamp without time zone,exact
+tb_college,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_college,upd_dt,upd_dt,date,timestamp without time zone,exact
+tb_college,col_10,,str,,missing_in_db
+tb_college,,ins_user_ip,,character varying(50),missing_in_excel
+tb_college,,ins_system_gcd,,character varying(10),missing_in_excel
+tb_college,,ins_menu_cd,,character varying(20),missing_in_excel
+tb_college,,upd_user_ip,,character varying(50),missing_in_excel
+tb_college,,upd_system_gcd,,character varying(10),missing_in_excel
+tb_college,,upd_menu_cd,,character varying(20),missing_in_excel
+tb_competency,competency_cd,competency_cd,int,character varying(20),exact
+tb_competency,competency_nm,competency_nm,str,character varying(100),exact
+tb_competency,competency_nm_en,competency_nm_en,str,character varying(100),exact
+tb_competency,definition,definition,str,text,exact
+tb_competency,category,category,str,character varying(50),exact
+tb_competency,weight,weight,str,numeric,exact
+tb_competency,max_score,max_score,str,integer,exact
+tb_competency,use_fg,use_fg,str,character(1),exact
+tb_competency,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_competency,ins_dt,ins_dt,date,timestamp without time zone,exact
+tb_competency,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_competency,upd_dt,upd_dt,date,timestamp without time zone,exact
+tb_competency,col_12,,str,,missing_in_db
+tb_course,course_cd,course_cd,str,character varying(20),exact
+tb_course,course_nm,course_nm,str,character varying(200),exact
+tb_course,course_nm_en,course_nm_en,str,character varying(200),exact
+tb_course,department_cd,department_cd,int,character varying(20),exact
+tb_course,credits,credits,int,integer,exact
+tb_course,course_type,course_type,int,character varying(20),exact
+tb_course,course_category,course_category,int,character varying(50),exact
+tb_course,grade_level,grade_level,int,integer,exact
+tb_course,description,description,unknown,text,exact
+tb_course,use_fg,use_fg,str,character(1),exact
+tb_course,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_course,ins_dt,ins_dt,date,timestamp without time zone,exact
+tb_course,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_course,upd_dt,upd_dt,date,timestamp without time zone,exact
+tb_course,course_cd,course_nm,course_nm_en,department_cd,credits,course_type,course_category,grade_level,description,use_fg,ins_user_id,upd_user_id,upd_dt,,str,,missing_in_db
+tb_course_competency_map,map_id,map_id,str,uuid,exact
+tb_course_competency_map,course_cd,course_cd,str,character varying(20),exact
+tb_course_competency_map,competency_cd,competency_cd,int,character varying(20),exact
+tb_course_competency_map,contribution_weight,contribution_weight,int,numeric,exact
+tb_course_competency_map,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_course_competency_map,col_5,,str,,missing_in_db
+tb_course_competency_map,,ins_dt,,timestamp without time zone,missing_in_excel
+tb_course_offering,offering_id,offering_id,str,uuid,exact
+tb_course_offering,course_cd,course_cd,str,character varying(20),exact
+tb_course_offering,term_cd,term_cd,int,character varying(10),exact
+tb_course_offering,professor_cd,professor_cd,str,character varying(20),exact
+tb_course_offering,class_no,class_no,int,integer,exact
+tb_course_offering,capacity,capacity,str,integer,exact
+tb_course_offering,enrolled_count,enrolled_count,int,integer,exact
+tb_course_offering,schedule,schedule,str,character varying(200),exact
+tb_course_offering,classroom,classroom,str,character varying(100),exact
+tb_course_offering,use_fg,use_fg,str,character(1),exact
+tb_course_offering,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_course_offering,ins_dt,ins_dt,date,timestamp without time zone,exact
+tb_course_offering,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_course_offering,upd_dt,upd_dt,date,timestamp without time zone,exact
+tb_course_offering,col_14,,str,,missing_in_db
+tb_cumulative_summary,summary_id,summary_id,int,uuid,exact
+tb_cumulative_summary,student_id,student_id,int,character varying(20),exact
+tb_cumulative_summary,total_credits_required,total_credits_required,int,integer,exact
+tb_cumulative_summary,total_credits_earned,total_credits_earned,float,integer,exact
+tb_cumulative_summary,major_credits_required,major_credits_required,str,integer,exact
+tb_cumulative_summary,major_credits_earned,major_credits_earned,str,integer,exact
+tb_cumulative_summary,liberal_credits_required,liberal_credits_required,str,integer,exact
+tb_cumulative_summary,liberal_credits_earned,liberal_credits_earned,str,integer,exact
+tb_cumulative_summary,cumulative_gpa,cumulative_gpa,float,numeric,exact
+tb_cumulative_summary,major_gpa,major_gpa,str,numeric,exact
+tb_cumulative_summary,completion_rate,completion_rate,str,numeric,exact
+tb_cumulative_summary,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_cumulative_summary,ins_dt,ins_dt,str,timestamp without time zone,exact
+tb_cumulative_summary,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_cumulative_summary,upd_dt,upd_dt,str,timestamp without time zone,exact
+tb_cumulative_summary,col_15,,str,,missing_in_db
+tb_department,department_cd,department_cd,int,character varying(20),exact
+tb_department,college_cd,college_cd,int,character varying(20),exact
+tb_department,department_nm,department_nm,str,character varying(100),exact
+tb_department,department_nm_en,department_nm_en,str,character varying(100),exact
+tb_department,dept_type,dept_type,str,character varying(20),exact
+tb_department,graduation_credits,graduation_credits,int,integer,exact
+tb_department,use_fg,use_fg,int,character(1),exact
+tb_department,sort_order,sort_order,int,integer,exact
+tb_department,ins_user_id,ins_user_id,int,character varying(50),exact
+tb_department,ins_dt,ins_dt,date,timestamp without time zone,exact
+tb_department,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_department,upd_dt,upd_dt,date,timestamp without time zone,exact
+tb_department,col_12,,str,,missing_in_db
+tb_department,,ins_user_ip,,character varying(50),missing_in_excel
+tb_department,,ins_system_gcd,,character varying(10),missing_in_excel
+tb_department,,ins_menu_cd,,character varying(20),missing_in_excel
+tb_department,,upd_user_ip,,character varying(50),missing_in_excel
+tb_department,,upd_system_gcd,,character varying(10),missing_in_excel
+tb_department,,upd_menu_cd,,character varying(20),missing_in_excel
+tb_enrollment,enrollment_id,enrollment_id,str,uuid,exact
+tb_enrollment,student_id,student_id,int,character varying(20),exact
+tb_enrollment,offering_id,,str,,missing_in_db
+tb_enrollment,term_cd,term_cd,int,character varying(10),exact
+tb_enrollment,status,,str,,missing_in_db
+tb_enrollment,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_enrollment,ins_dt,ins_dt,str,timestamp without time zone,exact
+tb_enrollment,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_enrollment,upd_dt,upd_dt,date,timestamp without time zone,exact
+tb_enrollment,col_9,,str,,missing_in_db
+tb_enrollment,,course_offering_id,,uuid,missing_in_excel
+tb_enrollment,,status_cd,,character varying(20),missing_in_excel
+tb_grade,grade_id,grade_id,str,uuid,exact
+tb_grade,enrollment_id,enrollment_id,str,uuid,exact
+tb_grade,student_id,student_id,int,character varying(20),exact
+tb_grade,course_cd,course_cd,str,character varying(20),exact
+tb_grade,term_cd,term_cd,int,character varying(10),exact
+tb_grade,grade_letter,grade_letter,str,character varying(5),exact
+tb_grade,grade_point,grade_point,int,numeric,exact
+tb_grade,credits_earned,credits_earned,int,integer,exact
+tb_grade,is_retake,is_retake,int,character(1),exact
+tb_grade,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_grade,ins_dt,ins_dt,str,timestamp without time zone,exact
+tb_grade,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_grade,upd_dt,upd_dt,date,timestamp without time zone,exact
+tb_grade,col_13,,str,,missing_in_db
+tb_grade_summary,summary_id,summary_id,int,uuid,exact
+tb_grade_summary,student_id,student_id,int,character varying(20),exact
+tb_grade_summary,term_cd,term_cd,int,character varying(10),exact
+tb_grade_summary,total_credits,total_credits,int,integer,exact
+tb_grade_summary,earned_credits,earned_credits,int,integer,exact
+tb_grade_summary,gpa,gpa,float,numeric,exact
+tb_grade_summary,major_gpa,major_gpa,int,numeric,exact
+tb_grade_summary,class_rank,class_rank,str,integer,exact
+tb_grade_summary,total_students,total_students,str,integer,exact
+tb_grade_summary,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_grade_summary,ins_dt,ins_dt,str,timestamp without time zone,exact
+tb_grade_summary,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_grade_summary,upd_dt,upd_dt,str,timestamp without time zone,exact
+tb_grade_summary,col_13,,str,,missing_in_db
+tb_professor,professor_cd,professor_cd,str,character varying(20),exact
+tb_professor,professor_nm,professor_nm,str,character varying(50),exact
+tb_professor,professor_nm_en,professor_nm_en,unknown,character varying(100),exact
+tb_professor,department_cd,department_cd,int,character varying(20),exact
+tb_professor,email,email,str,character varying(100),exact
+tb_professor,phone,phone,str,character varying(20),exact
+tb_professor,office_location,office_location,unknown,character varying(100),exact
+tb_professor,position,position,str,character varying(50),exact
+tb_professor,specialty,specialty,unknown,character varying(500),exact
+tb_professor,use_fg,use_fg,str,character(1),exact
+tb_professor,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_professor,ins_dt,ins_dt,str,timestamp without time zone,exact
+tb_professor,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_professor,upd_dt,upd_dt,str,timestamp without time zone,exact
+tb_professor,col_14,,str,,missing_in_db
+tb_professor_course,professor_course_id,professor_course_id,str,uuid,exact
+tb_professor_course,professor_cd,professor_cd,str,character varying(20),exact
+tb_professor_course,course_cd,course_cd,str,character varying(20),exact
+tb_professor_course,is_primary,is_primary,int,character(1),exact
+tb_professor_course,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_professor_course,ins_dt,ins_dt,date,timestamp without time zone,exact
+tb_professor_course,col_6,,str,,missing_in_db
+tb_program,program_cd,program_cd,int,character varying(20),exact
+tb_program,program_nm,program_nm,str,character varying(200),exact
+tb_program,program_type,program_type,str,character varying(50),exact
+tb_program,organizer,organizer,int,character varying(200),exact
+tb_program,start_date,start_date,int,date,exact
+tb_program,end_date,end_date,int,date,exact
+tb_program,description,description,str,text,exact
+tb_program,competency_contributions,competency_contributions,str,jsonb,exact
+tb_program,use_fg,use_fg,str,character(1),exact
+tb_program,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_program,ins_dt,ins_dt,date,timestamp without time zone,exact
+tb_program,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_program,upd_dt,upd_dt,date,timestamp without time zone,exact
+tb_program,col_13,,str,,missing_in_db
+tb_student_competency,student_competency_id,student_competency_id,int,uuid,exact
+tb_student_competency,student_id,student_id,int,character varying(20),exact
+tb_student_competency,competency_cd,competency_cd,int,character varying(20),exact
+tb_student_competency,current_score,current_score,float,numeric,exact
+tb_student_competency,target_score,target_score,str,numeric,exact
+tb_student_competency,gap_score,gap_score,str,numeric,exact
+tb_student_competency,status,status,str,character varying(20),exact
+tb_student_competency,last_assessment_date,last_assessment_date,str,date,exact
+tb_student_competency,trend,trend,str,character varying(10),exact
+tb_student_competency,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_student_competency,ins_dt,ins_dt,str,timestamp without time zone,exact
+tb_student_competency,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_student_competency,upd_dt,upd_dt,str,timestamp without time zone,exact
+tb_student_competency,tb_student_competency,,str,,missing_in_db
+tb_user,user_id,user_id,str,uuid,exact
+tb_user,login_id,login_id,str,character varying(50),exact
+tb_user,password_hash,password_hash,str,character varying(255),exact
+tb_user,user_nm,user_nm,str,character varying(50),exact
+tb_user,email,email,str,character varying(100),exact
+tb_user,phone,phone,str,character varying(20),exact
+tb_user,user_type,user_type,str,character varying(20),exact
+tb_user,student_id,student_id,str,character varying(20),exact
+tb_user,professor_cd,professor_cd,str,character varying(20),exact
+tb_user,role,role,str,character varying(20),exact
+tb_user,status,status,str,character varying(20),exact
+tb_user,mfa_enabled,mfa_enabled,bool,boolean,exact
+tb_user,mfa_secret,mfa_secret,str,character varying(100),exact
+tb_user,last_login,last_login,str,timestamp without time zone,exact
+tb_user,login_fail_count,login_fail_count,str,integer,exact
+tb_user,locked_until,locked_until,str,timestamp without time zone,exact
+tb_user,ins_user_id,ins_user_id,str,character varying(50),exact
+tb_user,ins_dt,ins_dt,str,timestamp without time zone,exact
+tb_user,upd_user_id,upd_user_id,str,character varying(50),exact
+tb_user,upd_dt,upd_dt,str,timestamp without time zone,exact
+tb_user,col_20,,str,,missing_in_db
