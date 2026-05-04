@@ -2,6 +2,32 @@
 
 > 4개 서브프로젝트(`agenthub`/`docutil`/`career`/`nexus`)를 단일 monorepo로 통합한 IDINO의 AI Agent 플랫폼.
 
+---
+
+## ⚠️ 신규 세션 진입 시 자동 로드 (필수)
+
+**모든 신규 세션은 첫 응답 전에 다음 두 파일을 반드시 `Read`로 로드한다**:
+
+1. **`user_mig/progress.md`** — 현재 Phase, 마지막 commit, 미해결 이슈, Open Questions
+2. **`user_mig/TECHSPEC.md`** — 통합 기술 명세 (현재 Phase 관련 섹션 정독)
+
+이는 **단순 권장이 아니라 강제 사항**이다. 두 파일을 읽지 않은 상태로 작업을 진행하면:
+- 이미 결정된 ADR을 다시 논의하게 됨
+- 진행 중인 위험/이슈를 놓침 (예: secret leak, push 차단 등)
+- 사용자가 같은 컨텍스트를 반복 설명해야 함
+
+진입 절차:
+```
+1. Read user_mig/progress.md (전체)
+2. Read user_mig/TECHSPEC.md 의 §0~§3 (개요/카탈로그/아키텍처) + 현재 Phase 해당 섹션
+3. progress.md의 "다음 작업" 섹션을 사용자에게 보고
+4. 사용자 지시 받기
+```
+
+**작업 종료 시**: `user_mig/progress.md` 갱신 (R7 규칙). 갱신 없이 세션 종료 금지.
+
+---
+
 ## 통합 비전 (필수 숙지)
 
 **AgentHub를 AI Control Plane으로**, 나머지 시스템은 AgentHub Agent를 소비:
