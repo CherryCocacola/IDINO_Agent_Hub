@@ -68,14 +68,25 @@ Extensions: vector (pgvector), uuid-ossp, pg_trgm
 ```
 [scope/모듈] 한글 설명
 
-scope: agenthub | docutil | career | nexus | docs | infra
+scope: agenthub | docutil | career | nexus | docs | infra | user_mig
 예시:
   [agenthub/aiproxy] Nexus provider 추가 — CallNexusAsync 구현
   [docutil/llm] AgentHub /v1/chat 호출로 전환
   [career/coaching] 학생 코칭 Agent ID 매핑 추가
   [docs] AI_INVENTORY.md 작성
   [infra/db] AGENT_HUB DB + 3개 스키마 생성 SQL
+  [user_mig] TECHSPEC v1.1 — Tenant 모델 결정 반영
 ```
+
+### R7. 진행 상황 갱신 (필수)
+- **모든 작업 완료 후 `user_mig/progress.md`를 갱신**한다.
+- 갱신 시점:
+  1. 새 Phase 진입 / 완료 시 — Phase 상태표 변경 + 작업 로그 추가
+  2. 핵심 작업 완료 시 (파일 신설, 마이그레이션 적용, 의사결정 등) — 작업 로그
+  3. ADR / 위험 / Open Question 변경 시 — 해당 섹션
+  4. Git commit 후 — 마지막 commit 해시 갱신
+- **갱신 없이 작업을 종료하지 않는다.** progress.md는 차기 세션의 컨텍스트 진입점이다.
+- TECHSPEC 변경(`user_mig/TECHSPEC.md`)이 발생하면 progress.md의 ADR / Open Question 섹션도 동기화한다.
 
 ## 핵심 명령어
 
@@ -115,25 +126,48 @@ python -m web.app                         # FastAPI 서버
 
 ## 문서 안내
 
+### 통합 마스터 문서 (필수 숙지)
+- `user_mig/TECHSPEC.md` — **통합 기술 명세서** (도메인 모델, 마이그레이션 전략, 위험 분석 R1~R30, ADR-1~15, Open Questions Q1~10)
+- `user_mig/progress.md` — **진행 상황 추적** (Phase 상태, 작업 로그, ADR 결정, 위험 추적). **모든 작업 후 갱신 필수** (R7)
+
+### 시스템별 분석 보고서
+- `user_mig/source_AGENTHUB.md` — AgentHub 종합 분석
+- `user_mig/source_DOCUTIL.md` — DocUtil 종합 분석
+- `user_mig/source_CAREER.md` — idino_career 종합 분석
+- `user_mig/source_NEXUS.md` — Nexus 종합 분석
+
+### 운영 문서
 - `docs/ARCHITECTURE.md` — 통합 아키텍처 (다이어그램, 시퀀스, 결정사항)
-- `docs/AI_INVENTORY.md` — AI 호출 지점 카탈로그 (Phase 1)
-- `docs/DB_MIGRATION.md` — AGENT_HUB DB 설계 + 마이그레이션 가이드
-- `docs/DEPLOYMENT.md` — 외부망/내부망/하이브리드 배포
+- `docs/AI_INVENTORY.md` — AI 호출 지점 카탈로그 (Phase 1 산출물)
+- `docs/DB_MIGRATION.md` — AGENT_HUB DB 설계 + 마이그레이션 가이드 (Phase 2+ 작성)
+- `docs/DEPLOYMENT.md` — 외부망/내부망/하이브리드 배포 (Phase 7+ 작성)
 - 각 서브프로젝트의 `CLAUDE.md`와 `.claude/rules/`도 함께 참조
+
+### 신규 세션 진입 절차
+1. `user_mig/progress.md` 먼저 읽기 (현재 Phase, 마지막 commit, Open Questions 확인)
+2. `user_mig/TECHSPEC.md` 의 해당 Phase 섹션 정독
+3. 사용자에게 진행 상황 보고 + 다음 작업 제안
 
 ## 통합 작업 단계 요약
 
-| Phase | 내용 |
-|---|---|
-| 0 | 작업공간 셋업 + init 작성 (진행 중) |
-| 1 | AI 호출 인벤토리 |
-| 2 | AGENT_HUB DB 생성 |
-| 3 | AgentHub MSSQL → PostgreSQL 마이그레이션 |
-| 4 | DocUtil/career → AGENT_HUB 통합 |
-| 5 | AgentHub에 Nexus provider 추가 |
-| 6 | DocUtil 운영자 → AgentHub 흡수 |
-| 7 | DocUtil/career AI 호출 → AgentHub 위임 |
-| 8 | (보류) Vue → Next.js 점진 이행 |
+> 상세 일정/의존성/위험은 `user_mig/TECHSPEC.md` §12, §19 참조.
+> 현재 진척은 `user_mig/progress.md` 참조.
+
+| Phase | 내용 | 예상 영업일 |
+|---|---|---|
+| 0 | 작업공간 셋업 + init + 분석/TECHSPEC | 1 ✅ |
+| 1 | AI 호출 인벤토리 (`docs/AI_INVENTORY.md`) | 3 |
+| 2 | AGENT_HUB DB 생성 (`infra/db/init.sql`) | 2 |
+| 3 | AgentHub MSSQL → PostgreSQL + 부채 정리 (C1~C10) | 10 |
+| 4 | DocUtil/career → AGENT_HUB 통합 + pgvector | 8 |
+| 5 | AgentHub Nexus provider + LlmRouting + 진짜 SSE | 8 |
+| 6 | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | 10 |
+| 7 | DocUtil/career AI 호출 → AgentHub 위임 | 10 |
+| 8 | (보류) Vue → Next.js 점진 이행 | — |
+
+**총 ≈ 52 영업일 (10주)** + DocUtil S6/S7 완료(~6주) = **약 16주**.
+
+각 Phase는 사용자 승인 후 시작 (`development-workflow.md` 규칙).
 
 ## 보안/시크릿 위치
 
