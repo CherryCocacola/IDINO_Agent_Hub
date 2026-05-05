@@ -5,6 +5,8 @@ using AIAgentManagement.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace AIAgentManagement.Services;
 
@@ -979,6 +981,297 @@ public class ChatService : IChatService
         };
     }
 
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 진짜 SSE 스트리밍 wrapper (TECHSPEC §15.4 / §16 C9 해소)
+    // ════════════════════════════════════════════════════════════════════════
+    public async IAsyncEnumerable<ChatChunk> SendDirectMessageStreamChunksAsync(
+        DirectSendMessageRequestDto request,
+        int userId,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // ── Agent 조회 + ServiceId 확정 ────────────────────────────────────────
+        Models.Agent? agent = null;
+        if (request.AgentId.HasValue)
+        {
+            agent = await _context.Agents
+                .Include(a => a.ApiService)
+                .FirstOrDefaultAsync(a => a.AgentId == request.AgentId.Value, cancellationToken);
+
+            if (agent != null && request.ServiceId == null)
+            {
+                request.ServiceId = agent.ServiceId;
+            }
+        }
+
+        if (!request.ServiceId.HasValue)
+        {
+            throw new InvalidOperationException("ServiceId is required");
+        }
+
+        // ── Quota 사전 체크 ────────────────────────────────────────────────────
+        var quotaCheck = await _quotaService.CheckQuotaAsync(userId, request.ServiceId.Value);
+        if (!quotaCheck.CanUse)
+        {
+            throw new InvalidOperationException($"Quota exceeded: {quotaCheck.Message}");
+        }
+
+        // ── 마지막 user 메시지에 한해 BannedWord + PII 검사 ─────────────────────
+        var userMessages = request.Messages?.Where(m => m.Role == "user").ToList() ?? new List<ChatMessageItemDto>();
+        var lastUserMessage = userMessages.LastOrDefault();
+        if (lastUserMessage != null && !string.IsNullOrWhiteSpace(lastUserMessage.Content))
+        {
+            var contentToCheck = lastUserMessage.Content;
+
+            var bannedWordCheck = await _bannedWordService.CheckBannedWordsAsync(contentToCheck, request.AgentId);
+            if (bannedWordCheck.IsBlocked)
+            {
+                throw new BannedWordException(bannedWordCheck.BlockedWords);
+            }
+
+            var piiSettings = await _piiDetectionService.GetAgentSettingsAsync(request.AgentId);
+            if (piiSettings.Enabled)
+            {
+                var piiResult = await _piiDetectionService.DetectPiiAsync(contentToCheck, piiSettings.DetectionTypes);
+                if (piiResult.HasPii)
+                {
+                    if (piiSettings.Mode == "Block")
+                    {
+                        var detectedTypes = piiResult.DetectedItems.Select(i => PiiTypeHelper.GetPiiTypeName(i.Type)).Distinct().ToList();
+                        await LogPiiDetectionAsync(userId, request.AgentId, null, piiResult, "Block",
+                            _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString());
+                        throw new PiiDetectionException(piiResult, detectedTypes);
+                    }
+                    if (piiSettings.Mode == "Mask")
+                    {
+                        lastUserMessage.Content = piiResult.MaskedMessage;
+                        _logger.LogInformation("PII detected and masked in stream message. AgentId: {AgentId}, Types: {Types}",
+                            request.AgentId, string.Join(", ", piiResult.DetectedItems.Select(i => i.Type).Distinct()));
+                    }
+                }
+            }
+        }
+
+        // ── 대화 컨테이너 결정/생성 (비스트리밍 흐름과 동일) ──────────────────────
+        Models.ChatConversation? conversation = null;
+        int? conversationId = null;
+
+        if (request.AgentId.HasValue)
+        {
+            if (request.ConversationId.HasValue)
+            {
+                conversation = await _context.ChatConversations
+                    .Include(c => c.ApiService)
+                    .FirstOrDefaultAsync(c =>
+                        c.ConversationId == request.ConversationId.Value &&
+                        c.UserId == userId &&
+                        c.AgentId == request.AgentId.Value &&
+                        !c.IsArchived, cancellationToken);
+                if (conversation != null)
+                {
+                    conversationId = conversation.ConversationId;
+                }
+            }
+
+            if (conversation == null)
+            {
+                var lockKey = $"{userId}_{request.AgentId.Value}";
+                var semaphore = _convLocks.GetOrAdd(lockKey, _ => new SemaphoreSlim(1, 1));
+                await semaphore.WaitAsync(cancellationToken);
+                try
+                {
+                    conversation = await _context.ChatConversations
+                        .Include(c => c.ApiService)
+                        .Where(c => c.UserId == userId && c.AgentId == request.AgentId.Value && !c.IsArchived)
+                        .OrderByDescending(c => c.CreatedAt)
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (conversation == null)
+                    {
+                        conversation = new Models.ChatConversation
+                        {
+                            UserId = userId,
+                            AgentId = request.AgentId,
+                            ServiceId = request.ServiceId.Value,
+                            Title = agent?.AgentName ?? "New Chat",
+                            Model = request.Model ?? agent?.ApiService?.DefaultModel ?? "gpt-4-turbo",
+                            Temperature = request.Temperature ?? agent?.Temperature ?? 0.7m,
+                            MaxTokens = request.MaxTokens ?? agent?.MaxTokens ?? 4096,
+                            SystemPrompt = agent?.SystemPrompt,
+                            Language = request.Language ?? "auto",
+                            EnableRag = request.EnableRag ?? false,
+                            EnableWebSearch = request.EnableWebSearch ?? false,
+                            MessageCount = 0,
+                            TotalTokens = 0,
+                            TotalCost = 0,
+                            IsArchived = false,
+                            IsPinned = false,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        _context.ChatConversations.Add(conversation);
+                        await _context.SaveChangesAsync(cancellationToken);
+                    }
+                    conversationId = conversation.ConversationId;
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }
+        }
+
+        // ── ChatMessageRequestDto 변환 (Agent system prompt + RAG 플래그 반영) ───
+        var language = request.Language ?? conversation?.Language ?? "auto";
+        var enableRag = request.EnableRag ?? false;
+        if (agent != null && agent.EnableRag && request.EnableRag != false) enableRag = true;
+
+        var chatRequest = new ChatMessageRequestDto
+        {
+            Messages = (request.Messages ?? new List<ChatMessageItemDto>()).Select(m => new ChatMessageDto
+            {
+                Role = m.Role,
+                Content = m.Content,
+                Contents = m.Contents
+            }).ToList(),
+            Temperature = request.Temperature ?? conversation?.Temperature ?? 0.7m,
+            MaxTokens = request.MaxTokens ?? conversation?.MaxTokens ?? 4096,
+            Stream = true,
+            EnableWebSearch = request.EnableWebSearch ?? false,
+            EnableRag = enableRag,
+            RagTopK = request.RagTopK,
+            Language = language,
+            UserId = userId,
+            AgentId = agent?.EnableRag == true && enableRag && request.DocumentIds == null ? agent.AgentId : null,
+            DocumentIds = request.DocumentIds,
+            EnableDeepResearch = request.EnableDeepResearch ?? false,
+            EnableDeepThinking = request.EnableDeepThinking ?? false,
+            ThinkingMode = request.ThinkingMode
+        };
+
+        if (agent != null && !string.IsNullOrEmpty(agent.SystemPrompt))
+        {
+            var systemMessage = chatRequest.Messages.FirstOrDefault(m => m.Role == "system");
+            if (systemMessage == null)
+            {
+                chatRequest.Messages.Insert(0, new ChatMessageDto { Role = "system", Content = agent.SystemPrompt });
+            }
+            else
+            {
+                systemMessage.Content = agent.SystemPrompt;
+            }
+        }
+
+        var startTime = DateTime.UtcNow;
+        var model = request.Model ?? conversation?.Model ?? agent?.ApiService?.DefaultModel ?? "gpt-4-turbo";
+
+        // ── 진짜 SSE 스트리밍 ───────────────────────────────────────────────────
+        var contentBuilder = new StringBuilder();
+        int promptTokens = 0;
+        int completionTokens = 0;
+        int totalTokens = 0;
+        string finishReason = "stop";
+
+        await foreach (var chunk in _aiProxyService
+            .SendChatMessageStreamChunksAsync(request.ServiceId.Value, model, chatRequest, cancellationToken)
+            .WithCancellation(cancellationToken))
+        {
+            if (!string.IsNullOrEmpty(chunk.Content))
+            {
+                contentBuilder.Append(chunk.Content);
+            }
+            if (chunk.PromptTokens.HasValue || chunk.CompletionTokens.HasValue || chunk.TotalTokens.HasValue)
+            {
+                promptTokens = chunk.PromptTokens ?? promptTokens;
+                completionTokens = chunk.CompletionTokens ?? completionTokens;
+                totalTokens = chunk.TotalTokens ?? totalTokens;
+            }
+            if (!string.IsNullOrEmpty(chunk.FinishReason))
+            {
+                finishReason = chunk.FinishReason;
+            }
+
+            yield return chunk;
+        }
+
+        var responseTime = (int)(DateTime.UtcNow - startTime).TotalMilliseconds;
+        var fullContent = contentBuilder.ToString();
+
+        // 토큰 정보가 누락된 경우(provider streaming 미지원 폴백 등) 보수적으로 0 처리
+        var cost = await _aiProxyService.CalculateCostAsync(request.ServiceId.Value, model, promptTokens, completionTokens);
+
+        // ── 메시지 / ApiUsage / Conversation 통계 영속화 ────────────────────────
+        try
+        {
+            if (conversation != null)
+            {
+                var userMessage = request.Messages?.LastOrDefault(m => m.Role == "user");
+                if (userMessage != null)
+                {
+                    var attachmentsJson = userMessage.Contents != null && userMessage.Contents.Count > 0
+                        ? System.Text.Json.JsonSerializer.Serialize(userMessage.Contents)
+                        : null;
+                    _context.ChatMessages.Add(new Models.ChatMessage
+                    {
+                        ConversationId = conversation.ConversationId,
+                        Role = "user",
+                        Content = userMessage.Content ?? string.Empty,
+                        Attachments = attachmentsJson,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+
+                _context.ChatMessages.Add(new Models.ChatMessage
+                {
+                    ConversationId = conversation.ConversationId,
+                    Role = "assistant",
+                    Content = fullContent,
+                    TokensUsed = totalTokens,
+                    Model = model,
+                    FinishReason = finishReason,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                var totalMessageCount = await _context.ChatMessages
+                    .Where(m => m.ConversationId == conversation.ConversationId)
+                    .CountAsync(cancellationToken) + 1;
+
+                conversation.MessageCount = totalMessageCount;
+                conversation.TotalTokens += totalTokens;
+                conversation.TotalCost += cost;
+                conversation.LastMessageAt = DateTime.UtcNow;
+                conversation.UpdatedAt = DateTime.UtcNow;
+
+                var directPrompt = request.Messages?.LastOrDefault(m => m.Role == "user")?.Content;
+                _context.ApiUsages.Add(new Models.ApiUsage
+                {
+                    UserId = userId,
+                    ServiceId = request.ServiceId.Value,
+                    ConversationId = conversation.ConversationId,
+                    Model = model,
+                    TokensUsed = totalTokens,
+                    RequestCost = cost,
+                    RequestTime = startTime,
+                    ResponseTime = responseTime,
+                    StatusCode = 200,
+                    Prompt = directPrompt != null && directPrompt.Length > 500 ? directPrompt[..500] : directPrompt,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
+            // 할당량 차감 (마지막 usage chunk 기준)
+            await _quotaService.RecordUsageAsync(userId, request.ServiceId.Value, totalTokens, cost);
+        }
+        catch (Exception ex)
+        {
+            // 영속화 실패는 사용자 경험에 영향을 주지 않도록 로그만 남기고 silently 종료
+            // (이미 chunk는 사용자에게 모두 전달된 상태)
+            _logger.LogError(ex, "Streaming 종료 후 메시지/사용량 영속화 실패. UserId: {UserId}, ServiceId: {ServiceId}, Model: {Model}",
+                userId, request.ServiceId.Value, model);
+        }
+    }
 
     private async Task LogPiiDetectionAsync(int userId, int? agentId, int? conversationId, PiiDetectionResult piiResult, string actionTaken, string? ipAddress)
     {

@@ -261,7 +261,9 @@ public class OpenAICompatController : ControllerBase
     {
         var response = await _chatService.SendDirectMessageAsync(directRequest, userId);
 
-        // 토큰 추정 (실제 값이 없는 경우)
+        // 비스트리밍 분기: SendDirectMessageAsync 가 prompt/completion 분리 토큰을 노출하지 않으므로
+        // 0.65 휴리스틱으로 대략 추정한다. (TODO Phase 5+) DirectSendMessageResponseDto 에 prompt/completion 분리 필드 추가 시 정확한 값 반영.
+        // 진짜 SSE 분기는 OpenAI stream_options.include_usage:true 로 실제 값을 받으므로 추정 불필요.
         OpenAIUsage? usage = null;
         if (response.TokensUsed.HasValue)
         {
@@ -297,7 +299,10 @@ public class OpenAICompatController : ControllerBase
     }
 
     // ════════════════════════════════════════════════════════════════════════════
-    // 내부: 스트리밍 응답 (OpenAI SSE 형식)
+    // 내부: 진짜 SSE 스트리밍 응답 (OpenAI 호환 chat.completion.chunk 포맷)
+    // - 가짜 SSE(C9) 제거: ChatService.SendDirectMessageAsync(전체 응답 await + Split + Task.Delay) 패턴 폐기
+    // - H5 해소: AiProxyService.SendChatMessageStreamChunksAsync 가 ApiKeyPool/Cooldown 적용
+    // - usage: stream_options.include_usage:true 로 OpenAI가 보낸 실제 토큰 수를 그대로 반영
     // ════════════════════════════════════════════════════════════════════════════
 
     private async Task SendStreaming(
@@ -310,67 +315,95 @@ public class OpenAICompatController : ControllerBase
     {
         Response.ContentType = "text/event-stream; charset=utf-8";
         Response.Headers["Cache-Control"]      = "no-cache";
-        Response.Headers["X-Accel-Buffering"]  = "no";
+        Response.Headers["X-Accel-Buffering"]  = "no";  // IIS InProcess + nginx/Apache reverse proxy buffering 방지
         Response.Headers["Connection"]          = "keep-alive";
+        // IIS InProcess 호스팅에서 chunked transfer 강제: Content-Length 헤더 미설정 + 즉시 첫 Flush
 
-        async Task WriteChunk(OpenAIChatCompletionChunk chunk)
+        async Task WriteSseChunk(string? role, string? content, string? finishReason)
         {
             if (cancellationToken.IsCancellationRequested) return;
+            var delta = new OpenAIChunkDelta { Role = role, Content = content };
+            var chunk = new OpenAIChatCompletionChunk
+            {
+                Id      = completionId,
+                Created = createdAt,
+                Model   = modelId,
+                Choices = new List<OpenAIChunkChoice>
+                {
+                    new() { Index = 0, Delta = delta, FinishReason = finishReason }
+                }
+            };
+            // OpenAI 표준 chat.completion.chunk JSON
+            // (usage 필드는 finish_reason 청크 이후 별도 usage chunk로 보내는 OpenAI 최신 동작을 따른다)
             var json = JsonSerializer.Serialize(chunk, _snakeCase);
+            await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
+
+        // OpenAI는 stream_options.include_usage:true 일 때 finish_reason 청크 다음에
+        // choices 빈 배열 + usage 가 채워진 별도 청크를 추가로 흘려보낸다. 우리도 동일 포맷으로 한 번 더 yield.
+        async Task WriteSseUsageChunk(int promptTokens, int completionTokens, int totalTokens)
+        {
+            if (cancellationToken.IsCancellationRequested) return;
+            var payload = new
+            {
+                id = completionId,
+                @object = "chat.completion.chunk",
+                created = createdAt,
+                model = modelId,
+                choices = Array.Empty<object>(),
+                usage = new
+                {
+                    prompt_tokens = promptTokens,
+                    completion_tokens = completionTokens,
+                    total_tokens = totalTokens
+                }
+            };
+            var json = JsonSerializer.Serialize(payload);
             await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
         }
 
         try
         {
-            // 역할 선언 청크
-            await WriteChunk(new OpenAIChatCompletionChunk
+            // (1) 역할 선언 청크 — 클라이언트가 즉시 메시지 시작을 인지
+            await WriteSseChunk(role: "assistant", content: null, finishReason: null);
+
+            // (2) ChatService streaming wrapper — PII/BannedWord 검사 + AiProxy 진짜 SSE → ChatChunk
+            string? finalFinishReason = null;
+            int finalPrompt = 0, finalCompletion = 0, finalTotal = 0;
+
+            await foreach (var chunk in _chatService
+                .SendDirectMessageStreamChunksAsync(directRequest, userId, cancellationToken)
+                .WithCancellation(cancellationToken))
             {
-                Id      = completionId,
-                Created = createdAt,
-                Model   = modelId,
-                Choices = new List<OpenAIChunkChoice>
+                // delta content
+                if (!string.IsNullOrEmpty(chunk.Content))
                 {
-                    new() { Index = 0, Delta = new OpenAIChunkDelta { Role = "assistant" }, FinishReason = null }
+                    await WriteSseChunk(role: null, content: chunk.Content, finishReason: null);
                 }
-            });
 
-            var response = await _chatService.SendDirectMessageAsync(directRequest, userId);
+                // usage 누적 (마지막 chunk에 동봉되어 옴)
+                if (chunk.PromptTokens.HasValue) finalPrompt = chunk.PromptTokens.Value;
+                if (chunk.CompletionTokens.HasValue) finalCompletion = chunk.CompletionTokens.Value;
+                if (chunk.TotalTokens.HasValue) finalTotal = chunk.TotalTokens.Value;
 
-            // 단어 단위 분할 전송 (스트리밍 효과)
-            if (!string.IsNullOrEmpty(response.Content))
-            {
-                var words = response.Content.Split(' ');
-                foreach (var word in words)
+                if (!string.IsNullOrEmpty(chunk.FinishReason))
                 {
-                    if (cancellationToken.IsCancellationRequested) break;
-                    await WriteChunk(new OpenAIChatCompletionChunk
-                    {
-                        Id      = completionId,
-                        Created = createdAt,
-                        Model   = modelId,
-                        Choices = new List<OpenAIChunkChoice>
-                        {
-                            new() { Index = 0, Delta = new OpenAIChunkDelta { Content = word + " " }, FinishReason = null }
-                        }
-                    });
-                    await Task.Delay(15, cancellationToken);
+                    finalFinishReason = chunk.FinishReason;
                 }
             }
 
-            // 종료 청크
-            await WriteChunk(new OpenAIChatCompletionChunk
-            {
-                Id      = completionId,
-                Created = createdAt,
-                Model   = modelId,
-                Choices = new List<OpenAIChunkChoice>
-                {
-                    new() { Index = 0, Delta = new OpenAIChunkDelta(), FinishReason = "stop" }
-                }
-            });
+            // (3) 종료 청크 — finish_reason 명시
+            await WriteSseChunk(role: null, content: null, finishReason: finalFinishReason ?? "stop");
 
-            // OpenAI 스트리밍 종료 신호
+            // (4) usage 청크 — stream_options.include_usage:true 동작 모사 (OpenAI SDK 호환)
+            if (finalTotal > 0)
+            {
+                await WriteSseUsageChunk(finalPrompt, finalCompletion, finalTotal);
+            }
+
+            // (5) OpenAI 스트리밍 종료 신호
             await Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
         }
@@ -381,6 +414,21 @@ public class OpenAICompatController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "OpenAI 호환 스트리밍 오류: model={Model}", modelId);
+            // 스트림이 이미 시작된 상태라 HTTP status를 변경할 수 없음 — error chunk 한 건 흘리고 종료
+            try
+            {
+                var errorPayload = new
+                {
+                    error = new { type = "internal_error", message = "스트리밍 처리 중 오류가 발생했습니다." }
+                };
+                await Response.WriteAsync($"data: {JsonSerializer.Serialize(errorPayload)}\n\n", cancellationToken);
+                await Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+            }
+            catch
+            {
+                // 응답이 이미 닫혔거나 클라이언트 disconnect — 무시
+            }
         }
     }
 

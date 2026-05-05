@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Net.Http;
@@ -229,6 +230,7 @@ You are a professional and helpful AI assistant.
         }
     }
 
+    [Obsolete("Use SendChatMessageStreamChunksAsync. This method bypasses ApiKeyPool/Cooldown and does not guarantee real-time streaming.")]
     public async Task<Stream> SendChatMessageStreamAsync(int serviceId, string model, ChatMessageRequestDto request, CancellationToken cancellationToken = default)
     {
         var service = await _context.ApiServices.FindAsync([serviceId], cancellationToken);
@@ -249,6 +251,221 @@ You are a professional and helpful AI assistant.
             "azure-openai" or "microsoft-copilot" => await CallAzureOpenAiStreamAsync(service, model, request, cancellationToken),
             _ => throw new NotSupportedException($"Service {service.ServiceCode} is not supported")
         };
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // 진짜 SSE 스트리밍 — IAsyncEnumerable<ChatChunk> 기반 (TECHSPEC §15.4 / §16 C9 / H5)
+    // ════════════════════════════════════════════════════════════════════════════
+    public async IAsyncEnumerable<ChatChunk> SendChatMessageStreamChunksAsync(
+        int serviceId,
+        string model,
+        ChatMessageRequestDto request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var service = await _context.ApiServices.FindAsync([serviceId], cancellationToken);
+        if (service == null || !service.IsActive)
+        {
+            throw new InvalidOperationException($"Service {serviceId} not found or inactive");
+        }
+
+        var providerCode = service.ServiceCode.ToLowerInvariant();
+
+        // OpenAI native streaming — chunk 단위 yield
+        if (providerCode is "chatgpt" or "openai")
+        {
+            await foreach (var chunk in StreamOpenAiChunksAsync(service, model, request, cancellationToken)
+                .WithCancellation(cancellationToken))
+            {
+                yield return chunk;
+            }
+            yield break;
+        }
+
+        // TODO (Phase 5+): claude / gemini / perplexity / mistral / copilot / azure-openai 의
+        // native streaming 응답 파서를 각각 구현. SSE 또는 line-delimited JSON 포맷이 provider별로 다름:
+        //   - Anthropic: event-stream with `event: content_block_delta` etc.
+        //   - Google Gemini: line-delimited JSON via streamGenerateContent endpoint
+        //   - Perplexity / Mistral / Azure OpenAI: OpenAI 호환 SSE
+        //   - GitHub Copilot: 자체 포맷
+        // 본 단계에서는 비스트리밍 호출 결과를 단일 chunk로 폴백하여 yield 합니다(가짜 SSE 위장보다 정직).
+        var nonStreaming = await SendChatMessageAsync(serviceId, model, request, cancellationToken);
+        if (!string.IsNullOrEmpty(nonStreaming.Content))
+        {
+            yield return ChatChunk.Delta(nonStreaming.Content);
+        }
+        if (nonStreaming.TotalTokens > 0)
+        {
+            yield return ChatChunk.Usage(nonStreaming.PromptTokens, nonStreaming.CompletionTokens, nonStreaming.TotalTokens);
+        }
+        yield return ChatChunk.Stop(string.IsNullOrEmpty(nonStreaming.FinishReason) ? "stop" : nonStreaming.FinishReason);
+    }
+
+    /// <summary>
+    /// OpenAI /v1/chat/completions 의 stream:true 응답을 파싱하여 ChatChunk 단위로 yield.
+    /// stream_options.include_usage:true 로 마지막 chunk에 usage 동봉을 요청합니다.
+    /// HttpCompletionOption.ResponseHeadersRead 로 즉시 헤더만 받고 본문은 chunk 단위로 흘립니다.
+    /// ApiKeyPool 라운드로빈 + 429 Cooldown 적용(H5 해결).
+    ///
+    /// 한계 (Phase 5+ 정식 처리):
+    /// - 본 메서드는 RAG / 웹검색 / DeepResearch 를 처리하지 않습니다(SendChatMessageAsync 의 흐름과 미동기화).
+    ///   현재 streaming이 활성화되면 RAG 컨텍스트 주입이 누락됩니다.
+    ///   Phase 5에서 RAG 컨텍스트 주입을 streaming 진입 직전 별도 단계로 분리하여 양 경로에서 공유할 예정.
+    /// - 멀티모달(image_url 등)은 단순 messages 변환만 수행하므로 vision 모델 streaming 시 attachments 손실 가능.
+    /// </summary>
+    private async IAsyncEnumerable<ChatChunk> StreamOpenAiChunksAsync(
+        ApiService service,
+        string model,
+        ChatMessageRequestDto request,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var apiKey = GetApiKey("openai", "AiApiSettings:OpenAI:ApiKey");
+        var baseUrl = _configuration["AiApiSettings:OpenAI:BaseUrl"] ?? "https://api.openai.com/v1";
+
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            _logger.LogError("OpenAI API key is not configured (streaming)");
+            throw new InvalidOperationException("OpenAI API key is not configured");
+        }
+
+        // 언어 지시 추가 (CallOpenAiAsync 와 동일 흐름)
+        var messagesWithLanguage = AddLanguageInstruction(request.Messages.ToList(), request.Language);
+        var messages = messagesWithLanguage.Select(m => new
+        {
+            role = m.Role,
+            content = m.Content ?? string.Empty
+        }).Cast<object>().ToList();
+
+        var modelLower = model.ToLowerInvariant();
+        var usesCompletionTokens = modelLower.StartsWith("o1") || modelLower.StartsWith("o3") || modelLower.StartsWith("gpt-5");
+        var payloadDict = new Dictionary<string, object>
+        {
+            ["model"] = model,
+            ["messages"] = messages,
+            ["stream"] = true,
+            // 마지막 chunk에 usage 정보 포함 — 가짜 SSE의 0.65 추정값 제거(C9 / D 항목)
+            ["stream_options"] = new { include_usage = true }
+        };
+
+        if (usesCompletionTokens)
+        {
+            if (request.MaxTokens.HasValue) payloadDict["max_completion_tokens"] = request.MaxTokens.Value;
+        }
+        else
+        {
+            if (request.Temperature.HasValue) payloadDict["temperature"] = request.Temperature.Value;
+            if (request.MaxTokens.HasValue) payloadDict["max_tokens"] = request.MaxTokens.Value;
+        }
+
+        var json = JsonSerializer.Serialize(payloadDict);
+
+        var client = _httpClientFactory.CreateClient("openai");
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/chat/completions")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+        // 핵심: ResponseHeadersRead — 본문 전체를 받기 전에 stream을 사용 가능
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError("OpenAI streaming API error. Status: {StatusCode}, Response: {Response}, Model={Model}",
+                response.StatusCode, errorBody, model);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                _apiKeyPool?.MarkAsCoolingDown("openai", apiKey ?? string.Empty);
+                throw new HttpRequestException($"OpenAI API 429 Too Many Requests - {errorBody}", null, response.StatusCode);
+            }
+
+            throw new InvalidOperationException($"OpenAI streaming API error: {response.StatusCode} - {errorBody}");
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+
+        var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+        while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync(cancellationToken);
+            if (line == null) break;
+            if (line.Length == 0) continue;
+            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
+
+            // "data: {...}" 또는 "data: [DONE]"
+            var payload = line.Substring(5).TrimStart();
+            if (payload.Length == 0) continue;
+            if (payload == "[DONE]")
+            {
+                yield break;
+            }
+
+            OpenAiStreamChunk? parsed = null;
+            try
+            {
+                parsed = JsonSerializer.Deserialize<OpenAiStreamChunk>(payload, jsonOptions);
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "OpenAI stream chunk parse failed. Payload prefix: {Prefix}",
+                    payload.Length > 200 ? payload.Substring(0, 200) + "..." : payload);
+                continue; // 잘못된 chunk 1건은 무시하고 다음 라인 진행
+            }
+
+            if (parsed == null) continue;
+
+            // delta.content 가 있으면 텍스트 chunk
+            var firstChoice = parsed.Choices?.FirstOrDefault();
+            var deltaContent = firstChoice?.Delta?.Content;
+            var finishReason = firstChoice?.FinishReason;
+
+            if (!string.IsNullOrEmpty(deltaContent))
+            {
+                yield return ChatChunk.Delta(deltaContent);
+            }
+
+            // usage 동봉 chunk (stream_options.include_usage:true 일 때 마지막 즈음에 도착)
+            if (parsed.Usage is { TotalTokens: > 0 })
+            {
+                yield return ChatChunk.Usage(parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens, parsed.Usage.TotalTokens);
+            }
+
+            if (!string.IsNullOrEmpty(finishReason))
+            {
+                yield return ChatChunk.Stop(finishReason);
+            }
+        }
+    }
+
+    // OpenAI streaming chunk 응답 파서 (delta.content + finish_reason + 선택적 usage)
+    private sealed class OpenAiStreamChunk
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("choices")]
+        public List<OpenAiStreamChoice>? Choices { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("usage")]
+        public OpenAiUsage? Usage { get; set; }
+    }
+
+    private sealed class OpenAiStreamChoice
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("delta")]
+        public OpenAiStreamDelta? Delta { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("finish_reason")]
+        public string? FinishReason { get; set; }
+    }
+
+    private sealed class OpenAiStreamDelta
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("role")]
+        public string? Role { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("content")]
+        public string? Content { get; set; }
     }
 
     private string GetLanguageInstruction(string? language)
