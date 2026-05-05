@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 + 3.5 + 3.5b 모두 commit 완료**, 3.3 (보안 부채 C1~C4/C8/H10) 진입 |
-| **다음 Phase** | Phase 3.3 (코드 한정 보안 hotspot, dotnet 불필요) → Phase 3.2 (Npgsql baseline, dotnet CLI 필요) |
-| **마지막 commit** | `6c53c35 [agenthub/streaming] Phase 3.5b — Vue 채팅 SSE 클라이언트 + /api/chat/send/stream 엔드포인트` |
+| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 + 3.3 + 3.5 + 3.5b 모두 commit 완료** |
+| **다음 Phase** | Phase 3.2 (Npgsql baseline `Init` + 데이터 타입 변환, dotnet CLI 필요) — 사용자 측 .NET 8 SDK 설치 후 진행 |
+| **마지막 commit** | `5181a29 [agenthub/security] Phase 3.3 — 보안 부채 정리 (C1/C2/C3/C4/C8/H10)` |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
