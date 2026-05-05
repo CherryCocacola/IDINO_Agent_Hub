@@ -1,8 +1,8 @@
 # IDINO Agent Hub — 통합 작업 진행 상황
 
-> **마지막 갱신**: 2026-05-04
+> **마지막 갱신**: 2026-05-05
 > **갱신 규칙**: 모든 작업 완료 시 본 파일을 갱신한다 (CLAUDE.md 의무 사항).
-> **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세)
+> **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세), `docs/AI_INVENTORY.md` (Phase 1 산출물)
 
 ---
 
@@ -10,11 +10,12 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 0 (셋업) — **완료** |
-| **다음 Phase** | Phase 1 (AI 호출 인벤토리) — **사용자 승인 대기** |
-| **마지막 commit** | `c3fc024 [docs] CLAUDE.md 최상단에 신규 세션 자동 로드 규칙 추가` |
-| **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기) |
+| **현재 Phase** | Phase 1 (AI 호출 인벤토리) — **완료** |
+| **다음 Phase** | Phase 2 (AGENT_HUB DB 설계 + 생성) — **자동 진행 가능** (사용자 변경점 결정 시 confirm) |
+| **마지막 commit** | `602fb41 [user_mig] progress.md 갱신 — 세션 자동 로드 규칙 + 메모리 보존 기록` (Phase 1 commit 후 갱신 예정) |
+| **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
+| **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
 | **분석 보고서** | `source_AGENTHUB.md`, `source_DOCUTIL.md`, `source_CAREER.md`, `source_NEXUS.md` (4개 완료) |
 
 ---
@@ -24,8 +25,8 @@
 | Phase | 내용 | 상태 | 완료일 / 예정 |
 |---|---|---|---|
 | **0** | 작업공간 셋업 + monorepo 초기화 + 분석/TECHSPEC | ✅ 완료 | 2026-05-04 |
-| **1** | AI 호출 인벤토리 작성 (`docs/AI_INVENTORY.md`) | ⏸ 사용자 승인 대기 | — |
-| **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | ⏳ 대기 | Phase 1 후 |
+| **1** | AI 호출 인벤토리 작성 (`docs/AI_INVENTORY.md`) | ✅ 완료 | 2026-05-05 |
+| **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | 🔄 다음 진행 | Phase 1 후 |
 | **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | ⏳ 대기 | Phase 2 후 |
 | **4** | DocUtil/career → AGENT_HUB 통합 | ⏳ 대기 | Phase 3 후 |
 | **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | ⏳ 대기 | Phase 3 후 (4와 병렬) |
@@ -152,7 +153,18 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
-### 2026-05-05
+### 2026-05-05 (Phase 1 완료)
+- **Phase 1 — AI 호출 인벤토리 완료** (`docs/AI_INVENTORY.md` 12 섹션 + 부록 2개 v1.0)
+  - 4개 시스템 grep 검증 + source 보고서 종합
+  - **35개 직접 호출 지점** 식별 (agenthub 8 분기 / docutil 9 / career 12 / nexus 0)
+  - **5개 위임 호출** (career coaching/competency/roadmap/opportunity/skill)
+  - **15개 신규 Agent 카탈로그** 정의 (docutil 4 + career 8 + 공통 3)
+  - **Phase 7 견적 9 영업일** 확정 (TECHSPEC §12 "10 영업일"과 일치, 1일 여유)
+- **본 인벤토리 작업으로 신규 발견** (TECHSPEC 보강 권고):
+  - DocUtil 단일 진입점 위반 2건 추가 — `agentic_search.py:215,237`, `training/data_generator.py:68-69` (R31 후보)
+  - AgentHub Chat provider 실측 7개 (보고서 8 표기 정정 — Vertex/Tavily는 별도 카테고리)
+  - AgentHub 가짜 SSE 정확 위치 — `OpenAICompatController.cs:343` `Content.Split(' ')` + `:357` `Task.Delay(15)` (138은 함수 진입점)
+  - career skill-service 포트 불일치 발견 — `AI_SERVICE_URL=:8000` vs 실제 ai-service `:8006` (W5)
 - **GitHub push 차단 발견** — 첫 commit `1da04ab`에 평문 API 키 4개 (OpenAI/Gemini/Perplexity/Tavily). 위치: `agenthub/iis-setting.ps1` + `agenthub/TODO.md`. 사용자 결정 대기 (키 무효화 + B1/B2/B3 옵션)
 - CLAUDE.md 최상단에 **신규 세션 자동 로드 규칙** 추가 (`progress.md` + `TECHSPEC.md` 필수 Read). commit `c3fc024`
 - 글로벌 메모리 7개 작성:
@@ -180,22 +192,27 @@
 
 ---
 
-## 7. 다음 작업 (Phase 1 사용자 승인 대기)
+## 7. 다음 작업 (Phase 2 진행 가능)
 
-### Phase 1: AI 호출 인벤토리 작성
-- [ ] 각 서브프로젝트 grep 전수 조사 (`from openai`, `from anthropic`, `httpx.post.*api.openai`, `OpenAI(`, `ChatOpenAI`)
-- [ ] 우선순위(P0~P3) 부여
-- [ ] Provider/Model 통계
-- [ ] 민감도(PII) 분류
-- [ ] 목표 Agent 매핑 초안
-- [ ] `docs/AI_INVENTORY.md` 갱신 (현재 템플릿)
+### Phase 2: AGENT_HUB DB 설계 + 생성
+- [ ] `infra/db/init.sql` 작성 — 단일 PG 인스턴스 + 4 schema (`AIAgentManagement` / `document_utilization` / `idino_career` / `hangfire`) + pgvector
+- [ ] `docs/DB_MIGRATION.md` 신설 — 마이그레이션 계획 + 데이터 이전 절차 + 백업/롤백
+- [ ] AGENT_HUB DB 사용자 권한 분리 (각 schema 단위 GRANT)
+- [ ] 임베딩 차원 단일화 정책(1536D) 반영 (ADR-10)
+- [ ] AgentHub 측 변경 항목: PG provider 전환 + AES IV/JWT 키 분리 등 부채 정리(C1~C10) 사전 식별
 
-**예상 영업일**: 3일
-**의존성**: Phase 0 (완료)
+**예상 영업일**: 2일
+**의존성**: Phase 1 (완료)
 
-### Phase 1 진입 전 사용자 결정 필요
-- **Q3**: DocUtil S6/S7 진행 위치 (DocUtil 원본 / monorepo 내부)
-- GitHub push 승인 (`git push -u origin main`)
+### Phase 2 진행 시 변경점 발생 시 confirm 필요 사항 (사용자 지시: 변경점 없으면 confirm 생략)
+- 단일 PG 인스턴스 사용 vs 별도 인스턴스 (TECHSPEC ADR-4 단일 인스턴스로 확정 — 변경점 아님)
+- 4 schema 격리 (TECHSPEC P4 — 변경점 아님)
+- 임베딩 차원 1536D 표준화 (ADR-10 — 변경점 아님)
+- AGENT_HUB DB 사용자 비밀번호 정책 (현재 `idino!@#$` 평문 사용 — 변경점 후보, Vault/환경변수 도입 필요 시 사용자 확인)
+
+### 별도 트랙 (Phase 진행과 무관)
+- **Q3**: DocUtil S6/S7 진행 위치 (Phase 4 시작 전 결정, 현 단계 차단 없음)
+- **GitHub push 차단**: 첫 commit `1da04ab` secret leak — 키 무효화 + B1/B2/B3 옵션 (사용자 결정 시 처리)
 
 ---
 
