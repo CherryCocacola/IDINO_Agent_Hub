@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 + 3.3 + 3.5 + 3.5b 모두 commit 완료** |
-| **다음 Phase** | Phase 3.2 (Npgsql baseline `Init` + 데이터 타입 변환, dotnet CLI 필요) — 사용자 측 .NET 8 SDK 설치 후 진행 |
-| **마지막 commit** | `5181a29 [agenthub/security] Phase 3.3 — 보안 부채 정리 (C1/C2/C3/C4/C8/H10)` |
+| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 + 3.2 + 3.3 + 3.5 + 3.5b 모두 commit 완료** |
+| **다음 Phase** | Phase 3.4 (DatabaseInitializer PG 재작성 + Hangfire PG schema 적용) — 빌드 검증 통과, DB 초기화 단계 |
+| **마지막 commit** | `(Phase 3.2 commit 후 갱신)` |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -28,7 +28,7 @@
 | **0** | 작업공간 셋업 + monorepo 초기화 + 분석/TECHSPEC | ✅ 완료 | 2026-05-04 |
 | **1** | AI 호출 인벤토리 작성 (`docs/AI_INVENTORY.md`) | ✅ 완료 | 2026-05-05 |
 | **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | ✅ 완료 | 2026-05-05 |
-| **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | 🔄 진행 중 (3.1 완료) | Phase 2 후 |
+| **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | 🔄 진행 중 (3.1 + 3.2 + 3.3 + 3.5 + 3.5b 완료) | Phase 2 후 |
 | **4** | DocUtil/career → AGENT_HUB 통합 | ⏳ 대기 | Phase 3 후 |
 | **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | ⏳ 대기 | Phase 3 후 (4와 병렬) |
 | **6** | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | ⏳ 대기 | Phase 5 후 |
@@ -153,6 +153,48 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-05 (Phase 3.2 — Npgsql baseline `Init` 마이그레이션 + nvarchar(max) → text 변환 + EF 8.0.11 통일 + .NET 8 SDK 설치)
+- **목적**: Phase 3.1 EF Provider 전환 후 첫 PostgreSQL 마이그레이션 baseline 작성. Phase 3.3 보안 컬럼/인덱스 + nvarchar(max) PG 비호환 컬럼 정리를 동시 흡수
+- **선행 작업 (.NET 8 SDK 설치)**: 환경에 dotnet CLI 미설치 — `dotnet-install.ps1` 으로 user-local(`C:\Users\IDINO_USER\.dotnet`) 설치 (관리자 권한 불필요). winget user scope는 적합한 installer 부재로 실패. 결과: SDK 8.0.420 + `dotnet-ef` global tool 8.0.11 설치 완료. PATH/`DOTNET_ROOT` 영구 등록 (User 환경변수 + ~/.bashrc). 새 bash 세션은 자동 로드 안 되어 Bash tool 호출 시마다 `export PATH=...` 명시 필요
+- **csproj 수정 1건**:
+  - `agenthub/AIAgentManagement.csproj` — `Microsoft.EntityFrameworkCore` / `Microsoft.EntityFrameworkCore.Tools` `8.0.0 → 8.0.11`. NU1605 경고-as-오류(Phase 3.1에서 추가한 `Npgsql.EntityFrameworkCore.PostgreSQL 8.0.11` 의 transitive `Microsoft.EntityFrameworkCore (>= 8.0.11)` 요구와 직접 참조 8.0.0 충돌) 해소
+- **PG 비호환 타입 정리 — `nvarchar(max)` → `text` (8곳)**:
+  - `agenthub/Models/ExamplePrompt.cs:17` — `Prompt` (free-form 프롬프트)
+  - `agenthub/Models/Presentation.cs:19` — `Slides` (JSON 문자열)
+  - `agenthub/Models/PresentationTemplate.cs:23` — `TemplateStructure` (JSON 문자열)
+  - `agenthub/Models/PresentationSlide.cs:9 / :28 / :45 / :49 / :53` — class doc + `Content` + `ChartsJson` + `TablesJson` + `ImagesJson` (4개 컬럼)
+  - `agenthub/Data/AIAgentManagementDbContext.cs:152 / :209 / :217-223` — DbContext OnModelCreating fluent 설정 5건도 동일 변환
+  - **`jsonb` 미채택 이유**: 기존 `JsonSerializer.Serialize/Deserialize` 패턴(P5) + 기존 운영 데이터에 invalid JSON 가능성(예: `Slides`는 명세상 JSON이지만 schema-less). 직렬화/역직렬화 흐름 무변경 + 길이 무제한 = `text` 가 등가. `jsonb` 인덱싱/쿼리 최적화는 Phase 5+ 별도 트랙
+  - **임베딩(`DocumentChunk.Embedding`) 은 보류** — 현재 `text` 타입 그대로 유지 (ADR-2 자체 KB deprecate, Phase 6 일괄 정리 대상)
+- **신설 파일 2개 (`Migrations/` 신설)**:
+  - `agenthub/Migrations/20260505131410_Init.cs` — Npgsql baseline `Init` 마이그레이션 (94 KB / 1700 라인)
+  - `agenthub/Migrations/20260505131410_Init.Designer.cs` — Model snapshot (92 KB / 2400 라인)
+  - **수치**: 35 테이블 / 389 컬럼 / 15 UNIQUE 인덱스 / 40 `text` 타입 / 0 `nvarchar(max)`
+  - **Phase 3.3 컬럼 자연 흡수 검증 완료**:
+    - `MonthlyTokenLimit bigint NULL` (H10)
+    - `CurrentTokens bigint NOT NULL DEFAULT 0` (H10)
+    - `KeyIv bytea NULL` / `KeyTag bytea NULL` (C1)
+    - `KeyHash character varying(64) NULL` (C3)
+  - **Phase 3.3 UNIQUE 인덱스 자연 흡수 검증 완료**:
+    - `IX_ApiKeys_KeyHash UNIQUE` (C3 인증 핫패스 단축)
+    - `IX_Users_Email UNIQUE` (C4 중복 가입 차단)
+  - 기타 신규 인덱스: `IX_ApiServiceModels_ServiceId_ModelName`, `IX_TeamMembers_TeamId_UserId`, `IX_UserPreferences_UserId_PreferenceKey` 등 13건
+- **archive 보존 (의도하지 않은 EF 갱신 복원)**:
+  - `dotnet-ef migrations add Init` 실행 시 `Migrations.mssql.archive/AIAgentManagementDbContextModelSnapshot.cs` 가 자동 갱신됨 (EF 가 기존 ModelSnapshot 의 위치를 인식하고 새 모델로 덮어씀). archive 는 ADR-7 historical 참조용이라 `git restore` 로 1da04ab 시점 상태로 복원
+- **빌드 검증**:
+  - `dotnet restore` 성공 (NU1605 해소 후)
+  - `dotnet build --no-restore` 성공 — **0 errors / 11 warnings** (전부 기존 레거시 `CS1998` async-without-await, Phase 3.x 신규 도입 0건)
+  - `dotnet-ef migrations list` — `20260505131410_Init` 등록 확인. Pending 상태는 DB 미연결로 미확인 (AGENT_HUB DB 부재 — `28P01: password authentication failed for user "AGENT_HUB"` — 정상, Phase 2 init.sql 미실행)
+- **`.gitignore` 갱신**: `.claude/settings.local.json` (Claude Code per-machine 권한 캐시) 추가 — 우발적 commit 방지
+- **잠재 위험 / 사용자 검증 필요**:
+  - **사용자 측 dotnet CLI**: 본 PC 에는 user-local 설치 완료. 다른 PC / CI 에서는 별도 설치 필요 (dotnet 8 SDK 또는 GitHub Actions `actions/setup-dotnet@v4`)
+  - **운영 DB 미적용**: 본 단계는 마이그레이션 *파일* 만 생성. 실제 PG `AGENT_HUB` DB 에 적용은 Phase 3.4 (DatabaseInitializer 재작성 후) → Phase 3.6 (운영 데이터 이전 dry-run) 순서
+  - **`text` 컬럼의 잠재적 invalid JSON**: `Slides`/`ChartsJson` 등이 sub-text 한도 무제한이지만, 운영 코드가 항상 JSON 으로 직렬화하는지 grep 검증은 별도 트랙 (Phase 5+ jsonb 도입 시 사전 검증 필수)
+  - **Migrations.mssql.archive 의 ModelSnapshot 재변경 위험**: 다음 `dotnet-ef migrations add` 실행 시 또 archive 가 갱신됨. csproj `<Compile Remove>` 에 `*.Designer.cs`/`ModelSnapshot.cs` 명시적 제외 + (선택) archive 전체를 별도 디렉토리로 이동 검토
+- **다음 단계 (Phase 3.4)**:
+  - `Data/DatabaseInitializer.cs` (866 LOC) idempotent 재작성 — `EnsureCreatedAsync` → `MigrateAsync` 전환 (C7 해소). Roles/ApiServices/ApiServiceModels/Agents 시드 PG 호환성
+  - Hangfire schema `hangfire` 자동 생성 검증 (`PrepareSchemaIfNecessary = true` 동작)
 
 ### 2026-05-05 (Phase 3.3b + 3.3c 번들 — AES-GCM per-record IV + AES Key 분리 + KeyHash UNIQUE + Email UNIQUE / TECHSPEC §16 C1/C2/C3/C4)
 - **목적**: TECHSPEC §16 의 핵심 보안 결함 4종을 한 번에 해소.

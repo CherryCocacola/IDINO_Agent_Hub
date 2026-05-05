@@ -20,8 +20,8 @@ public class PresentationTemplate
     [MaxLength(500)]
     public string TemplateFilePath { get; set; } = string.Empty;
 
-    [Column(TypeName = "nvarchar(max)")]
-    public string? TemplateStructure { get; set; } // JSON 형식으로 슬라이드 구조 저장
+    [Column(TypeName = "text")]
+    public string? TemplateStructure { get; set; } // JSON 형식으로 슬라이드 구조 저장 (PG: text 타입에 JSON 문자열 저장)
 
     [MaxLength(50)]
     public string Category { get; set; } = "business"; // business, education, marketing, creative

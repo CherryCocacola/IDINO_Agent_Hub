@@ -8,6 +8,9 @@
 Thumbs.db
 Desktop.ini
 
+# Claude Code 로컬 설정 (per-machine 권한 캐시)
+.claude/settings.local.json
+
 # IDE
 .vs/
 .vscode/

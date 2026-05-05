@@ -16,8 +16,8 @@ public class Presentation
     [MaxLength(200)]
     public string Title { get; set; } = string.Empty;
 
-    [Column(TypeName = "nvarchar(max)")]
-    public string? Slides { get; set; } // JSON 형식으로 슬라이드 데이터 저장
+    [Column(TypeName = "text")]
+    public string? Slides { get; set; } // JSON 형식으로 슬라이드 데이터 저장 (PG: text 타입에 JSON 문자열 저장)
 
     [MaxLength(50)]
     public string? ThemeId { get; set; }

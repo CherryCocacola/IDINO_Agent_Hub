@@ -4,9 +4,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AIAgentManagement.Models;
 
 /// <summary>
-/// 프레젠테이션 슬라이드 — Presentations.Slides(nvarchar max JSON)를 별도 테이블로 분리.
+/// 프레젠테이션 슬라이드 — Presentations.Slides(JSON)를 별도 테이블로 분리.
 /// 슬라이드별 1행으로 저장하여 '문자열 잘림' 오류 근본 해결.
-/// Content, ChartsJson, TablesJson, ImagesJson 은 nvarchar(max) 컬럼으로 길이 제한 없음.
+/// Content, ChartsJson, TablesJson, ImagesJson 은 PG text 컬럼으로 길이 제한 없음 (이전 SQL Server 시점에는 nvarchar(max)).
 /// </summary>
 [Table("PresentationSlides")]
 public class PresentationSlide
@@ -25,7 +25,7 @@ public class PresentationSlide
     [MaxLength(500)]
     public string Title { get; set; } = string.Empty;
 
-    [Column(TypeName = "nvarchar(max)")]
+    [Column(TypeName = "text")]
     public string Content { get; set; } = string.Empty;
 
     [Required]
@@ -41,16 +41,16 @@ public class PresentationSlide
     [MaxLength(2000)]
     public string? ImagePrompt { get; set; }
 
-    /// <summary>ChartDto[] JSON 배열 (nvarchar max, 잘림 없음)</summary>
-    [Column(TypeName = "nvarchar(max)")]
+    /// <summary>ChartDto[] JSON 배열 (PG text, 잘림 없음)</summary>
+    [Column(TypeName = "text")]
     public string? ChartsJson { get; set; }
 
-    /// <summary>TableDto[] JSON 배열 (nvarchar max, 잘림 없음)</summary>
-    [Column(TypeName = "nvarchar(max)")]
+    /// <summary>TableDto[] JSON 배열 (PG text, 잘림 없음)</summary>
+    [Column(TypeName = "text")]
     public string? TablesJson { get; set; }
 
-    /// <summary>string[] JSON 배열 (이미지 URL 목록, nvarchar max)</summary>
-    [Column(TypeName = "nvarchar(max)")]
+    /// <summary>string[] JSON 배열 (이미지 URL 목록, PG text)</summary>
+    [Column(TypeName = "text")]
     public string? ImagesJson { get; set; }
 
     [Required]

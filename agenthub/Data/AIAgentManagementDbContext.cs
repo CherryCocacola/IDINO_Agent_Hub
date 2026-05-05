@@ -146,10 +146,10 @@ public class AIAgentManagementDbContext : DbContext
             .HasIndex(ad => new { ad.AgentId, ad.DocumentId })
             .IsUnique();
 
-        // ExamplePrompt Prompt 컬럼을 nvarchar(max)로 명시적으로 설정
+        // ExamplePrompt Prompt 컬럼을 text(PG)로 명시 — 길이 제한 없음 (Phase 3.2: 이전 nvarchar(max) → text)
         modelBuilder.Entity<ExamplePrompt>()
             .Property(e => e.Prompt)
-            .HasColumnType("nvarchar(max)");
+            .HasColumnType("text");
 
         // Tool unique ToolCode
         modelBuilder.Entity<Tool>()
@@ -203,24 +203,24 @@ public class AIAgentManagementDbContext : DbContext
         modelBuilder.Entity<PiiDetectionLog>()
             .HasIndex(pdl => pdl.DetectedAt);
 
-        // Presentation.Slides: nvarchar(max) 명시 (레거시 컬럼, 신규는 PresentationSlides 테이블 사용)
+        // Presentation.Slides: text(PG) 명시 — JSON 문자열 (레거시 컬럼, 신규는 PresentationSlides 테이블 사용)
         modelBuilder.Entity<Presentation>()
             .Property(p => p.Slides)
-            .HasColumnType("nvarchar(max)");
+            .HasColumnType("text");
 
         // PresentationSlide — PresentationId + SlideNumber 복합 인덱스 (순서 조회용)
         modelBuilder.Entity<PresentationSlide>()
             .HasIndex(s => new { s.PresentationId, s.SlideNumber });
 
-        // PresentationSlide — Content/ChartsJson/TablesJson/ImagesJson nvarchar(max) 명시
+        // PresentationSlide — Content/ChartsJson/TablesJson/ImagesJson text(PG) 명시 (Phase 3.2: 이전 nvarchar(max) → text)
         modelBuilder.Entity<PresentationSlide>()
-            .Property(s => s.Content).HasColumnType("nvarchar(max)");
+            .Property(s => s.Content).HasColumnType("text");
         modelBuilder.Entity<PresentationSlide>()
-            .Property(s => s.ChartsJson).HasColumnType("nvarchar(max)");
+            .Property(s => s.ChartsJson).HasColumnType("text");
         modelBuilder.Entity<PresentationSlide>()
-            .Property(s => s.TablesJson).HasColumnType("nvarchar(max)");
+            .Property(s => s.TablesJson).HasColumnType("text");
         modelBuilder.Entity<PresentationSlide>()
-            .Property(s => s.ImagesJson).HasColumnType("nvarchar(max)");
+            .Property(s => s.ImagesJson).HasColumnType("text");
 
         // ── Performance Indexes ──────────────────────────────────────────────────
         // ChatMessage.ConversationId: 대화별 메시지 조회 (GetMessagesAsync)

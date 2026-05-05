@@ -14,7 +14,7 @@ public class ExamplePrompt
     public string Title { get; set; } = string.Empty;
 
     [Required]
-    [Column(TypeName = "nvarchar(max)")]
+    [Column(TypeName = "text")]
     public string Prompt { get; set; } = string.Empty;
 
     [MaxLength(1000)]
