@@ -51,6 +51,9 @@ public class QuotaResetJob
             foreach (var quota in quotas)
             {
                 quota.CurrentUsage = 0;
+                // Phase 3.3d (TECHSPEC §16 H10) — 월간 토큰 누적도 함께 리셋.
+                // 호출 횟수 / 토큰 / 비용 3개 카운터를 동기화 유지.
+                quota.CurrentTokens = 0L;
                 quota.CurrentCost = 0;
                 quota.LastResetAt = DateTime.UtcNow;
                 quota.UpdatedAt = DateTime.UtcNow;

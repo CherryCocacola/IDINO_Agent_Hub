@@ -63,6 +63,12 @@ public class AIAgentManagementDbContext : DbContext
             .HasIndex(aq => new { aq.UserId, aq.ServiceId })
             .IsUnique();
 
+        // ApiQuota — Phase 3.3d (TECHSPEC §16 H10) 신규 컬럼 기본값 명시.
+        // EF 가 .NET 기본값(0L)도 처리하지만, 운영 DB 에 직접 ALTER TABLE 시 default 가 필요한 경우를 대비.
+        modelBuilder.Entity<ApiQuota>()
+            .Property(e => e.CurrentTokens)
+            .HasDefaultValue(0L);
+
         // UserPreference unique constraint
         modelBuilder.Entity<UserPreference>()
             .HasIndex(up => new { up.UserId, up.PreferenceKey })
@@ -112,6 +118,21 @@ public class AIAgentManagementDbContext : DbContext
         // Role unique RoleName
         modelBuilder.Entity<Role>()
             .HasIndex(r => r.RoleName)
+            .IsUnique();
+
+        // User.Email UNIQUE — Phase 3.3b (TECHSPEC §16 C4)
+        // 이메일 중복 가입 + race condition 차단. 기존 코드는 [Required]+MaxLength(100)만 부여하고
+        // DB 레벨 UNIQUE 가 부재하여 동시 가입 요청 시 중복 행 생성 가능했음.
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Email)
+            .IsUnique();
+
+        // ApiKey.KeyHash UNIQUE — Phase 3.3c (TECHSPEC §16 C3)
+        // 인증 핫패스(`ApiKeyAuthService.ValidateApiKeyAsync`)가 활성 키 전체 로드 후 풀스캔
+        // 복호화 비교(O(N))하던 결함 해소. SHA-256 hex 64자 컬럼에 UNIQUE 인덱스를 부착하여
+        // 단건 조회로 단축. NULL(legacy 행) 다수 허용을 위해 PG 의 부분 인덱스로 자동 매핑됨.
+        modelBuilder.Entity<ApiKey>()
+            .HasIndex(k => k.KeyHash)
             .IsUnique();
 
         // TeamMember unique constraint (활성 멤버만)

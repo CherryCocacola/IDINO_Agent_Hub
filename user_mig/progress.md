@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 코드 전환 + 3.5 진짜 SSE + 3.5b Vue 채팅 SSE(backend+frontend) 코드 작성 완료** |
-| **다음 Phase** | Phase 3.2 (Npgsql baseline migration `Init` 생성, dotnet CLI 환경 마련 후) — 3.5/3.5b는 빌드 검증 대기 |
-| **마지막 commit** | `259012f [infra/db] Phase 2 — AGENT_HUB DB init.sql + DB_MIGRATION 가이드` (Phase 3.1 / 3.5 commit 후 갱신 예정) |
+| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 + 3.5 + 3.5b 모두 commit 완료**, 3.3 (보안 부채 C1~C4/C8/H10) 진입 |
+| **다음 Phase** | Phase 3.3 (코드 한정 보안 hotspot, dotnet 불필요) → Phase 3.2 (Npgsql baseline, dotnet CLI 필요) |
+| **마지막 commit** | `6c53c35 [agenthub/streaming] Phase 3.5b — Vue 채팅 SSE 클라이언트 + /api/chat/send/stream 엔드포인트` |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -153,6 +153,162 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-05 (Phase 3.3b + 3.3c 번들 — AES-GCM per-record IV + AES Key 분리 + KeyHash UNIQUE + Email UNIQUE / TECHSPEC §16 C1/C2/C3/C4)
+- **목적**: TECHSPEC §16 의 핵심 보안 결함 4종을 한 번에 해소.
+  - C1: `ApiKeyService.EncryptString` / `DecryptString` + `ApiKeyAuthService.DecryptString` 모두 `aes.IV = new byte[16]` (16바이트 0) 사용 — 결정적 암호화 + AEAD 부재. 같은 평문 → 동일 암호문이라 인증이 매 요청 활성 키 풀스캔 + 전수 복호화 비교(O(N)).
+  - C2: 두 서비스 모두 `_encryptionKey = configuration["JwtSettings:SecretKey"]` + SHA-256(jwtSecret) 으로 AES Key 유도 — JWT 키 노출 = ApiKey 평문 전체 복호화.
+  - C3: `ApiKey` 모델에 `KeyHash` 컬럼 부재 + `OnModelCreating` 에 `Entity<ApiKey>.HasIndex` 0건. 인증이 활성 키 전체 로드 후 foreach 복호화 비교.
+  - C4: `User.cs` Email 은 `[Required] [MaxLength(100)]` 만, DB 레벨 UNIQUE 부재 → race condition 으로 중복 가입 가능.
+- **수정 파일 6개 (외부 시그니처 무변경)**:
+  - `agenthub/Models/ApiKey.cs` — 신규 컬럼 3개 추가:
+    - `byte[]? KeyIv` (AES-GCM nonce, 12바이트, EF 가 PG 기본 매핑 시 `bytea` nullable. 기존 행 NULL 허용으로 마이그레이션 충돌 0)
+    - `byte[]? KeyTag` (AES-GCM 인증 태그, 16바이트)
+    - `string? KeyHash [MaxLength(64)]` (SHA-256 hex 대문자 64자, UNIQUE 인덱스 대상)
+    - 모두 한국어 XML doc + TECHSPEC §16 항목 참조 주석. 기존 `EncryptedKey [MaxLength(500)]` 변경 없음 — GCM ciphertext 는 평문 길이와 동일하므로 base64 후에도 500 충분(기존 32~64 byte AES Key 가정 시 100 byte 미만)
+  - `agenthub/Data/AIAgentManagementDbContext.cs` — `OnModelCreating` 에 인덱스 2개 추가 (Role.RoleName UNIQUE 인접 위치):
+    - `Entity<User>().HasIndex(u => u.Email).IsUnique()` (C4)
+    - `Entity<ApiKey>().HasIndex(k => k.KeyHash).IsUnique()` (C3 — PG 는 NULL 다수를 자동으로 허용하는 부분 인덱스 의미를 가짐. legacy 행 NULL 안전)
+  - `agenthub/Services/ApiKeyService.cs` — 전면 재작성 (외부 9개 public 메서드 시그니처 모두 보존):
+    - 생성자: `LoadAesKey(IConfiguration, ILogger)` 헬퍼로 키 로딩 분리. 우선순위 = `Encryption:ApiKeyAesKey` (base64, 32바이트 AES-256) → 없으면 `JwtSettings:SecretKey` SHA-256 폴백 + `LogWarning` 1회. 폴백 길이/format 검증 fail-fast (32 != 길이 → InvalidOperationException, base64 파싱 실패 → InvalidOperationException). `_aesKey: byte[]` + `_usingFallbackKey: bool` 보관
+    - 신규 `EncryptApiKey(string) -> (byte[] ciphertext, byte[] iv, byte[] tag)` — `new AesGcm(_aesKey, tagSizeInBytes: 16)` (.NET 8 권장 시그니처, 매개변수 없는 ctor 는 [Obsolete] 회피) + `RandomNumberGenerator.GetBytes(12)` per-record nonce
+    - 신규 `DecryptApiKey(byte[] ct, byte[] iv, byte[] tag) -> string` — `AuthenticationTagMismatchException` → `InvalidOperationException("API 키 무결성 검증 실패")` 변환
+    - 신규 `internal static ComputeKeyHash(string) -> string` — SHA-256 hex 대문자 64자. internal 노출은 ApiKeyAuthService 와의 충돌 회피용 — 실제 두 서비스가 각자 private 으로 보유(코드 중복 허용. Phase 5+ 공용 헬퍼 추출 트랙)
+    - `CreateApiKeyAsync` / `GenerateAgentApiKeyAsync` / `GetDecryptedApiKeyAsync` 3곳 모두 GCM 분기 + KeyHash 산출 + base64 ciphertext 만 EncryptedKey 에 저장 (iv/tag 는 별도 컬럼)
+    - `GetDecryptedApiKeyAsync` 에 legacy 호환 분기: `KeyIv is { Length: 12 }` + `KeyTag is { Length: 16 }` 체크 → GCM 복호화 / 둘 중 하나라도 NULL → `DecryptLegacyCbc` 폴백 + 즉시 `BackfillToGcm` 호출 → 기존 `LastUsedAt`/`UsageCount` 갱신과 함께 SaveChanges 1회 커밋. 명시 `TODO Phase 3.6 — 폴백 + DecryptLegacyCbc 제거 약속`
+    - `MapToDtoAsync` / `MaskApiKey` / `MaskAgentApiKey` 등 외부 표면 동작 보존
+  - `agenthub/Services/ApiKeyAuthService.cs` — 전면 재작성 (외부 단일 메서드 `ValidateApiKeyAsync(string?)` 시그니처 보존):
+    - 생성자: ApiKeyService 와 동일한 `LoadAesKey` 정책 (코드 중복 허용 — 본 task 범위. Phase 5+ 공용 헬퍼 추출)
+    - **빠른 경로 (TECHSPEC §16 C3 해소)**: `ComputeKeyHash(apiKey)` → `_context.ApiKeys.FirstOrDefaultAsync(k => k.KeyHash == hash && k.IsActive && (k.ExpiresAt == null || k.ExpiresAt > now))` 단건 조회. KeyHash UNIQUE 인덱스 매칭이 곧 평문 일치 의미 — 추가 복호화/AEAD 검증 불필요(SHA-256 충돌 무시)
+    - **Legacy 폴백**: 빠른 경로 미스 시 `KeyHash IS NULL && IsActive && 만료 안 됨` 행만 풀스캔 + foreach 복호화 비교 + 즉시 `BackfillRow` (KeyHash + GCM 채우기). `TouchAndProjectAsync` 에서 SaveChanges 1회. **TODO Phase 3.6 — 폴백 + DecryptLegacyCbc 제거**
+    - `TouchAndProjectAsync` private 추출 — 두 경로(빠른/폴백) 가 동일 영속화 로직 재사용. `LastUsedAt/UsageCount/UpdatedAt` 갱신 + SaveChanges + LogInformation + ApiKeyValidationResult 사상
+  - `agenthub/appsettings.json` — `Encryption.ApiKeyAesKey` 빈 키 추가 (운영 시 base64 32바이트 주입). `.gitignore` 대상이 아닌 base 파일이므로 디스크에 키 자체 없이 키 슬롯만 노출
+  - `agenthub/appsettings.Development.json` — 동일 `Encryption.ApiKeyAesKey: ""` 추가. 빈 값이면 LogWarning 발동 + JWT 키 폴백 — 개발 환경 호환성 유지. `.gitignore` 로 차단됨
+- **외부 호출처 grep 검증 (시그니처 무변경 확인)**:
+  - `Controllers/ApiKeysController.cs` — `IApiKeyService` 의 9개 public 메서드 호출. 시그니처 동일 → 변경 0
+  - `Controllers/AgentsController.cs` — `IApiKeyService.GenerateAgentApiKeyAsync` / `GetAgentApiKeysAsync` / `DeleteAgentApiKeyAsync` 호출. 시그니처 동일 → 변경 0
+  - `Attributes/ApiKeyAuthorizeAttribute.cs` — `IApiKeyAuthService.ValidateApiKeyAsync(string?)` 호출. 시그니처 동일 → 변경 0
+  - `Program.cs` — DI 등록(`AddScoped<IApiKeyService>` / `AddScoped<IApiKeyAuthService>`). 생성자 의존성(`AIAgentManagementDbContext` + `ILogger<T>` + `IConfiguration`) 동일 → 변경 0
+- **AES-GCM 파라미터 검증**:
+  - 키 길이: 32 바이트 (AES-256) — `LoadAesKey` 에서 `bytes.Length != 32` 시 fail-fast InvalidOperationException
+  - nonce 길이: 12 바이트 — `RandomNumberGenerator.GetBytes(12)` (NIST SP 800-38D / GCM 권장)
+  - tag 길이: 16 바이트 — `new AesGcm(key, tagSizeInBytes: 16)` 명시 + `byte[16]` 할당
+  - base64 format 검증: `LoadAesKey` 에서 `Convert.FromBase64String` 실패 시 fail-fast
+- **운영 마이그레이션 절차 (TODO Phase 3.6 백필)**:
+  1. 운영 환경에 32바이트 random AES-256 키 생성 (`openssl rand -base64 32`) → `Encryption:ApiKeyAesKey` 환경변수 또는 vault 주입
+  2. Phase 3.2 Npgsql baseline 시 `KeyIv bytea NULL` / `KeyTag bytea NULL` / `KeyHash varchar(64) NULL UNIQUE` + `Users.Email UNIQUE` 컬럼/인덱스 자연 흡수
+  3. Phase 3.6 데이터 마이그레이션 스크립트:
+     - 기존 ApiKey 행 전수 조회 → JWT 폴백 키로 legacy CBC 복호화 → 평문 → 운영 AES-256 키로 GCM 재암호화 + KeyHash 산출 → UPDATE
+     - 또는 인증 시 자동 백필을 활용해 자연 마이그레이션 후 일정 기간 경과 시 NULL 잔존 행만 강제 처리
+  4. 백필 완료 후 양 서비스의 `DecryptLegacyCbc` + 폴백 분기 + ApiKeyService.BackfillToGcm + ApiKeyAuthService.BackfillRow 제거 (TODO 마커)
+- **잠재 위험**:
+  - **운영 키 즉시 교체 시 legacy 행 일시 인증 실패**: 운영 키를 `Encryption:ApiKeyAesKey` 로 교체하면 JWT 폴백 키로 암호화된 legacy 행 복호화가 실패 → 인증 거부. 따라서 **백필 완료 전까지는 운영 키 미주입 (JWT 폴백 유지) 권장**. 본 코드는 폴백 키로도 GCM/CBC 모두 동작하므로 호환성 유지
+  - **legacy 폴백 풀스캔 비용**: 백필 중간에는 `KeyHash IS NULL` 행이 N개 있으므로 인증 핫패스가 일시적으로 O(N) 풀스캔. UNIQUE 인덱스 자체는 NULL 다수 허용(PG 표준)이라 신규/백필 행은 빠른 경로로 자동 진입
+  - **SHA-256 충돌**: 평문 ApiKey 가 256비트 random("ak-{base64 32바이트}") 이므로 충돌 확률은 무시할 수준(2^128 birthday 한계 — 운영 데이터량 기준 0). KeyHash UNIQUE 매칭으로 평문 일치를 직접 추정 가능
+  - **PG NULL UNIQUE 의미**: PG 표준은 UNIQUE 인덱스가 NULL 을 무한히 허용. legacy 행 NULL 다수 안전. EF 의 `IsUnique()` 가 PG 에서 자동으로 부분 인덱스로 최적화하지는 않으나, NULL 행은 인덱스 단건 조회 대상이 아니므로 빠른 경로 영향 없음
+  - dotnet CLI 미설치 — `dotnet build --warnaserror` 검증 사용자 측 필요. nullable 분석 안전 (KeyIv/KeyTag/KeyHash 는 명시 nullable)
+  - **운영 secret 주입 누락 시**: `LogWarning` 만 1회 발동(시작 시) — 사용자 가시성 낮음. Phase 5+ 에서 운영자 콘솔 헬스체크에 노출 권고
+- **TECHSPEC §16 위험 항목 해소**:
+  - C1 (AES 고정 IV) → ✅ 해소 (per-record nonce + GCM AEAD)
+  - C2 (JWT 키 ↔ AES 키 결합) → ✅ 해소 (별도 설정 키, JWT 폴백은 호환 분기)
+  - C3 (API Key 풀스캔) → ✅ 해소 (KeyHash UNIQUE 단건 조회)
+  - C4 (Users.Email UNIQUE 부재) → ✅ 해소 (DB 레벨 UNIQUE 인덱스)
+- **검증 방법 (사용자 측, dotnet 8 SDK)**:
+  ```bash
+  cd agenthub
+  dotnet build --warnaserror
+  # Phase 3.2 baseline 생성 시 KeyIv/KeyTag/KeyHash + Users.Email UNIQUE + ApiKeys.KeyHash UNIQUE 자연 흡수 확인
+  # 통합 검증: 기존 평문 키로 인증 → legacy 풀스캔 + 백필 → 두 번째 호출은 KeyHash 빠른 경로
+  # 운영 키 주입 후: 새로 발급한 키만 동작, legacy 는 백필 완료 후 정상 동작
+  ```
+- **남은 작업 (별도 task)**:
+  - Phase 3.2 Npgsql baseline 생성 시 신규 컬럼/인덱스 자연 포함 확인
+  - Phase 3.6 데이터 마이그레이션 스크립트 작성 + legacy 폴백 코드 제거
+  - Phase 5+ ApiKeyService/ApiKeyAuthService 의 AES 헬퍼 + LoadAesKey 중복 제거(IApiKeyEncryptor 추출 트랙)
+  - C1/C2/C3/C4/C8/H10 6개 sub-task 결과 통합 후 사용자 확인 단계에서 단일 commit (사용자 결정)
+
+### 2026-05-05 (Phase 3.3d — `QuotaService.RecordUsageAsync` 토큰 인자 누락 버그 수정 / TECHSPEC §16 H10)
+- **목적**: `IQuotaService.RecordUsageAsync(userId, serviceId, tokens, cost)` 시그니처는 tokens 를 받지만 구현(`Services/QuotaService.cs:190~206`)이 `tokens` 파라미터를 폐기하던 버그 수정. 호출처 5곳이 전달하던 `aiResponse.TotalTokens` / `totalTokens` 가 그동안 모두 무시되어 토큰 기반 한도/대시보드 시각화 불가능했음
+- **수정 파일 6개 (시그니처 무변경)**:
+  - `agenthub/Models/ApiQuota.cs` — 신규 컬럼 2개 추가:
+    - `public long CurrentTokens { get; set; } = 0L;` ([Required], 월간 누적 토큰. int 범위(약 21억) 초과 가능성 → long. Npgsql 기본 매핑은 bigint)
+    - `public long? MonthlyTokenLimit { get; set; }` (nullable, NULL = 미적용. 호출 횟수 기준 `MonthlyLimit` 와 병행 운영)
+    - 기존 `MonthlyLimit`/`CurrentUsage` 에도 한국어 XML doc summary 추가
+  - `agenthub/Data/AIAgentManagementDbContext.cs` — `OnModelCreating` ApiQuota 블록에 `entity.Property(e => e.CurrentTokens).HasDefaultValue(0L)` 명시 (운영 DB 직접 ALTER TABLE 시 default 적용 보장)
+  - `agenthub/Services/QuotaService.cs` — 4개 분기 수정:
+    - `RecordUsageAsync` 본문에 `quota.CurrentTokens += tokens;` 한 줄 추가 (한국어 주석 + XML doc summary 신설). tokens=0 호출(ImageGenerationController)은 0 누적되어 영향 없음
+    - `CheckQuotaAsync` 에 토큰 한도 분기 추가: `if (quota.MonthlyTokenLimit.HasValue && quota.CurrentTokens >= quota.MonthlyTokenLimit.Value) return CanUse=false`
+    - `SetQuotaAsync` 신규 ApiQuota 생성 분기: `MonthlyTokenLimit = request.MonthlyTokenLimit, CurrentTokens = 0L` 추가. 기존 ApiQuota 수정 분기: `if (request.MonthlyTokenLimit.HasValue) quota.MonthlyTokenLimit = request.MonthlyTokenLimit;` (요청 본문에 키 없으면 기존값 보존 정책)
+    - `GetQuotasAsync` / `GetQuotaAsync` DTO 매핑 2곳에 `MonthlyTokenLimit` / `CurrentTokens` 필드 전파
+  - `agenthub/DTOs/QuotaDto.cs` — `MonthlyTokenLimit` / `CurrentTokens` 필드 2개 추가 (XML doc 한국어)
+  - `agenthub/DTOs/SetQuotaRequestDto.cs` — `MonthlyTokenLimit?` 필드 추가
+  - `agenthub/BackgroundJobs/QuotaResetJob.cs` — `ResetMonthlyQuotas` 에 `quota.CurrentTokens = 0L;` 라인 추가 (호출 횟수/토큰/비용 3개 카운터 리셋 동기화)
+- **`IQuotaService.cs` 시그니처 무변경** — 호출처 5곳 모두 동일 시그니처로 컴파일 통과
+- **호출처 5곳 grep 결과 (시그니처 무변경 확인)**:
+  - `Controllers/ImageGenerationController.cs:304` — tokens=0 (이미지 생성은 토큰 개념 없음). `CurrentTokens += 0` → 영향 없음
+  - `Services/ChatService.cs:413` (SendMessageAsync) — `aiResponse.TotalTokens` 정상 누적
+  - `Services/ChatService.cs:962` (SendDirectMessageAsync, Vue UI 비스트리밍) — `aiResponse.TotalTokens` 정상 누적
+  - `Services/ChatService.cs:1265` (SendDirectMessageStreamChunksAsync, OpenAI 호환 SSE) — `totalTokens` 정상 누적 (Phase 3.5 stream_options.include_usage:true 로 실제 토큰수 회수)
+  - `Services/ChatService.cs:1570` (SendDirectMessageStreamEventsAsync, Vue UI SSE) — `totalTokens` 정상 누적
+- **`MonthlyTokenLimit` 도입 결정**: **도입함**. 이유:
+  1. LLM 비용 구조상 호출 횟수보다 토큰 누적이 더 정확한 cost driver
+  2. nullable + HasValue 가드로 기존 행에 영향 0 (NULL 이면 검사 우회)
+  3. 향후 별도 Phase 에서 운영자 UI 노출 시 추가 마이그레이션 없이 사용 가능
+  4. 코드 추가 약 8 라인 — 비용 대비 가치 높음
+- **프론트 사용량 대시보드 영향 (별도 트랙으로만 기록, 본 작업 범위 외)**:
+  - `agenthub/ClientApp/src/views/agent/AgentChat.vue:1007~1010` — `response.data.todayUsage / currentUsage / monthlyLimit` 3개 필드 사용 중. 신규 `currentTokens` / `monthlyTokenLimit` 는 미사용 → 응답에 추가 필드가 흘러도 무시되어 회귀 0
+  - `Controllers/QuotaController.cs:140~158` `GetMyQuota` 의 익명 객체 응답에는 신규 필드 미포함. **별도 트랙 권고**: 운영자 대시보드 노출 시 `quota.CurrentTokens` / `quota.MonthlyTokenLimit` 를 명시 추가 필요
+  - `Controllers/QuotaController.cs:127~138` 미설정 시 기본값 응답에는 호출 횟수 기반 필드만 — 토큰 기본값을 추가할지 별도 결정 필요
+- **잠재 위험**:
+  - **Phase 3.2 baseline 자연 흡수 의존**: 본 작업은 EF 마이그레이션 파일을 생성하지 않음. Phase 3.2 (Npgsql baseline `Init` 신규 생성) 시점에 `CurrentTokens bigint NOT NULL DEFAULT 0` / `MonthlyTokenLimit bigint NULL` 컬럼이 자동 포함됨. **Phase 3.2 작업 전 운영 DB 에 직접 ALTER TABLE 적용 시점은 별도 운영 절차로 결정** (현재 운영 DB 미존재 — 코드 작성만 완료)
+  - **CheckQuotaAsync 의 토큰 한도 검사는 LLM 호출 직전에 동작** — 한도 초과 직전 호출은 통과될 수 있음(예: 한도 1,000,000 토큰, 999,500 누적 상태에서 100,000 토큰 요청 통과). 정확한 사전 추정은 비용/복잡도 대비 가치 낮아 보류 (TECHSPEC §15 후속 검토)
+  - dotnet CLI 미설치 환경 — 빌드 검증 불가. **사용자 측 SDK 설치 후 `dotnet build --warnaserror` 필요**
+- **검증 방법 (사용자 측, dotnet 8 SDK 환경)**:
+  ```bash
+  cd agenthub
+  dotnet build --warnaserror   # 워닝 0건 + 컴파일 통과
+  # ApiQuota 컬럼 자동 변경 — Phase 3.2 baseline 생성 시 자연 포함
+  # 단위 테스트 인프라 부재 → 수동 점검: 채팅 1회 → ApiQuotas.CurrentTokens 가 증가하는지
+  ```
+- **남은 작업 (별도 task)**:
+  - Phase 3.2 Npgsql baseline 생성 시 `CurrentTokens` / `MonthlyTokenLimit` 자연 포함 확인
+  - QuotaController `/my/{serviceId}` 응답에 `CurrentTokens` / `MonthlyTokenLimit` 노출 (별도 트랙)
+  - 운영자 대시보드(`Controllers/AnalyticsController.cs` 등) 토큰 시계열 조회 활용 (별도 Phase)
+  - C1/C2/C3/C4 와 묶어 단일 commit 또는 분리 commit 결정 (사용자 확인 후)
+
+### 2026-05-05 (Phase 3.3a — C8 SignalR Hub 인증 강화)
+- **목적**: TECHSPEC §16 C8 위험 항목 해소. 두 SignalR Hub(`NotificationHub`, `ChatHub`) 모두 `[Authorize]` 부재 + 클라이언트 임의 ID 입력으로 그룹 가입이 가능했던 보안 결함 차단. 현 상태에서는 임의 사용자가 다른 사용자 알림을 도청하거나 남의 대화 그룹에 합류 가능
+- **수정 파일 3개**:
+  - `agenthub/Hubs/NotificationHub.cs` (전면 재작성, ≈75 LOC)
+    - 클래스에 `[Authorize]` 부착
+    - `JoinUserNotifications(int userId)` → 파라미터 제거 후 `JoinUserNotifications()`. 본문에서 토큰 클레임으로 userId 결정 (`Context.UserIdentifier` 우선, 폴백으로 `Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value`). int.TryParse 실패 시 그룹 가입 없이 조용히 종료 + 경고 로그
+    - 짝 메서드 `LeaveUserNotifications()` 신설 — 동일 정책으로 그룹 탈퇴 (기존에 누락되어 있던 짝 추가)
+    - `OnDisconnectedAsync` 로그 한국어화
+    - private helper `ResolveUserId()` 추출 (재사용)
+    - using: `Microsoft.AspNetCore.Authorization`, `System.Security.Claims` 추가
+  - `agenthub/Hubs/ChatHub.cs` (전면 재작성, ≈85 LOC)
+    - 클래스에 `[Authorize]` 부착
+    - 생성자에 `AIAgentManagementDbContext` DI 추가 (Scoped DbContext, Hub의 기본 lifetime이 transient지만 SignalR는 호출당 scope를 만들므로 안전)
+    - `JoinConversation(int conversationId)` 본문에 소유권 검증 추가: `_dbContext.ChatConversations.AsNoTracking().AnyAsync(c => c.ConversationId == conversationId && c.UserId == userId)` → false면 `throw new HubException("권한 없음")` (R5 한국어)
+    - `LeaveConversation`은 자기 connection의 그룹에서만 빠지므로 별도 검증 생략 (가입이 이미 검증을 통과)
+    - private `ResolveUserId()` — `Context.UserIdentifier` → NameIdentifier claim 폴백, 둘 다 없으면 `throw new HubException("인증 정보가 없습니다")`
+    - using: `System.Security.Claims`, `AIAgentManagement.Data`, `Microsoft.AspNetCore.Authorization`, `Microsoft.EntityFrameworkCore` 추가
+  - `agenthub/Program.cs` 두 군데 수정:
+    - `AddJwtBearer(options => { ... })` 블록에 `options.Events = new JwtBearerEvents { OnMessageReceived = ... }` 추가. `/hubs` 경로 한정으로 `?access_token=` 쿼리에서 토큰 추출 → `context.Token`에 주입. WebSocket은 Authorization 헤더를 부착할 수 없어서 SignalR JWT 인증의 표준 패턴
+    - `MapHub<ChatHub>("/hubs/chat")` / `MapHub<NotificationHub>("/hubs/notification")` 두 줄에 `.RequireAuthorization()` 체이닝 추가 — 미인증 연결 시도를 라우팅 단계에서 차단
+- **frontend 측 영향 (호출처 grep 결과)**:
+  - `agenthub/ClientApp/src/services/signalr*.ts` 파일 자체가 부재 (Glob `signalr*.ts` no match). `ClientApp` 내부에서 `HubConnection` / `signalr` 참조는 `package.json` / `package-lock.json`에만 존재 (의존성 등재만, 실제 사용 코드 없음)
+  - `JoinUserNotifications`, `LeaveUserNotifications`, `JoinConversation`, `LeaveConversation` 모두 ClientApp 소스에서 invoke 패턴 0건
+  - **결론**: 본 task에서 frontend 변경 불필요. 향후 SignalR 클라이언트 도입 시 `connection.invoke('JoinUserNotifications')` 형태(인자 없음)로 호출 + 연결 URL에 `?access_token={JWT}` 부착 필요
+- **잠재 위험 / 운영 측 영향**:
+  - **`AIAgentManagementDbContext`(Scoped)를 ChatHub(Transient)에 주입**: SignalR은 각 Hub 호출마다 internal scope를 생성하므로 captive dependency 안티패턴(`anti-patterns.md` §7)에 해당하지 않음. 다만 DbContext 인스턴스가 long-lived connection 동안 다수 호출에 걸쳐 reuse되는 것은 아니라는 점은 검증 시 주의 (각 Hub 호출이 별도 scope)
+  - **빌드 워닝 검증 불가**: dotnet CLI 미설치 환경 — 사용자 측 `dotnet build` 워닝 0건 확인 필요
+  - **운영 클라이언트 즉시 끊김 가능성**: 현재 SignalR 클라이언트 구현체가 ClientApp에 부재하여 즉시 영향 없음. 추후 도입 시 `?access_token=` 쿼리 부착 + `invoke('JoinUserNotifications')` 인자 없는 호출로 마이그레이션 필요
+  - **HubException 메시지 노출**: SignalR은 기본적으로 `HubException` 메시지만 클라이언트에 전달 (일반 Exception은 "An unexpected error occurred"로 마스킹). "권한 없음" / "인증 정보가 없습니다"는 의도된 사용자 메시지이므로 정상
+- **TECHSPEC §16 위험 항목 해소**:
+  - C8 (`[Authorize]` 부재 + 임의 userId 입력) — ✅ 해소
+  - 부수 효과: 도청 가능성 차단, 대화 그룹 무단 가입 차단, JWT 검증된 사용자만 SignalR 연결
+- **다음 단계**: 사용자 환경에서 `dotnet build` 워닝 확인 → 4개 sub-task(3.3a/3.3b/3.3c/3.3d) 결과 종합 후 commit
 
 ### 2026-05-05 (Phase 3.5b frontend — Vue AgentChat SSE 스트리밍 클라이언트 도입)
 - **목적**: 백엔드 `/api/chat/send/stream` 엔드포인트 추가에 이은 frontend 분담분. 사용자 보고 "Vue UI 채팅 5~10초 대기 후 일괄 출력" UX 문제의 직접 해소 — 첫 token 즉시 표시

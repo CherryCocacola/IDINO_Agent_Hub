@@ -120,6 +120,22 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ClockSkew = TimeSpan.Zero
     };
+
+    // SignalR(WebSocket)은 Authorization 헤더를 전달할 수 없으므로
+    // /hubs/* 경로 한정으로 ?access_token= 쿼리 토큰을 인식한다.
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 // SignalR
@@ -472,8 +488,8 @@ app.UseRateLimiter();
 app.UseMiddleware<AIAgentManagement.Middleware.ActivityLoggingMiddleware>();
 
 app.MapControllers();
-app.MapHub<ChatHub>("/hubs/chat");
-app.MapHub<NotificationHub>("/hubs/notification");
+app.MapHub<ChatHub>("/hubs/chat").RequireAuthorization();
+app.MapHub<NotificationHub>("/hubs/notification").RequireAuthorization();
 
 // Hangfire Dashboard (Hangfire가 설정된 경우에만)
 try
