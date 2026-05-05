@@ -414,14 +414,23 @@ try
                 logger.LogWarning("연결 문자열을 확인하세요.");
             }
         }
-        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        catch (Npgsql.PostgresException pgEx)
         {
-            logger.LogError(sqlEx, "=== SQL Server 오류 발생 ===");
-            logger.LogError($"오류 번호: {sqlEx.Number}");
-            logger.LogError($"오류 메시지: {sqlEx.Message}");
-            logger.LogError($"서버: {sqlEx.Server}");
-            logger.LogError($"상태: {sqlEx.State}");
-            logger.LogError($"심각도: {sqlEx.Class}");
+            // PostgreSQL 서버에서 보낸 표준 SQLSTATE 오류 (28P01 인증 실패, 42P01 테이블 없음 등)
+            logger.LogError(pgEx, "=== PostgreSQL 오류 발생 ===");
+            logger.LogError($"SQLSTATE: {pgEx.SqlState}");
+            logger.LogError($"오류 메시지: {pgEx.Message}");
+            logger.LogError($"심각도: {pgEx.Severity}");
+            logger.LogError($"스키마: {pgEx.SchemaName ?? "(미지정)"}");
+            logger.LogError($"테이블: {pgEx.TableName ?? "(미지정)"}");
+            logger.LogError("애플리케이션은 계속 실행되지만 데이터베이스 기능은 작동하지 않을 수 있습니다.");
+        }
+        catch (Npgsql.NpgsqlException npgEx)
+        {
+            // 클라이언트측 연결 오류 (호스트 unreachable, 타임아웃 등) — PostgresException 의 부모 타입
+            logger.LogError(npgEx, "=== Npgsql 연결 오류 발생 ===");
+            logger.LogError($"오류 타입: {npgEx.GetType().Name}");
+            logger.LogError($"오류 메시지: {npgEx.Message}");
             logger.LogError("애플리케이션은 계속 실행되지만 데이터베이스 기능은 작동하지 않을 수 있습니다.");
         }
         catch (Exception ex)

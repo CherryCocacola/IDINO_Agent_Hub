@@ -7,13 +7,35 @@ namespace AIAgentManagement.Data;
 
 public static class DatabaseInitializer
 {
+    /// <summary>
+    /// AGENT_HUB 스키마(AIAgentManagement)에 baseline 마이그레이션을 적용하고
+    /// 기본 시드 데이터(Roles / Admin / ApiServices / ApiServiceModels)를 멱등적으로 추가한다.
+    /// PostgreSQL 마이그레이션(`MigrateAsync`)을 사용하므로 기존 EnsureCreatedAsync 가 만들었던
+    /// 가짜 스키마와 마이그레이션 그래프 사이의 drift 위험은 본 시점에서 차단된다.
+    /// </summary>
+    /// <remarks>
+    /// 외부 시그니처(`SeedAsync(AIAgentManagementDbContext)`)는 변경 금지 — Program.cs 호출 패턴 보존.
+    /// 시드 단계별 try-catch 로 한 단계 실패가 전체를 막지 않게 한다 (Program.cs 의 의도된 swallow 와 동일 패턴).
+    /// </remarks>
     public static async Task SeedAsync(AIAgentManagementDbContext context)
     {
+        // ─── 1. 마이그레이션 적용 (EnsureCreatedAsync → MigrateAsync, TECHSPEC §16 C7) ───
+        // 미적용 마이그레이션이 있으면 적용. 없으면 즉시 반환. baseline 부재 시(20260505131410_Init)
+        // 자동으로 __EFMigrationsHistory 까지 함께 생성.
         try
         {
-            // 데이터베이스가 없으면 생성
-            await context.Database.EnsureCreatedAsync();
-            
+            await context.Database.MigrateAsync();
+        }
+        catch (Exception ex)
+        {
+            // 마이그레이션 실패는 전파해 상위 catch(Program.cs:417)가 SQL/PG 오류 분류하도록 둔다.
+            // 시드만 실패한 경우와 구분되어야 함 (스키마 미존재면 시드는 의미 없음).
+            Console.Error.WriteLine($"[DatabaseInitializer] MigrateAsync 실패: {ex.GetType().Name}: {ex.Message}");
+            throw;
+        }
+
+        try
+        {
             // Roles 시드
             if (!await context.Roles.AnyAsync())
             {
@@ -430,9 +452,12 @@ public static class DatabaseInitializer
             // 모델명 최신 업데이트 (기존 DB 레코드 갱신)
             await UpdateApiServiceModelsAsync(context);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // 시드 실패는 무시 (이미 데이터가 있을 수 있음)
+            // 시드 단계별 부분 실패는 swallow — 이미 동일 데이터가 있거나(중복 INSERT)
+            // 단일 ApiService 한 건의 PG 제약 위반이 다른 시드 + 마이그레이션을 무력화하지 않도록.
+            // 단, 디버깅을 위해 stderr 로 클래스명/메시지는 흘려둔다 (anti-patterns.md #10 의 의도된 swallow 패턴 일관성).
+            Console.Error.WriteLine($"[DatabaseInitializer] Seed 일부 실패 (계속 진행): {ex.GetType().Name}: {ex.Message}");
         }
     }
 
