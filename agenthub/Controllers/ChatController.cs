@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using System.Text.Json;
 using AIAgentManagement.DTOs;
 using AIAgentManagement.Services;
 using AIAgentManagement.Exceptions;
@@ -370,4 +371,174 @@ public class ChatController : ControllerBase
             return StatusCode(500, ErrorResponseDto.InternalError("An error occurred: " + ex.Message));
         }
     }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // Phase 3.5b — Vue UI 전용 진짜 SSE 스트리밍
+    //
+    // 흐름: SendDirectMessage 와 동일한 검증을 통과 → IChatService.SendDirectMessageStreamEventsAsync
+    // 호출 → ChatStreamEvent 를 SSE frame 으로 변환하여 즉시 flush.
+    //
+    // 응답 명세 (camelCase JSON):
+    //   data: {"type":"delta","content":"<token>"}\n\n
+    //   data: {"type":"usage","promptTokens":10,"completionTokens":20,"totalTokens":30,"cost":0.0001}\n\n
+    //   data: {"type":"meta","conversationId":123,"messageId":456,"model":"gpt-4o-mini"}\n\n
+    //   data: [DONE]\n\n
+    // 에러:
+    //   data: {"type":"error","code":"BANNED_WORD_DETECTED|...","message":"한국어 메시지"}\n\n
+    //   data: [DONE]\n\n
+    //
+    // 사용자 보고 "Vue UI에서 5~10초 대기 후 일괄 출력" 직접 해소.
+    // 기존 비스트리밍 [POST] /api/chat/send 는 호환을 위해 유지.
+    // OpenAI 호환 [POST] /v1/chat/completions(stream:true) 는 별도 SSE 형식으로 유지(ChatChunk 기반, 회귀 0).
+    // ════════════════════════════════════════════════════════════════════════════
+    [HttpPost("send/stream")]
+    public async Task SendDirectMessageStream([FromBody] DirectSendMessageRequestDto request, CancellationToken cancellationToken)
+    {
+        // ── 인증 확인 (SSE 시작 전이므로 401/400 일반 응답 사용) ─────────────────
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+        {
+            Response.StatusCode = StatusCodes.Status401Unauthorized;
+            Response.ContentType = "application/json; charset=utf-8";
+            await Response.WriteAsJsonAsync(ErrorResponseDto.Unauthorized(), cancellationToken);
+            return;
+        }
+
+        // ── ModelState / Validation (SendDirectMessage 와 동일한 정책) ──────────
+        if (!ModelState.IsValid)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            Response.ContentType = "application/json; charset=utf-8";
+            await Response.WriteAsJsonAsync(ErrorResponseDto.BadRequest("Invalid request"), cancellationToken);
+            return;
+        }
+
+        if (request == null)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            Response.ContentType = "application/json; charset=utf-8";
+            await Response.WriteAsJsonAsync(ErrorResponseDto.BadRequest("Request body is required"), cancellationToken);
+            return;
+        }
+
+        if (request.Messages == null || request.Messages.Count == 0)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            Response.ContentType = "application/json; charset=utf-8";
+            await Response.WriteAsJsonAsync(ErrorResponseDto.BadRequest("Messages array is required and cannot be empty"), cancellationToken);
+            return;
+        }
+
+        foreach (var msg in request.Messages)
+        {
+            if (string.IsNullOrWhiteSpace(msg.Role))
+            {
+                Response.StatusCode = StatusCodes.Status400BadRequest;
+                Response.ContentType = "application/json; charset=utf-8";
+                await Response.WriteAsJsonAsync(ErrorResponseDto.BadRequest("Message Role is required"), cancellationToken);
+                return;
+            }
+
+            var hasContent = !string.IsNullOrWhiteSpace(msg.Content);
+            var hasContents = msg.Contents != null && msg.Contents.Count > 0;
+            if (!hasContent && !hasContents)
+            {
+                Response.StatusCode = StatusCodes.Status400BadRequest;
+                Response.ContentType = "application/json; charset=utf-8";
+                await Response.WriteAsJsonAsync(ErrorResponseDto.BadRequest($"Message with role '{msg.Role}' must have either Content or Contents"), cancellationToken);
+                return;
+            }
+        }
+
+        if (!request.ServiceId.HasValue && !request.AgentId.HasValue)
+        {
+            // ServiceId 는 ChatService 가 AgentId 로부터 보충하므로 둘 중 하나만 있으면 통과
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            Response.ContentType = "application/json; charset=utf-8";
+            await Response.WriteAsJsonAsync(ErrorResponseDto.BadRequest("ServiceId or AgentId is required"), cancellationToken);
+            return;
+        }
+
+        // ── SSE 헤더 (IIS InProcess + reverse proxy buffering 방지) ────────────
+        Response.ContentType = "text/event-stream; charset=utf-8";
+        Response.Headers["Cache-Control"]      = "no-cache";
+        Response.Headers["X-Accel-Buffering"]  = "no";
+        Response.Headers["Connection"]          = "keep-alive";
+        // Content-Length 미설정 + 첫 frame flush 로 chunked transfer 강제
+
+        try
+        {
+            await foreach (var evt in _chatService
+                .SendDirectMessageStreamEventsAsync(request, userId, cancellationToken)
+                .WithCancellation(cancellationToken))
+            {
+                await WriteSseFrameAsync(evt, cancellationToken);
+            }
+
+            await Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
+        catch (BannedWordException ex)
+        {
+            _logger.LogWarning(ex, "Banned word detected (stream): {BlockedWords}", string.Join(", ", ex.BlockedWords));
+            await WriteSseErrorAsync("BANNED_WORD_DETECTED", ex.Message ?? "금칙어가 포함되어 있습니다.", cancellationToken);
+        }
+        catch (PiiDetectionException ex)
+        {
+            _logger.LogWarning(ex, "PII detected (stream): {DetectedTypes}", string.Join(", ", ex.DetectedTypes));
+            await WriteSseErrorAsync("PII_DETECTED", ex.Message ?? "개인정보가 포함되어 있습니다.", cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Invalid operation (stream): {Message}", ex.Message);
+            await WriteSseErrorAsync("VALIDATION_ERROR", ex.Message, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 클라이언트 disconnect — 정상 종료
+            _logger.LogInformation("Vue UI 스트리밍 클라이언트 연결 종료: UserId={UserId}", userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Streaming chat error: UserId={UserId}", userId);
+            await WriteSseErrorAsync("INTERNAL_ERROR", "서버 처리 중 오류가 발생했습니다.", cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// ChatStreamEvent → SSE frame (data: {...}\n\n) 변환 + 즉시 flush.
+    /// camelCase JSON (Program.cs 의 JsonNamingPolicy.CamelCase 와 일치).
+    /// </summary>
+    private async Task WriteSseFrameAsync(object payload, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested) return;
+        var json = JsonSerializer.Serialize(payload, _sseJsonOptions);
+        await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+        await Response.Body.FlushAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// SSE 에러 frame + [DONE] 종료. 스트림 시작 후 발생한 예외 처리용
+    /// (이미 200 OK + text/event-stream 헤더가 흘러간 상태에서 상태 코드 변경 불가).
+    /// </summary>
+    private async Task WriteSseErrorAsync(string code, string message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await WriteSseFrameAsync(new { type = "error", code, message }, cancellationToken);
+            await Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
+        catch (Exception writeEx)
+        {
+            // 클라이언트 연결이 이미 끊어진 경우 — 무시하고 종료
+            _logger.LogDebug(writeEx, "SSE error frame 전송 실패 (클라이언트 연결 종료 추정)");
+        }
+    }
+
+    private static readonly JsonSerializerOptions _sseJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
 }

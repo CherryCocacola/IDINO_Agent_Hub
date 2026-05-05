@@ -366,9 +366,10 @@
                     </div>
                   </div>
                   <!-- 일반 메시지 표시 (편집 모드가 아닐 때만) -->
-                  <div 
+                  <div
                     v-else-if="message.content && message.content.trim()"
-                    class="cd-msg-bubble" 
+                    class="cd-msg-bubble"
+                    :class="{ 'cd-msg-streaming': message.isStreaming }"
                     v-html="formatMessage(message.content, message.messageId || message.tempId || '', message.citations)"
                     :style="message.role === 'user' ? {
                       display: 'block',
@@ -383,6 +384,8 @@
                       color: '#1f2937'
                     }"
                   ></div>
+                  <!-- 스트리밍 중인 assistant 메시지에 깜빡이는 cursor 표시 -->
+                  <span v-if="message.isStreaming" class="cd-streaming-cursor" aria-hidden="true">▋</span>
                   <!-- Perplexity AI 출처 링크 -->
                   <div v-if="message.citations && message.citations.length > 0" class="message-citations mt-3" :id="`citations-${message.messageId || message.tempId}`">
                     <div class="border-top pt-2">
@@ -550,7 +553,17 @@
                   @keydown.shift.enter.exact="() => {}"
                   @input="(e) => { const target = e.target as HTMLTextAreaElement; target.style.height = 'auto'; target.style.height = Math.min(target.scrollHeight, 100) + 'px'; }"
                 ></textarea>
-                <button class="cd-send-btn" type="submit" @click="handleSubmit($event)">
+                <!-- 스트리밍 중에는 "응답 중단" 버튼으로 토글, 아니면 기존 전송 버튼 -->
+                <button
+                  v-if="streamAbortController"
+                  class="cd-send-btn"
+                  type="button"
+                  @click="stopStreaming"
+                  :title="$t('agentChat.streamingStop')"
+                >
+                  <i class="bi bi-stop-circle"></i> {{ $t('agentChat.streamingStop') }}
+                </button>
+                <button v-else class="cd-send-btn" type="submit" @click="handleSubmit($event)">
                   <i class="bi bi-send"></i> {{ $t('agentChat.send') }}
                 </button>
               </div>
@@ -778,10 +791,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import { streamChat } from '@/services/sseClient'
 import type { AgentDto, ExamplePromptDto } from '@/types'
 import './AgentChat.css'
 import { marked } from 'marked'
@@ -833,6 +847,10 @@ interface Message {
   isEditing?: boolean // 편집 모드 여부
   model?: string // 응답에 사용된 모델명
   tokensUsed?: number // 응답 토큰 수
+  // 스트리밍 채팅 상태 (Phase 3.5b 신규)
+  isStreaming?: boolean // SSE 스트리밍 진행 중이면 true → UI에 cursor blink 등 표시
+  cost?: number // usage 청크 도착 시 갱신
+  errorCode?: string // SSE error 청크의 code (예: BANNED_WORD_DETECTED)
 }
 
 const route = useRoute()
@@ -883,6 +901,13 @@ const enableDeepResearch = ref(false) // 심층 리서치: 다중 웹 검색 + R
 const enableDeepThinking = ref(false) // 더 오래 생각하기: Chain-of-Thought 프롬프팅
 const thinkingMode = ref<string>('chain-of-thought') // 'chain-of-thought', 'step-by-step'
 const responseLanguage = ref<string>('auto') // 'auto', 'ko', 'en'
+
+// SSE 스트리밍 (Phase 3.5b)
+// 기본 활성화. 백엔드 /api/chat/send/stream 미배포 환경 대비를 위해 사용자가 토글로 끌 수 있다(Settings 모달에서 노출).
+// false면 기존 비스트리밍 분기로 폴백.
+const useStreaming = ref(true)
+// 진행 중 스트리밍을 사용자가 중단할 수 있도록 AbortController 보관
+const streamAbortController = ref<AbortController | null>(null)
 
 // Knowledge Base 문서 관련
 interface KnowledgeBaseDocument {
@@ -1705,7 +1730,11 @@ const sendMessage = async () => {
       }
     }
 
-    const response = await api.post('/chat/send', {
+    // ──────────────────────────────────────────────────────────────────────
+    // /chat/send 호출 — 스트리밍 분기 (Phase 3.5b 신규) vs 비스트리밍 폴백
+    // ──────────────────────────────────────────────────────────────────────
+    // 공통 페이로드: useStreaming 토글에 따라 /chat/send 또는 /chat/send/stream으로 분기
+    const chatPayload = {
       serviceId: selectedService.value.serviceId,
       agentId: agentId.value || null,
       conversationId: currentConversationId.value || undefined,
@@ -1713,9 +1742,8 @@ const sendMessage = async () => {
       temperature: modelSettings.value.temperature / 100,
       maxTokens: modelSettings.value.maxTokens || 4096,
       messages: requestMessages,
-      stream: false,
       enableWebSearch: enableWebSearch.value && (
-        selectedService.value.serviceCode?.toLowerCase() === 'chatgpt' || 
+        selectedService.value.serviceCode?.toLowerCase() === 'chatgpt' ||
         selectedService.value.serviceCode?.toLowerCase() === 'openai' ||
         selectedService.value.serviceType === 'ImageGeneration' ||
         selectedService.value.serviceType === 'Both' ||
@@ -1728,82 +1756,213 @@ const sendMessage = async () => {
       enableDeepResearch: enableDeepResearch.value,
       enableDeepThinking: enableDeepThinking.value,
       thinkingMode: thinkingMode.value
-    })
-
-    // 응답 디버깅
-    console.log('[sendMessage] API Response received:', {
-      messageId: response.data.messageId,
-      contentLength: response.data.content?.length || 0,
-      contentPreview: response.data.content ? response.data.content.substring(0, 100) : '(empty)',
-      model: response.data.model,
-      tokensUsed: response.data.tokensUsed,
-      cost: response.data.cost
-    })
-
-    // conversationId 저장 (응답에서 받거나 기존 값 유지)
-    if (response.data?.conversationId) {
-      currentConversationId.value = response.data.conversationId
     }
 
-    // 응답을 받았으므로 로딩 상태 즉시 해제 (로딩 인디케이터 즉시 제거)
-    loading.value = false
-    await nextTick() // DOM 업데이트 대기하여 로딩 인디케이터 즉시 제거 보장
+    if (useStreaming.value) {
+      // ────────────────────────────────────────────────────────────────────
+      // SSE 스트리밍 분기 — 토큰 단위로 즉시 표시되어 5~10초 대기 UX 문제 해소
+      // ────────────────────────────────────────────────────────────────────
+      // 환영 메시지가 있으면 첫 chunk 도착 전에 제거(빈 화면 방지)
+      const welcomeIdx = messages.value.findIndex(m => m.tempId === 'welcome')
+      if (welcomeIdx !== -1) messages.value.splice(welcomeIdx, 1)
 
-    // 환영 메시지가 있으면 제거 (실제 응답이 오면 환영 메시지 제거)
-    const welcomeMessageIndex = messages.value.findIndex(m => m.tempId === 'welcome')
-    if (welcomeMessageIndex !== -1) {
-      messages.value.splice(welcomeMessageIndex, 1)
-    }
-    
-    // 중복 응답 방지: 이미 동일한 messageId를 가진 메시지가 있는지 확인
-    const existingMessageIndex = response.data.messageId && response.data.messageId > 0
-      ? messages.value.findIndex(m => m.messageId === response.data.messageId && m.role === 'assistant')
-      : -1
-    
-    // Content가 비어있는 경우 경고 로그
-    if (!response.data.content || response.data.content.trim() === '') {
-      console.warn('[sendMessage] Empty content in API response:', response.data)
-    }
-    
-    if (existingMessageIndex === -1) {
-      // 새 메시지만 추가 (중복 체크 완료)
-      const assistantMessage: Message = {
-        messageId: response.data.messageId || 0,
+      // 빈 assistant 메시지를 먼저 push — content가 빈 동안에는 v-else-if 가드로 bubble 미표시,
+      // typing dots 인디케이터가 그 자리를 차지하므로 사용자에게는 자연스러움.
+      // 첫 delta 도착 시 loading=false로 인디케이터 제거, content가 채워지며 bubble이 등장.
+      const tempId = `streaming-${Date.now()}`
+      const assistantMsg: Message = reactive({
+        tempId,
         role: 'assistant',
-        content: response.data.content || t('agentChat.noResponse'),
+        content: '',
         createdAt: new Date(),
-        citations: response.data.citations || undefined,
-        model: response.data.model || undefined,
-        tokensUsed: response.data.tokensUsed || undefined
+        isStreaming: true
+      })
+      messages.value.push(assistantMsg)
+
+      // 사용자가 "응답 중단" 버튼을 누르면 abort
+      const abortCtrl = new AbortController()
+      streamAbortController.value = abortCtrl
+
+      let firstDeltaReceived = false
+      let aborted = false
+      let streamErrored = false
+
+      try {
+        for await (const evt of streamChat(chatPayload, abortCtrl.signal)) {
+          switch (evt.type) {
+            case 'delta':
+              if (!firstDeltaReceived) {
+                // 첫 토큰 도착 — 로딩 인디케이터 제거 (사용자에게 즉각적인 응답성 제공)
+                firstDeltaReceived = true
+                loading.value = false
+                await nextTick()
+              }
+              assistantMsg.content += evt.content ?? ''
+              // 스트리밍 도중에도 새 메시지가 시야 밖으로 밀리면 따라 스크롤
+              await scrollToBottom()
+              break
+
+            case 'meta':
+              if (evt.conversationId) currentConversationId.value = evt.conversationId
+              if (evt.messageId) assistantMsg.messageId = evt.messageId
+              if (evt.model) assistantMsg.model = evt.model
+              break
+
+            case 'usage':
+              if (typeof evt.totalTokens === 'number') {
+                assistantMsg.tokensUsed = evt.totalTokens
+                stats.value.tokensUsed += evt.totalTokens
+              }
+              if (typeof evt.cost === 'number') {
+                assistantMsg.cost = evt.cost
+                stats.value.cost += evt.cost
+              }
+              break
+
+            case 'error':
+              // 백엔드가 의미 있는 에러를 SSE 본문에 흘린 경우(BANNED_WORD/PII 등)
+              streamErrored = true
+              assistantMsg.errorCode = evt.code
+              assistantMsg.content = evt.message || t('agentChat.streamingError')
+              if (evt.code === 'BANNED_WORD_DETECTED' || evt.code === 'PII_DETECTED') {
+                assistantMsg.content += '\n\n' + t('agentChat.bannedWordsRetry')
+              }
+              break
+          }
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError' || abortCtrl.signal.aborted) {
+          // 사용자 중단 — 지금까지 받은 content는 유지, 안내 메시지를 한 줄 덧붙임
+          aborted = true
+          assistantMsg.content =
+            (assistantMsg.content?.length ? assistantMsg.content + '\n\n' : '') +
+            `_${t('agentChat.streamingAborted')}_`
+        } else {
+          // 네트워크/HTTP/refresh 실패 등 — 비스트리밍 폴백 catch와 동일 정책으로 surface
+          streamErrored = true
+          throw err
+        }
+      } finally {
+        assistantMsg.isStreaming = false
+        streamAbortController.value = null
+        if (loading.value) loading.value = false
+        await nextTick()
       }
 
-      messages.value.push(assistantMessage)
+      // content가 끝까지 비어있으면 안내 문구로 채움 (사용자에게 빈 bubble 방지)
+      if (!assistantMsg.content || assistantMsg.content.trim() === '') {
+        assistantMsg.content = t('agentChat.noResponse')
+      }
+
+      // 사용량 갱신 + 첨부 파일 초기화 (정상 종료 / 중단 / 에러 모두 동일 처리)
+      if (!streamErrored && !aborted) {
+        await loadQuota()
+      }
+      uploadedFiles.value = []
+      uploadedImages.value = []
+      uploadedAudio.value = null
     } else {
-      // 이미 존재하는 메시지면 내용만 업데이트 (중복 방지)
-      console.warn('[sendMessage] Duplicate message detected, updating existing message:', response.data.messageId)
-      messages.value[existingMessageIndex].content = response.data.content || t('agentChat.noResponse')
-      messages.value[existingMessageIndex].citations = response.data.citations || undefined
-      messages.value[existingMessageIndex].model = response.data.model || undefined
-      messages.value[existingMessageIndex].tokensUsed = response.data.tokensUsed || undefined
+      // ────────────────────────────────────────────────────────────────────
+      // 비스트리밍 폴백 (기존 흐름 보존)
+      // ────────────────────────────────────────────────────────────────────
+      const response = await api.post('/chat/send', { ...chatPayload, stream: false })
+
+      // 응답 디버깅
+      console.log('[sendMessage] API Response received:', {
+        messageId: response.data.messageId,
+        contentLength: response.data.content?.length || 0,
+        contentPreview: response.data.content ? response.data.content.substring(0, 100) : '(empty)',
+        model: response.data.model,
+        tokensUsed: response.data.tokensUsed,
+        cost: response.data.cost
+      })
+
+      // conversationId 저장 (응답에서 받거나 기존 값 유지)
+      if (response.data?.conversationId) {
+        currentConversationId.value = response.data.conversationId
+      }
+
+      // 응답을 받았으므로 로딩 상태 즉시 해제 (로딩 인디케이터 즉시 제거)
+      loading.value = false
+      await nextTick() // DOM 업데이트 대기하여 로딩 인디케이터 즉시 제거 보장
+
+      // 환영 메시지가 있으면 제거 (실제 응답이 오면 환영 메시지 제거)
+      const welcomeMessageIndex = messages.value.findIndex(m => m.tempId === 'welcome')
+      if (welcomeMessageIndex !== -1) {
+        messages.value.splice(welcomeMessageIndex, 1)
+      }
+
+      // 중복 응답 방지: 이미 동일한 messageId를 가진 메시지가 있는지 확인
+      const existingMessageIndex = response.data.messageId && response.data.messageId > 0
+        ? messages.value.findIndex(m => m.messageId === response.data.messageId && m.role === 'assistant')
+        : -1
+
+      // Content가 비어있는 경우 경고 로그
+      if (!response.data.content || response.data.content.trim() === '') {
+        console.warn('[sendMessage] Empty content in API response:', response.data)
+      }
+
+      if (existingMessageIndex === -1) {
+        // 새 메시지만 추가 (중복 체크 완료)
+        const assistantMessage: Message = {
+          messageId: response.data.messageId || 0,
+          role: 'assistant',
+          content: response.data.content || t('agentChat.noResponse'),
+          createdAt: new Date(),
+          citations: response.data.citations || undefined,
+          model: response.data.model || undefined,
+          tokensUsed: response.data.tokensUsed || undefined
+        }
+
+        messages.value.push(assistantMessage)
+      } else {
+        // 이미 존재하는 메시지면 내용만 업데이트 (중복 방지)
+        console.warn('[sendMessage] Duplicate message detected, updating existing message:', response.data.messageId)
+        messages.value[existingMessageIndex].content = response.data.content || t('agentChat.noResponse')
+        messages.value[existingMessageIndex].citations = response.data.citations || undefined
+        messages.value[existingMessageIndex].model = response.data.model || undefined
+        messages.value[existingMessageIndex].tokensUsed = response.data.tokensUsed || undefined
+      }
+      stats.value.tokensUsed += response.data.tokensUsed || 0
+      stats.value.cost += (response.data.cost || 0)
+
+      // 메시지 전송 성공 후 할당량 정보 갱신 및 첨부 파일 초기화
+      await loadQuota()
+
+      // 첨부 파일 초기화
+      uploadedFiles.value = []
+      uploadedImages.value = []
+      uploadedAudio.value = null
     }
-    stats.value.tokensUsed += response.data.tokensUsed || 0
-    stats.value.cost += (response.data.cost || 0)
-    
-    // 메시지 전송 성공 후 할당량 정보 갱신 및 첨부 파일 초기화
-    await loadQuota()
-    
-    // 첨부 파일 초기화
-    uploadedFiles.value = []
-    uploadedImages.value = []
-    uploadedAudio.value = null
   } catch (error: any) {
     // 에러 발생 시 로딩 상태 즉시 해제
     loading.value = false
-    
+
+    // 진행 중이던 스트리밍 정리
+    if (streamAbortController.value) {
+      streamAbortController.value = null
+    }
+
+    // 스트리밍 placeholder 메시지(content가 비어있고 isStreaming였던 메시지)는 제거 — 빈 bubble + error 메시지 중복 방지
+    const streamingPlaceholderIdx = messages.value.findIndex(
+      m => m.role === 'assistant' && m.tempId?.startsWith('streaming-') && (!m.content || m.content.trim() === '')
+    )
+    if (streamingPlaceholderIdx !== -1) {
+      messages.value.splice(streamingPlaceholderIdx, 1)
+    } else {
+      // placeholder가 일부 내용을 채우고 있었던 경우 → isStreaming 플래그만 끄고 cursor 제거
+      const partialIdx = messages.value.findIndex(
+        m => m.role === 'assistant' && m.tempId?.startsWith('streaming-') && m.isStreaming
+      )
+      if (partialIdx !== -1) {
+        messages.value[partialIdx].isStreaming = false
+      }
+    }
+
     console.error('Error sending message:', error)
-    
+
     // 중복 에러 메시지 방지
-    const existingErrorIndex = messages.value.findIndex(m => 
+    const existingErrorIndex = messages.value.findIndex(m =>
       m.tempId?.startsWith('error-') && m.role === 'assistant'
     )
     
@@ -1840,6 +1999,14 @@ const sendMessage = async () => {
   } finally {
     // 로딩 상태는 위에서 이미 해제했으므로, 여기서는 스크롤만 처리
     await scrollToBottom()
+  }
+}
+
+// 진행 중인 SSE 스트리밍을 사용자가 중단할 때 호출 (UI에서 "응답 중단" 버튼 등에 바인딩)
+const stopStreaming = () => {
+  if (streamAbortController.value) {
+    streamAbortController.value.abort()
+    streamAbortController.value = null
   }
 }
 
@@ -3124,6 +3291,12 @@ onBeforeUnmount(() => {
   if (recordingTimer.value !== null) {
     clearInterval(recordingTimer.value)
     recordingTimer.value = null
+  }
+
+  // 진행 중인 SSE 스트리밍 정리 (Phase 3.5b)
+  if (streamAbortController.value) {
+    streamAbortController.value.abort()
+    streamAbortController.value = null
   }
 })
 </script>

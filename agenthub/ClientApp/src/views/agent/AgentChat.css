@@ -600,3 +600,38 @@
   width: 100%;
   margin: 0;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   SSE 스트리밍 채팅 (Phase 3.5b)
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* 스트리밍 중인 메시지 bubble — 시각적 단서로 미세한 그라디언트 흐름 효과 */
+.cd-msg-bubble.cd-msg-streaming {
+  position: relative;
+}
+
+/* 메시지 끝에 표시되는 깜빡이는 텍스트 cursor (LLM 채팅 표준 UX) */
+.cd-streaming-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--ai-primary, #6366f1);
+  font-weight: 700;
+  line-height: 1;
+  animation: cd-cursor-blink 1s steps(2, start) infinite;
+  user-select: none;
+  vertical-align: baseline;
+}
+
+@keyframes cd-cursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* 모션 민감 사용자(prefers-reduced-motion) 배려: 깜빡임 대신 정적 표시 */
+@media (prefers-reduced-motion: reduce) {
+  .cd-streaming-cursor {
+    animation: none;
+    opacity: 0.6;
+  }
+}

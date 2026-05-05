@@ -10,8 +10,8 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 코드 전환 + 3.5 진짜 SSE 코드 작성 완료** |
-| **다음 Phase** | Phase 3.2 (Npgsql baseline migration `Init` 생성, dotnet CLI 환경 마련 후) — 3.5는 빌드 검증 대기 |
+| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 코드 전환 + 3.5 진짜 SSE + 3.5b Vue 채팅 SSE(backend+frontend) 코드 작성 완료** |
+| **다음 Phase** | Phase 3.2 (Npgsql baseline migration `Init` 생성, dotnet CLI 환경 마련 후) — 3.5/3.5b는 빌드 검증 대기 |
 | **마지막 commit** | `259012f [infra/db] Phase 2 — AGENT_HUB DB init.sql + DB_MIGRATION 가이드` (Phase 3.1 / 3.5 commit 후 갱신 예정) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
@@ -153,6 +153,97 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-05 (Phase 3.5b frontend — Vue AgentChat SSE 스트리밍 클라이언트 도입)
+- **목적**: 백엔드 `/api/chat/send/stream` 엔드포인트 추가에 이은 frontend 분담분. 사용자 보고 "Vue UI 채팅 5~10초 대기 후 일괄 출력" UX 문제의 직접 해소 — 첫 token 즉시 표시
+- **신설 파일 1개**:
+  - `agenthub/ClientApp/src/services/sseClient.ts` (≈260 LOC) — fetch + ReadableStream + TextDecoder 기반 SSE 파서 (EventSource는 GET only + JWT 헤더 부착 불가하여 사용 불가)
+    - `streamChat(payload, signal): AsyncGenerator<ChatStreamEvent>` 공개 API — `POST /api/chat/send/stream` 호출 + frame 단위 yield
+    - 합의된 SSE 명세 5종 처리: `delta` / `meta` / `usage` / `error` 이벤트 + `[DONE]` 종료 마커
+    - `\n\n` 프레임 구분자 + 미완성 chunk carry-over (`TextDecoder({stream:true})`) — 임의 경계로 잘려 도착하는 fetch chunk 안전 처리
+    - JWT Bearer 자동 부착(localStorage `'token'` — `@/services/api` axios 인터셉터와 동일 정책) + 401 → `/api/auth/refresh` 호출 + 1회 재시도 + 실패 시 /login 리다이렉트
+    - AbortController.signal 지원 — 사용자 "응답 중단" 버튼 연결
+    - **새 npm 의존성 0건** (브라우저 표준 API만)
+- **수정 파일 4개**:
+  - `agenthub/ClientApp/src/views/agent/AgentChat.vue` — `:1708` 부근 핵심 분기 교체:
+    - import: `reactive` 추가 + `streamChat` from `@/services/sseClient`
+    - `Message` 인터페이스에 streaming 필드 추가: `isStreaming?: boolean` / `cost?: number` / `errorCode?: string`
+    - 상태: `useStreaming = ref(true)` (기본 활성화, Settings 모달에서 토글 가능 예정) + `streamAbortController = ref<AbortController | null>(null)`
+    - `sendMessage` 본문 재구조: 기존 `api.post('/chat/send', { ..., stream: false })` → 공통 `chatPayload` 추출 후 `if (useStreaming.value)` 분기
+      - **streaming 분기**: 빈 assistant 메시지 즉시 push (reactive) → `for await (evt of streamChat(...))` → delta는 content 누적 + 첫 delta에서 `loading=false` (즉시 응답성), meta는 conversationId/messageId/model 갱신, usage는 stats 합산, error는 사용자 메시지 + BANNED_WORD/PII는 안내 추가
+      - **AbortError 분리 처리**: 사용자 중단은 throw하지 않고 안내 문구로 마무리, 그 외 throw는 catch 블록으로 위임
+    - **비스트리밍 폴백 보존**: `useStreaming.value === false` 시 기존 흐름 그대로 유지 — `/api/chat/send/stream` 미배포 환경 또는 사용자 명시 토글 안전망
+    - catch 블록 강화: 스트리밍 placeholder(빈 content + `tempId="streaming-..."`) 제거 로직 추가 → 빈 bubble + 별도 error 메시지 중복 방지. 부분 채워진 placeholder는 `isStreaming=false`만 끄고 보존
+    - 신규 `stopStreaming()` 함수 — `streamAbortController.abort()`
+    - `onBeforeUnmount`에 abort 호출 추가 — 페이지 이탈 시 메모리/네트워크 누수 방지
+    - 템플릿: send 버튼이 streaming 중에는 "응답 중단" 버튼으로 토글 (`v-if="streamAbortController"`), assistant bubble 뒤에 깜빡이는 cursor `▋` 표시 (`v-if="message.isStreaming"`)
+  - `agenthub/ClientApp/src/views/agent/AgentChat.css` — `.cd-streaming-cursor` blink 애니메이션 + `prefers-reduced-motion` 배려(접근성)
+  - `agenthub/ClientApp/src/i18n/locales/ko.json` — 신규 키 3개: `streamingAborted` / `streamingError` / `streamingStop` (R5 한국어 우선)
+  - `agenthub/ClientApp/src/i18n/locales/en.json` — 동일 영문 키 3개
+- **다른 호출처 grep 결과 (`api.post('/chat/send'`)** — 본 작업 범위 외, **별도 트랙 후속 처리 권고**:
+  - `agenthub/ClientApp/src/views/agent/AgentBuilder.vue:859` — Agent 빌더 미리보기 채팅
+  - `agenthub/ClientApp/src/views/agent/AgentMultiChat.vue:1186` — 다중 모델 비교 화면 (4,031 LOC)
+  - `agenthub/ClientApp/src/views/Playground.vue:191` — 모델 Playground
+  - 동일 sseClient를 재사용하면 한 곳당 수십 줄로 전환 가능. AgentMultiChat은 N개 모델 동시 streaming 지원이 자연스러움
+- **잠재 위험 / 사용자 검증 필요**:
+  - **incremental markdown 렌더 부작용**: marked + DOMPurify 스택은 unclosed code fence(```` ``` ````) 도중 chunk가 잘리면 일시적으로 잘못된 HTML을 만들 수 있음. DOMPurify가 sanitize하므로 XSS는 차단되지만, 코드 블록 등장 도중에는 렌더가 흔들릴 수 있음. ChatGPT/Claude 웹 UI도 동일 트레이드오프 — 사용자 보고 시 chunk가 아닌 줄 단위 디바운스 옵션 검토(현 시점 미구현)
+  - **mid-stream 토큰 만료**: 첫 응답 헤더 단계의 401은 핸들하지만, streaming 도중 백엔드가 401을 흘리는 케이스는 본 구현이 핸들하지 않음(재현 가능성 낮음, TECHSPEC §16 후속 검토)
+  - **SSE 버퍼링**: 백엔드가 `X-Accel-Buffering: no` 헤더 + `Response.Body.FlushAsync()`를 매 frame 호출해야 함(이미 ChatController에서 적용됨). 프론트엔드는 fetch만 사용하므로 추가 조치 불필요
+  - **브라우저 호환성**: fetch + ReadableStream + AbortController + TextDecoder 모두 Chrome 43+/Firefox 65+/Safari 10.1+/Edge 79+ 지원 — AgentHub 타깃 브라우저 범위 안전
+  - `npm run build:check` 미실행 (Windows 환경 npm 검증 환경 미구비) — 사용자 측 검증 필요
+- **검증 방법 (사용자 측)**:
+  ```bash
+  cd agenthub/ClientApp
+  npm run build:check    # vue-tsc 타입 검사 + vite build
+  npm run dev
+  # 브라우저에서 채팅 입력 → 토큰 단위 흐름 + Network 탭 chunked transfer 확인
+  # 응답 도중 "응답 중단" 버튼 클릭 → 즉시 멈추는지
+  # useStreaming 토글 끄면 비스트리밍 폴백 동작하는지 (현재는 코드 토글, Settings UI 노출은 별도 작업)
+  ```
+- **Phase 3.5b 완료 (frontend + backend)**:
+  - 사용자 보고 "Vue UI 5~10초 대기" 핵심 UX 문제 → 첫 token 즉시 표시로 해소 (백엔드 SSE 엔드포인트 + 프론트 streaming 클라이언트)
+  - 백엔드 `/api/chat/send/stream` + DTO `ChatStreamEvent` + `ChatService.SendDirectMessageStreamEventsAsync` (위 항목 참조)
+  - 프론트 `sseClient.ts` + `AgentChat.vue` streaming 분기 (본 항목)
+- **Phase 3.5b 후속 (별도 트랙)**:
+  - AgentBuilder/AgentMultiChat/Playground 3개 화면도 동일 sseClient 적용
+  - 사용자 설정 UI에 useStreaming 토글 노출 (Settings 모달)
+  - dotnet 8 SDK 환경에서 백엔드 빌드 검증 + e2e 테스트(curl 또는 fetch SSE)
+
+### 2026-05-05 (Phase 3.5b — Vue UI 전용 SSE 백엔드 엔드포인트 추가)
+- **사용자 보고 "Vue UI 채팅 5~10초 대기 후 일괄 출력" 직접 해소를 위한 신규 엔드포인트 추가**
+- **신설 파일 1개**:
+  - `agenthub/DTOs/ChatStreamEvent.cs` — Vue UI 전용 SSE 이벤트 record (`Type` discriminator 기반: `"delta" | "usage" | "meta"`). 정적 helper `Delta/UsageEvent/Meta` 제공. camelCase JSON 직렬화 정책(P5) 준수
+- **수정 파일 3개**:
+  - `agenthub/Services/IChatService.cs` — `IAsyncEnumerable<ChatStreamEvent> SendDirectMessageStreamEventsAsync(...)` 시그니처 추가. 기존 `SendDirectMessageStreamChunksAsync`(`IAsyncEnumerable<ChatChunk>`)는 OpenAI 호환 SSE 전용으로 유지(불변)
+  - `agenthub/Services/ChatService.cs` — `SendDirectMessageStreamEventsAsync` 구현 (clean room, 약 300 LOC)
+    - 흐름: Agent/ServiceId 확정 → Quota 사전 체크 → BannedWord/PII 검사(SendDirectMessageAsync 와 동일 정책) → Conversation 락 보존 find/create → AiProxy.SendChatMessageStreamChunksAsync `await foreach` → **delta event yield** → 종료 후 cost 계산 → **usage event yield** → ChatMessage(user/assistant)/ApiUsage/Conversation 통계 SaveChanges → `assistantMessage.MessageId` 회수 → RecordUsageAsync → **meta event yield** (conversationId/messageId/model/cost)
+    - 영속화 실패는 try/catch 후 meta event 계속 yield (사용자에게는 chunk가 이미 전달됨)
+    - `usageEmitted` flag 도입: usage chunk 미발행(0 토큰 폴백) 시 meta event 의 `cost` 필드로 cost 동봉
+  - `agenthub/Controllers/ChatController.cs` — `[HttpPost("send/stream")]` 신규 액션 + 2개 private 헬퍼 추가
+    - 검증 단계는 SSE 시작 전 일반 401/400 JSON 응답으로 분리 (EventSource 호환성 + 클래스 레벨 [Authorize] 동작 그대로)
+    - 통과 후에만 SSE 헤더 설정: `text/event-stream; charset=utf-8` + `Cache-Control: no-cache` + `X-Accel-Buffering: no` + `Connection: keep-alive` (IIS InProcess + reverse proxy buffering 방지)
+    - `WriteSseFrameAsync(object, ct)` — JsonSerializerOptions(camelCase + IgnoreCondition.WhenWritingNull) 으로 직렬화 + 매 frame `Response.Body.FlushAsync()`
+    - `WriteSseErrorAsync(code, message, ct)` — 스트림 시작 후 예외 처리용 (BannedWordException/PiiDetectionException/InvalidOperationException/Exception → 각각 `BANNED_WORD_DETECTED`/`PII_DETECTED`/`VALIDATION_ERROR`/`INTERNAL_ERROR` code + 한국어 메시지(R5))
+    - OperationCanceledException(클라이언트 disconnect) 정상 종료 처리
+    - `[DONE]` 종료 마커 표준 SSE 형식 준수
+- **회귀 분석 (사용자 보고용 사실)**:
+  - **OpenAICompatController.cs는 변경 없음** — Phase 3.5 commit(가짜 SSE → 진짜 SSE) 완전 보존
+  - 기존 `ChatChunk` / `SendDirectMessageStreamChunksAsync` 시그니처/동작 모두 불변 → OpenAI SDK / Cursor / LangChain 호환성 회귀 0건
+  - 기존 `[POST] /api/chat/send` 비스트리밍 분기 그대로 유지 → 기존 Vue UI 호출(`AgentChat.vue:1708`)은 클라이언트 변경 전까지 정상 동작
+- **meta 정보 회수 가능 여부 확인 결과**:
+  - `conversationId`: ✅ 영속화 전 conversation 객체에서 추출 가능 (ChatService.cs `finalConversationId = conversation?.ConversationId`)
+  - `messageId`: ✅ EF SaveChanges 직후 `assistantMessage.MessageId` 가 IDENTITY로 채워짐(`long`). PG IDENTITY 가 컬럼 메타에 정상 매핑되었는지는 Phase 3.2 Npgsql baseline 생성 시 동시 검증 필요
+  - `model`: ✅ 결정된 model 변수 그대로 yield
+  - `cost`: ✅ `_aiProxyService.CalculateCostAsync` 결과를 usage event 와 meta event 양쪽에서 사용 가능
+- **잠재 위험**:
+  - **트랜잭션**: SaveChanges 가 단일 호출이므로 user/assistant message + ApiUsage + Conversation 통계가 원자적으로 커밋됨. 단, RecordUsageAsync(quota 차감)는 별도 트랜잭션이라 부분 실패 가능 (기존 SendDirectMessageStreamChunksAsync 와 동일 정책 — 운영 영향 동일 수준)
+  - **예외**: 영속화 실패해도 meta event 는 계속 yield (`messageId=null` 상태). 클라이언트는 `messageId === null` 일 때 "메시지 저장에 실패했습니다" 비파괴적 알림만 표시하면 됨 (frontend 분담)
+  - **cancellation**: `[EnumeratorCancellation]` 으로 토큰이 IAsyncEnumerable 까지 전파됨. 클라이언트 disconnect 시 AiProxy 의 HttpClient 까지 cancel 전달되어 외부 LLM 비용 절감 (기존 wrapper 와 동일)
+  - **중복 코드**: `SendDirectMessageStreamChunksAsync` 와 약 70% 코드 중복. Phase 3.5 commit 회귀 위험을 피하기 위한 의도적 분리. Phase 5+ 에서 공통 streaming 코어 추출 리팩토링 예정 (TECHSPEC §15.4 후속)
+  - dotnet CLI 미설치 — `dotnet build` 검증은 사용자 측 SDK 설치 후 필요
+- **남은 작업 (별도 task)**:
+  - Vue 측 `AgentChat.vue` 에 `fetch + ReadableStream` 또는 `EventSource`(JWT 헤더 제약 있음) 기반 streaming 클라이언트 도입 (frontend specialist 분담)
+  - dotnet 8 SDK 환경에서 빌드 검증 + e2e 테스트(`/api/chat/send/stream` curl SSE 흐름 확인)
 
 ### 2026-05-05 (Phase 3.5 — 가짜 SSE → 진짜 SSE 코드 작성 완료, 빌드 검증 대기)
 - **Phase 3.5 우선 진입 (UX 가시성 즉시 개선)**: TECHSPEC §15.4 / §16 C9(가짜 SSE) + H5(Stream API 키 풀 우회) 동시 해소
