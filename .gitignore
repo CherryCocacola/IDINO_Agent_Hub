@@ -104,15 +104,16 @@ docker-compose.override.yml
 .docker/
 
 # ─── 데이터/모델 (대용량) ──────────────────────────────────────────────
-data/
-checkpoints/
-models/
+# 주의: `data/` `models/` `checkpoints/` 디렉토리 패턴은 사용 금지
+# (Windows의 case-insensitive 매칭이 .NET 표준 `Data/`/`Models/`와
+#  Python ORM `models/` 모듈까지 차단함. 파일 확장자 패턴으로만 막는다)
 *.bin
 *.safetensors
 *.pt
 *.pth
 *.onnx
 *.gguf
+# 대용량 데이터 디렉토리는 시스템별로 명시 (예: nexus/data/, nexus/checkpoints/)
 
 # ─── Nexus 전용 ──────────────────────────────────────────────────────
 .nexus/

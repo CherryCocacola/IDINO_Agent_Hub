@@ -13,7 +13,7 @@ using AIAgentManagement.BackgroundJobs;
 using AIAgentManagement.Tools;
 using StackExchange.Redis;
 using Hangfire;
-using Hangfire.SqlServer;
+using Hangfire.PostgreSql;
 using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -84,11 +84,11 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Entity Framework Core
+// Entity Framework Core — PostgreSQL (Phase 3.1, Npgsql provider 전환)
 builder.Services.AddDbContext<AIAgentManagementDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"), sqlOptions =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npg =>
     {
-        sqlOptions.CommandTimeout(30); // 30초 타임아웃
+        npg.CommandTimeout(30); // 30초 타임아웃
     }));
 
 // MemoryCache 추가 (금칙어 캐싱용)
@@ -167,15 +167,13 @@ try
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
-            .UseSqlServerStorage(hangfireConnection, new SqlServerStorageOptions
-            {
-                CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
-                SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
-                QueuePollInterval = TimeSpan.Zero,
-                UseRecommendedIsolationLevel = true,
-                DisableGlobalLocks = true,
-                PrepareSchemaIfNecessary = true // 스키마 자동 생성
-            }));
+            .UsePostgreSqlStorage(opt => opt.UseNpgsqlConnection(hangfireConnection),
+                new PostgreSqlStorageOptions
+                {
+                    SchemaName = "hangfire", // AGENT_HUB.hangfire 스키마 사용
+                    PrepareSchemaIfNecessary = true,
+                    QueuePollInterval = TimeSpan.Zero
+                }));
         
         builder.Services.AddHangfireServer();
     }
