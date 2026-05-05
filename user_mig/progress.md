@@ -10,12 +10,13 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 1 (AI 호출 인벤토리) — **완료** |
-| **다음 Phase** | Phase 2 (AGENT_HUB DB 설계 + 생성) — **자동 진행 가능** (사용자 변경점 결정 시 confirm) |
-| **마지막 commit** | `602fb41 [user_mig] progress.md 갱신 — 세션 자동 로드 규칙 + 메모리 보존 기록` (Phase 1 commit 후 갱신 예정) |
+| **현재 Phase** | Phase 2 (AGENT_HUB DB 설계 + 생성) — **완료** |
+| **다음 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션 + 부채 정리 C1~C10) |
+| **마지막 commit** | `b4c6da5 [docs] Phase 1 — AI 호출 인벤토리 작성 (35 호출 + 5 위임 + 15 신규 Agent)` (Phase 2 commit 후 갱신 예정) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
+| **DB 마이그레이션** | `infra/db/init.sql` v1.0 + `docs/DB_MIGRATION.md` v1.0 (Phase 2 산출, 단일 PG + 4 schema + pgvector + idempotent) |
 | **분석 보고서** | `source_AGENTHUB.md`, `source_DOCUTIL.md`, `source_CAREER.md`, `source_NEXUS.md` (4개 완료) |
 
 ---
@@ -26,8 +27,8 @@
 |---|---|---|---|
 | **0** | 작업공간 셋업 + monorepo 초기화 + 분석/TECHSPEC | ✅ 완료 | 2026-05-04 |
 | **1** | AI 호출 인벤토리 작성 (`docs/AI_INVENTORY.md`) | ✅ 완료 | 2026-05-05 |
-| **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | 🔄 다음 진행 | Phase 1 후 |
-| **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | ⏳ 대기 | Phase 2 후 |
+| **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | ✅ 완료 | 2026-05-05 |
+| **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | 🔄 다음 진행 | Phase 2 후 |
 | **4** | DocUtil/career → AGENT_HUB 통합 | ⏳ 대기 | Phase 3 후 |
 | **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | ⏳ 대기 | Phase 3 후 (4와 병렬) |
 | **6** | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | ⏳ 대기 | Phase 5 후 |
@@ -153,6 +154,19 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-05 (Phase 2 완료)
+- **Phase 2 — AGENT_HUB DB 설계 + 생성 완료**
+  - `infra/db/init.sql` v1.0 작성 (idempotent, 9 섹션) — psql `-v idino_pw` 환경변수 주입 + DO 블록 멱등 보호 + 검증 쿼리 포함
+    - DB user `AGENT_HUB` (LOGIN, password 환경변수)
+    - DATABASE `AGENT_HUB` (UTF8, ko_KR.UTF-8, TEMPLATE template0)
+    - Extensions: `vector` / `uuid-ossp` / `pgcrypto` / `pg_trgm`
+    - Schemas: `AIAgentManagement` / `document_utilization` / `idino_career` / `hangfire`
+    - `ALTER DEFAULT PRIVILEGES`로 향후 객체 자동 권한 부여
+    - search_path 기본값 4 schema + public
+  - `docs/DB_MIGRATION.md` v1.0 작성 (9 섹션 + 부록 2개) — Phase 2 적용 절차 + Phase 3/4 계획 가이드 + 롤백/재시작/모니터링/시크릿 정책
+- ADR-4(단일 PG) / ADR-10(임베딩 1536D) / P4(스키마 격리) / P10(시크릿 비커밋) / R26(시크릿 환경변수) 모두 반영
+- 본 단계는 schema/extension/role까지만 생성 — 테이블은 Phase 3+에서 EF/Alembic이 담당
+
 ### 2026-05-05 (Phase 1 완료)
 - **Phase 1 — AI 호출 인벤토리 완료** (`docs/AI_INVENTORY.md` 12 섹션 + 부록 2개 v1.0)
   - 4개 시스템 grep 검증 + source 보고서 종합
@@ -192,23 +206,39 @@
 
 ---
 
-## 7. 다음 작업 (Phase 2 진행 가능)
+## 7. 다음 작업 (Phase 3 진행 예정)
 
-### Phase 2: AGENT_HUB DB 설계 + 생성
-- [ ] `infra/db/init.sql` 작성 — 단일 PG 인스턴스 + 4 schema (`AIAgentManagement` / `document_utilization` / `idino_career` / `hangfire`) + pgvector
-- [ ] `docs/DB_MIGRATION.md` 신설 — 마이그레이션 계획 + 데이터 이전 절차 + 백업/롤백
-- [ ] AGENT_HUB DB 사용자 권한 분리 (각 schema 단위 GRANT)
-- [ ] 임베딩 차원 단일화 정책(1536D) 반영 (ADR-10)
-- [ ] AgentHub 측 변경 항목: PG provider 전환 + AES IV/JWT 키 분리 등 부채 정리(C1~C10) 사전 식별
+### Phase 3: AgentHub MSSQL → PostgreSQL 마이그레이션 + 부채 정리
 
-**예상 영업일**: 2일
-**의존성**: Phase 1 (완료)
+**Phase 3은 가장 큰 위험 구간** — DB 전환 + 코드 부채(C1~C10) 동시 처리. 사용자 승인 후 진행 권장.
 
-### Phase 2 진행 시 변경점 발생 시 confirm 필요 사항 (사용자 지시: 변경점 없으면 confirm 생략)
-- 단일 PG 인스턴스 사용 vs 별도 인스턴스 (TECHSPEC ADR-4 단일 인스턴스로 확정 — 변경점 아님)
-- 4 schema 격리 (TECHSPEC P4 — 변경점 아님)
-- 임베딩 차원 1536D 표준화 (ADR-10 — 변경점 아님)
-- AGENT_HUB DB 사용자 비밀번호 정책 (현재 `idino!@#$` 평문 사용 — 변경점 후보, Vault/환경변수 도입 필요 시 사용자 확인)
+#### 작업 항목 (예상 10 영업일)
+- [ ] EF Core provider 교체 — `Microsoft.EntityFrameworkCore.SqlServer` → `Npgsql.EntityFrameworkCore.PostgreSQL` 8.x
+- [ ] 기존 SqlServer migration 1개 + ModelSnapshot 폐기, Npgsql baseline `Init` 신규 생성
+- [ ] `appsettings.*.json` connection string 전환 (`Server=...` → `Host=...;Search Path=AIAgentManagement`)
+- [ ] **부채 정리 (DB 전환과 동시)**:
+  - C1: AES-CBC 고정 IV → per-record random IV + AES-GCM (`ApiKey.KeyIv`/`KeyTag` 컬럼 신설 + 재암호화)
+  - C2: JWT SecretKey ↔ AES Key 분리 (KMS/User Secrets)
+  - C3: API Key 풀스캔 → `KeyHash UNIQUE` SHA-256 인덱스
+  - C4: `Users.Email` UNIQUE 인덱스 추가
+  - C7: `EnsureCreatedAsync` → `MigrateAsync` (baseline 적용으로 자연 해결)
+  - C8: SignalR Hub `[Authorize]` + `Context.UserIdentifier` 사용
+  - H10: `QuotaService.RecordUsageAsync` 토큰수 무시 버그 수정
+  - H13: `AiProxyService` 3,749 LOC god class 일부 분해 (Strategy 패턴 준비)
+- [ ] JSON `nvarchar(MAX)` → `jsonb` 전환 (인덱싱 가능 컬럼만)
+- [ ] `DocumentChunk.Embedding` → `vector(1536)` + IVFFlat 인덱스 (자체 KB는 deprecate 예정이지만 Phase 6까지는 동작 유지 필요)
+- [ ] Hangfire SqlServer storage → `Hangfire.PostgreSql` 전환
+- [ ] `DatabaseInitializer.cs` (866 LOC) idempotent 재작성 — Roles/ApiServices/ApiServiceModels/Agents 시드
+- [ ] 데이터 이전 (pgloader 또는 bcp+COPY) — MSSQL → AGENT_HUB.AIAgentManagement
+- [ ] 빌드 검증 — `dotnet build` 워닝 0건, `dotnet ef database update` 성공
+- [ ] 통합 검증 — Agent CRUD, OpenAI 호환 API, ApiKey 인증, Quota 리셋
+
+#### Phase 3 진입 전 결정 필요
+- **운영 데이터 이전 시점**: 개발/스테이징에서 dry-run 후 운영 적용 (사용자 확인 필수 — 운영 데이터 영향)
+- **AGENT_HUB DB 비밀번호 회전**: 현 비밀번호 사용 vs 신규 발급 (R26 — 비밀번호 정책)
+
+**예상 영업일**: 10일
+**의존성**: Phase 2 (완료)
 
 ### 별도 트랙 (Phase 진행과 무관)
 - **Q3**: DocUtil S6/S7 진행 위치 (Phase 4 시작 전 결정, 현 단계 차단 없음)
