@@ -48,21 +48,30 @@ NAMING_CONVENTION: dict[str, str] = {
     "pk": "pk_%(table_name)s",
 }
 
-metadata = MetaData(naming_convention=NAMING_CONVENTION)
+# ---------------------------------------------------------------------------
+# Settings (module-level singleton, used by both metadata and engine)
+# ---------------------------------------------------------------------------
+_settings = get_settings()
+
+# SQLite doesn't support pool_size/max_overflow/pool_timeout arguments,
+# nor does it support PostgreSQL-style schemas. Detect by URL prefix so
+# pytest InMemory configurations keep working without db_schema.
+_is_sqlite = _settings.database_url.startswith("sqlite")
+
+# Phase 4.1: 모든 테이블을 AGENT_HUB.document_utilization schema 에 격리한다.
+# Base.metadata.schema 가 설정되면 ForeignKey("tb_xxx.id") 같은 단순 참조도
+# 자동으로 동일 schema 안에서 해석된다. cross-schema FK 가 필요할 때만
+# 모델에 명시적으로 __table_args__ = {"schema": "...other..."} 를 부여한다.
+# (현재 DocUtil 18 모듈은 모두 자기 schema 내부 참조만 사용 — 검증 완료)
+metadata = MetaData(
+    naming_convention=NAMING_CONVENTION,
+    schema=None if _is_sqlite else _settings.db_schema,
+)
 
 # ---------------------------------------------------------------------------
 # Audit context (per-request storage for user/IP)
 # ---------------------------------------------------------------------------
 audit_context: ContextVar[dict[str, Any] | None] = ContextVar("audit_context", default=None)
-
-# ---------------------------------------------------------------------------
-# Engine and Session factory (module-level singletons)
-# ---------------------------------------------------------------------------
-_settings = get_settings()
-
-# SQLite doesn't support pool_size/max_overflow/pool_timeout arguments
-# Detect SQLite by checking the database URL
-_is_sqlite = _settings.database_url.startswith("sqlite")
 
 if _is_sqlite:
     # SQLite configuration (for testing)
@@ -72,6 +81,20 @@ if _is_sqlite:
     )
 else:
     # PostgreSQL/production configuration
+    #
+    # Phase 4.1: AGENT_HUB DB 진입 시 search_path 를 db_schema 로 강제한다.
+    # 이는 두 가지 효과를 갖는다:
+    #   1. SQLAlchemy 모델 / alembic 마이그레이션의 단순 테이블 참조
+    #      (`tb_xxx`, `ForeignKey("tb_yyy.id")`) 가 자동으로 db_schema 에서
+    #      해석된다. 따라서 18 개 모듈에 `__table_args__ = {"schema": ...}`
+    #      를 일일이 추가할 필요가 없다.
+    #   2. 다른 schema (예: AIAgentManagement, idino_career) 의 객체에 우연히
+    #      접근하지 못하도록 1 차 방어선을 친다 (R3 스키마 격리).
+    #
+    # asyncpg 는 PostgreSQL ``options=-c search_path=...`` 를
+    # ``server_settings`` 딕셔너리로 전달해야 한다 (psycopg2 의 ``options``
+    # 키와 다름). public 을 두 번째에 두는 이유는 pgcrypto / uuid-ossp 같은
+    # 확장 함수가 public 에 위치하기 때문.
     engine = create_async_engine(
         _settings.database_url,
         echo=_settings.db_echo,
@@ -80,6 +103,11 @@ else:
         pool_timeout=_settings.db_pool_timeout,
         pool_pre_ping=True,
         pool_recycle=3600,
+        connect_args={
+            "server_settings": {
+                "search_path": f"{_settings.db_schema},public",
+            },
+        },
     )
 
 async_session_factory = async_sessionmaker(

@@ -41,6 +41,14 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/doc_util",
         description="Async SQLAlchemy database URL (asyncpg driver).",
     )
+    # Phase 4.1: AGENT_HUB DB 통합 — DocUtil 모든 테이블이 위치할 단일 schema.
+    # 모든 SQLAlchemy 모델은 자동으로 이 schema 에 매핑되며, alembic 도 동일
+    # schema 의 `alembic_version` 테이블을 사용한다. Cross-schema 조회는 R3
+    # 규칙(스키마 격리)에 의해 금지된다.
+    db_schema: str = Field(
+        default="document_utilization",
+        description="DocUtil 전용 PostgreSQL schema. AGENT_HUB DB 통합 후 강제 격리.",
+    )
     db_pool_size: int = 20
     db_max_overflow: int = 10
     db_pool_timeout: int = 30
