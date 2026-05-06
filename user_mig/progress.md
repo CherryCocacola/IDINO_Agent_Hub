@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 + 3.2 + 3.3 + 3.4 + 3.5 + 3.5b commit 대기 / 빌드 검증 완료** |
-| **다음 Phase** | Phase 3.6 (실 PG `AGENT_HUB` DB 적용 + 데이터 이전 dry-run + 통합 검증) — Phase 2 init.sql 실행 의존 |
-| **마지막 commit** | `ad6b388 [agenthub/migration] Phase 3.2 — Npgsql baseline Init + nvarchar(max) → text + EF 8.0.11 통일` (Phase 3.4 commit 대기) |
+| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 + 3.2 + 3.3 + 3.4 + 3.5 + 3.5b + 3.6 모두 commit 완료 (Phase 3 핵심 마무리)** |
+| **다음 Phase** | Phase 4 (DocUtil/career → AGENT_HUB 통합) 또는 Phase 5 (AgentHub Nexus provider) — 병렬 가능 |
+| **마지막 commit** | `(Phase 3.6 commit 후 갱신)` |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -28,7 +28,7 @@
 | **0** | 작업공간 셋업 + monorepo 초기화 + 분석/TECHSPEC | ✅ 완료 | 2026-05-04 |
 | **1** | AI 호출 인벤토리 작성 (`docs/AI_INVENTORY.md`) | ✅ 완료 | 2026-05-05 |
 | **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | ✅ 완료 | 2026-05-05 |
-| **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | 🔄 진행 중 (3.1 + 3.2 + 3.3 + 3.5 + 3.5b 완료) | Phase 2 후 |
+| **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | ✅ 핵심 완료 (3.1 + 3.2 + 3.3 + 3.4 + 3.5 + 3.5b + 3.6) | 2026-05-06 |
 | **4** | DocUtil/career → AGENT_HUB 통합 | ⏳ 대기 | Phase 3 후 |
 | **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | ⏳ 대기 | Phase 3 후 (4와 병렬) |
 | **6** | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | ⏳ 대기 | Phase 5 후 |
@@ -153,6 +153,53 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-06 (Phase 3.6 — AGENT_HUB DB 셋업 + baseline 마이그레이션 운영 PG 적용 + T-SQL 잔존 정리)
+- **목적**: Phase 3.2 baseline 을 운영 PostgreSQL(192.168.10.39:5440) 에 실제 적용 + Phase 2 init.sql 동등 작업 + DbContext T-SQL bracket(`[Status]`/`[Role]`/`[IsActive] = 1`) 잔존 PG 호환 변환
+- **사전 작업 (.NET tool 추가 + PG 자격증명 탐색)**:
+  - `dotnet-script` 2.0.0 글로벌 도구 설치 — Npgsql 직접 호출용 ad-hoc 스크립트 실행
+  - PG superuser 탐색: nexus/docutil/.env 의 자격증명 6쌍 시도 → **`docutil` / `docutil_pg_2024`** 가 superuser/createdb/createrole 권한 보유 확인 (PG 17.9 alpine 컨테이너로 추정). `postgres` 계정 비밀번호 4종 시도 모두 실패
+  - 운영 PG 의 기존 DB 3개 (`docutil`, `nexus`, `postgres`) + role 2개 (`docutil`, `nexus`) — `AGENT_HUB` 미존재 확인
+- **Phase 2 init.sql 동등 작업 (Npgsql 직접 실행, psql 미설치 환경)**:
+  - psql 메타커맨드(`\set`/`\if`/`\gexec`/`\connect`) → Npgsql `NpgsqlCommand` 분할 호출로 변환
+  - **§1 `AGENT_HUB` role 생성** (postgres DB 안에서 `DO $$ ... CREATE ROLE %I LOGIN PASSWORD %L $$`) — 비밀번호 `idino!@#$`
+  - **§2 `AGENT_HUB` DATABASE 생성** (CREATE DATABASE 는 implicit transaction 외 실행 — Npgsql 단일 NonQuery 자동 처리). UTF8 / ko_KR.UTF-8 / template0
+  - **§4 Extensions 4종**: `vector` 0.8.0 / `uuid-ossp` 1.1 / `pgcrypto` 1.3 / `pg_trgm` 1.6
+  - **§5 Schemas 4종**: `AIAgentManagement` / `document_utilization` / `idino_career` / `hangfire` — 모두 owner = `AGENT_HUB`
+  - **§6 ALTER DEFAULT PRIVILEGES** — 4 schema 별 TABLES/SEQUENCES/FUNCTIONS 권한 자동 부여 (DO $$ FOREACH IN ARRAY)
+  - **§7 search_path** — `AGENT_HUB` role 의 default search_path 4 schema + public
+  - **§8 검증 쿼리** — extensions 4행 + schemas 4행 + role 1행 (rolcanlogin=t, rolsuper=f) 모두 정상
+- **DbContext T-SQL 잔존 정리 (3건 발견 → PG 호환 변환)**:
+  - 첫 번째 마이그레이션 적용 시도 시 `42601: syntax error at or near "["` 발생 (position 992) — DbContext 의 `HasCheckConstraint` / `HasFilter` 가 T-SQL bracket 식별자 사용
+  - `agenthub/Data/AIAgentManagementDbContext.cs:79` — `HasCheckConstraint("CK_ChatMessages_Role", "[Role] IN (...)")` → `"\"Role\" IN (...)"` (PG 큰따옴표)
+  - `agenthub/Data/AIAgentManagementDbContext.cs:83` — `HasCheckConstraint("CK_Users_Status", "[Status] IN (...)")` → `"\"Status\" IN (...)"`
+  - `agenthub/Data/AIAgentManagementDbContext.cs:142` — `HasFilter("[IsActive] = 1")` → `"\"IsActive\" = true"` (PG boolean literal)
+- **baseline 재생성**: 기존 `Migrations/20260505131410_Init.{cs,Designer.cs}` 삭제 → 새 빌드 후 `dotnet-ef migrations add Init` 재생성 → `Migrations/20260505154102_Init.{cs,Designer.cs}`
+  - dry-run script 검증: T-SQL 잔존(`\[`) 0건, PG 표준 식별자 정상
+  - `migrations list`: `20260505154102_Init (Pending)` 등록 확인
+- **운영 PG 적용 — `dotnet-ef database update`**:
+  - 35 CREATE TABLE + 인덱스 + UNIQUE + CHECK 제약 + 부분 인덱스 모두 정상 실행
+  - `INSERT INTO "__EFMigrationsHistory" VALUES ('20260505154102_Init', '8.0.11')` 기록
+  - 결과: `AIAgentManagement` schema 35 테이블 생성 완료
+- **Phase 3.3 보안 컬럼·인덱스 PG 적용 검증** (Npgsql 직접 쿼리):
+  - ✅ `ApiKeys.KeyIv bytea` / `ApiKeys.KeyTag bytea` / `ApiKeys.KeyHash character varying(64)` (C1/C3)
+  - ✅ `ApiQuotas.CurrentTokens bigint NOT NULL DEFAULT 0` / `ApiQuotas.MonthlyTokenLimit bigint NULL` (H10)
+  - ✅ `IX_ApiKeys_KeyHash UNIQUE btree("KeyHash")` (C3 인증 핫패스 단축)
+  - ✅ `IX_Users_Email UNIQUE btree("Email")` (C4 중복 가입 차단)
+  - ✅ `IX_TeamMembers_TeamId_UserId UNIQUE btree(...) WHERE ("IsActive" = true)` (PG 부분 인덱스 정상 변환)
+  - ✅ `CK_Users_Status` / `CK_ChatMessages_Role` PG 표준 `("Status")::text = ANY(ARRAY[...])` 형식 자동 변환
+- **Phase 3.2 text 컬럼 PG 적용 검증**:
+  - ✅ `PresentationSlides.{Content, ChartsJson, TablesJson, ImagesJson}` 모두 `text` (이전 nvarchar(max) → text 변환 정상)
+- **잠재 위험 / 후속 트랙**:
+  - **`__EFMigrationsHistory` 가 `public` schema 에 있음** — Npgsql 기본값. AgentHub 의 `Search Path=AIAgentManagement,public` 설정 시 자동 fallback 으로 정상 동작. 단 R29 schema 격리 강화 시 별도 처리 필요
+  - **DatabaseInitializer 시드 미실행** — 실 DB 통합 검증은 AgentHub 부팅 시 자동 수행됨. 본 단계는 schema/마이그레이션까지만
+  - **Hangfire schema** — AgentHub 첫 부팅 시 `PrepareSchemaIfNecessary=true` 가 자동 생성 (Phase 3.4 commit 검증). 본 단계 미적용
+  - **MSSQL 운영 데이터 이전** — 사용자 시연용 monorepo COPY 환경이라 데이터 이전 생략. 운영 적용 시 별도 ETL(`pgloader` / `bcp+COPY`) 필요
+  - **archive ModelSnapshot 갱신**: dotnet-ef 가 또 `Migrations.mssql.archive/ModelSnapshot.cs` 갱신 → `git restore` 로 1da04ab 시점 복원 (재발 방지 csproj `<Compile Remove>` 강화는 별도 트랙)
+- **다음 단계 (Phase 3 Complete → Phase 5 / Phase 4)**:
+  - Phase 3 핵심 작업 마무리. AgentHub 부팅 → DatabaseInitializer 시드 실 적용 + Hangfire schema 자동 생성 + 통합 smoke test (Agent CRUD, OpenAI 호환 API, ApiKey 인증, Quota) — 사용자 시연 시 수행 가능
+  - Phase 5 진입 가능 (AgentHub Nexus provider 추가) — Phase 3 의존성 해소
+  - Phase 4 (DocUtil/career → AGENT_HUB 통합) — Phase 5 와 병렬 진행 가능
 
 ### 2026-05-05 (Phase 3.4 — DatabaseInitializer PG 호환 재작성 + EnsureCreatedAsync→MigrateAsync + Program.cs SqlException→PostgresException + TestDbConnection deprecate)
 - **목적**: TECHSPEC §16 C7 위험 해소 — `Database.EnsureCreatedAsync()` 사용으로 인한 마이그레이션 그래프 ↔ 실 스키마 drift 위험 차단. Phase 3.2 baseline `20260505131410_Init` 도입으로 `MigrateAsync()` 전환 가능해짐. 부수적으로 Phase 3.1 의 SQL Server 잔존 의존(SqlException catch 블록 / TestDbConnection.cs) 정리

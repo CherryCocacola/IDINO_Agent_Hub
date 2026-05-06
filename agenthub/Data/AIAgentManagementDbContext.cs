@@ -74,13 +74,13 @@ public class AIAgentManagementDbContext : DbContext
             .HasIndex(up => new { up.UserId, up.PreferenceKey })
             .IsUnique();
 
-        // ChatMessage Role check constraint
+        // ChatMessage Role check constraint (PG 호환 식별자 표기 — Phase 3.6)
         modelBuilder.Entity<ChatMessage>()
-            .ToTable(t => t.HasCheckConstraint("CK_ChatMessages_Role", "[Role] IN ('user', 'assistant', 'system')"));
+            .ToTable(t => t.HasCheckConstraint("CK_ChatMessages_Role", "\"Role\" IN ('user', 'assistant', 'system')"));
 
-        // User Status check constraint
+        // User Status check constraint (PG 호환 식별자 표기 — Phase 3.6)
         modelBuilder.Entity<User>()
-            .ToTable(t => t.HasCheckConstraint("CK_Users_Status", "[Status] IN ('Active', 'Pending', 'Inactive')"));
+            .ToTable(t => t.HasCheckConstraint("CK_Users_Status", "\"Status\" IN ('Active', 'Pending', 'Inactive')"));
 
         // ApiService unique ServiceCode
         modelBuilder.Entity<ApiService>()
@@ -139,7 +139,7 @@ public class AIAgentManagementDbContext : DbContext
         modelBuilder.Entity<TeamMember>()
             .HasIndex(tm => new { tm.TeamId, tm.UserId })
             .IsUnique()
-            .HasFilter("[IsActive] = 1");
+            .HasFilter("\"IsActive\" = true");
 
         // AgentDocument unique constraint
         modelBuilder.Entity<AgentDocument>()

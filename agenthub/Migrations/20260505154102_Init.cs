@@ -179,7 +179,7 @@ namespace AIAgentManagement.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Users", x => x.UserId);
-                    table.CheckConstraint("CK_Users_Status", "[Status] IN ('Active', 'Pending', 'Inactive')");
+                    table.CheckConstraint("CK_Users_Status", "\"Status\" IN ('Active', 'Pending', 'Inactive')");
                 });
 
             migrationBuilder.CreateTable(
@@ -1033,7 +1033,7 @@ namespace AIAgentManagement.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ChatMessages", x => x.MessageId);
-                    table.CheckConstraint("CK_ChatMessages_Role", "[Role] IN ('user', 'assistant', 'system')");
+                    table.CheckConstraint("CK_ChatMessages_Role", "\"Role\" IN ('user', 'assistant', 'system')");
                     table.ForeignKey(
                         name: "FK_ChatMessages_ChatConversations_ConversationId",
                         column: x => x.ConversationId,
@@ -1387,7 +1387,7 @@ namespace AIAgentManagement.Migrations
                 table: "TeamMembers",
                 columns: new[] { "TeamId", "UserId" },
                 unique: true,
-                filter: "[IsActive] = 1");
+                filter: "\"IsActive\" = true");
 
             migrationBuilder.CreateIndex(
                 name: "IX_TeamMembers_UserId",

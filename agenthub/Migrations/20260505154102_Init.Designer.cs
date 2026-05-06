@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AIAgentManagement.Migrations
 {
     [DbContext(typeof(AIAgentManagementDbContext))]
-    [Migration("20260505131410_Init")]
+    [Migration("20260505154102_Init")]
     partial class Init
     {
         /// <inheritdoc />
@@ -713,7 +713,7 @@ namespace AIAgentManagement.Migrations
 
                     b.ToTable("ChatMessages", "AIAgentManagement", t =>
                         {
-                            t.HasCheckConstraint("CK_ChatMessages_Role", "[Role] IN ('user', 'assistant', 'system')");
+                            t.HasCheckConstraint("CK_ChatMessages_Role", "\"Role\" IN ('user', 'assistant', 'system')");
                         });
                 });
 
@@ -1256,7 +1256,7 @@ namespace AIAgentManagement.Migrations
 
                     b.HasIndex("TeamId", "UserId")
                         .IsUnique()
-                        .HasFilter("[IsActive] = 1");
+                        .HasFilter("\"IsActive\" = true");
 
                     b.ToTable("TeamMembers", "AIAgentManagement");
                 });
@@ -1550,7 +1550,7 @@ namespace AIAgentManagement.Migrations
 
                     b.ToTable("Users", "AIAgentManagement", t =>
                         {
-                            t.HasCheckConstraint("CK_Users_Status", "[Status] IN ('Active', 'Pending', 'Inactive')");
+                            t.HasCheckConstraint("CK_Users_Status", "\"Status\" IN ('Active', 'Pending', 'Inactive')");
                         });
                 });
 
