@@ -267,7 +267,7 @@ public static class DatabaseInitializer
             // Mistral 서비스가 없으면 추가
             var existingMistral = await context.ApiServices
                 .FirstOrDefaultAsync(s => s.ServiceCode == "mistral");
-            
+
             if (existingMistral == null)
             {
                 var mistralService = new ApiService
@@ -287,6 +287,34 @@ public static class DatabaseInitializer
                     UpdatedAt = DateTime.UtcNow
                 };
                 context.ApiServices.Add(mistralService);
+                await context.SaveChangesAsync();
+            }
+
+            // Nexus(사내 LAN-only LLM 게이트웨이) — Phase 5.1, ADR-1 옵션 B.
+            // 외부망 배포에서는 IsActive=true 라도 Nexus 인스턴스 미가동 시 호출 자체가 실패하므로
+            // 추가 환경 분리(IsActive 운영자 토글)가 필요하나 본 단계에서는 등록만 수행.
+            var existingNexus = await context.ApiServices
+                .FirstOrDefaultAsync(s => s.ServiceCode == "nexus");
+
+            if (existingNexus == null)
+            {
+                var nexusService = new ApiService
+                {
+                    ServiceCode = "nexus",
+                    ServiceName = "Project Nexus",
+                    Description = "사내 LAN-only LLM 게이트웨이 (옵션 B 통합 — 세션/멀티테넌시 보존)",
+                    IconClass = "bi-hdd-network",
+                    ColorCode = "#10B981",
+                    ApiEndpoint = "http://192.168.22.28:8001/v1/chat",
+                    DefaultModel = "primary",
+                    CostPerRequest = 0.0m,           // 사내 모델 — 비용 0
+                    ServiceType = "Chat",
+                    IsActive = true,
+                    SortOrder = 8,                    // 기존 7개 Chat provider 다음
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                context.ApiServices.Add(nexusService);
                 await context.SaveChangesAsync();
             }
 

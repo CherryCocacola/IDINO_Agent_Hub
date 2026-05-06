@@ -54,6 +54,56 @@ public class Agent
     [Required]
     public bool EnableRag { get; set; } = false;
 
+    // ── LLM 라우팅 정책 (Phase 5.1, TECHSPEC §15.4 / ADR-1) ─────────────────
+    /// <summary>
+    /// LLM 라우팅 모드. AgentHub 통합 아키텍처(P3) 의 라우팅 단위 — Agent 별로 결정한다.
+    /// - "External": 외부 LLM (OpenAI/Claude/Gemini/...) — 기존 ApiKeyPool 경유
+    /// - "Internal": 사내 LAN-only Nexus (옵션 B, AiProxyService.CallNexusAsync 경유)
+    /// - "Hybrid": 런타임 라우팅 정책(아래 RoutingPolicyJson) 평가 후 분기
+    /// 값은 항상 PascalCase 문자열로 저장한다. 빈 값/NULL 은 "External" 폴백.
+    /// </summary>
+    [Required]
+    [MaxLength(16)]
+    public string LlmRouting { get; set; } = "External";
+
+    /// <summary>
+    /// LlmRouting="Hybrid" 일 때만 의미 있는 라우팅 결정 규칙(JSON 직렬화).
+    /// HybridRouter (Phase 5.2 도입 예정) 가 평가한다. 외부망/내부망 분기 기준 카탈로그는
+    /// .claude/rules/domain-model.md 의 RoutingPolicyJson 스키마 참조.
+    /// 예: { "piiThreshold":"block","piiAction":"internal","dataLabels":{...},
+    ///       "modelCapability":{"vision":"external"},"costThreshold":{...},"default":"external" }
+    /// External/Internal 모드에서는 NULL.
+    /// </summary>
+    [Column(TypeName = "text")]
+    public string? RoutingPolicyJson { get; set; }
+
+    /// <summary>
+    /// 지식베이스(RAG) 권위 시스템. ADR-2 에 따라 통합 후 단일 권위는 "DocUtil".
+    /// 기존 자체 KB(KnowledgeBaseDocument) 를 사용하는 Agent 는 "AgentHub" 폴백
+    /// (Phase 6 에서 DocUtil 로 마이그레이션 예정 — deprecate 대상).
+    /// </summary>
+    [Required]
+    [MaxLength(32)]
+    public string KnowledgeBaseSource { get; set; } = "AgentHub";
+
+    /// <summary>
+    /// 외부 KB 시스템에서 사용하는 collection 식별자.
+    /// - KnowledgeBaseSource="DocUtil" 일 때: DocUtil collection ID
+    /// - KnowledgeBaseSource="AgentHub" 일 때: NULL (AgentDocuments 조인으로 결정)
+    /// </summary>
+    [MaxLength(100)]
+    public string? KnowledgeBaseRef { get; set; }
+
+    /// <summary>
+    /// 이 Agent 를 호출할 수 있는 End-User App 화이트리스트(JSON 배열).
+    /// 예: ["docutil-user","career-coaching"]
+    /// NULL 이면 모든 등록된 ConsumerSystem 에 노출 (운영자 콘솔 호출 한정).
+    /// .claude/rules/domain-model.md 의 End-User App 카탈로그 참조.
+    /// </summary>
+    [Column(TypeName = "text")]
+    public string? ConsumerSystems { get; set; }
+    // ───────────────────────────────────────────────────────────────────────
+
     [Required]
     public bool PiiProtectionEnabled { get; set; } = true;
 

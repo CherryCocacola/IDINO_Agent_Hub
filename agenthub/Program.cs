@@ -235,6 +235,18 @@ builder.Services.AddHttpClient("perplexity",
     c => c.Timeout = TimeSpan.FromSeconds(defaultAiTimeout));
 builder.Services.AddHttpClient("mistral",
     c => c.Timeout = TimeSpan.FromSeconds(defaultAiTimeout));
+
+// Nexus(사내 LAN-only LLM) Named HttpClient — Phase 5.1, ADR-1 옵션 B.
+// BaseUrl 기본값은 LAN 의 Nexus FastAPI 인스턴스. SharedSecret 은 NexusClient 내부에서 헤더로 부착.
+builder.Services.AddHttpClient("nexus", client =>
+{
+    var nexusBaseUrl = builder.Configuration["Nexus:BaseUrl"]
+                       ?? "http://192.168.22.28:8001"; // LAN-only Nexus 기본값
+    client.BaseAddress = new Uri(nexusBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(
+        builder.Configuration.GetValue<int>("Nexus:DefaultTimeoutSeconds", 60));
+});
+
 builder.Services.AddHttpClient(); // 기본 클라이언트 (기타 HTTP 호출용)
 
 // HttpContextAccessor 추가 (PII 로깅용)
@@ -250,6 +262,7 @@ builder.Services.AddScoped<IDocumentIndexingService, DocumentIndexingService>();
 builder.Services.AddScoped<IRagService, RagService>();
 builder.Services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
 builder.Services.AddScoped<IQuotaService, QuotaService>();
+builder.Services.AddScoped<INexusClient, NexusClient>(); // Phase 5.1 — Nexus 옵션 B 클라이언트
 builder.Services.AddScoped<IAiProxyService, AiProxyService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();

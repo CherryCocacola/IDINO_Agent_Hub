@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 3 (AgentHub MSSQL → PostgreSQL 마이그레이션) — **3.1 + 3.2 + 3.3 + 3.4 + 3.5 + 3.5b + 3.6 모두 commit 완료 (Phase 3 핵심 마무리)** |
-| **다음 Phase** | Phase 4 (DocUtil/career → AGENT_HUB 통합) 또는 Phase 5 (AgentHub Nexus provider) — 병렬 가능 |
-| **마지막 commit** | `(Phase 3.6 commit 후 갱신)` |
+| **현재 Phase** | Phase 5 (AgentHub Nexus provider + LlmRouting + Hybrid 라우팅) — **5.1 진행 중 (commit 대기)** |
+| **다음 Phase** | Phase 5.2 (AiProxyService nexus case + HybridRouter + ApiServiceModels 시드) — 사용자 승인 후 |
+| **마지막 commit** | `624b50f [agenthub/migration] Phase 3.6 — AGENT_HUB DB 운영 PG 적용 + T-SQL bracket 잔존 PG 호환 변환` (Phase 5.1 commit 미진행 — 사용자 결정 대기) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -30,7 +30,7 @@
 | **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | ✅ 완료 | 2026-05-05 |
 | **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | ✅ 핵심 완료 (3.1 + 3.2 + 3.3 + 3.4 + 3.5 + 3.5b + 3.6) | 2026-05-06 |
 | **4** | DocUtil/career → AGENT_HUB 통합 | ⏳ 대기 | Phase 3 후 |
-| **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | ⏳ 대기 | Phase 3 후 (4와 병렬) |
+| **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | 🔄 진행 중 (5.1 완료, 5.2 대기) | 2026-05-06~ |
 | **6** | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | ⏳ 대기 | Phase 5 후 |
 | **7** | DocUtil/career AI 호출 → AgentHub 위임 | ⏳ 대기 | Phase 5+6 후 |
 | **8** | (보류) Vue → Next.js | ⏸ 보류 | — |
@@ -153,6 +153,52 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-06 (Phase 5.1 — Agent 라우팅 컬럼 5종 + INexusClient/NexusClient + ApiServices nexus 시드 + 마이그레이션 운영 PG 적용)
+- **목적**: ADR-1 (Nexus 옵션 B) / ADR-2 (RAG=DocUtil) / TECHSPEC §15.4 의 Agent 단위 라우팅 정책을 데이터 모델/클라이언트 코드에 도입. AiProxyService 분기/HybridRouter 는 Phase 5.2 트랙으로 분리
+- **변경 파일 (6개 modify + 3개 new)**:
+  - `Models/Agent.cs` — `LlmRouting` (varchar 16, NOT NULL, default "External") / `RoutingPolicyJson` (text, NULL) / `KnowledgeBaseSource` (varchar 32, NOT NULL, default "AgentHub") / `KnowledgeBaseRef` (varchar 100, NULL) / `ConsumerSystems` (text, NULL) — 5개 컬럼 + 한국어 XML doc + ADR-1/ADR-2/.claude/rules/domain-model.md 인용
+  - `Services/INexusClient.cs` (NEW) — `SendChatAsync` / `SendChatStreamAsync(IAsyncEnumerable<NexusStreamEvent>)` 시그니처. DTO record: `NexusChatRequest{Message, SessionId, Model, TenantId}` / `NexusChatResponse{SessionId, Response, ToolCalls, Usage}` / `NexusUsage{Prompt/Completion/TotalTokens}` / `NexusStreamEvent{Type, SessionId, Text, Usage, ErrorCode, ErrorMessage}`. `[EnumeratorCancellation]` 은 인터페이스에서 제거(CS8424 회피, 구현부에만 부착)
+  - `Services/NexusClient.cs` (NEW, 약 250 LOC) — Named HttpClient `"nexus"` 사용 / ADR-13 헤더(X-Tenant-ID + Authorization Bearer SharedSecret) / SSE 파서: 빈 줄(`\n\n`) 프레임 분리 + `:` heartbeat 무시 + `data: ` prefix 추출 + `[DONE]` 마커 + `type=done` 이벤트 양쪽 종료 처리 / JSON snake_case (`PropertyNamingPolicy.SnakeCaseLower`) / `SafeReadErrorBodyAsync` 폴백 / SharedSecret 미설정 시 `LogWarning`
+  - `Program.cs` — `AddHttpClient("nexus", ...)` 등록(BaseUrl 기본 `http://192.168.22.28:8001`, timeout 60s 설정 가능) + `AddScoped<INexusClient, NexusClient>()`
+  - `appsettings.json` + `appsettings.Development.json` — `Nexus` 섹션 신규 (BaseUrl / SharedSecret(빈) / DefaultTimeoutSeconds=60 / DefaultTenantId="default")
+  - `Data/DatabaseInitializer.cs` — Mistral 폴백 패턴 인접에 nexus 멱등 시드 추가: ServiceCode="nexus", ServiceName="Project Nexus", IconClass="bi-hdd-network", ColorCode="#10B981", ApiEndpoint="http://192.168.22.28:8001/v1/chat", DefaultModel="primary", CostPerRequest=0.0m, ServiceType="Chat", SortOrder=8. `ApiServiceModels` 시드는 Phase 5.2 로 보류
+  - `Migrations/20260506010411_AddAgentRoutingColumns.{cs,Designer.cs}` (NEW) — 5개 컬럼 AddColumn + 5개 DropColumn(Down). 기본값을 운영 의도("External"/"AgentHub")로 수정해 기존 row 도 의미 있는 값으로 채움
+  - `Migrations/AIAgentManagementDbContextModelSnapshot.cs` (NEW) — Phase 3.6 시점의 Init.Designer 를 base 로 ModelSnapshot 클래스 생성(EF base 인식 문제 해결, 아래 ADR-N 참조)
+- **빌드 검증**: `dotnet build -v quiet` → **0 errors, 11 warnings** (모두 기존 코드 CS1998 — Phase 5.1 신규 워닝 0건). 신규 INexusClient.cs 의 `[EnumeratorCancellation]` 은 1차 빌드에서 CS8424 발생 → 인터페이스 시그니처에서 제거하여 0 신규 워닝 달성
+- **마이그레이션 add 실패 → ModelSnapshot 합성 → 재성공**:
+  - 1차 시도: `dotnet-ef migrations add AddAgentRoutingColumns` → 모든 35개 테이블을 `CreateTable` 로 다시 만드는 잘못된 마이그레이션 생성. `dotnet-ef migrations remove` → "No ModelSnapshot was found" 진단
+  - 원인: `AIAgentManagement.csproj:50-53` 의 `<Compile Remove="Migrations.mssql.archive\**" />` 로 인해 archive 의 `AIAgentManagementDbContextModelSnapshot.cs` 가 어셈블리에서 제외 → EF가 base 모델을 발견 못 하고 빈 base 가정
+  - archive 의 ModelSnapshot 은 Phase 3.1 이전 MSSQL 버전(`SqlServerPropertyBuilderExtensions` 사용 → 컴파일 실패)이라 단순 복사 불가
+  - **해결**: `Migrations/20260505154102_Init.Designer.cs` (PG 모델로 작성) 를 복사 후 `[Migration(...)]` 제거 + `using ...Migrations;` 제거 + 클래스명 `Init` → `AIAgentManagementDbContextModelSnapshot : ModelSnapshot` 변경 + 메서드 `BuildTargetModel` → `BuildModel` 변경 → `Migrations/AIAgentManagementDbContextModelSnapshot.cs` 로 저장
+  - 재시도 `migrations add AddAgentRoutingColumns` → **5개 AddColumn 만 포함된 정확한 마이그레이션 생성**
+- **마이그레이션 dry-run (script Init -> AddAgentRoutingColumns)**:
+  ```
+  ALTER TABLE "AIAgentManagement"."Agents" ADD "ConsumerSystems" text;
+  ALTER TABLE "AIAgentManagement"."Agents" ADD "KnowledgeBaseRef" character varying(100);
+  ALTER TABLE "AIAgentManagement"."Agents" ADD "KnowledgeBaseSource" character varying(32) NOT NULL DEFAULT 'AgentHub';
+  ALTER TABLE "AIAgentManagement"."Agents" ADD "LlmRouting" character varying(16) NOT NULL DEFAULT 'External';
+  ALTER TABLE "AIAgentManagement"."Agents" ADD "RoutingPolicyJson" text;
+  ```
+- **운영 PG 적용 — `dotnet-ef database update --connection ...`**: 5 ALTER + EFMigrationsHistory INSERT 모두 정상. `Done.`
+- **PG 직접 검증 (Npgsql 8.0.5 ad-hoc 프로젝트)**:
+  - `information_schema.columns` 쿼리: 5개 컬럼 모두 정확한 type/maxlen/nullable/default 확인 — `KnowledgeBaseSource character varying(32) NOT NULL default='AgentHub'`, `LlmRouting character varying(16) NOT NULL default='External'`, `RoutingPolicyJson/ConsumerSystems text NULL`, `KnowledgeBaseRef varchar(100) NULL`
+  - `__EFMigrationsHistory` 위치: `public` schema (Phase 3.6 시점부터 운영 PG 컨벤션 — EF default schema 와 PG search_path 분리)
+  - 마이그레이션 이력: `20260505154102_Init` + `20260506010411_AddAgentRoutingColumns` 두 행 정상 등록
+  - ApiServices Chat 0건 — Phase 3.6 데이터 이전이 시드 미포함, DatabaseInitializer 가 다음 앱 기동 시 멱등 시드 (Phase 5.1 nexus 시드도 동일 흐름)
+- **잠재 위험 / Phase 5.2 의존**:
+  - **Nexus 서버 미가동 환경**: BaseUrl `http://192.168.22.28:8001` 은 LAN 전용 — 외부망 배포에서는 NexusClient 호출이 connection refused. AiProxyService.CallNexusAsync (Phase 5.2) 에서 ApiService.IsActive 토글로 환경 분리 필요. 운영자 콘솔에 배포 환경 카드 추가 검토 (P9 환경별 배포)
+  - **SharedSecret 빈 문자열 폴백**: `Nexus:SharedSecret` 미설정 시 NexusClient 가 `LogWarning` 만 출력하고 인증 헤더 생략. ADR-13 의 LAN 격리만으로 1차 방어. Phase 5.2 운영 적용 전 반드시 비밀번호 발급 + appsettings.Production.json 또는 IIS 환경변수 주입 필요
+  - **archive ModelSnapshot 와 Migrations/ ModelSnapshot 이중 존재**: 현재 archive 의 것은 git 미커밋 상태 무변경(MSSQL 시절 Phase 3.0 직전), Migrations/ 의 것은 Phase 3.6 baseline 동등. 향후 EF 가 archive ModelSnapshot 을 인식하지 않도록 `<Compile Remove>` 가 그대로 유지되어야 함 — 향후 누군가 Compile Remove 를 풀면 두 ModelSnapshot 이 충돌하므로 .editorconfig 또는 README 에 경고 추가 (Phase 5+ 트랙)
+  - **DatabaseInitializer 의 nexus 시드 미적용 상태**: 본 단계는 마이그레이션만 적용, 시드는 다음 앱 기동(또는 Phase 5.2 통합 검증) 시 적용. 운영 인스턴스가 IIS 에서 살아 있으면 자동 멱등 INSERT 됨
+  - **ApiServiceModels 시드 누락**: nexus 의 "primary"/"auxiliary" 모델 카탈로그가 없어 Agent 빌더의 모델 드롭다운에서 Nexus 모델 선택 불가. Phase 5.2 에서 SeedApiServiceModelsAsync 갱신 필요
+- **다음 단계 (Phase 5.2 — 사용자 승인 후 진입)**:
+  1. `IAiProxyService` 의 `SendChatMessageAsync` switch 분기에 `"nexus"` case 추가 → `CallNexusAsync(service, model, request, ct)` 호출
+  2. `CallNexusAsync` 내부: ChatMessageRequestDto.Messages 의 마지막 user 메시지 → NexusChatRequest.Message 매핑(히스토리는 Nexus 가 SessionId 키로 Redis 복원), Tenant/Session 헤더 부착, NexusChatResponse → AiResponseDto 변환
+  3. Streaming: `SendChatMessageStreamChunksAsync` 의 switch 에 nexus case 추가 → `INexusClient.SendChatStreamAsync` → `ChatChunk` 변환(text 누적 + finish_reason)
+  4. `HybridRouter` 클래스 신설 (`Services/HybridRouter.cs`) — Agent.RoutingPolicyJson 평가, PII 강제 / 데이터 라벨 / 모델 capability / 비용 한도 → External/Internal 결정. AiProxyService 가 라우팅 전 호출
+  5. ApiServiceModels nexus 시드("primary","auxiliary") + AgentBuilder UI 의 LlmRouting 드롭다운(External/Internal/Hybrid)
+  6. 통합 테스트 (`tests/integration/`): mock Nexus 서버로 비스트리밍/스트리밍 응답 검증, [DONE] 마커 + heartbeat 무시 동작 확인
 
 ### 2026-05-06 (Phase 3.6 — AGENT_HUB DB 셋업 + baseline 마이그레이션 운영 PG 적용 + T-SQL 잔존 정리)
 - **목적**: Phase 3.2 baseline 을 운영 PostgreSQL(192.168.10.39:5440) 에 실제 적용 + Phase 2 init.sql 동등 작업 + DbContext T-SQL bracket(`[Status]`/`[Role]`/`[IsActive] = 1`) 잔존 PG 호환 변환
