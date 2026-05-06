@@ -3,11 +3,21 @@ LLM 클라이언트 구현 모듈.
 
 제공하는 클래스:
   - ``LLMClient`` -- 모든 LLM 클라이언트의 추상 베이스 클래스.
-  - ``OpenAICompatibleClient`` -- OpenAI-호환 API를 사용하는 클라이언트 공통 구현.
-  - ``OpenAIClient`` -- OpenAI API (GPT-4o 등) 클라이언트.
-  - ``VLLMClient`` -- 자체 호스팅 vLLM (OpenAI-호환) 클라이언트.
-  - ``SGLangClient`` -- SGLang (RadixAttention) 클라이언트.
+  - ``AgentHubLLMWrapper`` -- **(Phase 7.3 신규)** AgentHub `/v1/chat/completions` 위임 클라이언트.
+    R2 단일 진입점 원칙에 따라 본 monorepo 의 모든 DocUtil LLM 호출이 본 래퍼를 거친다.
+  - ``OpenAICompatibleClient`` -- (Phase 7.3 deprecate 진행) OpenAI-호환 API 직접 호출 베이스.
+  - ``OpenAIClient`` -- (Phase 7.3 deprecate) OpenAI API (GPT-4o 등) 직접 호출 클라이언트.
+  - ``VLLMClient`` -- (Phase 7.3 deprecate) 자체 호스팅 vLLM (OpenAI-호환) 직접 호출 클라이언트.
+  - ``SGLangClient`` -- (Phase 7.3 deprecate) SGLang (RadixAttention) 직접 호출 클라이언트.
   - ``ModelRouter`` -- 조직/태스크 기반 A/B 테스트 라우팅.
+
+Phase 7.3 마이그레이션 노트:
+    `factory.create_llm_client()` 는 본 모듈의 ``AgentHubLLMWrapper`` 를 반환하도록
+    변경되었다. 외부 시그니처(``generate`` / ``generate_stream`` / ``generate_structured``
+    / ``generate_with_schema`` 및 _sync 동기 변종)는 유지되며, 호출처(documents_v2,
+    templates, workers/report_generator, workers/jinja2_engine, workers/evaluation_runner)
+    는 변경 없이 그대로 동작한다. 직접 SDK import (anti-patterns.md §1) 위반은 본 Phase 에서
+    제거되거나 별도 트랙(이미지/임베딩)으로 분리된다.
 """
 
 from __future__ import annotations
@@ -214,6 +224,223 @@ class LLMClient(ABC):
     ) -> dict:
         """동기 컨텍스트에서 구조화된 응답을 생성한다. (Celery worker용)"""
         raise NotImplementedError(f"{self.__class__.__name__}은 동기 Structured Outputs를 지원하지 않습니다.")
+
+
+# ---------------------------------------------------------------------------
+# AgentHub 위임 LLM 래퍼 (Phase 7.3 — R2 단일 진입점)
+# ---------------------------------------------------------------------------
+
+
+class AgentHubLLMWrapper(LLMClient):
+    """AgentHub `/v1/chat/completions` 위임 LLM 클라이언트.
+
+    Phase 7.3 부터 DocUtil 의 모든 LLM 호출은 본 래퍼를 통해 AgentHub Gateway 로
+    위임된다. 외부 시그니처(``generate`` / ``generate_stream`` / ``generate_structured``
+    / ``generate_with_schema`` 및 _sync 동기 변종)는 기존 ``OpenAICompatibleClient``
+    와 동일하므로, 호출처(documents_v2, templates, workers 등)는 변경 없이 그대로
+    동작한다.
+
+    설계 원칙:
+        - **R2 단일 진입점**: 외부 LLM SDK / OpenAI 호환 엔드포인트 직접 호출 금지.
+          모든 호출은 ``AgentHubClient`` 를 거쳐 AgentHub 의 라우팅(External/Internal/
+          Hybrid) / 사용량 / PII / 캐싱 정책을 적용받는다.
+        - **AgentCode 매핑**: ``provider`` (호출처가 전달하는 프로바이더 문자열) 또는
+          ``model`` 을 기반으로 적절한 AgentCode 를 결정한다. ``factory.create_llm_client``
+          가 매핑을 수행하므로 본 래퍼는 결정된 ``agent_code`` 를 그대로 사용한다.
+        - **동기 호출**: Celery worker 등에서 ``generate_sync`` / ``generate_structured_sync``
+          가 호출되므로, 내부적으로 동기 ``httpx.Client`` 를 별도로 운용한다 (asyncio
+          이벤트 루프 부재 환경 호환).
+
+    Notes
+    -----
+    - Structured Outputs (``response_format={"type": "json_schema", ...}``) 는
+      AgentHub 가 OpenAI 호환 모드로 그대로 forward 하므로 ``extra`` 파라미터로
+      전달한다.
+    - 임베딩 (``/v1/embeddings``) 은 AgentHub 미구현 — Phase 7.5 또는 별도 트랙으로
+      분리. 본 래퍼는 chat/completions 만 처리한다.
+    """
+
+    # 동기 호출 타임아웃 (초). 보고서 생성 등 긴 호출 대비.
+    _SYNC_TIMEOUT = 180.0
+
+    def __init__(
+        self,
+        agent_code: str,
+        *,
+        api_key: str | None = None,
+        model: str | None = None,
+    ) -> None:
+        """AgentHubLLMWrapper 를 초기화한다.
+
+        Parameters
+        ----------
+        agent_code:
+            AgentHub 에 등록된 AgentCode (예: ``"docutil-rag-chat"``,
+            ``"docutil-report-generator"``, ``"docutil-evaluator"``).
+            AgentHub 의 OpenAI 호환 엔드포인트는 ``model`` 필드로 Agent 를 식별한다.
+        api_key:
+            (호환용 인자, 사용하지 않음). AgentHub 인증은 환경변수
+            ``AGENTHUB_API_KEY`` 를 통해 ``AgentHubClient`` 가 직접 처리한다.
+        model:
+            (호환용 인자, 사용하지 않음). 실제 LLM 모델 결정은 AgentHub 가 수행한다.
+            본 인자는 ``LLMClient.model`` 속성으로만 보존되어 로깅/디버깅에 사용된다.
+        """
+        # LLMClient 베이스의 model 속성은 보존 — 일부 호출처가 ``client.model`` 로 참조.
+        super().__init__(api_key=api_key, model=model or agent_code, base_url="agenthub://")
+        self.agent_code = agent_code
+
+    # ── 비동기 메서드 ───────────────────────────────────────────────────────
+
+    async def generate(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.1,
+        max_tokens: int = 4096,
+        stream: bool = False,
+    ) -> str | AsyncGenerator[str, None]:
+        """비동기 chat 호출. ``stream=True`` 면 토큰 스트리밍 generator 반환."""
+        if stream:
+            return self.generate_stream(messages, temperature, max_tokens)
+
+        # 지연 import — 모듈 로드 시점의 환경변수 검증 회피 + 순환 참조 방지.
+        from app.integrations.agenthub_client import get_agenthub_client
+
+        client = get_agenthub_client()
+        resp = await client.chat(
+            agent_code=self.agent_code,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return resp["choices"][0]["message"]["content"]
+
+    async def generate_stream(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.1,
+        max_tokens: int = 4096,
+    ) -> AsyncGenerator[str, None]:
+        """SSE 스트리밍. AgentHub chunk 의 ``delta.content`` 만 추출하여 yield."""
+        from app.integrations.agenthub_client import get_agenthub_client
+
+        client = get_agenthub_client()
+        async for chunk in client.chat_stream(
+            agent_code=self.agent_code,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        ):
+            try:
+                delta = chunk["choices"][0].get("delta", {})
+            except (KeyError, IndexError, TypeError):
+                continue
+            content = delta.get("content")
+            if content:
+                yield content
+
+    async def generate_structured(
+        self,
+        messages: list[dict[str, str]],
+        json_schema: dict,
+        temperature: float = 0.1,
+        max_tokens: int = 4096,
+    ) -> dict:
+        """OpenAI Structured Outputs (``response_format=json_schema``) 위임.
+
+        AgentHub 는 OpenAI 호환 ``response_format`` 을 그대로 forward 하므로
+        ``extra`` 파라미터로 전달한다.
+        """
+        from app.integrations.agenthub_client import get_agenthub_client
+
+        client = get_agenthub_client()
+        resp = await client.chat(
+            agent_code=self.agent_code,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            extra={
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": json_schema,
+                }
+            },
+        )
+        content = resp["choices"][0]["message"]["content"]
+        return json_module.loads(content)
+
+    # ── 동기 메서드 (Celery worker 용) ─────────────────────────────────────
+    #
+    # Celery worker 는 prefork 모델로 asyncio 이벤트 루프가 없는 환경에서 실행되므로,
+    # ``httpx.Client`` 동기 호출을 별도로 운용한다. AgentHubClient 의 비동기 인터페이스
+    # 와 동일한 엔드포인트(`POST /v1/chat/completions`) + 동일한 인증 헤더(`X-API-Key`)
+    # 를 사용한다. 환경변수 로드는 호출 시점에 수행 (lazy).
+
+    def _sync_post(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """동기 httpx 로 AgentHub `/v1/chat/completions` 호출."""
+        import os
+
+        base_url = os.environ.get("AGENTHUB_URL", "").strip()
+        api_key = os.environ.get("AGENTHUB_API_KEY", "").strip()
+        if not base_url:
+            raise RuntimeError("AgentHub base_url 미설정 — 환경변수 AGENTHUB_URL 확인 (Phase 7.3)")
+        if not api_key:
+            raise RuntimeError("AgentHub api_key 미설정 — 환경변수 AGENTHUB_API_KEY 확인 (Phase 7.3)")
+
+        with httpx.Client(timeout=self._SYNC_TIMEOUT) as client:
+            response = client.post(
+                f"{base_url.rstrip('/')}/v1/chat/completions",
+                headers={
+                    "X-API-Key": api_key,
+                    "Content-Type": "application/json",
+                    "User-Agent": "AgentHubLLMWrapper/1.0 (docutil-sync)",
+                },
+                json=payload,
+            )
+            response.raise_for_status()
+            return response.json()
+
+    def generate_sync(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.1,
+        max_tokens: int = 4096,
+    ) -> str:
+        """동기 chat 호출 (Celery worker 용). AgentHub 위임."""
+        payload: dict[str, Any] = {
+            "model": self.agent_code,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+        }
+        data = self._sync_post(payload)
+        return data["choices"][0]["message"]["content"]
+
+    def generate_structured_sync(
+        self,
+        messages: list[dict[str, str]],
+        json_schema: dict,
+        temperature: float = 0.1,
+        max_tokens: int = 4096,
+    ) -> dict:
+        """동기 Structured Outputs 호출 (Celery worker 용). AgentHub 위임."""
+        payload: dict[str, Any] = {
+            "model": self.agent_code,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": json_schema,
+            },
+        }
+        data = self._sync_post(payload)
+        content = data["choices"][0]["message"]["content"]
+        return json_module.loads(content)
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # IDINO Agent Hub — 통합 작업 진행 상황
 
-> **마지막 갱신**: 2026-05-06 (Phase 4.2 완료 — career DDL 3개 파일 → AGENT_HUB.idino_career schema 62 테이블 적용 + 18 MS .env DB 블록 갱신)
+> **마지막 갱신**: 2026-05-06 (Phase 7.3 완료 — DocUtil LLM 호출 9곳 → AgentHubLLMWrapper 위임. factory.py 외부 시그니처 보존 + agentic_search.py / data_generator.py P1 위반 정리)
 > **갱신 규칙**: 모든 작업 완료 시 본 파일을 갱신한다 (CLAUDE.md 의무 사항).
 > **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세), `docs/AI_INVENTORY.md` (Phase 1 산출물)
 
@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 4.2 완료 (career idino_career schema 62 tb_* 테이블 + 128 인덱스 + 82 FK 적용. R3 격리 검증 완료. 18 MS .env DB 블록 모두 AGENT_HUB 로 전환). Phase 7.2 운영 PG 적용 완료 (Roles=3 + admin=1 + ApiServices=3 + Agents=15 + ApiKeys=2). 코드 측면 변경 (DocUtil/career AgentHubClient + .env / .env.example 갱신) — commit 대기 |
-| **다음 Phase** | Phase 4.3 (Tenants + Departments — Q1 옵션 B), 또는 Phase 7.3 (DocUtil 측 35→1 LLM 호출 → AgentHubClient 위임), 또는 Phase 7.4 (career 측 위임) — 사용자 결정 대기 |
-| **마지막 commit** | `602fb41` (Phase 4.1/4.2/7.1/7.2 commit 미실행 — 사용자 승인 대기. master ApiKey 평문은 commit 미포함) |
+| **현재 Phase** | Phase 7.3 완료 (DocUtil 9곳 LLM 호출 → AgentHubLLMWrapper 위임. factory.py 의 `create_llm_client()` 외부 시그니처 보존 + 내부적으로 AgentCode 매핑 후 AgentHubClient 호출. agentic_search.py DU-16 + training/data_generator.py DU-17 의 P1 위반 4건 모두 factory 경유로 정리. 임베딩/이미지/graph_rag 는 AgentHub `/v1/embeddings` `/v1/images` 미구현 + graph_rag_enabled=False 로 별도 트랙 보류). Phase 4.3 완료 상태 유지 (Tenants + Departments). Phase 4.2 완료 (career idino_career 62 tb_*). Phase 7.2 운영 PG 그대로. 코드 측면 변경 (DocUtil 5개 파일 + .env / .env.example) — commit 대기 |
+| **다음 Phase** | Phase 7.4 (career 18 MS LLM 호출 → AgentHubClient 위임 — career/shared/common/agenthub_client.py 활용 + 각 MS 의 직접 OpenAI/Claude SDK 사용 정리), 또는 Phase 4.4 (career pgvector 도입), 또는 Phase 4.5 (Agent.TenantId/DepartmentId FK 통합 검증), 또는 Phase 7.5 (이미지/임베딩 별도 트랙 — AgentHub `/v1/images` `/v1/embeddings` 신규 컨트롤러 추가) — 사용자 결정 대기 |
+| **마지막 commit** | `ce8a52c` (Phase 4.1/4.2/4.3/7.1/7.2/7.3 commit 미실행 — 사용자 승인 대기. master ApiKey 평문은 commit 미포함) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -29,7 +29,7 @@
 | **1** | AI 호출 인벤토리 작성 (`docs/AI_INVENTORY.md`) | ✅ 완료 | 2026-05-05 |
 | **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | ✅ 완료 | 2026-05-05 |
 | **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | ✅ 핵심 완료 (3.1 + 3.2 + 3.3 + 3.4 + 3.5 + 3.5b + 3.6) | 2026-05-06 |
-| **4** | DocUtil/career → AGENT_HUB 통합 | ⏳ 대기 | Phase 3 후 |
+| **4** | DocUtil/career → AGENT_HUB 통합 | 🔄 진행 중 (4.1 + 4.2 + 4.3 완료, 4.4 대기) | 2026-05-06~ |
 | **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | ✅ 핵심 완료 (5.1 + 5.2 코드 작업 + 빌드 0E/단위 검증 6/6) | 2026-05-06 |
 | **6** | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | ⏳ 대기 | Phase 5 후 |
 | **7** | DocUtil/career AI 호출 → AgentHub 위임 | ⏳ 대기 | Phase 5+6 후 |
@@ -115,7 +115,7 @@
 
 | ID | 질문 | 결정 시점 |
 |---|---|---|
-| Q1 | career `department_id` 매핑 정책 (Tenants sub-org / 별도 Departments / 자체 유지) | Phase 4 시작 전 |
+| Q1 | ~~career `department_id` 매핑 정책 (Tenants sub-org / 별도 Departments / 자체 유지)~~ → **옵션 B 채택 (Phase 4.3)** | ✅ 2026-05-06 결정 |
 | Q2 | 사용자 SSO 시점 (Phase 5+ 즉시 / Phase 7+ / 별도 트랙) | Phase 4 완료 후 |
 | Q3 | **DocUtil Phase 4 S6/S7 진행 위치 (DocUtil 원본 / monorepo 내부)** | **즉시 (Phase 1 진입 전)** |
 | Q4 | Nexus DB 위치 (별도 DB / AGENT_HUB.nexus schema) | ADR-11에 따라 별도 DB, schema 분리만 추가 검토 |
@@ -131,7 +131,7 @@
 ## 5. 위험 추적 (R1~R30)
 
 ### Critical (Phase 3 진입 전 결정 필수)
-- [ ] R1: Tenant/Organization/Department 모델 설계 → §4.5
+- [x] ~~R1: Tenant/Organization/Department 모델 설계 → §4.5~~ → **Phase 4.3 완료 (2026-05-06)**
 - [ ] R5: Nexus DB 별도 유지 → ADR-11 확정
 - [ ] R11: EF baseline 부재 → Phase 3에서 신규 작성
 - [ ] R15: JWT 알고리즘 통일 → ADR-9 확정
@@ -153,6 +153,111 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-06 (Phase 7.3 — DocUtil 9곳 LLM 호출 → AgentHubLLMWrapper 위임, R2 단일 진입점 강제)
+- **목적**: AI_INVENTORY.md DU-01~DU-19 중 LLM 채팅 호출 9곳을 `AgentHubClient` (Phase 7.2 신설) 로 위임. 외부 SDK 직접 import (anti-patterns.md §1) 위반 정리. factory.py 외부 시그니처 보존으로 호출처(documents_v2/templates/workers/* 등) 무변경 달성
+- **사전 조사 결과**:
+  - **9곳 매핑 확정**: factory.py 의 6 provider 진입점(openai/azure_openai/gemini/anthropic/vllm/sglang) + agentic_search.py 직접 호출 2건 + data_generator.py 직접 호출 2건 (총 10 instantiate, 9 logical 호출 지점)
+  - **정상 진입점 (factory 경유, 5곳)**: documents_v2/service.py:307 (`generate_with_schema` Pydantic) / templates/service.py:1122 / workers/report_generator.py:936,3587 (`generate_structured_sync`) / workers/jinja2_engine.py:880 / workers/evaluation_runner.py:53-58 (judge)
+  - **factory 우회 P1 위반 (4곳)**: agentic_search.py:215,237 (`OpenAIClient()` 2건 — DU-16) + workers/training/data_generator.py:68-69 (`OpenAIClient()` 2건 — DU-17) + integrations/rag/graph_rag.py:105 (DU-15, `graph_rag_enabled=False` 비활성) + integrations/image_generation/service.py:189 (DU-14, `from openai import AsyncOpenAI`)
+  - **AgentHub 임베딩 엔드포인트 부재**: `agenthub/Controllers/OpenAICompatController.cs` 점검 결과 `[HttpGet("models")]` + `[HttpPost("chat/completions")]` 만 존재. `/v1/embeddings` `/v1/images` 신규 추가 필요 — 본 Phase 보류
+- **변경 파일 (5 modify)**:
+  - **MODIFY `docutil/backend/app/integrations/llm/client.py`** (+239 LOC, ruff format) — 모듈 헤더 docstring 갱신 (Phase 7.3 마이그레이션 노트). `AgentHubLLMWrapper` 신규 추가 — `LLMClient` 추상 베이스 상속, `agent_code` 인스턴스 변수 보유. 비동기 메서드(`generate` / `generate_stream` / `generate_structured`) 는 `app.integrations.agenthub_client.get_agenthub_client()` 호출 위임. 동기 메서드(`generate_sync` / `generate_structured_sync`) 는 Celery worker 의 asyncio 이벤트 루프 부재 환경 호환을 위해 `httpx.Client` 별도 운용 + `_sync_post` 헬퍼 + `AGENTHUB_URL` / `AGENTHUB_API_KEY` 환경변수 lazy 검증(RuntimeError 가드). Structured Outputs 는 `extra={"response_format": {"type": "json_schema", ...}}` 로 AgentHub forward
+  - **MODIFY `docutil/backend/app/integrations/llm/factory.py`** (전체 재작성, ~190 LOC) — `_TASK_TO_AGENT_CODE` 매핑 테이블 신설 (chat→docutil-rag-chat / chatbot→docutil-rag-chat / report→docutil-report-generator / evaluation→docutil-evaluator / agentic_search→agentic-search / training_qa→docutil-evaluator / training_judge→docutil-evaluator / template→docutil-rag-chat). `_resolve_agent_code(provider, model)` 우선순위 결정 (1.model 이 docutil-/agentic-/career-/embedding- prefix → 그대로 사용 / 2.provider 가 task 키 → 매핑 / 3.레거시 provider openai/anthropic/gemini/azure_openai/vllm/sglang → docutil-rag-chat 폴백). `create_llm_client()` 는 항상 `AgentHubLLMWrapper` 반환 — 외부 시그니처(`provider, api_key, model`) 100% 보존. `get_provider_for_task()` 는 settings 오버라이드 우선 + task_type 자체 폴백 + 미등록 시 settings.llm_provider
+  - **MODIFY `docutil/backend/app/integrations/llm/__init__.py`** (+13 LOC) — 모듈 docstring Phase 7.3 마이그레이션 노트로 갱신. `AgentHubLLMWrapper` export 추가. 기존 6 클라이언트(OpenAI/Azure/Gemini/Claude/vLLM/SGLang) export 는 호환성 위해 보존 — Phase 8+ 에서 제거 예정
+  - **MODIFY `docutil/backend/app/modules/search/agentic_search.py`** (+10 LOC, ruff format) — `_analyze_query()` 의 `from app.integrations.llm.client import OpenAIClient` 직접 import 제거. `from app.integrations.llm.factory import create_llm_client` + `create_llm_client("agentic_search")` 호출로 교체. `_judge_quality()` 동일 패턴. 한국어 docstring 으로 R2/anti-patterns.md §1 의도 명시. 호출 본문(`llm.generate(messages=[...], temperature=, max_tokens=)`) 은 무변경 — `AgentHubLLMWrapper` 가 동일 시그니처 보장
+  - **MODIFY `docutil/backend/app/workers/training/data_generator.py`** (+15 LOC) — 모듈 docstring Phase 7.3 마이그레이션 노트로 갱신. `from app.integrations.llm.client import OpenAIClient` 제거 + `from app.integrations.llm.factory import create_llm_client` 추가. `__init__` 의 `OpenAIClient()` 2건 → `create_llm_client("training_qa")` / `create_llm_client("training_judge")` 로 교체 (둘 다 docutil-evaluator AgentCode 매핑). 호출 본문(`self._source_llm.generate(...)`) 은 무변경. AI_INVENTORY W6(학습 데이터 생성 비용 별도 집계) 인용
+- **AgentCode 매핑 표 (호출처 → AgentCode → 라우팅)**:
+
+  | 호출처 | task 키 / model | AgentCode | LlmRouting | Phase 7.1 시드 |
+  |---|---|---|---|---|
+  | documents_v2/service.py:307 | provider=`get_provider_for_task("report")` | `docutil-report-generator` | Hybrid | gpt-4o |
+  | templates/service.py:1122 | provider="report" | `docutil-report-generator` | Hybrid | gpt-4o |
+  | workers/report_generator.py:936,3587 | provider="report" | `docutil-report-generator` | Hybrid | gpt-4o |
+  | workers/jinja2_engine.py:880 | provider="template" | `docutil-rag-chat` (S7 폐기) | Hybrid | gpt-4o |
+  | workers/evaluation_runner.py:53-58 | provider="evaluation" | `docutil-evaluator` | External | gpt-4o (judge) |
+  | modules/search/agentic_search.py:215 | "agentic_search" | `agentic-search` | Hybrid | gpt-4o-mini |
+  | modules/search/agentic_search.py:237 | "agentic_search" | `agentic-search` | Hybrid | gpt-4o-mini |
+  | workers/training/data_generator.py:68 | "training_qa" | `docutil-evaluator` | External | gpt-4o |
+  | workers/training/data_generator.py:69 | "training_judge" | `docutil-evaluator` | External | gpt-4o (judge) |
+
+- **호환성 검증 (기존 호출처 영향 0건 목표)**:
+  - **외부 시그니처 보존**: `create_llm_client(provider, api_key=None, model=None)` 인자/반환 타입(`LLMClient`) 무변경. 호출처 5곳 모두 코드 수정 불필요
+  - **호출 메서드 보존**: `generate(messages, temperature, max_tokens, stream)` / `generate_stream(...)` / `generate_structured(messages, json_schema, ...)` / `generate_with_schema(system_prompt, user_prompt, response_schema, ...)` / `generate_sync` / `generate_structured_sync` / `generate_with_schema_sync` 모두 동일 시그니처. `AgentHubLLMWrapper` 가 `LLMClient` 베이스의 `generate_with_schema*` 기본 구현(Pydantic 재검증) 을 그대로 상속하므로 호출처 무변경
+  - **`client.model` 속성 보존**: 일부 호출처가 `llm_client.model` 속성을 참조 가능 → `LLMClient.__init__(model=...)` 로 보존. AgentCode 가 model 속성에 들어가지만 로깅/디버깅 용도라 영향 없음
+  - **API Key 인자 무시**: `create_llm_client(..., api_key=None)` 으로 None 전달 시 AgentHub 인증은 환경변수 `AGENTHUB_API_KEY` 가 처리. 호출처가 `api_key="sk-..."` 명시해도 silently 무시됨 — 한국어 주석으로 명시
+- **단위 검증 결과 (모두 PASS)**:
+  - `python -c "from app.integrations.llm.factory import create_llm_client, get_provider_for_task; print('factory OK')"` → factory OK
+  - `AgentHubLLMWrapper('docutil-rag-chat')` 인스턴스화 + `agent_code='docutil-rag-chat'` / `model='docutil-rag-chat'` 검증 → all_OK
+  - AgentCode 매핑 13 케이스 검증: chat/chatbot/report/evaluation/agentic_search/training_qa/training_judge/openai/anthropic 폴백/model 우회 3건/일반 model gpt-4o → 모두 일치, AgentCode 매핑 검증 PASS
+  - 영향 모듈 11개 import 검증 (search/agentic_search, workers/training/data_generator, workers/report_generator, workers/jinja2_engine, workers/evaluation_runner, modules/documents_v2/service, modules/templates/service, integrations/llm, integrations/llm/factory, integrations/llm/client, integrations/agenthub_client) → all modules import OK
+  - 동기 호출 환경변수 가드 검증: `AGENTHUB_URL` 미설정 시 `RuntimeError("AgentHub base_url 미설정 — 환경변수 AGENTHUB_URL 확인 (Phase 7.3)")` / `AGENTHUB_API_KEY` 미설정 시 동일 패턴 RuntimeError 발생 → guard1 OK, guard2 OK
+  - ruff lint: `ruff check` 결과 2건 경고(TC003 + F401 in agentic_search.py) — `git stash` 로 baseline 확인 결과 **Phase 7.3 변경 이전부터 존재한 위반**. 본 변경이 새로 도입한 경고 0건
+  - ruff format: 5개 파일 중 3개 reformatted (factory.py / client.py / agentic_search.py), 2개 unchanged (__init__.py / data_generator.py)
+- **임베딩 처리 결정 (보류)**:
+  - AgentHub `OpenAICompatController` 에 `/v1/embeddings` 엔드포인트 미존재 — chat/completions 만 노출
+  - DocUtil `workers/embedding_generator.py:148-186` 의 `_generate_dense_embeddings()` 는 `httpx.post` 직접 호출 (`https://api.openai.com/v1/embeddings` 또는 vLLM `/embeddings`) — Phase 7.3 변경 범위 제외
+  - **Phase 7.5 (별도 트랙) 권고**: AgentHub 측에 `EmbeddingsController` 신설 (`POST /v1/embeddings`) → `AgentHubClient.embedding(texts: list[str], model: str = "embedding-default") -> list[list[float]]` 메서드 추가 → DocUtil `embedding_generator.py` 의 httpx 직접 호출 → AgentHub 위임 교체. 현재 코드는 TODO 주석 미추가 (Phase 7.3 변경 범위 외)
+- **본 Phase 보류 항목 (별도 트랙)**:
+  - **DU-14 image_generation/service.py:189** — `from openai import AsyncOpenAI` 직접 사용 (DALL-E 3). AgentHub `/v1/images` 엔드포인트 미구현. Phase 7.5 또는 별도 ImageGeneration 트랙으로 분리. 현재 호출 흐름 영향 없음 (이미지 자동 채움 기능)
+  - **DU-15 graph_rag.py:105** — `OpenAIClient()` 직접 호출. `graph_rag_enabled=False` 기본값으로 비활성 상태라 운영 영향 없음. 활성화 시점에 factory 경유로 일괄 교체 가능
+  - **DU-18 embedding_generator.py:148-186** — 임베딩 호출 (위 임베딩 처리 결정 참조)
+  - **client.py:741-743 ModelRouter** — A/B 테스트 라우팅. `_openai_client = OpenAIClient()` / `_vllm_client = VLLMClient()` / `_sglang_client = SGLangClient()` 인스턴스 보유. Phase 7.3 부터 AgentHub 측 라우팅(LlmRouting=Hybrid + RoutingPolicyJson)이 의미적으로 대체 — ModelRouter 자체는 dead code 동급. Phase 8+ 에서 제거 예정
+  - **claude_client.py / gemini_client.py / azure_client.py** — `from anthropic import ...` 등 직접 SDK import 잔존. factory 가 더 이상 호출하지 않으므로 dead code. tests/test_llm_structured_cross_provider.py 가 직접 인스턴스화하지만, 본 변경의 호출 경로 외에 있어 영향 없음. Phase 8+ 에서 일괄 제거
+- **잠재 위험 / 다음 단계 (Phase 7.4 의존 항목)**:
+  - **AgentHub `/v1/chat/completions` 엔드포인트 부팅 검증 미실시**: 본 Phase 의 단위 검증은 import + AgentCode 매핑 + 환경변수 가드까지. 실제 HTTP 라운드트립 검증은 AgentHub IIS/dotnet run 부팅 + ApiKey 인증 + Agent 실행까지 필요 → Phase 7.4 시점에 통합 검증 또는 `/health` 단순 ping 으로 별도 단계 분리 권장
+  - **OpenAI Structured Outputs `response_format=json_schema` AgentHub passthrough 검증 미실시**: `AgentHubLLMWrapper.generate_structured()` 가 `extra` 인자로 `response_format` 을 forward 하지만, AgentHub `OpenAICompatController.cs` 가 이를 그대로 OpenAI 로 forward 하는지 + Anthropic Tool Use / Gemini schema 평탄화로 변환하는지는 AgentHub 측 동작에 의존. Phase 7.1 시드의 `docutil-report-generator` Agent 가 gpt-4o 직접 매핑이라 일단 안전 — Hybrid 라우팅으로 Internal(Nexus) 분기 시 schema 변환 미지원 위험. AI_INVENTORY R3 (OpenAI Structured Outputs 다중 프로바이더 fallback) 와 동일 우려
+  - **호출처의 `client.api_key` 직접 참조 가능성**: 일부 호출처(특히 templates/service.py)가 `llm_client.api_key` 또는 `llm_client.base_url` 을 직접 참조할 가능성 → 본 변경에서 `LLMClient.__init__(api_key=None, base_url="agenthub://")` 로 보존. 코드 grep 결과 직접 참조 발견 0건이지만, 향후 추가 호출처에서 발생 시 가드 필요
+  - **Celery worker 환경변수 분배**: `AgentHubLLMWrapper.generate_sync()` 는 `AGENTHUB_URL` / `AGENTHUB_API_KEY` 를 호출 시점에 lazy 로드. Celery worker 컨테이너에 동일 환경변수가 분배되어야 함 (Phase 7.2 의 `.env` 갱신으로 docker compose env 자동 inherit 가정 — 운영 검증 필요)
+  - **테스트 코드의 OpenAIClient/AzureOpenAIClient 직접 인스턴스화 영향**: tests/test_llm_structured_cross_provider.py / tests/test_documents_v2_service.py 가 `create_llm_client` 를 mock 처리. Phase 7.3 변경으로 mock 반환 객체 타입이 `OpenAIClient` 에서 `AgentHubLLMWrapper` 로 변경됨 — 단, mock 자체가 시그니처만 일치하면 통과하므로 테스트 영향 0건 예상. 실제 pytest 실행은 본 Phase 범위 외 (Phase 7.4 후 통합 테스트)
+- **Phase 7.4 (career 위임) 진입 조건**:
+  - [x] DocUtil `AgentHubLLMWrapper` + factory 외부 시그니처 보존 — 본 Phase 완료
+  - [x] DocUtil 9곳 호출 매핑 + agentic_search/data_generator P1 위반 정리 — 본 Phase 완료
+  - [ ] career 18 MS 의 LLM 직접 호출 식별 (CA-* 인벤토리 정독 필요)
+  - [ ] career/shared/common/agenthub_client.py 활용 패턴 결정 (factory 도입 vs 직접 호출)
+  - [ ] AgentHub `/v1/chat/completions` 부팅 라운드트립 검증 (DocUtil 1건 + career 1건)
+- **commit 대기**: 사용자 확인 후 진행. 본 Phase 변경은 5개 파일(client.py / factory.py / __init__.py / agentic_search.py / data_generator.py) 모두 commit 안전 (시크릿 미포함, 디스크 .env 변경 0건)
+
+### 2026-05-06 (Phase 4.3 — AIAgentManagement.Tenants + Departments 신설, ADR-8 / Q1 옵션 B)
+- **사용자 결정 (Phase 4.3 진입 시 확정)**: Q1 옵션 B (Tenants + 별도 Departments 엔티티) 채택. 옵션 A(Tenants sub-org JSON) 는 indexing/조인 비효율, 옵션 C(career 자체 tb_department 유지) 는 R3 격리 위반 + 운영자 콘솔에서 부서 단위 정책 부여 어려움. 본 Phase 에서는 빈 엔티티(스키마 + 시드 1건) 만 도입하고 career.tb_department 데이터 30 학과 매핑은 별도 트랙
+- **변경 파일 (2 신규 + 1 DbContext + 1 마이그레이션 + 2 .csx 검증 도구)**:
+  - **NEW `agenthub/Models/Tenant.cs`** (~62 LOC) — `[Table("Tenants")]` + 8 컬럼 (TenantId IDENTITY / TenantCode 50 / TenantName 200 / Description 1000 / IsActive / CreatedAt / UpdatedAt? / CreatedBy?). Navigation: `Departments`(1:N) + `Creator`(User?). 한국어 XML doc + ADR-8 인용 주석
+  - **NEW `agenthub/Models/Department.cs`** (~74 LOC) — `[Table("Departments")]` + 9 컬럼 (DepartmentId IDENTITY / DepartmentCode 50 / DepartmentName 200 / TenantId NOT NULL / ParentDepartmentId? self-FK / Description 1000 / IsActive / CreatedAt / UpdatedAt?). Navigation: `Tenant`(N:1) + `ParentDepartment`(self) + `ChildDepartments`(self 1:N). 한국어 XML doc + Q1 옵션 B 결정 사유 주석
+  - **MODIFY `agenthub/Data/AIAgentManagementDbContext.cs`** — DbSet `Tenants` + `Departments` 추가. OnModelCreating 에 5개 매핑: `Tenant.TenantCode UNIQUE`, `Tenant.Creator FK ON DELETE SET NULL`, `Department.DepartmentCode UNIQUE`, `Department.TenantId / ParentDepartmentId 조회 인덱스 + ON DELETE RESTRICT FK 2건`
+  - **NEW `agenthub/Migrations/20260506085522_AddTenantsAndDepartments.{cs,Designer.cs}`** — `dotnet-ef migrations add` 자동 생성. `Migrations/AIAgentManagementDbContextModelSnapshot.cs` 함께 갱신. archive 의 `Migrations.mssql.archive/AIAgentManagementDbContextModelSnapshot.cs` 는 변경 0건 (격리 유지)
+  - **NEW `user_mig/tools/phase43_verify_seed.csx`** (~125 LOC) — dotnet-script + Npgsql 8.0.6 + async Run() 패턴. 7단계 검증(테이블 존재 / UNIQUE 인덱스 / FK / 컬럼 수 / 마이그레이션 히스토리 / 시드 / 총 BASE TABLE) + idino-default Tenant + general Department 멱등 시드
+  - **NEW `user_mig/tools/phase43_fk_inspect.csx`** (~55 LOC) — FK ON DELETE 동작 + 인덱스 정의 + UNIQUE 위반 차단 시험 (PostgresException 23505 캐치)
+- **마이그레이션 SQL 적용 결과 (운영 PG, 단일 트랜잭션, ~30ms)**:
+  - `CREATE TABLE "AIAgentManagement"."Tenants"` (8 col) + PK + FK_Tenants_Users_CreatedBy ON DELETE SET NULL
+  - `CREATE TABLE "AIAgentManagement"."Departments"` (9 col) + PK + FK_Departments_Departments_ParentDepartmentId ON DELETE RESTRICT + FK_Departments_Tenants_TenantId ON DELETE RESTRICT
+  - 5개 인덱스: `IX_Tenants_TenantCode UNIQUE` / `IX_Tenants_CreatedBy` / `IX_Departments_DepartmentCode UNIQUE` / `IX_Departments_TenantId` / `IX_Departments_ParentDepartmentId`
+  - `__EFMigrationsHistory` INSERT (`20260506085522_AddTenantsAndDepartments`)
+- **검증 결과 (`phase43_verify_seed.csx` 출력)**:
+  - 테이블 존재 True/True / UNIQUE 인덱스 2/2 / FK 제약 3/3 / Tenants 컬럼 8/8 / Departments 컬럼 9/9 / 마이그레이션 히스토리 True / 총 BASE TABLE 37 (35 + Tenants + Departments)
+  - 시드 INSERT: idino-default Tenant TenantId=1 + general Department (TenantId=1, ParentDepartmentId=NULL) 1건 / 조인 조회 1행
+- **FK ON DELETE / UNIQUE 정밀 검증 (`phase43_fk_inspect.csx`)**:
+  - `Tenants.FK_Tenants_Users_CreatedBy` → ON DELETE SET NULL (운영자 계정 삭제가 Tenant 행을 지우지 않음)
+  - `Departments.FK_Departments_Tenants_TenantId` → ON DELETE RESTRICT (Tenant 가 부서를 가지면 삭제 차단)
+  - `Departments.FK_Departments_Departments_ParentDepartmentId` → ON DELETE RESTRICT (상위 부서 삭제 전 하위 재배치 강제)
+  - UNIQUE 위반 시험: `INSERT 'idino-default' 중복` → PostgresException 23505 (`duplicate key value violates unique constraint "IX_Tenants_TenantCode"`). UNIQUE 동작 확인
+- **Agent 모델 변경 X**: 본 Phase 에서는 Agent.TenantId / Agent.DepartmentId FK 미도입. 사유: 현재 시연 환경에서 Agent 가 사용자별 소유라 TenantId 매핑이 자연스럽지 않음. Phase 4.5 통합 검증 시점 또는 Phase 7+ 별도 트랙에서 결정. ADR-8 의 마이그레이션 경로는 (1) 현재 Phase 4.3 = 빈 엔티티 신설 → (2) Phase 4.4 = career.tb_department 30 학과 매핑 → (3) Phase 4.5 = Agent + ApiKey 의 TenantId/DepartmentId FK 도입 + 백필 → (4) Phase 7+ = SSO 결정 시 User.TenantId 도입 의 4단계
+- **잠재 위험 / 다음 단계 (Phase 4.4 의존 항목)**:
+  - **career.tb_department 30 학과 미매핑**: Phase 4.2 에서 적용한 idino_career schema 의 `tb_department` 가 빈 테이블 상태. AgentHub.AIAgentManagement.Departments 와의 매핑 정책 미정 (1:1 row-by-row 동기화 vs department_code 만 공유 vs FK 직접 참조 — 후자는 R3 위반). Phase 4.4 또는 별도 트랙에서 매핑 룰 결정 후 백필
+  - **Agent FK 미도입**: 운영 데이터에서 어떤 Agent 가 어떤 Tenant 에 속하는지 미정. Phase 7.1 에서 시드한 15 Agent + admin 의 ApiKey 2 건은 모두 idino-default Tenant 에 잠정 귀속되는 것으로 가정 (코드 변경 없음, 단순 운영 룰)
+  - **Department.ParentDepartmentId 순환 참조**: DB 단 검증 부재 (PostgreSQL 표준 self-FK 는 cycle detection 미지원). application 단 검증 (예: 트리 깊이 제한 10) 미구현. Phase 4.4 매핑 시 application 검증 도입
+  - **TIMESTAMPTZ 사용**: 본 Phase 의 Tenants/Departments 는 timestamptz 채택 (EF 의 DateTime UTC 기본 매핑) — career.tb_* (timestamp without timezone) 와 시간 표현 불일치. 다국적 운영 시 통일 작업 필요 (별도 트랙)
+  - **CreatedBy 시드 NULL**: 본 Phase 의 idino-default Tenant 는 CreatedBy=NULL (시스템 시드). 운영 시점에 admin@example.com 의 UserId 로 백필 가능 (선택)
+- **Phase 4.3 진입/완료 조건 체크**:
+  - [x] Q1 옵션 B 결정 (Tenants + 별도 Departments)
+  - [x] Tenant + Department 모델 정의 + 한국어 XML doc + ADR-8 주석
+  - [x] DbContext UNIQUE/FK 매핑
+  - [x] EF 마이그레이션 add + 운영 PG 적용 검증 (37 BASE TABLE)
+  - [x] 시드 (idino-default + general)
+  - [x] FK ON DELETE / UNIQUE 위반 차단 정밀 검증
+  - [x] archive ModelSnapshot 보존 검증 (변경 0건)
+  - [x] progress.md 갱신
+  - [ ] commit 대기 (Phase 4.1/4.2/4.3/7.1/7.2 통합 commit 또는 Phase 별 분리)
+- **commit 대기**: 사용자 확인 후 진행. 신규 파일 6개(.cs 4 + .csx 2), 수정 1개(.cs DbContext + ModelSnapshot.cs)
 
 ### 2026-05-06 (Phase 4.2 — career DDL 3개 파일 → AGENT_HUB.idino_career schema 62 테이블 + 18 MS .env)
 - **사용자 결정 (Phase 4.2 진입 전 확정)**: Q-A=빈 schema only(DDL only) / Q-B=옵션 C(SQL 무변경 + 런타임 래퍼) / Q-C=00_run_all.sql 의 DDL 3개 파일만 / Q-D=dotnet-script + Npgsql 직접 실행 (psql 미설치 환경) / Q-E=조사 후 결정 → **공용 라이브러리 1곳 + 18 MS 각자 .env override** 방식 채택 (조사 결과: `career/shared/database/connection.py` 공용 + 각 MS `app/database.py` 별도 존재)

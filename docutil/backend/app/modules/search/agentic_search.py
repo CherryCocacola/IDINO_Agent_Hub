@@ -209,10 +209,15 @@ class AgenticSearchService:
 
     @staticmethod
     async def _analyze_query(query: str) -> dict:
-        """Use LLM to analyze and optimize the search query."""
-        from app.integrations.llm.client import OpenAIClient
+        """Use LLM to analyze and optimize the search query.
 
-        llm = OpenAIClient()
+        Phase 7.3: ``OpenAIClient()`` 직접 호출(R2/anti-patterns.md §1 위반)을 제거하고
+        factory 경유로 변경. 내부적으로 ``AgentHubLLMWrapper`` 가 ``agentic-search``
+        AgentCode 로 위임하여 AgentHub 의 라우팅/사용량/PII 정책을 적용받는다.
+        """
+        from app.integrations.llm.factory import create_llm_client
+
+        llm = create_llm_client("agentic_search")
         prompt = AGENTIC_QUERY_ANALYSIS_PROMPT.format(query=query)
 
         response = await llm.generate(
@@ -231,19 +236,20 @@ class AgenticSearchService:
         query: str,
         response: SearchResponse,
     ) -> dict:
-        """Use LLM to judge whether search results are sufficient."""
-        from app.integrations.llm.client import OpenAIClient
+        """Use LLM to judge whether search results are sufficient.
 
-        llm = OpenAIClient()
+        Phase 7.3: ``OpenAIClient()`` 직접 호출 제거. ``agentic-search`` AgentCode 로
+        AgentHub 위임. 결과 품질 판정은 단일 진입점을 통해 사용량/감사 로그에 집계된다.
+        """
+        from app.integrations.llm.factory import create_llm_client
+
+        llm = create_llm_client("agentic_search")
 
         # Build results summary for the LLM
         results_lines = []
         for i, r in enumerate(response.results[:5], 1):
             snippet = r.content[:150].replace("\n", " ")
-            results_lines.append(
-                f"  [{i}] score={r.score:.3f} doc=\"{r.document_name}\" "
-                f"snippet=\"{snippet}...\""
-            )
+            results_lines.append(f'  [{i}] score={r.score:.3f} doc="{r.document_name}" snippet="{snippet}..."')
         results_summary = "\n".join(results_lines) if results_lines else "(no results)"
 
         prompt = AGENTIC_QUALITY_JUDGMENT_PROMPT.format(

@@ -1,9 +1,14 @@
 """Synthetic training data generation pipeline.
 
-Generates high-quality QA pairs from document chunks using:
-1. GPT-4o for question-answer pair generation
-2. GPT-4o-as-Judge for quality scoring
+Generates high-quality QA pairs from document chunks using AgentHub-delegated
+LLM calls (Phase 7.3 — R2 단일 진입점):
+1. ``training_qa`` AgentCode → ``docutil-evaluator`` 로 QA 쌍 생성
+2. ``training_judge`` AgentCode → ``docutil-evaluator`` 로 LLM-as-Judge 품질 채점
 3. Korean-specific reasoning data augmentation
+
+Phase 7.3 변경: ``OpenAIClient()`` 직접 호출(anti-patterns.md §1 위반)을 제거하고
+``create_llm_client(...)`` factory 경유로 변경. 학습 데이터 생성 비용은 AgentHub 의
+``ApiKey.ConsumerSystem=docutil-training`` 으로 별도 집계 가능 (AI_INVENTORY W6).
 """
 
 from __future__ import annotations
@@ -13,7 +18,7 @@ import logging
 from pathlib import Path
 
 from app.core.config import get_settings
-from app.integrations.llm.client import OpenAIClient
+from app.integrations.llm.factory import create_llm_client
 
 from .config import DataGenerationConfig
 
@@ -65,8 +70,11 @@ class TrainingDataGenerator:
 
     def __init__(self, config: DataGenerationConfig | None = None):
         self.config = config or DataGenerationConfig()
-        self._source_llm = OpenAIClient()
-        self._judge_llm = OpenAIClient()
+        # Phase 7.3: ``OpenAIClient()`` 직접 호출 제거. factory 경유로 AgentHub 위임.
+        # ``training_qa`` / ``training_judge`` task 키는 모두 ``docutil-evaluator``
+        # AgentCode 로 매핑되며, 호출처에서 동일 Agent 의 다른 system prompt 를 사용.
+        self._source_llm = create_llm_client("training_qa")
+        self._judge_llm = create_llm_client("training_judge")
 
     async def generate_from_chunks(
         self,
