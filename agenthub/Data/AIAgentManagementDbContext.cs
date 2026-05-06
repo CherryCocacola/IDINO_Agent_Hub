@@ -46,6 +46,11 @@ public class AIAgentManagementDbContext : DbContext
     public DbSet<BannedWord> BannedWords { get; set; }
     public DbSet<PiiDetectionLog> PiiDetectionLogs { get; set; }
 
+    // ── Phase 4.3 — Tenants + Departments (ADR-8 / Q1 옵션 B) ───────────────
+    // 멀티테넌시 단일 권위 엔티티. 4개 서브프로젝트의 Tenant 식별 진입점.
+    public DbSet<Tenant> Tenants { get; set; }
+    public DbSet<Department> Departments { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -272,5 +277,50 @@ public class AIAgentManagementDbContext : DbContext
         modelBuilder.Entity<DocumentChunk>()
             .HasIndex(c => c.DocumentId)
             .HasDatabaseName("IX_DocumentChunks_DocumentId");
+
+        // ── Phase 4.3 — Tenants + Departments (ADR-8 / Q1 옵션 B) ───────────
+        // Tenant.TenantCode UNIQUE — 외부 노출 식별자의 단일성 보장
+        modelBuilder.Entity<Tenant>()
+            .HasIndex(t => t.TenantCode)
+            .IsUnique();
+
+        // Tenant.Creator (선택 FK, Users.UserId) — DELETE 시 SET NULL.
+        // 운영자 계정 삭제가 Tenant 행을 함께 지우지 않도록 한다.
+        modelBuilder.Entity<Tenant>()
+            .HasOne(t => t.Creator)
+            .WithMany()
+            .HasForeignKey(t => t.CreatedBy)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Department.DepartmentCode UNIQUE — 외부 노출 식별자의 단일성 보장
+        modelBuilder.Entity<Department>()
+            .HasIndex(d => d.DepartmentCode)
+            .IsUnique();
+
+        // Department.TenantId 조회 인덱스 — Tenant 별 부서 목록 조회용
+        modelBuilder.Entity<Department>()
+            .HasIndex(d => d.TenantId)
+            .HasDatabaseName("IX_Departments_TenantId");
+
+        // Department.ParentDepartmentId 조회 인덱스 — 트리 탐색용
+        modelBuilder.Entity<Department>()
+            .HasIndex(d => d.ParentDepartmentId)
+            .HasDatabaseName("IX_Departments_ParentDepartmentId");
+
+        // Department → Tenant FK (NOT NULL). DELETE 시 RESTRICT —
+        // Tenant 가 부서를 가지고 있으면 Tenant 삭제를 차단해 데이터 무결성을 강제.
+        modelBuilder.Entity<Department>()
+            .HasOne(d => d.Tenant)
+            .WithMany(t => t.Departments)
+            .HasForeignKey(d => d.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Department → ParentDepartment self-FK (선택). DELETE 시 RESTRICT —
+        // 상위 부서 삭제 전에 하위 부서를 명시적으로 재배치하도록 강제.
+        modelBuilder.Entity<Department>()
+            .HasOne(d => d.ParentDepartment)
+            .WithMany(d => d.ChildDepartments)
+            .HasForeignKey(d => d.ParentDepartmentId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
