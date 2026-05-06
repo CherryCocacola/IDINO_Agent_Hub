@@ -144,6 +144,25 @@ const routes = [
         name: 'KnowledgeBase',
         component: () => import('@/views/KnowledgeBase.vue')
       },
+      // ── 운영자 KB(DocUtil BFF) — Phase 6.3 신설. R2 단일 진입점: 운영자 KB 관리는 AgentHub 에서만 ──
+      {
+        path: 'admin/knowledge-base',
+        name: 'AdminKnowledgeBase',
+        component: () => import('@/views/AdminKnowledgeBase.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
+      {
+        path: 'admin/knowledge-base/upload',
+        name: 'AdminKnowledgeBaseUpload',
+        component: () => import('@/views/AdminKnowledgeBaseUpload.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
+      {
+        path: 'admin/knowledge-base/:id',
+        name: 'AdminKnowledgeBaseDetail',
+        component: () => import('@/views/AdminKnowledgeBaseDetail.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
       {
         path: 'reports',
         name: 'Reports',
