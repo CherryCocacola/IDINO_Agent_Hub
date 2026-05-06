@@ -7,6 +7,8 @@ python-multipart==0.0.9
 sqlalchemy[asyncio]==2.0.35
 asyncpg==0.29.0
 alembic==1.13.2
+# Phase 4.4 — pgvector(1536D) 임베딩 컬럼 매핑 (Vector SQLAlchemy 타입)
+pgvector==0.3.6
 
 # Kafka
 aiokafka==0.11.0

@@ -21,6 +21,10 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
+# Phase 4.4 — pgvector(1536D) 임베딩 컬럼 매핑용
+# pgvector 패키지는 requirements.txt 에 추가됨 (Phase 4.4)
+from pgvector.sqlalchemy import Vector
+
 from ..database import Base
 
 
@@ -148,6 +152,9 @@ class Course(Base):
     course_category = Column(String(50))
     grade_level = Column(Integer)
     description = Column(Text)
+    # Phase 4.4 — 과목 RAG 임베딩 (text-embedding-3-small 1536D, ADR-10)
+    # IVFFlat cosine 인덱스: ix_tb_course_embedding
+    embedding = Column(Vector(1536), nullable=True)
     use_fg = Column(CHAR(1), default='Y')
     ins_user_id = Column(String(50))
     ins_dt = Column(DateTime, default=datetime.utcnow)
@@ -234,6 +241,9 @@ class Program(Base):
     end_date = Column(Date)
     description = Column(Text)
     competency_contributions = Column(JSONB)
+    # Phase 4.4 — 비교과 프로그램 RAG 임베딩 (text-embedding-3-small 1536D, ADR-10)
+    # IVFFlat cosine 인덱스: ix_tb_program_embedding
+    embedding = Column(Vector(1536), nullable=True)
     use_fg = Column(CHAR(1), default='Y')
     ins_user_id = Column(String(50))
     ins_dt = Column(DateTime, default=datetime.utcnow)

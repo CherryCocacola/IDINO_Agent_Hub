@@ -8,6 +8,10 @@ from uuid import uuid4
 from sqlalchemy import Column, String, Integer, Numeric, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
+# Phase 4.4 — pgvector(1536D) 임베딩 컬럼 매핑용
+# pgvector 패키지는 requirements.txt 에 추가됨 (Phase 4.4)
+from pgvector.sqlalchemy import Vector
+
 from ..database import Base
 
 
@@ -50,6 +54,9 @@ class SuccessPattern(Base):
     timeline = Column(JSONB)  # Timeline structure
     success_rate = Column(Numeric(5, 2))
     sample_size = Column(Integer, default=0)
+    # Phase 4.4 — 성공 패턴 RAG 임베딩 (text-embedding-3-small 1536D, ADR-10)
+    # IVFFlat cosine 인덱스: ix_tb_success_pattern_embedding
+    embedding = Column(Vector(1536), nullable=True)
     # Audit columns
     ins_user_id = Column(String(50))
     ins_dt = Column(DateTime, default=datetime.utcnow)

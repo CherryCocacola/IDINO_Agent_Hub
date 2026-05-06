@@ -10,4 +10,6 @@ langchain-openai==0.2.1
 langchain-community==0.3.1
 sqlalchemy[asyncio]==2.0.32
 asyncpg==0.29.0
+# Phase 4.4 — pgvector(1536D) 검색 + Vector SQLAlchemy 타입 매핑 (retrieval_service)
+pgvector==0.3.6
 python-jose[cryptography]==3.3.0
