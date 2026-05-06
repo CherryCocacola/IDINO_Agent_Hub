@@ -9,6 +9,12 @@ from .exceptions import (
     ValidationException,
 )
 from .logging import setup_logging, get_logger
+# Phase 7.2 — AgentHub 단일 진입점 클라이언트 (R2)
+from .agenthub_client import (
+    AgentHubClient,
+    AgentHubError,
+    get_agenthub_client,
+)
 
 # Kafka imports are optional (requires aiokafka)
 try:
@@ -31,4 +37,8 @@ __all__ = [
     "get_logger",
     "KafkaProducer",
     "KafkaConsumer",
+    # Phase 7.2 — AgentHub 클라이언트
+    "AgentHubClient",
+    "AgentHubError",
+    "get_agenthub_client",
 ]

@@ -1,6 +1,6 @@
 # IDINO Agent Hub — 통합 작업 진행 상황
 
-> **마지막 갱신**: 2026-05-05 (Phase 4.1 완료 — DocUtil alembic schema → AGENT_HUB.document_utilization)
+> **마지막 갱신**: 2026-05-06 (Phase 7.2 완료 — 운영 PG 시드 적용 + 시연용 master ApiKey 2개 발급 + 공용 AgentHubClient 라이브러리 양쪽 설치)
 > **갱신 규칙**: 모든 작업 완료 시 본 파일을 갱신한다 (CLAUDE.md 의무 사항).
 > **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세), `docs/AI_INVENTORY.md` (Phase 1 산출물)
 
@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 3 + 5 + 7.1 commit 완료. Phase 4.1 운영 PG 적용 완료 (document_utilization=28 테이블, alembic head=009) — commit 대기 |
-| **다음 Phase** | Phase 4.2 (DocUtil 부팅 검증) 또는 Phase 7.2 (Agent 별 ApiKey 발급/스코프) — 사용자 결정 대기 |
-| **마지막 commit** | `40b69eb [agenthub/nexus] Phase 5.2 — AiProxyService Nexus 분기 + HybridRouter (PII/dataLabel/capability/cost)` (Phase 4.1/7.1 commit 미실행) |
+| **현재 Phase** | Phase 7.2 운영 PG 적용 완료 (Roles=3 + admin=1 + ApiServices=3 + Agents=15 + ApiKeys=2). 코드 측면 변경 (DocUtil/career 양쪽 AgentHubClient + .env / .env.example 갱신) — commit 대기 |
+| **다음 Phase** | Phase 7.3 (DocUtil 측 35→1 LLM 호출 → AgentHubClient 위임) 또는 Phase 7.4 (career 측 위임) — 사용자 결정 대기 |
+| **마지막 commit** | `ef4a7f5` (Phase 4.1/7.1/7.2 commit 미실행 — 사용자 승인 대기. master ApiKey 평문은 commit 미포함) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -153,6 +153,45 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-06 (Phase 7.2 — 운영 PG 시드 적용 + 시연용 master ApiKey 2개 발급 + 공용 AgentHubClient 라이브러리)
+- **목적**: Phase 7.1(AgentHub 15개 Agent 시드 코드 작성)이 운영 PG 에 *미적용* 상태였고, Phase 7.3/7.4 (DocUtil/career 측 LLM 직접 호출 → AgentHub 위임 교체) 진입 전 인프라 사전 준비가 필요. 본 Phase 에서 (1) 운영 PG 에 시드 적용 (2) 시연용 master ApiKey 2개 발급 (3) DocUtil/career 양쪽에 공용 AgentHubClient Python 라이브러리 설치 (4) .env / .env.example 갱신
+- **변경 파일 (5 신규 + 5 수정 + 디스크만 2)**:
+  - **NEW `user_mig/tools/phase72_inspect.py`** (~110 LOC) — 운영 PG read-only 점검 스크립트. admin/ApiServices/Agents/ApiKeys 현황 + ApiKeys 컬럼 스키마(Phase 3.3c GCM/KeyHash) 확인. dotnet 부팅 의존 우회 — Python asyncpg 직접 쿼리
+  - **NEW `user_mig/tools/phase72_seed.py`** (~600 LOC) — Phase 7.1 시드 + ApiKey 발급 통합 스크립트. 멱등 가드 3중 (RoleName / Email / AgentCode UNIQUE). AES-GCM 12바이트 random IV + 16바이트 Tag 분리 저장 — AgentHub `ApiKeyService.EncryptApiKey` 와 1:1 일치 (`Encryption:ApiKeyAesKey` 미설정 폴백 분기와 동등 SHA-256(JWT_SECRET) 32바이트). KeyHash = SHA-256(plaintext) HEX 대문자 64자. `--dry-run` / `--print-keys` 두 옵션. `.phase72_keys.json` 평문 저장 (.gitignore 차단)
+  - **NEW `docutil/backend/app/integrations/agenthub_client.py`** (~280 LOC) — DocUtil 측 공용 AgentHubClient. `chat()` 비스트리밍 + `chat_stream()` SSE generator + `aclose()` lifespan shutdown. `lru_cache(1)` 싱글턴 `get_agenthub_client()`. `httpx.AsyncClient` connection pool 재사용. `AgentHubError` 한국어 메시지 (401/403/404/429/502/503/504 매핑). 한국어 docstring 으로 R2/R3/R5 의도 명시
+  - **NEW `career/shared/common/agenthub_client.py`** (~290 LOC) — career 18 MS 공용 AgentHubClient. DocUtil 측과 시그니처 1:1 동일. `consumer_label` 인자 추가 — 환경변수 `AGENTHUB_CONSUMER` 로 MS 별 식별 가능 (예: `career-ai-service`, `career-coaching-service`). User-Agent 헤더에 반영
+  - **NEW (운영 PG INSERT — 변경 없는 .py 스크립트로 적용)**: AGENT_HUB DB 의 `AIAgentManagement` schema 에 다음 행 신규 INSERT
+    - Roles 3개: Admin / Developer / User (RoleId=4/5/6 — 기존 시퀀스 이어받음)
+    - Users 1개: admin@example.com / Admin123! / BCrypt 11라운드 (UserId=2)
+    - UserRoles 1개: User=2 ↔ Role=Admin
+    - ApiServices 3개: chatgpt(ServiceId=1) / dalle(2) / nexus(3)
+    - Agents 15개: AgentId=1~15 (LlmRouting 분포: External 4 / Hybrid 10 / Internal 1) — Phase 7.1 카탈로그 1:1 일치
+    - ApiKeys 2개: ApiKeyId=1 docutil-master-key / ApiKeyId=2 career-master-key. UserId=2(admin), AgentId=NULL(전체 권한), ServiceCode=agent-api, Scopes=`chat,stream,info,usage`, Active=TRUE, ExpiresAt=NULL
+  - **MODIFY `career/shared/common/__init__.py`** (+10 LOC) — `AgentHubClient` / `AgentHubError` / `get_agenthub_client` export 추가. 기존 모듈 시그니처 보존 (Kafka optional import 등)
+  - **MODIFY `docutil/backend/app/integrations/__init__.py`** (+1 LOC) — docstring 에 `agenthub_client` 항목 추가. 기존 llm 모듈에 `Phase 7.3 deprecate 예정` 주석
+  - **MODIFY `docutil/.env`** (디스크만, .gitignore 차단) — `AGENTHUB_URL=http://localhost:5000` + `AGENTHUB_API_KEY=ak-...` (docutil-master-key 평문) 신규
+  - **MODIFY `career/.env`** (디스크만, .gitignore 차단) — `AGENTHUB_URL` + `AGENTHUB_API_KEY=ak-...` (career-master-key 평문) + `AGENTHUB_CONSUMER=career` 신규
+  - **MODIFY `docutil/.env.example`** (커밋 가능) — `CHANGE_ME_agenthub_api_key` placeholder + 한국어 안내. 운영 환경에서 AgentHub UI 정식 발급 절차 사용 권장 명시
+  - **MODIFY `career/.env.example`** (커밋 가능) — 동등 항목 + `AGENTHUB_CONSUMER` placeholder
+  - **MODIFY `.gitignore`** (+3 LOC) — `user_mig/tools/.phase72_keys.json` 패턴 추가 (시연용 평문 키 저장 파일)
+- **암호화 호환성 검증 (AgentHub `ApiKeyAuthService.ValidateApiKeyAsync` 동등 시뮬레이션)**:
+  - 발급된 평문 키 → SHA-256 HEX 산출 → `KeyHash` UNIQUE 인덱스 단건 조회 → AES-GCM 복호화 → 평문 일치 확인 — 2/2 OK
+  - AgentHub 인증 핫패스(빠른 경로)에서 즉시 통과될 것임을 확인. Legacy 폴백(KeyHash NULL) 경로는 진입하지 않음
+- **잠재 위험 / 다음 단계 (Phase 7.3 / 7.4 의존 항목)**:
+  - **AgentHub 부팅 시 시드 충돌 가능성**: 본 task 가 직접 INSERT 한 admin/Roles 가 후속 AgentHub 정상 부팅 시 `DatabaseInitializer.SeedAsync` 의 멱등 가드(`AnyAsync()`)에 막혀 skip 되어야 안전. 코드 검증: `Roles.AnyAsync()` true → skip OK / `Users.FirstOrDefaultAsync(Email='admin@example.com')` non-null → 기존 admin 상태 점검 분기 진입 (BCrypt prefix 검사 통과 후 패스워드 검증 실패 시 재해시 — 본 task 의 BCrypt 11라운드 해시는 통과). `ApiServices.AnyAsync()` true → 6개 시드 분기 skip + 기존 `existingMistral`/`existingNexus`/`existingImageServices` 분기는 미존재 항목만 추가 → claude/cursor/copilot/gemini/mistral 추가 INSERT (6→ 약 14개로 확장됨, 기존 3개와 충돌 없음). `Agents` 멱등 가드는 `AgentCode` 단위 — 본 task INSERT 한 15개 모두 skip OK
+  - **AgentHub URL 미확정**: `.env` 의 `AGENTHUB_URL=http://localhost:5000` 은 개발 가정. 운영 시 `agenthub.idino.co.kr` 또는 IIS 호스팅 도메인으로 변경 필요. Phase 7.3/7.4 의 통합 검증 단계에서 결정
+  - **Encryption:ApiKeyAesKey 미설정 의존**: 본 task 는 `appsettings.Development.json` 의 `Encryption:ApiKeyAesKey=""` 폴백 분기(JWT key SHA-256 유도)에 의존. 운영 환경에서 별도 AES key 주입 시 본 task 의 발급 키는 *복호화 실패* 가 발생하므로 **재발급 필요** (TECHSPEC §16 C2 — Phase 3.6 마이그레이션 시점)
+  - **Scopes 전체 권한**: 시연용 단순화로 `chat,stream,info,usage` 모두 허용. 운영 시 시스템별 최소 권한 원칙(예: docutil-user 키는 chat+stream 만, AgentId 바인딩) 으로 좁힐 것
+  - **ConsumerSystems 검증 미수행**: AgentHub 의 `Agent.ConsumerSystems` JSON 화이트리스트 검증은 ApiKey 의 `ConsumerSystem` 값과 매칭되어야 하나 현재 `ApiKey` 모델에는 ConsumerSystem 컬럼 부재 — Phase 7 후속 작업에서 KeyName(예: `docutil-master-key`) prefix 매칭 또는 별도 컬럼 신설 검토
+  - **시연용 평문 키 회수 절차 부재**: `.phase72_keys.json` 은 .gitignore 차단되지만 디스크에 평문으로 잔존. 시연 종료 후 **삭제** 권장. 정기 키 회전(rotate) 정책은 운영 시 별도 트랙
+- **Phase 7.3 / 7.4 진입 조건**:
+  - [x] AgentHub 15 Agent 시드 운영 적용 — 본 Phase 완료
+  - [x] master ApiKey 2개 발급 + 평문 안전 전달 — 본 Phase 완료
+  - [x] 공용 AgentHubClient 라이브러리 — 본 Phase 완료
+  - [ ] AgentHub 부팅 검증 (HTTP `/v1/chat/completions` 1회 라운드트립) — Phase 7.3 통합 검증 시점
+  - [ ] AgentHub 측 `Agent.ConsumerSystems` 화이트리스트 강제 검증 동작 확인 — 별도 트랙
+- **commit 대기**: 사용자 확인 후 진행. **평문 ApiKey 는 commit 미포함** — 사용자에게 별도 채널(보고서/구두) 전달
 
 ### 2026-05-05 (Phase 4.1 — DocUtil alembic schema → AGENT_HUB.document_utilization)
 - **목적**: Q3 옵션 B 의 첫 단계 — monorepo 안에 복사된 DocUtil 코드를 AGENT_HUB DB(192.168.10.39:5440) 의 `document_utilization` schema 로 연결. 시연용 monorepo COPY 환경이라 데이터 이전(pg_dump → import) 은 생략하고 **빈 schema 에 alembic head 까지 적용**. R3 스키마 격리 + cross-schema FK 차단 검증

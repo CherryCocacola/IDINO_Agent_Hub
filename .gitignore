@@ -28,6 +28,9 @@ Desktop.ini
 .env.local
 .env.development.local
 .env.test.local
+
+# Phase 7.2 시연용 ApiKey 평문 출력 (절대 커밋 금지)
+user_mig/tools/.phase72_keys.json
 .env.production.local
 .env.*.local
 *.env
