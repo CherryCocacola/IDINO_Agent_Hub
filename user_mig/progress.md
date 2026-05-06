@@ -1,6 +1,6 @@
 # IDINO Agent Hub — 통합 작업 진행 상황
 
-> **마지막 갱신**: 2026-05-06 (Phase 7.2 완료 — 운영 PG 시드 적용 + 시연용 master ApiKey 2개 발급 + 공용 AgentHubClient 라이브러리 양쪽 설치)
+> **마지막 갱신**: 2026-05-06 (Phase 4.2 완료 — career DDL 3개 파일 → AGENT_HUB.idino_career schema 62 테이블 적용 + 18 MS .env DB 블록 갱신)
 > **갱신 규칙**: 모든 작업 완료 시 본 파일을 갱신한다 (CLAUDE.md 의무 사항).
 > **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세), `docs/AI_INVENTORY.md` (Phase 1 산출물)
 
@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 7.2 운영 PG 적용 완료 (Roles=3 + admin=1 + ApiServices=3 + Agents=15 + ApiKeys=2). 코드 측면 변경 (DocUtil/career 양쪽 AgentHubClient + .env / .env.example 갱신) — commit 대기 |
-| **다음 Phase** | Phase 7.3 (DocUtil 측 35→1 LLM 호출 → AgentHubClient 위임) 또는 Phase 7.4 (career 측 위임) — 사용자 결정 대기 |
-| **마지막 commit** | `ef4a7f5` (Phase 4.1/7.1/7.2 commit 미실행 — 사용자 승인 대기. master ApiKey 평문은 commit 미포함) |
+| **현재 Phase** | Phase 4.2 완료 (career idino_career schema 62 tb_* 테이블 + 128 인덱스 + 82 FK 적용. R3 격리 검증 완료. 18 MS .env DB 블록 모두 AGENT_HUB 로 전환). Phase 7.2 운영 PG 적용 완료 (Roles=3 + admin=1 + ApiServices=3 + Agents=15 + ApiKeys=2). 코드 측면 변경 (DocUtil/career AgentHubClient + .env / .env.example 갱신) — commit 대기 |
+| **다음 Phase** | Phase 4.3 (Tenants + Departments — Q1 옵션 B), 또는 Phase 7.3 (DocUtil 측 35→1 LLM 호출 → AgentHubClient 위임), 또는 Phase 7.4 (career 측 위임) — 사용자 결정 대기 |
+| **마지막 commit** | `602fb41` (Phase 4.1/4.2/7.1/7.2 commit 미실행 — 사용자 승인 대기. master ApiKey 평문은 commit 미포함) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -153,6 +153,50 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-06 (Phase 4.2 — career DDL 3개 파일 → AGENT_HUB.idino_career schema 62 테이블 + 18 MS .env)
+- **사용자 결정 (Phase 4.2 진입 전 확정)**: Q-A=빈 schema only(DDL only) / Q-B=옵션 C(SQL 무변경 + 런타임 래퍼) / Q-C=00_run_all.sql 의 DDL 3개 파일만 / Q-D=dotnet-script + Npgsql 직접 실행 (psql 미설치 환경) / Q-E=조사 후 결정 → **공용 라이브러리 1곳 + 18 MS 각자 .env override** 방식 채택 (조사 결과: `career/shared/database/connection.py` 공용 + 각 MS `app/database.py` 별도 존재)
+- **사전 조사 결과**:
+  - `00_run_all.sql` 파싱 — 13단계 `\i` 순서. DDL=3개 (`01_schema_create.sql` / `02_techspec_tables.sql` / `10_p1_p2_extensions.sql`). 나머지 10개는 seed/fix DML
+  - DDL 3개 파일 인코딩 분석 — UTF-8 BOM + 한국어 mojibake (CP949↔UTF-8 인코딩 손상). `COMMENT ON ... '깨진한글'` 의 closing quote 누락, `-- 주석 CREATE TABLE` 같은 라인에 newline 누락 등 다중 손상 발견
+  - 적용 전 idino_career schema 상태 — Phase 3.6 적용으로 schema 빈 상태 (0 테이블), 확장 3종(uuid-ossp/pgcrypto/vector) public schema 활성. R3 격리 — `document_utilization` 27 tb_*, `idino_career` 0
+  - ORM 공통 패턴 — `career/shared/database/connection.py` 에 `DatabaseConfig.from_env()` 공통 클래스 존재 (DB_SCHEMA env override + `connect_args.server_settings.search_path` 주입). 18 MS 중 10개는 자체 `app/database.py` 가 `connect_args.server_settings.search_path = f"{settings.DB_SCHEMA},public"` 형태로 동등 패턴. 결론: **DB_SCHEMA 변경 없음, DB 접속 자격증명만 .env 로 override**
+- **변경 파일 (3 신규 + 19 .env 갱신, 디스크만)**:
+  - **NEW `user_mig/tools/phase42_inspect.csx`** (~70 LOC) — DB 사전 점검 스크립트. dotnet-script + Npgsql 8.0.6 + async Main 패턴
+  - **NEW `user_mig/tools/phase42_apply.csx`** (~150 LOC) — DDL 3개 파일 적용 래퍼. 옵션 C 디스크 무변경 + 런타임 6단계 변환:
+    1. UTF-8 BOM strip (`Encoding.UTF8` 자동 처리)
+    2. `COMMENT ON ... ;` 라인 제거 (한국어 인용부호 손상 우회) — 22+18+23=63건
+    3. `SET search_path TO idino_career;` → `idino_career, public` 패치 (uuid_generate_v4 등 extension 함수 가시성 확보) — 3건
+    4. `-- 주석 CREATE TABLE` 인라인 분리 — 15+26+30=71건
+    5. `CREATE INDEX` → `CREATE INDEX IF NOT EXISTS` (멱등성) — 8+9+28=45건
+    6. `REFERENCES tb_user(user_id)` FK 제거 (별도 auth schema, 본 적용 대상 X) — 3건. DML(INSERT/UPDATE/DELETE) 제거 (Q-A — 빈 schema only) — 4건
+  - **NEW `user_mig/tools/phase42_verify.csx`** (~80 LOC) — 적용 후 검증 스크립트. 테이블 수/인덱스/FK/행수/R3 누설 확인
+  - **MODIFY `career/.env`** (디스크만, .gitignore 차단) — DB 블록 6 라인 갱신: `DB_HOST=192.168.10.39 / DB_PORT=5440 / DB_NAME=AGENT_HUB / DB_USER=AGENT_HUB / DB_PASSWORD=idino!@#$ / DB_SCHEMA=idino_career`. 한국어 주석으로 R3 격리 명시
+  - **MODIFY 8 기존 MS .env** (디스크만): advisor / ai / badge / coaching / opportunity / portfolio / risk / simulation. `sed -i` 로 동일 DB 블록 in-place 치환 + `.phase42.bak` 백업
+  - **NEW 10 신규 MS .env** (디스크만): auth / alumni / competency / integration / notification / privacy / roadmap / skill / student / worknet. 기존 .env 부재 → 신규 파일에 DB 블록만 작성
+- **SQL 적용 결과 (3/3 OK, 적용 시간 약 5초)**:
+  - `01_schema_create.sql`: 14 tb_* 테이블 + 8 인덱스 (학교/학과/교수/과목/학생/학기/수강/성적 마스터)
+  - `02_techspec_tables.sql`: 25 tb_* 테이블 + 9 인덱스 (역량/스킬/평가/프로그램/포트폴리오/직무/추천/AI Ops 메타)
+  - `10_p1_p2_extensions.sql`: 23 tb_* 테이블 + 28 인덱스 (Skill Graph/Opportunity/Coaching/Risk/Badge/Simulation/Advisor)
+  - **합계**: 62 tb_* 테이블 + 128 인덱스 + 82 FK 제약. 모든 테이블 0행 (Q-A 빈 schema 원칙 100% 준수)
+  - 사용자 spec 의 "53 tb_*" 와 차이 — 실제 DDL 3개 파일에 정의된 것은 **62 테이블**. spec 수치는 외부 추정치이며, 실측 62 가 정확
+- **R3 schema 격리 검증 결과**:
+  - idino_career: 62 tb_* / document_utilization: 27 tb_* (Phase 4.1) / public: 1 (vector_meta) / AIAgentManagement: 35 (PascalCase, tb_* 누설 없음) / hangfire: 8 (PascalCase). **누설 0건 — 통과**
+  - MS-style 접속 시뮬레이션 (`SearchPath=idino_career` connstring) — `tb_university` / `tb_role` no-prefix read 0행, search_path 정상 적용 확인
+- **잠재 위험 / 다음 단계 (Phase 4.3 의존 항목)**:
+  - **tb_user FK 누락 (3건)**: file 10 의 advisor 관련 3개 컬럼(`tb_advisor_assignment.advisor_user_id`, `tb_advisor_intervention.advisor_user_id`, `tb_advisor_note.advisor_user_id`) 이 FK 없는 단순 UUID 컬럼이 됨. tb_user 는 별도 `scripts/01_auth_tables_ddl.sql` 에 정의되어 본 적용 대상 X. **Phase 4.3 또는 별도 트랙에서 tb_user 도입 후 ALTER TABLE ... ADD CONSTRAINT FK 복구 필요**
+  - **DML 미적용 (4건)**: file 10 의 `tb_role_skill_map` / `tb_skill_relation` / `tb_opportunity` / `tb_badge` 시드 INSERT 4건은 Q-A 원칙으로 skip. 시연 단계에서 빈 테이블에 application 단 데이터 입력으로 검증 가능
+  - **Q1 옵션 B (Tenants + Departments)**: career 의 `tb_department` 가 추후 통합 Tenants/Departments 모델로 이전될 때, 30개 학과 데이터 매핑이 별도 트랙. 현재 빈 테이블이라 영향 없음
+  - **TECHSPEC §16 R12 (Cascade Delete)**: 적용된 82개 FK 중 ON DELETE 명시 없음 → PostgreSQL 기본 NO ACTION. 운영 시 cascade 정책 검토 필요 (특히 tb_student → tb_enrollment/tb_grade)
+  - **timezone**: TIMESTAMP without timezone 사용 (TIMESTAMPTZ 권장). 현재 시연용 단일 KST 환경이라 즉시 위험 X. 다국적 운영 시점에 ALTER TABLE
+  - **ORM 모델 schema 적용**: 코드 변경 0건 — 기존 `connect_args.server_settings.search_path` 패턴이 그대로 동작. 단, `__table_args__ = {'schema': 'idino_career'}` 명시 패턴은 미사용. SQLAlchemy `MetaData(schema='idino_career')` 도 미사용. 현재는 search_path 의존이라 R3 격리 강제력이 약함 (실수로 DB_SCHEMA 변경 시 다른 schema 에 테이블 생성 위험) — Phase 4.3 또는 별도 트랙에서 명시적 schema 매핑 검토
+- **Phase 4.3 진입 조건**:
+  - [x] career idino_career schema 62 테이블 적용 — 본 Phase 완료
+  - [x] 18 MS .env DB 블록 갱신 — 본 Phase 완료
+  - [ ] Tenants + Departments 모델 ADR-8 구체화 (Q1 옵션 B 결정 적용)
+  - [ ] tb_user 도입 + 3개 advisor FK 복구
+  - [ ] (선택) seed 데이터 적용 — application 단 또는 03_*~60_* SQL 별도 적용
+- **commit 대기**: 사용자 확인 후 진행. .csx 3개 파일은 commit 가능, .env / .bak 19개 파일은 .gitignore 차단
 
 ### 2026-05-06 (Phase 7.2 — 운영 PG 시드 적용 + 시연용 master ApiKey 2개 발급 + 공용 AgentHubClient 라이브러리)
 - **목적**: Phase 7.1(AgentHub 15개 Agent 시드 코드 작성)이 운영 PG 에 *미적용* 상태였고, Phase 7.3/7.4 (DocUtil/career 측 LLM 직접 호출 → AgentHub 위임 교체) 진입 전 인프라 사전 준비가 필요. 본 Phase 에서 (1) 운영 PG 에 시드 적용 (2) 시연용 master ApiKey 2개 발급 (3) DocUtil/career 양쪽에 공용 AgentHubClient Python 라이브러리 설치 (4) .env / .env.example 갱신
