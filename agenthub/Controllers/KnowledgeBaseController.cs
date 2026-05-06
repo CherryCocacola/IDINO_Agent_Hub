@@ -6,6 +6,13 @@ using AIAgentManagement.Services;
 
 namespace AIAgentManagement.Controllers;
 
+// ── Phase 6.4 (ADR-2): 운영자 KB 화면은 AgentHub Vue UI(Phase 6.3) 로 이전 ──
+// 본 컨트롤러(`/api/knowledgebase`) 는 자체 KB CRUD 를 그대로 노출하나
+// 신규 운영자 작업은 Phase 6.3 의 KB 콘솔 (IDocUtilClient 경유) 사용 권장.
+// 라우트는 Phase 5+ 호환을 위해 보존 — Swagger 에서 deprecated 표시.
+// Phase 8+ 에서 자체 KB 테이블 drop 과 함께 제거.
+// ----------------------------------------------------------------------
+[Obsolete("ADR-2: 운영자 KB 관리는 AgentHub Vue UI(Phase 6.3, IDocUtilClient 경유) 로 이전. /api/knowledgebase 는 Phase 5+ 호환 유지. Phase 8+ 에서 제거 예정.", error: false)]
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]

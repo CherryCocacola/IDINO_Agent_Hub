@@ -1,5 +1,11 @@
 namespace AIAgentManagement.Services;
 
+// ── Phase 6.4 (ADR-2): 자체 문서 인덱싱은 deprecate ───────────────────
+// 청크 분할 + 임베딩 + DB 저장은 DocUtil 워커(`docutil/backend/app/workers/embedding_generator.py`)
+// 가 권위 시스템. AgentHub 는 IDocUtilClient.UploadDocumentAsync 로 위임만 한다.
+// Phase 8+ 에서 KnowledgeBaseDocument/DocumentChunk DB drop 과 함께 제거.
+// ----------------------------------------------------------------------
+[Obsolete("ADR-2: AgentHub 자체 문서 인덱싱은 deprecate. 신규 코드는 IDocUtilClient.UploadDocumentAsync 사용. Phase 8+ 에서 제거 예정.", error: false)]
 public interface IDocumentIndexingService
 {
     /// <summary>

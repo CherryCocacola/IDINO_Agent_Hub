@@ -6,6 +6,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AIAgentManagement.Services;
 
+// ── Phase 6.4 (ADR-2): 자체 문서 인덱싱 구현체는 deprecate ────────────
+// 청크 분할(SplitIntoChunks) + 임베딩(IEmbeddingService) + DocumentChunks INSERT 흐름
+// 전체가 DocUtil 워커로 이전. 본 클래스는 Phase 5+ 호환을 위해 유지 — 본문 변경 없음.
+// Phase 8+ 에서 KnowledgeBaseDocument/DocumentChunk DB drop 과 함께 제거.
+// ----------------------------------------------------------------------
+[Obsolete("ADR-2: AgentHub 자체 문서 인덱싱 구현체는 deprecate. 신규 코드는 IDocUtilClient.UploadDocumentAsync 사용. Phase 8+ 에서 제거 예정.", error: false)]
 public class DocumentIndexingService : IDocumentIndexingService
 {
     private readonly AIAgentManagementDbContext _context;

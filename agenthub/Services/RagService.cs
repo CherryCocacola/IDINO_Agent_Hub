@@ -99,6 +99,16 @@ public class RagService : IRagService
             }
         }
 
+        // ── 자체 KB 폴백 흐름 (KnowledgeBaseSource != "DocUtil") ─────────
+        // ADR-2 (Phase 6.4) 에 따라 자체 KB(KnowledgeBaseDocument/DocumentChunk)
+        // 는 deprecate 진행 중이며 Phase 8+ 에서 drop 예정이다. 본 흐름은
+        //   - Phase 5+ 호환 (KnowledgeBaseSource 미설정 또는 "AgentHub" Agent)
+        //   - Phase 6.5 e2e 검증 전 안전망
+        // 으로 유지된다. 신규 Agent 는 KnowledgeBaseSource="DocUtil" + KnowledgeBaseRef
+        // 를 설정하여 위 분기로 라우팅되도록 권장. 본 영역의 KnowledgeBaseDocuments /
+        // DocumentChunks 호출은 [Obsolete] 클래스를 사용하므로 빌드 시 CS0618 경고가
+        // 발생하나, 의도적 deprecation 표시이므로 #pragma 로 차단하지 않는다.
+        // ----------------------------------------------------------------
         // [A] 쿼리 임베딩 캐싱 - 같은 질문이면 OpenAI API 호출 스킵
         float[] queryEmbedding;
         var embeddingCacheKey = _cachingService.GetEmbeddingKey(queryHash);
