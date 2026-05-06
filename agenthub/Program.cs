@@ -188,7 +188,9 @@ try
                 {
                     SchemaName = "hangfire", // AGENT_HUB.hangfire 스키마 사용
                     PrepareSchemaIfNecessary = true,
-                    QueuePollInterval = TimeSpan.Zero
+                    // Hangfire.PostgreSql 1.20+ 는 QueuePollInterval=Zero 를 unsafe 로 차단 (Phase 6.5).
+                    // SQL Server 시점에는 Zero 가 효율적이었으나 PG 는 최소 500ms 권장.
+                    QueuePollInterval = TimeSpan.FromMilliseconds(500)
                 }));
         
         builder.Services.AddHangfireServer();
