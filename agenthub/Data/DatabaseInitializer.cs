@@ -907,6 +907,18 @@ public static class DatabaseInitializer
                         new ApiServiceModel { ServiceId = service.ServiceId, ModelName = "sora-1.5", Description = "Sora 1.5", IsActive = true, SortOrder = 2, ModelType = "stable", CreatedAt = now, UpdatedAt = now }
                     });
                     break;
+
+                case "nexus":
+                    // Phase 5.2 — Nexus 사내 LLM 두 카테고리(primary/auxiliary).
+                    // 모델 이름은 Nexus 의 model_loader 가 처리하는 카테고리 키이며,
+                    // 실 모델(Qwen3 14B / ExaOne 7.8B 등)은 nexus_config.yaml 에서 매핑.
+                    // AgentBuilder 의 모델 드롭다운 표시용으로만 사용된다.
+                    models.AddRange(new[]
+                    {
+                        new ApiServiceModel { ServiceId = service.ServiceId, ModelName = "primary",   Description = "Nexus Primary (메인 모델)",    IsActive = true, SortOrder = 1, ModelType = "stable", CreatedAt = now, UpdatedAt = now },
+                        new ApiServiceModel { ServiceId = service.ServiceId, ModelName = "auxiliary", Description = "Nexus Auxiliary (보조 모델)",  IsActive = true, SortOrder = 2, ModelType = "stable", CreatedAt = now, UpdatedAt = now },
+                    });
+                    break;
             }
 
             if (models.Any())

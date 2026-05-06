@@ -22,6 +22,9 @@ public class ChatService : IChatService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly CachingService _cachingService;
     private readonly ILogger<ChatService> _logger;
+    // Phase 5.2 — Hybrid 라우팅 결정 엔진(LlmRouting="Hybrid" Agent 만 사용).
+    // 옵셔널 주입으로 Phase 5.1 단위 테스트 호환성을 보존한다.
+    private readonly IHybridRouter? _hybridRouter;
 
     public ChatService(
         AIAgentManagementDbContext context,
@@ -31,7 +34,8 @@ public class ChatService : IChatService
         IPiiDetectionService piiDetectionService,
         IHttpContextAccessor httpContextAccessor,
         CachingService cachingService,
-        ILogger<ChatService> logger)
+        ILogger<ChatService> logger,
+        IHybridRouter? hybridRouter = null)
     {
         _context = context;
         _aiProxyService = aiProxyService;
@@ -41,6 +45,7 @@ public class ChatService : IChatService
         _httpContextAccessor = httpContextAccessor;
         _cachingService = cachingService;
         _logger = logger;
+        _hybridRouter = hybridRouter;
     }
 
     public async Task<List<ConversationDto>> GetConversationsAsync(int userId, bool? isArchived = null)
@@ -451,7 +456,7 @@ public class ChatService : IChatService
             agent = await _context.Agents
                 .Include(a => a.ApiService)
                 .FirstOrDefaultAsync(a => a.AgentId == request.AgentId.Value);
-            
+
             if (agent != null && request.ServiceId == null)
             {
                 request.ServiceId = agent.ServiceId;
@@ -462,6 +467,10 @@ public class ChatService : IChatService
         {
             throw new InvalidOperationException("ServiceId is required");
         }
+
+        // Phase 5.2 — Agent.LlmRouting 평가 후 request.ServiceId 보정
+        // (External=유지 / Internal=nexus / Hybrid=HybridRouter 결정)
+        await ResolveServiceIdAsync(agent, request, CancellationToken.None);
 
         // Quota 체크
         var quotaCheck = await _quotaService.CheckQuotaAsync(userId, request.ServiceId.Value);
@@ -1009,6 +1018,9 @@ public class ChatService : IChatService
             throw new InvalidOperationException("ServiceId is required");
         }
 
+        // Phase 5.2 — Agent.LlmRouting 평가 후 request.ServiceId 보정
+        await ResolveServiceIdAsync(agent, request, cancellationToken);
+
         // ── Quota 사전 체크 ────────────────────────────────────────────────────
         var quotaCheck = await _quotaService.CheckQuotaAsync(userId, request.ServiceId.Value);
         if (!quotaCheck.CanUse)
@@ -1306,6 +1318,9 @@ public class ChatService : IChatService
         {
             throw new InvalidOperationException("ServiceId is required");
         }
+
+        // Phase 5.2 — Agent.LlmRouting 평가 후 request.ServiceId 보정
+        await ResolveServiceIdAsync(agent, request, cancellationToken);
 
         // ── Quota 사전 체크 ────────────────────────────────────────────────────
         var quotaCheck = await _quotaService.CheckQuotaAsync(userId, request.ServiceId.Value);
@@ -1652,4 +1667,121 @@ public class ChatService : IChatService
 
         _                             => null  // 매핑 없으면 Fallback 사용 안 함
     };
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Phase 5.2 — Agent.LlmRouting 평가 + Nexus 분기 (.claude/rules/architecture.md P3)
+    //
+    // 라우팅은 ChatService 의 책임이다. AiProxyService 는 god class(3,966 LOC) 라서
+    // god class 안에 라우팅 결정까지 들이는 것은 H13(분해 트랙) 와 충돌. 라우팅 결정은
+    // "어떤 ApiService 를 쓸 것인가" 이고, AiProxy 는 "선택된 ApiService 를 어떻게 호출하는가"
+    // 만 책임진다.
+    //
+    // 동작:
+    //   - LlmRouting="External" / null → request.ServiceId 그대로 (기존 동작 유지)
+    //   - LlmRouting="Internal" → "nexus" ApiService 의 ServiceId 로 치환
+    //   - LlmRouting="Hybrid" → IHybridRouter.DecideAsync 결과로 분기
+    //
+    // 호출자(SendDirectMessageAsync / SendDirectMessageStreamChunksAsync /
+    //        SendDirectMessageStreamEventsAsync) 는 결정 전에 request.ServiceId 가
+    // 채워져 있다고 가정하므로(Agent.ServiceId 폴백), 본 헬퍼는 in-place 로 request.ServiceId
+    // 만 갱신한다(외부 시그니처 무변경).
+    // ════════════════════════════════════════════════════════════════════════
+    private async Task ResolveServiceIdAsync(
+        Models.Agent? agent,
+        DirectSendMessageRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        // Agent 미지정 또는 라우팅 없음 → 외부 폴백(기존 동작).
+        if (agent == null || string.IsNullOrWhiteSpace(agent.LlmRouting))
+        {
+            return;
+        }
+
+        var routing = agent.LlmRouting.Trim();
+
+        // External → 기존 ServiceId 유지.
+        if (string.Equals(routing, "External", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        // Internal → 무조건 nexus.
+        if (string.Equals(routing, "Internal", StringComparison.OrdinalIgnoreCase))
+        {
+            await SwapToServiceCodeAsync("nexus", request, agent, "internal_routing", cancellationToken);
+            return;
+        }
+
+        // Hybrid → HybridRouter 결정.
+        if (string.Equals(routing, "Hybrid", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_hybridRouter == null)
+            {
+                _logger.LogWarning(
+                    "Agent {AgentId} 가 Hybrid 모드인데 HybridRouter 미주입 — External 폴백",
+                    agent.AgentId);
+                return;
+            }
+
+            // ChatMessageRequestDto 로 변환해 평가 — DTO 변환은 가벼운 메시지 매핑만.
+            var pseudoRequest = new ChatMessageRequestDto
+            {
+                Messages = (request.Messages ?? new List<ChatMessageItemDto>())
+                    .Select(m => new ChatMessageDto
+                    {
+                        Role = m.Role,
+                        Content = m.Content,
+                        Contents = m.Contents
+                    }).ToList(),
+                Temperature = request.Temperature ?? 0.7m,
+                MaxTokens = request.MaxTokens ?? 4096,
+                Language = request.Language,
+            };
+
+            var decision = await _hybridRouter.DecideAsync(agent, pseudoRequest, cancellationToken);
+            _logger.LogInformation(
+                "HybridRouter 결정: AgentId={AgentId}, Decision={Decision}, Reason={Reason}, Detail={Detail}",
+                agent.AgentId, decision.Decision, decision.Reason, decision.Detail ?? "(none)");
+
+            if (string.Equals(decision.Decision, "internal", StringComparison.OrdinalIgnoreCase))
+            {
+                await SwapToServiceCodeAsync("nexus", request, agent, decision.Reason, cancellationToken);
+            }
+            // External 결정은 기존 ServiceId 유지(Agent.ServiceId).
+            return;
+        }
+
+        // 알 수 없는 LlmRouting 값 → 기존 동작 보존 + 경고.
+        _logger.LogWarning(
+            "Agent {AgentId} 의 LlmRouting 값 '{Routing}' 인식 불가 — External 폴백",
+            agent.AgentId, routing);
+    }
+
+    /// <summary>request.ServiceId 를 주어진 ServiceCode 의 ApiService 로 치환.</summary>
+    private async Task SwapToServiceCodeAsync(
+        string targetServiceCode,
+        DirectSendMessageRequestDto request,
+        Models.Agent agent,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        var targetService = await _context.ApiServices
+            .Where(s => s.ServiceCode == targetServiceCode && s.IsActive)
+            .Select(s => new { s.ServiceId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (targetService == null)
+        {
+            _logger.LogWarning(
+                "라우팅 결정 reason={Reason} 였으나 활성 ApiService '{ServiceCode}' 미존재 — Agent.ServiceId 유지. AgentId={AgentId}",
+                reason, targetServiceCode, agent.AgentId);
+            return;
+        }
+
+        var previousId = request.ServiceId;
+        request.ServiceId = targetService.ServiceId;
+        _logger.LogInformation(
+            "라우팅 적용: AgentId={AgentId}, Reason={Reason}, ServiceId {Previous} → {New} (ServiceCode={Code})",
+            agent.AgentId, reason, previousId, targetService.ServiceId, targetServiceCode);
+    }
 }

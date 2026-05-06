@@ -1,6 +1,6 @@
 # IDINO Agent Hub — 통합 작업 진행 상황
 
-> **마지막 갱신**: 2026-05-05
+> **마지막 갱신**: 2026-05-06 (Phase 5.2 완료)
 > **갱신 규칙**: 모든 작업 완료 시 본 파일을 갱신한다 (CLAUDE.md 의무 사항).
 > **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세), `docs/AI_INVENTORY.md` (Phase 1 산출물)
 
@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 5 (AgentHub Nexus provider + LlmRouting + Hybrid 라우팅) — **5.1 진행 중 (commit 대기)** |
-| **다음 Phase** | Phase 5.2 (AiProxyService nexus case + HybridRouter + ApiServiceModels 시드) — 사용자 승인 후 |
-| **마지막 commit** | `624b50f [agenthub/migration] Phase 3.6 — AGENT_HUB DB 운영 PG 적용 + T-SQL bracket 잔존 PG 호환 변환` (Phase 5.1 commit 미진행 — 사용자 결정 대기) |
+| **현재 Phase** | Phase 5 (AgentHub Nexus provider + LlmRouting + Hybrid 라우팅) — **완료 (5.1 + 5.2 코드 작업 완료, commit 대기)** |
+| **다음 Phase** | Phase 4 (DocUtil/career → AGENT_HUB 통합) 또는 Phase 6 (DocUtil 운영자 → AgentHub 흡수) — 사용자 결정 |
+| **마지막 commit** | `624b50f [agenthub/migration] Phase 3.6 — AGENT_HUB DB 운영 PG 적용 + T-SQL bracket 잔존 PG 호환 변환` (Phase 5.1 + 5.2 commit 미진행 — 사용자 결정 대기) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -30,7 +30,7 @@
 | **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | ✅ 완료 | 2026-05-05 |
 | **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | ✅ 핵심 완료 (3.1 + 3.2 + 3.3 + 3.4 + 3.5 + 3.5b + 3.6) | 2026-05-06 |
 | **4** | DocUtil/career → AGENT_HUB 통합 | ⏳ 대기 | Phase 3 후 |
-| **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | 🔄 진행 중 (5.1 완료, 5.2 대기) | 2026-05-06~ |
+| **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | ✅ 핵심 완료 (5.1 + 5.2 코드 작업 + 빌드 0E/단위 검증 6/6) | 2026-05-06 |
 | **6** | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | ⏳ 대기 | Phase 5 후 |
 | **7** | DocUtil/career AI 호출 → AgentHub 위임 | ⏳ 대기 | Phase 5+6 후 |
 | **8** | (보류) Vue → Next.js | ⏸ 보류 | — |
@@ -153,6 +153,85 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-06 (Phase 5.2 — AiProxyService nexus 분기 + CallNexusAsync/StreamNexusChunksAsync + IHybridRouter/HybridRouter 5단계 결정 엔진 + ChatService ResolveServiceIdAsync + ApiServiceModels nexus 시드)
+- **목적**: Phase 5.1 의 INexusClient + Agent 라우팅 컬럼을 실 호출 경로에 결합. ADR-1 옵션 B 의 native /v1/chat 호출, TECHSPEC §10.3 / §15.4 의 HybridRouter 결정 엔진(PII / 데이터 라벨 / 모델 capability / 비용 임계치 / default 5단계), ChatService 진입점에서 LlmRouting 평가 후 ServiceId 보정. EF 모델 변경 0건 — 마이그레이션 add 불필요
+- **변경 파일 (5 modify + 2 new)**:
+  - **`Services/IHybridRouter.cs` (NEW, 73 LOC)** — `IHybridRouter` 인터페이스 + `HybridRoutingDecision(string Decision, string Reason, string? Detail)` record. Reason enum-like 문자열 7종 표준화: `pii_detected` / `data_label` / `capability_required` / `cost_exceeded` / `default` / `invalid_policy` / `empty_policy`. 한국어 XML doc + .claude/rules/domain-model.md 인용
+  - **`Services/HybridRouter.cs` (NEW, 약 305 LOC)** — `IHybridRouter` 구현체. 의존성: `IPiiDetectionService`, `IHttpContextAccessor`, `ILogger<HybridRouter>`. 5단계 결정 우선순위:
+    1. **PII**: `piiThreshold` ∈ {"block","mask"} 일 때 `_piiService.DetectPiiAsync(lastUserContent)` 호출 → `HasPii=true` 면 `piiAction`(기본 "internal") 반환. 검출 실패는 보수적으로 "internal" + reason="pii_detected" + detail="pii_check_failed"
+    2. **데이터 라벨**: HTTP 헤더 `X-Data-Label` 값으로 `dataLabels[label]` 매핑(case-insensitive). DTO 확장은 별도 트랙
+    3. **모델 capability**: vision 휴리스틱(model 이름에 "vision"/"4o"/"o1"/"claude-3-5-sonnet"/"gemini-2.5-pro"/"gemini-3" 포함) → external 강제. longContext: `request.MaxTokens > longContextThreshold`(기본 32000) → external 강제
+    4. **비용 임계치**: 글자수/4 휴리스틱 토큰 추정 × 단가 0.000002 USD/token > `costThreshold.perRequest` → `exceedAction`(기본 "internal") 반환
+    5. **default**: `policy.default` (없으면 "external")
+    - `NormalizeDecision` 헬퍼로 알 수 없는 값은 보수적으로 "external" 폴백
+    - `JsonSerializer.Deserialize<JsonElement>` + `PropertyNameCaseInsensitive=true` 로 PascalCase/camelCase 모두 허용
+    - 정책 JSON null/빈 문자열 → "external" + reason="empty_policy", invalid JSON → "external" + reason="invalid_policy" + LogWarning
+  - **`Services/AiProxyService.cs`** (3,966 → 약 4,260 LOC, +294)
+    - 생성자에 `INexusClient? nexusClient = null` 옵셔널 추가 — Phase 5.1 단위 테스트 호환성 보존
+    - 라인 213~231 `SendChatMessageAsync` switch 에 `"nexus" => await CallNexusAsync(service, model, request, cancellationToken)` 1줄 추가 (기존 7개 분기 보존)
+    - 라인 274 인근 `SendChatMessageStreamChunksAsync` 에 `if (providerCode == "nexus")` 분기 추가 → `StreamNexusChunksAsync` 위임 후 `yield break`. 기존 OpenAI native streaming 직후 위치
+    - **`CallNexusAsync` (약 110 LOC, NEW)**: ChatMessageRequestDto.Messages → Nexus 단일 message string 변환은 `BuildNexusSingleMessage` 헬퍼 위임. 마지막 user 메시지(멀티모달 텍스트 포함) + 시스템 메시지 prepend(있으면). Nexus model 매핑은 `NormalizeNexusModel` 헬퍼 — "primary"/"auxiliary" 외 값은 "primary" 폴백 + LogWarning. TenantId 는 `_configuration["Nexus:DefaultTenantId"]` 기본 "default". `INexusClient.SendChatAsync` 위임 후 `AiResponseDto` 반환(Cost=0, Model=nexusModel, FinishReason="stop", PromptTokens/CompletionTokens/TotalTokens 는 NexusUsage 매핑). **예외 처리**: `HttpRequestException` → `InvalidOperationException("Nexus 응답 실패. 사내망 연결을 확인하세요.")`, `TaskCanceledException`(타임아웃) → `InvalidOperationException("Nexus 응답이 시간 초과되었습니다.")`. 사용자 cancellation 은 그대로 전파
+    - **`StreamNexusChunksAsync` (약 90 LOC, NEW)**: `[EnumeratorCancellation]` 부착. `_nexusClient.SendChatStreamAsync` 의 `NexusStreamEvent` 를 `ChatChunk` 로 매핑:
+      - `"chunk"` → `ChatChunk.Delta(evt.Text)`
+      - `"usage"` → `ChatChunk.Usage(prompt/completion/total)`, `sawUsage` 플래그 set
+      - `"error"` → `InvalidOperationException(evt.ErrorMessage ?? "Nexus 스트리밍 중 에러가 발생했습니다.")`
+      - `"done"` → break (자연 종료)
+      - 미인식 type → LogDebug
+    - 종료 후 항상 `ChatChunk.Stop("stop")` 발행 — Phase 3.5b finish_reason 컨벤션 보존. usage 미수신 시 LogDebug 로 흔적 남김(상위 ChatService 가 cost=0 폴백)
+    - 헬퍼: `BuildNexusSingleMessage` (system+last user 결합), `NormalizeNexusModel` ("primary"/"auxiliary" 정규화)
+  - **`Services/ChatService.cs`** (1,655 → 약 1,810 LOC, +155)
+    - 생성자에 `IHybridRouter? hybridRouter = null` 옵셔널 추가
+    - **3개 메서드의 라우팅 진입점**:
+      - L473 `SendDirectMessageAsync` (비스트리밍): Agent 룩업 + `request.ServiceId = agent.ServiceId` 폴백 직후, Quota 체크 직전 `await ResolveServiceIdAsync(agent, request, CancellationToken.None)` 추가
+      - L1022 `SendDirectMessageStreamChunksAsync` (OpenAI 호환 stream): Agent 룩업 직후 `await ResolveServiceIdAsync(agent, request, cancellationToken)` 추가
+      - L1323 `SendDirectMessageStreamEventsAsync` (Vue chat stream): 동일 위치
+    - **`ResolveServiceIdAsync` private helper (NEW)**: agent.LlmRouting 평가 후 in-place 로 `request.ServiceId` 보정
+      - "External" 또는 null → 기존 ServiceId 유지(외부 시그니처 무변경)
+      - "Internal" → `SwapToServiceCodeAsync("nexus", ...)` 로 활성 nexus ApiService.ServiceId 로 치환
+      - "Hybrid" → `IHybridRouter.DecideAsync` 결과로 분기 ("internal" 결정 시 nexus 로 swap, "external" 결정 시 유지). 결정 결과는 `LogInformation` 으로 AgentId/Decision/Reason/Detail 4종 기록
+      - 알 수 없는 LlmRouting 값 → 기존 동작 보존 + LogWarning
+      - HybridRouter 미주입 → External 폴백 + LogWarning(단위 테스트 호환성)
+    - **`SwapToServiceCodeAsync` private helper (NEW)**: 활성 ApiService 룩업 후 `request.ServiceId` 갱신, 결과를 LogInformation 으로 추적. 활성 ApiService 미존재 시 기존 ServiceId 유지 + LogWarning(외부망 환경 nexus 미배포 폴백)
+    - DTO 변환은 `pseudoRequest = new ChatMessageRequestDto { Messages = ..., MaxTokens = ..., Temperature = ..., Language = ... }` — HybridRouter 평가에 필요한 핵심 필드만(전체 매핑은 무거우므로 회피)
+  - **`Program.cs`** (610 → 611 LOC, +1)
+    - L266 `builder.Services.AddScoped<IHybridRouter, HybridRouter>()` 추가 (Phase 5.1 의 `INexusClient` 등록 직후)
+  - **`Data/DatabaseInitializer.cs`** (920 → 932 LOC, +12)
+    - `SeedApiServiceModelsAsync` switch 의 `"sora"` case 직후 `case "nexus"` 추가 — `primary` (SortOrder=1, "Nexus Primary (메인 모델)") + `auxiliary` (SortOrder=2, "Nexus Auxiliary (보조 모델)") 2개 ApiServiceModel 멱등 시드. 기존 멱등 가드(`existingModels` AnyAsync) 이미 적용되어 추가 변경 불필요. AgentBuilder UI 의 모델 드롭다운 표시용 (실 모델명은 nexus_config.yaml 매핑)
+- **빌드 검증** (`dotnet build --no-restore -v quiet`):
+  - 1차: HybridRouter.cs L201 `CS0136 — 'threshold' 변수 중복 선언` 에러 1건 발생 — longContext 의 `threshold` 와 cost 의 `threshold` 가 같은 메서드에서 충돌
+  - 변수명 변경 (cost 측 → `costThreshold`) 후 2차: **0 errors / 11 warnings** (전부 기존 CS1998, 신규 도입 0건). 경과 2.79s
+- **단위 검증 (`dotnet-script` 6 시나리오)** — bin/Debug/net8.0/hybrid_test.csx ad-hoc 작성, IPiiDetectionService/IHttpContextAccessor mock 으로 HybridRouter 격리 호출:
+  - **S1 PII 감지** → `internal` / `pii_detected` / detail=`ResidentNumber` ✅
+  - **S2 데이터 라벨 confidential**(헤더 X-Data-Label 주입) → `internal` / `data_label` / detail=`confidential` ✅
+  - **S3 vision 모델 (DefaultModel="gpt-4o")** → `external` / `capability_required` / detail=`vision:gpt-4o` ✅
+  - **S4 비용 임계치 초과** (300,000자 메시지 → 75,000 토큰 추정 × 0.000002 = 0.15 USD > 0.10) → `internal` / `cost_exceeded` / detail=`est=0.1500,threshold=0.1000` ✅
+  - **S5 default**(어떤 규칙도 매치 안 됨) → `external` / `default` ✅
+  - **S6 invalid JSON**("{not valid json") → `external` / `invalid_policy` ✅
+  - **6/6 PASS** — exit code 0. 검증 후 hybrid_test.csx 삭제(운영 빌드 산출물 정리)
+- **DI 등록 사후 검증 (grep)**:
+  - `Program.cs:266` `AddScoped<IHybridRouter, HybridRouter>` ✅
+  - `AiProxyService.cs:230` `"nexus" => await CallNexusAsync(...)` ✅
+  - `AiProxyService.cs:295` `if (providerCode == "nexus")` streaming 분기 ✅
+  - `AiProxyService.cs:4097` `private async IAsyncEnumerable<ChatChunk> StreamNexusChunksAsync` ✅
+  - `ChatService.cs:473 / 1022 / 1323` 3개 메서드 모두 `await ResolveServiceIdAsync(agent, request, ...)` ✅
+- **외부 시그니처 보존 검증**:
+  - `IAiProxyService.SendChatMessageAsync` / `SendChatMessageStreamChunksAsync` 무변경
+  - `IChatService.SendDirectMessageAsync` / `SendDirectMessageStreamChunksAsync` / `SendDirectMessageStreamEventsAsync` 무변경
+  - 호출자(컨트롤러 / SignalR Hub / OpenAICompatController) 영향 0건
+- **잠재 위험 / 별도 트랙**:
+  - **DataLabel DTO 확장 미도입**: 본 단계는 HTTP 헤더 `X-Data-Label` 만 지원. ChatMessageRequestDto / DirectSendMessageRequestDto 에 정식 필드 추가는 ConsumerSystem(docutil-user/career-student/...) 단위 표준화 후 별도 트랙. 헤더가 없으면 dataLabels 단계 자동 스킵 → 다음 우선순위 진행이라 안전
+  - **토큰 추정 정확도**: 글자수/4 휴리스틱은 영어 평균(4 char/token)을 한국어에 단순 적용. 한국어는 약 2 char/token 으로 더 정밀하나 정확 계산은 `tiktoken-csharp` 도입 시점(별도 트랙). 현재 구현은 비용 임계치 판정만 영향 — 보수적으로 internal 라우팅 유도하므로 안전한 방향
+  - **vision 모델 휴리스틱 false positive**: "4o" 키워드는 `gpt-4o` 외에도 `o4-something` 같은 향후 모델명도 매칭 가능. 정밀 매칭은 ApiServiceModel 에 `Capabilities` JSON 컬럼 도입 후 별도 트랙
+  - **Nexus 서버 미가동 환경**: 본 단계 코드 작성 + DI 등록 + 분기 + 단위 검증까지만. 실 통합 테스트는 운영 배포 시점 (LAN 외부 환경에서 호출 시 `HttpRequestException` → 사용자에게 한국어 메시지 "Nexus 응답 실패. 사내망 연결을 확인하세요."). 외부망 배포에서는 `ApiService.IsActive=false` 토글로 nexus ServiceCode 비활성화 가능 — `SwapToServiceCodeAsync` 가 활성 ApiService 미존재 시 기존 ServiceId 유지하므로 운영자 콘솔에서 Hybrid Agent 의 fallback 동작 가능
+  - **Hybrid 결정의 PII 검출 비용**: 매 Hybrid 요청마다 PII 정규식 평가 — 현재 PiiDetectionService 는 정규식 8종이라 부담 적으나 대량 트래픽 시 캐싱 검토(별도 트랙)
+  - **ApiKeyPool 미연동**: Nexus 는 공유 시크릿이라 풀 무관. 하지만 SharedSecret 회전은 `appsettings.Production.json` 직접 변경 + 앱 재기동 필요 (별도 vault 도입 트랙)
+  - **AgentBuilder UI 미갱신**: LlmRouting 드롭다운(External/Internal/Hybrid) + RoutingPolicyJson 편집기 + 모델 드롭다운에 "primary"/"auxiliary" 노출은 Vue 측 후속 트랙
+- **다음 단계 (Phase 5 완료 → Phase 4 또는 Phase 6 사용자 결정)**:
+  - **Phase 4** (DocUtil/career → AGENT_HUB 통합): 단일 PG 통합 + pgvector 임베딩 차원 통일 (8영업일 예상). 시작 전 Q1(career department_id) / Q3(DocUtil S6/S7 진행 위치) 결정 필요
+  - **Phase 6** (DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션): Phase 5 완료를 전제로 진입 가능. 10영업일 예상
+  - **Phase 7** (DocUtil/career AI 호출 → AgentHub 위임): API Key 발급 + 인벤토리 35호출 코드 교체 (10영업일)
+  - **AgentBuilder UI 갱신** (Vue 측 별도 트랙): LlmRouting 드롭다운 + RoutingPolicyJson 편집기 + Hybrid 모델 카탈로그 노출
 
 ### 2026-05-06 (Phase 5.1 — Agent 라우팅 컬럼 5종 + INexusClient/NexusClient + ApiServices nexus 시드 + 마이그레이션 운영 PG 적용)
 - **목적**: ADR-1 (Nexus 옵션 B) / ADR-2 (RAG=DocUtil) / TECHSPEC §15.4 의 Agent 단위 라우팅 정책을 데이터 모델/클라이언트 코드에 도입. AiProxyService 분기/HybridRouter 는 Phase 5.2 트랙으로 분리

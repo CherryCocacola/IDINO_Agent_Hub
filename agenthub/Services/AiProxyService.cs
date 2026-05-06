@@ -17,6 +17,10 @@ public class AiProxyService : IAiProxyService
     private readonly ILogger<AiProxyService> _logger;
     private readonly IRagService? _ragService;
     private readonly IApiKeyPoolService? _apiKeyPool;
+    // Phase 5.2 — ADR-1 옵션 B 의 Nexus 사내 LLM 클라이언트.
+    // null 허용은 Phase 5.1 등록(Program.cs) 이전의 단위 테스트 호환성을 위한 것이며,
+    // 운영 환경에서는 항상 NexusClient 가 주입된다.
+    private readonly INexusClient? _nexusClient;
 
     public AiProxyService(
         AIAgentManagementDbContext context,
@@ -24,7 +28,8 @@ public class AiProxyService : IAiProxyService
         IHttpClientFactory httpClientFactory,
         ILogger<AiProxyService> logger,
         IRagService? ragService = null,
-        IApiKeyPoolService? apiKeyPool = null)
+        IApiKeyPoolService? apiKeyPool = null,
+        INexusClient? nexusClient = null)
     {
         _context = context;
         _configuration = configuration;
@@ -32,6 +37,7 @@ public class AiProxyService : IAiProxyService
         _logger = logger;
         _ragService = ragService;
         _apiKeyPool = apiKeyPool;
+        _nexusClient = nexusClient;
     }
 
     // ── API 키 헬퍼: 풀 → 설정 순으로 키를 가져옵니다 ────────────────────────
@@ -220,6 +226,8 @@ You are a professional and helpful AI assistant.
                 "copilot" => await CallAzureOpenAiAsync(service, model, request, cancellationToken), // Microsoft Copilot (Azure OpenAI)
                 "cursor" => await CallCopilotAsync(service, model, request, cancellationToken), // GitHub Copilot API
                 "azure-openai" or "microsoft-copilot" => await CallAzureOpenAiAsync(service, model, request, cancellationToken),
+                // Phase 5.2 — Nexus 사내 LLM (ADR-1 옵션 B). 변환 어댑터 없이 네이티브 /v1/chat 호출.
+                "nexus" => await CallNexusAsync(service, model, request, cancellationToken),
                 _ => throw new NotSupportedException($"Service {service.ServiceCode} is not supported")
             };
         }
@@ -274,6 +282,19 @@ You are a professional and helpful AI assistant.
         if (providerCode is "chatgpt" or "openai")
         {
             await foreach (var chunk in StreamOpenAiChunksAsync(service, model, request, cancellationToken)
+                .WithCancellation(cancellationToken))
+            {
+                yield return chunk;
+            }
+            yield break;
+        }
+
+        // Phase 5.2 — Nexus 진짜 SSE 스트리밍 (ADR-1 옵션 B).
+        // Nexus 의 /v1/chat/stream 은 4-Tier AsyncGenerator 체인을 SSE 로 직접 발행하므로
+        // 비스트리밍 폴백이 아닌 native stream 을 그대로 전달한다.
+        if (providerCode == "nexus")
+        {
+            await foreach (var chunk in StreamNexusChunksAsync(service, model, request, cancellationToken)
                 .WithCancellation(cancellationToken))
             {
                 yield return chunk;
@@ -3963,4 +3984,264 @@ You are a professional and helpful AI assistant.
         public string? Content { get; set; }
     }
 
+    // ════════════════════════════════════════════════════════════════════════════
+    // Nexus 사내 LLM 호출 (Phase 5.2, ADR-1 옵션 B)
+    //
+    // 옵션 B 채택 이유: Nexus 의 4-Tier AsyncGenerator 체인 / 세션 / 멀티테넌시 강점을
+    // 변환 어댑터로 잃지 않기 위함(.claude/rules/anti-patterns.md #2).
+    //
+    // 메시지 매핑 정책:
+    //   - Nexus 는 단일 message string + session_id 키로 Redis 에서 히스토리를 자동 복원
+    //   - 따라서 ChatMessageRequestDto.Messages 의 마지막 user 메시지만 추출
+    //   - 시스템 메시지(system role) 가 있으면 prepend (Nexus 측 system_message 파라미터 미지원
+    //     가정 — 향후 NexusChatRequest 확장 시 분리)
+    //   - assistant 히스토리는 Nexus 측이 session_id 로 복원하므로 호출자가 다시 보낼 필요 없음
+    //
+    // Model 매핑:
+    //   - Nexus 는 "primary" / "auxiliary" 두 카테고리만 사용
+    //   - agenthub 의 model 파라미터가 둘 중 하나가 아니면 "primary" 폴백 + LogWarning
+    //
+    // TenantId:
+    //   - 본 단계에서는 ChatMessageRequestDto 에 TenantId 필드가 없으므로
+    //     IConfiguration["Nexus:DefaultTenantId"] 기본값 사용
+    //
+    // 비용:
+    //   - Nexus 는 사내 모델이므로 cost=0 (ApiService.CostPerRequest=0)
+    //
+    // 예외 처리:
+    //   - HttpRequestException(LAN 도달 불가) / TimeoutException / Nexus 5xx
+    //     → InvalidOperationException("Nexus 응답 실패. 사내망 연결을 확인하세요.")
+    //   - ApiKeyPool 미사용 (공유 시크릿이라 키 회전 무관)
+    // ════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Nexus 비스트리밍 호출 — INexusClient.SendChatAsync 위임.
+    /// </summary>
+    private async Task<AiResponseDto> CallNexusAsync(
+        ApiService service,
+        string model,
+        ChatMessageRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (_nexusClient == null)
+        {
+            // 운영 환경에서는 도달하지 않는 경로(Phase 5.1 Program.cs DI 등록 완료).
+            _logger.LogError("CallNexusAsync 호출됐지만 INexusClient 가 주입되지 않음 — DI 등록 누락");
+            throw new InvalidOperationException(
+                "Nexus 클라이언트가 등록되지 않았습니다. 사내망 연결을 확인하세요.");
+        }
+
+        var startTime = DateTime.UtcNow;
+
+        // 메시지 변환: 시스템 + 마지막 user 만 결합.
+        var (mergedMessage, hadSystem) = BuildNexusSingleMessage(request);
+        if (string.IsNullOrWhiteSpace(mergedMessage))
+        {
+            throw new InvalidOperationException(
+                "Nexus 호출에 실패했습니다. 전송할 사용자 메시지가 없습니다.");
+        }
+
+        // Model 정규화 — primary/auxiliary 가 아니면 primary 폴백.
+        var nexusModel = NormalizeNexusModel(model);
+
+        var tenantId = _configuration["Nexus:DefaultTenantId"];
+        if (string.IsNullOrWhiteSpace(tenantId)) tenantId = "default";
+
+        var nexusRequest = new NexusChatRequest(
+            Message: mergedMessage,
+            SessionId: null, // 향후 ChatMessageRequestDto.ConversationId 매핑 시점에 도입
+            Model: nexusModel,
+            TenantId: tenantId);
+
+        try
+        {
+            var response = await _nexusClient.SendChatAsync(nexusRequest, cancellationToken);
+
+            var responseTime = (int)(DateTime.UtcNow - startTime).TotalMilliseconds;
+
+            return new AiResponseDto
+            {
+                Content = response.Response ?? string.Empty,
+                Model = nexusModel,
+                FinishReason = "stop",
+                PromptTokens = response.Usage?.PromptTokens ?? 0,
+                CompletionTokens = response.Usage?.CompletionTokens ?? 0,
+                TotalTokens = response.Usage?.TotalTokens ?? 0,
+                ResponseTime = responseTime,
+                Cost = 0m, // Nexus 사내 모델 — 비용 0
+            };
+        }
+        catch (HttpRequestException hrex)
+        {
+            _logger.LogError(hrex,
+                "Nexus 호출 실패 (LAN 연결 불가). Service={ServiceCode}, Model={Model}, hadSystem={HadSystem}",
+                service.ServiceCode, nexusModel, hadSystem);
+            throw new InvalidOperationException(
+                "Nexus 응답 실패. 사내망 연결을 확인하세요.", hrex);
+        }
+        catch (TaskCanceledException tcex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // 사용자 취소가 아닌 타임아웃.
+            _logger.LogError(tcex,
+                "Nexus 호출 타임아웃. Service={ServiceCode}, Model={Model}",
+                service.ServiceCode, nexusModel);
+            throw new InvalidOperationException(
+                "Nexus 응답이 시간 초과되었습니다. 잠시 후 다시 시도해주세요.", tcex);
+        }
+    }
+
+    /// <summary>
+    /// Nexus 스트리밍 호출 — INexusClient.SendChatStreamAsync 위임 + ChatChunk 변환.
+    /// Phase 3.5b SSE 컨벤션(delta/usage/stop) 보존.
+    /// </summary>
+    private async IAsyncEnumerable<ChatChunk> StreamNexusChunksAsync(
+        ApiService service,
+        string model,
+        ChatMessageRequestDto request,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        if (_nexusClient == null)
+        {
+            _logger.LogError("StreamNexusChunksAsync 호출됐지만 INexusClient 가 주입되지 않음");
+            throw new InvalidOperationException(
+                "Nexus 클라이언트가 등록되지 않았습니다. 사내망 연결을 확인하세요.");
+        }
+
+        var (mergedMessage, _) = BuildNexusSingleMessage(request);
+        if (string.IsNullOrWhiteSpace(mergedMessage))
+        {
+            throw new InvalidOperationException(
+                "Nexus 호출에 실패했습니다. 전송할 사용자 메시지가 없습니다.");
+        }
+
+        var nexusModel = NormalizeNexusModel(model);
+        var tenantId = _configuration["Nexus:DefaultTenantId"];
+        if (string.IsNullOrWhiteSpace(tenantId)) tenantId = "default";
+
+        var nexusRequest = new NexusChatRequest(
+            Message: mergedMessage,
+            SessionId: null,
+            Model: nexusModel,
+            TenantId: tenantId);
+
+        // 스트림 종료 시 마지막 finish_reason chunk 발행을 보장.
+        // type=done 이벤트 또는 응답 종료 시 NexusClient 가 enumerator 를 자연 종료시킨다.
+        bool sawUsage = false;
+
+        await foreach (var evt in _nexusClient.SendChatStreamAsync(nexusRequest, cancellationToken)
+            .WithCancellation(cancellationToken))
+        {
+            switch (evt.Type)
+            {
+                case "chunk":
+                    if (!string.IsNullOrEmpty(evt.Text))
+                    {
+                        yield return ChatChunk.Delta(evt.Text);
+                    }
+                    break;
+
+                case "usage":
+                    if (evt.Usage != null)
+                    {
+                        sawUsage = true;
+                        yield return ChatChunk.Usage(
+                            evt.Usage.PromptTokens,
+                            evt.Usage.CompletionTokens,
+                            evt.Usage.TotalTokens);
+                    }
+                    break;
+
+                case "error":
+                    _logger.LogError(
+                        "Nexus 스트림 에러 이벤트. Code={Code}, Message={Message}",
+                        evt.ErrorCode, evt.ErrorMessage);
+                    throw new InvalidOperationException(
+                        evt.ErrorMessage ?? "Nexus 스트리밍 중 에러가 발생했습니다.");
+
+                case "done":
+                    // Enumerator 자연 종료 신호 — 추가 처리 없음.
+                    break;
+
+                default:
+                    _logger.LogDebug("알 수 없는 Nexus 스트림 이벤트 타입 무시: {Type}", evt.Type);
+                    break;
+            }
+        }
+
+        // Phase 3.5b 컨벤션 — finish_reason chunk 항상 발행.
+        // sawUsage 여부와 무관하게 stop chunk 를 통해 ChatService 의 finishReason 변수가 채워진다.
+        yield return ChatChunk.Stop("stop");
+
+        // sawUsage 가 false 이면 ChatService 가 cost 계산 시 totalTokens=0 폴백을 사용한다.
+        // Nexus 가 usage 이벤트를 발행하지 않을 가능성에 대비해 별도 경고만 남긴다.
+        if (!sawUsage)
+        {
+            _logger.LogDebug(
+                "Nexus 스트림 종료 — usage 이벤트 미발행. Service={ServiceCode}, Model={Model}",
+                service.ServiceCode, nexusModel);
+        }
+    }
+
+    /// <summary>
+    /// ChatMessageRequestDto 의 messages 를 Nexus 단일 message string 으로 합친다.
+    /// 시스템 메시지가 있으면 prepend, 그 외에는 마지막 user 메시지만.
+    /// </summary>
+    /// <returns>(merged, hadSystem) — merged 가 비면 호출자가 InvalidOperationException 발생.</returns>
+    private static (string Merged, bool HadSystem) BuildNexusSingleMessage(ChatMessageRequestDto request)
+    {
+        if (request.Messages == null || request.Messages.Count == 0)
+        {
+            return (string.Empty, false);
+        }
+
+        var systemMsg = request.Messages.FirstOrDefault(m => m.Role == "system");
+        var lastUserMsg = request.Messages.LastOrDefault(m => m.Role == "user");
+
+        // 마지막 user 의 텍스트(멀티모달 포함) 추출.
+        string? userText = null;
+        if (lastUserMsg != null)
+        {
+            if (!string.IsNullOrWhiteSpace(lastUserMsg.Content))
+            {
+                userText = lastUserMsg.Content;
+            }
+            else if (lastUserMsg.Contents != null && lastUserMsg.Contents.Count > 0)
+            {
+                var parts = lastUserMsg.Contents
+                    .Where(c => string.Equals(c.Type, "text", StringComparison.OrdinalIgnoreCase)
+                                && !string.IsNullOrWhiteSpace(c.Text))
+                    .Select(c => c.Text);
+                userText = string.Join("\n", parts);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(userText))
+        {
+            return (string.Empty, systemMsg != null);
+        }
+
+        if (systemMsg != null && !string.IsNullOrWhiteSpace(systemMsg.Content))
+        {
+            // Nexus 측 message 에 시스템 컨텍스트 prepend.
+            return ($"{systemMsg.Content}\n\n{userText}", true);
+        }
+        return (userText, false);
+    }
+
+    /// <summary>
+    /// Nexus 가 인식하는 model 카테고리("primary"/"auxiliary") 로 정규화.
+    /// 미인식 모델은 LogWarning 후 "primary" 폴백.
+    /// </summary>
+    private string NormalizeNexusModel(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "primary";
+        var lower = raw.Trim().ToLowerInvariant();
+        if (lower is "primary" or "auxiliary") return lower;
+
+        _logger.LogWarning(
+            "Nexus 가 인식하지 못하는 모델 '{Model}' — 'primary' 로 폴백. " +
+            "Agent.DefaultModel 설정을 'primary' 또는 'auxiliary' 로 변경 권장.",
+            raw);
+        return "primary";
+    }
 }

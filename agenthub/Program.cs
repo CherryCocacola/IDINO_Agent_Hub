@@ -263,6 +263,7 @@ builder.Services.AddScoped<IRagService, RagService>();
 builder.Services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
 builder.Services.AddScoped<IQuotaService, QuotaService>();
 builder.Services.AddScoped<INexusClient, NexusClient>(); // Phase 5.1 — Nexus 옵션 B 클라이언트
+builder.Services.AddScoped<IHybridRouter, HybridRouter>(); // Phase 5.2 — Hybrid 라우팅 결정 엔진(PII/라벨/capability/cost)
 builder.Services.AddScoped<IAiProxyService, AiProxyService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
