@@ -1,11 +1,44 @@
-from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
-from langchain.schema import HumanMessage, SystemMessage, AIMessage
+"""
+LLMService — Phase 7.4 (AgentHub 단일 진입점 위임)
+====================================================
+
+Phase 7.4 변경 요약:
+    - 기존: LangChain `ChatOpenAI` + OpenAI SDK `AsyncOpenAI` 직접 호출
+    - 변경: `shared.common.agenthub_client.AgentHubClient` 위임
+    - 사유: 통합 R2 단일 진입점 원칙. AgentHub 가 LLM 라우팅(External/Internal) +
+      ApiKeyPool + PII 정책 + 사용량 추적 + Tool Calling 정책을 일괄 관리한다.
+
+매핑 (AI_INVENTORY 기준):
+    - generate_action_recommendations    → AgentCode "career-action-recommender"   (CA-3)
+    - analyze_competencies               → AgentCode "career-competency-analyzer"  (CA-4)
+    - chat                               → AgentCode "career-chatbot"              (CA-5, Internal/Nexus)
+    - generate_semester_goals            → AgentCode "career-semester-planner"     (CA-6)
+    - generate_with_tools                → AgentCode "career-actionboard-orchestrator" (CA-7, CA-8)
+    - generate_with_tools_and_rag        → AgentCode "career-rag-actionboard"      (CA-9, CA-10)
+
+호출 변경 패턴 (BEFORE / AFTER):
+    BEFORE: response = await self.openai_client.chat.completions.create(model=..., messages=..., ...)
+    AFTER:  response = await self._agenthub.chat(agent_code="career-...", messages=..., extra={...})
+    - response 는 OpenAI ChatCompletion 형식 dict — 기존 파싱 로직 그대로 호환.
+
+Tool Calling 처리:
+    AgentHub Phase 7.1 시드된 Agent 정의에 `tools` / `tool_choice` / `response_format`
+    이 사전 등록되어 있다 (`JSON_SCHEMA_ACTIONBOARD` 자동 적용). 클라이언트 코드는
+    `messages` 만 보내고 AgentHub 가 OpenAI provider 로 라우팅 시 자동 적용한다.
+
+    단, Phase 7.4 시점에 AgentHub 가 아직 도구 정의를 메시지에 동봉하지 않으므로
+    호환을 위해 본 클라이언트는 `extra={"tools": TOOLS, "tool_choice": "auto"}` 를
+    임시로 함께 전송한다. (Phase 5+ 에서 Agent 등록 정의로 자동 주입되면 제거.)
+
+비-스트리밍만 사용:
+    Phase 7.4 범위에서는 ai-service 내부 호출이 단발성 응답이므로 chat() 만 사용.
+    스트리밍은 Phase 7.5 의 frontend → AgentHub 직결 시 도입 (AgentHubClient.chat_stream).
+"""
 from typing import List, Dict, Any, Optional
 import json
 import logging
 
-from openai import AsyncOpenAI
+from shared.common.agenthub_client import AgentHubClient, AgentHubError, get_agenthub_client
 
 from ..config import get_settings
 from ..tools.tool_definitions import TOOLS, SYSTEM_PROMPT, JSON_SCHEMA_ACTIONBOARD
@@ -15,18 +48,27 @@ logger = logging.getLogger(__name__)
 
 
 class LLMService:
-    def __init__(self):
+    """
+    학생 커리어 도메인의 LLM 호출을 모두 AgentHub Agent 로 위임하는 서비스.
+
+    초보자 가이드:
+        - 기존에는 OpenAI 키를 들고 직접 OpenAI/Anthropic 으로 호출했지만,
+          이제는 *AgentHub 라는 게이트웨이* 의 OpenAI 호환 엔드포인트로 위임한다.
+        - "model" 파라미터에 OpenAI 모델명(`gpt-4o-mini`) 대신 `AgentCode`(`career-...`)
+          를 넣는다. AgentHub 가 Agent 정의를 보고 실제 모델/프로바이더 로 분기.
+    """
+
+    def __init__(self, agenthub_client: Optional[AgentHubClient] = None):
+        # 환경설정은 여전히 필요(OPENAI_MODEL 은 fallback 용 메타정보로만 보존,
+        # temperature 같은 호출 단위 override 값 참조)
         self.settings = get_settings()
-        # LangChain client (existing)
-        self.llm = ChatOpenAI(
-            model=self.settings.OPENAI_MODEL,
-            temperature=self.settings.TEMPERATURE,
-            max_tokens=self.settings.MAX_TOKENS,
-            api_key=self.settings.OPENAI_API_KEY,
-        )
-        # OpenAI direct client for Tool Calling
-        self.openai_client = AsyncOpenAI(api_key=self.settings.OPENAI_API_KEY)
+        # AgentHub 단일 진입점 — 환경변수 AGENTHUB_URL/AGENTHUB_API_KEY 로 자동 구성.
+        # 테스트에서는 mock 클라이언트를 주입할 수 있도록 인자로도 받는다.
+        self._agenthub = agenthub_client or get_agenthub_client()
+        # Tool Calling 의 *실행* (학생/역량/동문 데이터 fetch) 은 여전히 본 서비스 내부
         self.tool_executor = ToolExecutor(self.settings)
+
+    # ── public API ──────────────────────────────────────────────────────────
 
     async def generate_action_recommendations(
         self,
@@ -34,14 +76,13 @@ class LLMService:
         competency_scores: List[Dict[str, Any]],
         career_goal: str,
     ) -> List[Dict[str, Any]]:
-        """Generate AI-powered action recommendations for a student."""
+        """학생 맞춤 액션 4건을 AgentHub `career-action-recommender` 로 생성한다."""
 
-        # Return empty if no competency data available
+        # 빈 데이터 가드 — 토큰/비용 절감
         if not competency_scores:
             logger.info("No competency data available, returning empty recommendations")
             return []
 
-        # Return empty if student data is incomplete
         if not student_data.get('name') and not student_data.get('department_name'):
             logger.info("Incomplete student data, returning empty recommendations")
             return []
@@ -81,16 +122,21 @@ class LLMService:
 
 위 정보를 바탕으로 가장 효과적인 4개의 액션을 추천해주세요."""
 
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-
         try:
-            response = await self.llm.ainvoke(messages)
-            content = response.content
+            # AgentHub `career-action-recommender` Agent 호출 — Hybrid 라우팅
+            response = await self._agenthub.chat(
+                agent_code="career-action-recommender",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=self.settings.TEMPERATURE,
+                max_tokens=self.settings.MAX_TOKENS,
+            )
 
-            # Parse JSON from response
+            content = response["choices"][0]["message"]["content"]
+
+            # 코드펜스 제거 (LLM 이 ```json ... ``` 으로 감쌀 수 있음)
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
             elif "```" in content:
@@ -98,11 +144,14 @@ class LLMService:
 
             actions = json.loads(content.strip())
             return actions
-        except json.JSONDecodeError:
-            # Return default recommendations if parsing fails
+        except (json.JSONDecodeError, KeyError, IndexError) as ex:
+            logger.warning(f"Action recommendation 응답 파싱 실패: {ex}")
+            return self._get_default_recommendations()
+        except AgentHubError as ex:
+            logger.error(f"AgentHub action recommendation 호출 실패: {ex}")
             return self._get_default_recommendations()
         except Exception as e:
-            print(f"LLM Error: {e}")
+            logger.exception(f"Unexpected LLM Error: {e}")
             return self._get_default_recommendations()
 
     async def analyze_competencies(
@@ -110,7 +159,7 @@ class LLMService:
         competency_scores: List[Dict[str, Any]],
         career_goal: str,
     ) -> Dict[str, Any]:
-        """Analyze competency scores and provide insights."""
+        """5대 역량 분석을 AgentHub `career-competency-analyzer` 로 수행한다."""
 
         system_prompt = """당신은 대학생 역량 분석 전문가입니다.
 학생의 5대 핵심역량(창의역량, 융복합역량, 소통역량, 협력역량, 도전역량) 점수를 분석하고
@@ -137,14 +186,18 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
 
 위 역량을 분석해주세요."""
 
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-
         try:
-            response = await self.llm.ainvoke(messages)
-            content = response.content
+            response = await self._agenthub.chat(
+                agent_code="career-competency-analyzer",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=self.settings.TEMPERATURE,
+                max_tokens=self.settings.MAX_TOKENS,
+            )
+
+            content = response["choices"][0]["message"]["content"]
 
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
@@ -152,8 +205,16 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
                 content = content.split("```")[1].split("```")[0]
 
             return json.loads(content.strip())
+        except (AgentHubError, json.JSONDecodeError, KeyError, IndexError) as ex:
+            logger.error(f"AgentHub competency analyze 실패: {ex}")
+            return {
+                "analysis": "역량 분석 중 오류가 발생했습니다.",
+                "strengths": [],
+                "weaknesses": [],
+                "improvement_suggestions": [],
+            }
         except Exception as e:
-            print(f"Analysis Error: {e}")
+            logger.exception(f"Analysis Error: {e}")
             return {
                 "analysis": "역량 분석 중 오류가 발생했습니다.",
                 "strengths": [],
@@ -167,7 +228,13 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
         history: List[Dict[str, str]],
         context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Handle chatbot conversation."""
+        """
+        커리어봇 챗봇 응답을 AgentHub `career-chatbot` 으로 위임한다.
+
+        주의 (PII):
+            `career-chatbot` Agent 정의는 LlmRouting=Internal — Nexus 강제. 학생 발화에
+            이름/성적 등 PII 가 포함될 수 있어 외부 LLM 으로 새지 않도록 경계되어 있다.
+        """
 
         system_prompt = """당신은 대학생 커리어 개발을 돕는 AI 상담사 '커리어봇'입니다.
 
@@ -183,41 +250,43 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
   "suggestions": ["추가 질문이나 액션 제안 1", "제안 2"]
 }"""
 
-        messages = [SystemMessage(content=system_prompt)]
+        # AgentHub 메시지 구성 — system / context / 최근 10턴 히스토리 / 현재 발화
+        messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
-        # Add context if available
         if context:
             context_msg = f"학생 정보: {json.dumps(context, ensure_ascii=False)}"
-            messages.append(SystemMessage(content=context_msg))
+            messages.append({"role": "system", "content": context_msg})
 
-        # Add conversation history
-        for msg in history[-10:]:  # Last 10 messages
-            if msg["role"] == "user":
-                messages.append(HumanMessage(content=msg["content"]))
-            else:
-                messages.append(AIMessage(content=msg["content"]))
+        for msg in history[-10:]:
+            role = "user" if msg.get("role") == "user" else "assistant"
+            messages.append({"role": role, "content": msg.get("content", "")})
 
-        messages.append(HumanMessage(content=message))
+        messages.append({"role": "user", "content": message})
 
         try:
-            response = await self.llm.ainvoke(messages)
-            content = response.content
+            response = await self._agenthub.chat(
+                agent_code="career-chatbot",
+                messages=messages,
+                temperature=self.settings.TEMPERATURE,
+                max_tokens=self.settings.MAX_TOKENS,
+            )
+            content = response["choices"][0]["message"]["content"]
 
-            # Try to parse as JSON
             try:
+                # JSON 응답 시도
                 if "```json" in content:
                     content = content.split("```json")[1].split("```")[0]
                 elif "```" in content:
                     content = content.split("```")[1].split("```")[0]
                 return json.loads(content.strip())
             except json.JSONDecodeError:
-                # Return as plain text response
+                # JSON 이 아니면 평문으로 감싸 반환 — 기존 응답 형식 호환
                 return {
                     "response": content,
                     "suggestions": [],
                 }
-        except Exception as e:
-            logger.error(f"Chat Error: {e}")
+        except (AgentHubError, KeyError, IndexError) as e:
+            logger.error(f"AgentHub chat 실패: {e}")
             raise
 
     async def generate_semester_goals(
@@ -226,7 +295,7 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
         competency_scores: List[Dict[str, Any]],
         current_goals: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        """Generate semester sprint goals."""
+        """학기 스프린트 목표 생성을 AgentHub `career-semester-planner` 로 위임한다."""
 
         system_prompt = """당신은 대학생 학기 목표 설정 전문가입니다.
 학생의 현재 상황과 역량을 분석하여 이번 학기에 달성해야 할 목표를 제안합니다.
@@ -251,14 +320,17 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
 
 이번 학기 목표와 조언을 생성해주세요."""
 
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-
         try:
-            response = await self.llm.ainvoke(messages)
-            content = response.content
+            response = await self._agenthub.chat(
+                agent_code="career-semester-planner",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=self.settings.TEMPERATURE,
+                max_tokens=self.settings.MAX_TOKENS,
+            )
+            content = response["choices"][0]["message"]["content"]
 
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
@@ -266,16 +338,21 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
                 content = content.split("```")[1].split("```")[0]
 
             return json.loads(content.strip())
+        except (AgentHubError, json.JSONDecodeError, KeyError, IndexError) as e:
+            logger.error(f"AgentHub semester goal 생성 실패: {e}")
+            return {
+                "goals": [],
+                "ai_suggestions": ["목표 생성 중 오류가 발생했습니다."],
+            }
         except Exception as e:
-            print(f"Goals Error: {e}")
+            logger.exception(f"Goals Error: {e}")
             return {
                 "goals": [],
                 "ai_suggestions": ["목표 생성 중 오류가 발생했습니다."],
             }
 
     def _get_default_recommendations(self) -> List[Dict[str, Any]]:
-        """Return empty recommendations when AI fails or no data available."""
-        # Return empty list instead of mock data to avoid misleading recommendations
+        """AI 실패/데이터 부재 시 빈 추천 — mock 데이터로 사용자 오도 방지."""
         return []
 
     # ==================== Tool Calling Methods ====================
@@ -287,20 +364,19 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
         max_tool_calls: int = 5,
     ) -> Dict[str, Any]:
         """
-        Generate recommendations using OpenAI Tool Calling.
+        Tool Calling 기반 ActionBoard 추천을 AgentHub `career-actionboard-orchestrator`
+        Agent 로 위임한다.
 
-        This method autonomously calls tools to gather student data,
-        competency scores, and alumni patterns before generating recommendations.
+        OpenAI Tool Calling 루프 (학생 데이터 fetch 등) 는 본 함수가 직접 관리하고,
+        실제 LLM 호출은 모두 AgentHub 를 거친다. AgentHub 는 OpenAI Structured Outputs
+        (`response_format=json_schema`) 를 OpenAI provider 로 라우팅한다.
 
-        Args:
-            student_id: The student ID to analyze
-            task: The task description (e.g., "career recommendations", "competency analysis")
-            max_tool_calls: Maximum number of tool calls to prevent infinite loops
-
-        Returns:
-            Structured recommendation response
+        주의 (TECHSPEC W2):
+            Tool Calling 의 strict JSON Schema 는 OpenAI 전용. AgentHub 가 Hybrid 라우팅
+            중 Internal(Nexus) 로 분기하면 schema 호환이 깨질 수 있어, 본 Agent 정의는
+            ServiceCode="openai" 강제 권장 (Phase 7.5 점검 항목).
         """
-        messages = [
+        messages: List[Dict[str, Any]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
@@ -310,41 +386,48 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
         ]
 
         call_count = 0
-        tool_results = []
+        tool_results: List[Dict[str, Any]] = []
 
         while call_count < max_tool_calls:
             try:
-                response = await self.openai_client.chat.completions.create(
-                    model=self.settings.OPENAI_MODEL,
+                # 1차 호출 — Tool Calling 루프 (AgentHub 가 OpenAI provider 로 라우팅)
+                response = await self._agenthub.chat(
+                    agent_code="career-actionboard-orchestrator",
                     messages=messages,
-                    tools=TOOLS,
-                    tool_choice="auto",
                     temperature=self.settings.TEMPERATURE,
+                    extra={
+                        "tools": TOOLS,
+                        "tool_choice": "auto",
+                    },
                 )
+                # AgentHub 는 OpenAI ChatCompletion 형식 dict 그대로 반환
+                choice = response["choices"][0]
+                assistant_message = choice["message"]
+                tool_calls = assistant_message.get("tool_calls")
 
-                choice = response.choices[0]
-                assistant_message = choice.message
-
-                # No more tool calls - generate final response with Structured Output
-                if not assistant_message.tool_calls:
+                # 더 이상 도구 호출 없음 → Structured Outputs 로 최종 응답 생성
+                if not tool_calls:
                     logger.info(f"Tool calling completed after {call_count} calls")
 
-                    # Phase 2-2: Apply JSON Schema for structured output
                     try:
-                        structured_response = await self.openai_client.chat.completions.create(
-                            model=self.settings.OPENAI_MODEL,
+                        # 최종 호출 — JSON Schema strict (response_format)
+                        structured_response = await self._agenthub.chat(
+                            agent_code="career-actionboard-orchestrator",
                             messages=messages,
-                            response_format={
-                                "type": "json_schema",
-                                "json_schema": JSON_SCHEMA_ACTIONBOARD
-                            },
                             temperature=self.settings.TEMPERATURE,
+                            extra={
+                                "response_format": {
+                                    "type": "json_schema",
+                                    "json_schema": JSON_SCHEMA_ACTIONBOARD,
+                                },
+                            },
                         )
-                        result = json.loads(structured_response.choices[0].message.content)
+                        result = json.loads(
+                            structured_response["choices"][0]["message"]["content"]
+                        )
                     except Exception as schema_error:
                         logger.warning(f"Structured output failed, falling back: {schema_error}")
-                        # Fallback: Try to parse the original response as JSON
-                        content = assistant_message.content or ""
+                        content = assistant_message.get("content") or ""
                         try:
                             if "```json" in content:
                                 content = content.split("```json")[1].split("```")[0]
@@ -364,30 +447,30 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
                     result["tool_results"] = tool_results
                     return result
 
-                # Process tool calls
+                # 도구 호출 처리 — assistant 메시지를 messages 에 누적
                 messages.append({
                     "role": "assistant",
-                    "content": assistant_message.content,
+                    "content": assistant_message.get("content"),
                     "tool_calls": [
                         {
-                            "id": tc.id,
+                            "id": tc["id"],
                             "type": "function",
                             "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments,
+                                "name": tc["function"]["name"],
+                                "arguments": tc["function"]["arguments"],
                             }
                         }
-                        for tc in assistant_message.tool_calls
-                    ]
+                        for tc in tool_calls
+                    ],
                 })
 
-                for tool_call in assistant_message.tool_calls:
-                    tool_name = tool_call.function.name
-                    arguments = json.loads(tool_call.function.arguments)
+                # 각 도구 실행 — career 의 student/competency/alumni MS 호출
+                for tool_call in tool_calls:
+                    tool_name = tool_call["function"]["name"]
+                    arguments = json.loads(tool_call["function"]["arguments"])
 
                     logger.info(f"Executing tool: {tool_name} with args: {arguments}")
 
-                    # Execute the tool
                     result = await self.tool_executor.execute(tool_name, arguments)
 
                     tool_results.append({
@@ -396,24 +479,29 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
                         "result_summary": str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
                     })
 
-                    # Add tool result to messages
                     messages.append({
                         "role": "tool",
                         "content": json.dumps(result, ensure_ascii=False),
-                        "tool_call_id": tool_call.id,
+                        "tool_call_id": tool_call["id"],
                     })
 
                 call_count += 1
 
+            except AgentHubError as e:
+                logger.error(f"AgentHub Tool calling error: {e}")
+                return {
+                    "error": str(e),
+                    "tool_calls_made": call_count,
+                    "tool_results": tool_results,
+                }
             except Exception as e:
-                logger.error(f"Tool calling error: {e}")
+                logger.exception(f"Tool calling unexpected error: {e}")
                 return {
                     "error": str(e),
                     "tool_calls_made": call_count,
                     "tool_results": tool_results,
                 }
 
-        # Max calls reached
         logger.warning(f"Max tool calls ({max_tool_calls}) reached")
         return {
             "error": "Maximum tool calls reached",
@@ -432,30 +520,19 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
         max_tool_calls: int = 5,
     ) -> Dict[str, Any]:
         """
-        Generate recommendations using Tool Calling + RAG + Structured Outputs.
+        Tool Calling + RAG + Structured Outputs 를 AgentHub `career-rag-actionboard`
+        Agent 로 위임한다.
 
-        This method combines all Phase 2 features:
-        - Phase 2-1: Tool Calling for data gathering
-        - Phase 2-2: Structured Outputs for consistent response format
-        - Phase 2-3: RAG for evidence-based recommendations
-
-        Args:
-            student_id: The student ID to analyze
-            task: The task description
-            db: Database session for RAG queries
-            use_rag: Whether to use RAG for evidence retrieval
-            max_tool_calls: Maximum number of tool calls
-
-        Returns:
-            Structured recommendation response with evidence
+        본 함수는 RAG 컨텍스트(evidence) 를 시스템 프롬프트에 prepend 한 뒤
+        `generate_with_tools` 와 동일한 Tool Calling 루프를 수행한다.
         """
         import time
         start_time = time.time()
 
-        evidence = []
+        evidence: List[Dict[str, Any]] = []
         evidence_context = ""
 
-        # Phase 2-3: RAG - Retrieve relevant evidence
+        # Phase 2-3: RAG — Evidence 검색
         if use_rag and db is not None:
             try:
                 from .embedding_service import EmbeddingService
@@ -464,21 +541,18 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
                 embedding_service = EmbeddingService(self.settings)
                 retrieval_service = RetrievalService(db, embedding_service)
 
-                # Search for relevant evidence
                 evidence = await retrieval_service.hybrid_search(
                     query=task,
                     student_id=student_id,
                     top_k=5
                 )
 
-                # Format evidence for prompt
                 evidence_context = retrieval_service.format_evidence_for_prompt(evidence)
                 logger.info(f"Retrieved {len(evidence)} evidence items for RAG")
 
             except Exception as e:
                 logger.warning(f"RAG retrieval failed, continuing without evidence: {e}")
 
-        # Build enhanced system prompt with evidence
         enhanced_prompt = SYSTEM_PROMPT
         if evidence_context:
             enhanced_prompt = f"""{SYSTEM_PROMPT}
@@ -489,7 +563,7 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
 추천의 reasoning 필드에 관련 Evidence를 언급해주세요.
 """
 
-        messages = [
+        messages: List[Dict[str, Any]] = [
             {"role": "system", "content": enhanced_prompt},
             {
                 "role": "user",
@@ -499,41 +573,46 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
         ]
 
         call_count = 0
-        tool_results = []
+        tool_results: List[Dict[str, Any]] = []
 
-        # Phase 2-1: Tool Calling loop
+        # Tool Calling loop — AgentHub 위임
         while call_count < max_tool_calls:
             try:
-                response = await self.openai_client.chat.completions.create(
-                    model=self.settings.OPENAI_MODEL,
+                response = await self._agenthub.chat(
+                    agent_code="career-rag-actionboard",
                     messages=messages,
-                    tools=TOOLS,
-                    tool_choice="auto",
                     temperature=self.settings.TEMPERATURE,
+                    extra={
+                        "tools": TOOLS,
+                        "tool_choice": "auto",
+                    },
                 )
 
-                choice = response.choices[0]
-                assistant_message = choice.message
+                choice = response["choices"][0]
+                assistant_message = choice["message"]
+                tool_calls = assistant_message.get("tool_calls")
 
-                # No more tool calls - generate final response with Structured Output
-                if not assistant_message.tool_calls:
+                if not tool_calls:
                     logger.info(f"Tool calling completed after {call_count} calls")
 
-                    # Phase 2-2: Apply JSON Schema for structured output
                     try:
-                        structured_response = await self.openai_client.chat.completions.create(
-                            model=self.settings.OPENAI_MODEL,
+                        structured_response = await self._agenthub.chat(
+                            agent_code="career-rag-actionboard",
                             messages=messages,
-                            response_format={
-                                "type": "json_schema",
-                                "json_schema": JSON_SCHEMA_ACTIONBOARD
-                            },
                             temperature=self.settings.TEMPERATURE,
+                            extra={
+                                "response_format": {
+                                    "type": "json_schema",
+                                    "json_schema": JSON_SCHEMA_ACTIONBOARD,
+                                },
+                            },
                         )
-                        result = json.loads(structured_response.choices[0].message.content)
+                        result = json.loads(
+                            structured_response["choices"][0]["message"]["content"]
+                        )
                     except Exception as schema_error:
                         logger.warning(f"Structured output failed: {schema_error}")
-                        content = assistant_message.content or ""
+                        content = assistant_message.get("content") or ""
                         try:
                             if "```json" in content:
                                 content = content.split("```json")[1].split("```")[0]
@@ -549,7 +628,6 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
                                 "alumni_insights": [],
                             }
 
-                    # Add metadata
                     latency_ms = int((time.time() - start_time) * 1000)
                     result["metadata"] = {
                         "tool_calls_made": call_count,
@@ -569,26 +647,25 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
 
                     return result
 
-                # Process tool calls
                 messages.append({
                     "role": "assistant",
-                    "content": assistant_message.content,
+                    "content": assistant_message.get("content"),
                     "tool_calls": [
                         {
-                            "id": tc.id,
+                            "id": tc["id"],
                             "type": "function",
                             "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments,
+                                "name": tc["function"]["name"],
+                                "arguments": tc["function"]["arguments"],
                             }
                         }
-                        for tc in assistant_message.tool_calls
-                    ]
+                        for tc in tool_calls
+                    ],
                 })
 
-                for tool_call in assistant_message.tool_calls:
-                    tool_name = tool_call.function.name
-                    arguments = json.loads(tool_call.function.arguments)
+                for tool_call in tool_calls:
+                    tool_name = tool_call["function"]["name"]
+                    arguments = json.loads(tool_call["function"]["arguments"])
 
                     logger.info(f"Executing tool: {tool_name} with args: {arguments}")
 
@@ -603,13 +680,26 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
                     messages.append({
                         "role": "tool",
                         "content": json.dumps(result, ensure_ascii=False),
-                        "tool_call_id": tool_call.id,
+                        "tool_call_id": tool_call["id"],
                     })
 
                 call_count += 1
 
+            except AgentHubError as e:
+                logger.error(f"AgentHub Tool+RAG error: {e}")
+                latency_ms = int((time.time() - start_time) * 1000)
+                return {
+                    "error": str(e),
+                    "metadata": {
+                        "tool_calls_made": call_count,
+                        "evidence_count": len(evidence),
+                        "latency_ms": latency_ms,
+                        "rag_enabled": use_rag,
+                    },
+                    "tool_results": tool_results,
+                }
             except Exception as e:
-                logger.error(f"Tool calling with RAG error: {e}")
+                logger.exception(f"Tool+RAG unexpected error: {e}")
                 latency_ms = int((time.time() - start_time) * 1000)
                 return {
                     "error": str(e),
@@ -622,7 +712,6 @@ improvement_suggestions 작성 시 반드시 다음을 포함하세요:
                     "tool_results": tool_results,
                 }
 
-        # Max calls reached
         latency_ms = int((time.time() - start_time) * 1000)
         logger.warning(f"Max tool calls ({max_tool_calls}) reached with RAG")
         return {

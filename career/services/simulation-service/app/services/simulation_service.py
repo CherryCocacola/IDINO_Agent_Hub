@@ -4,7 +4,9 @@ from uuid import UUID, uuid4
 import json
 import logging
 
-from openai import AsyncOpenAI
+# Phase 7.4 — OpenAI SDK 직접 호출 제거. AgentHub 단일 진입점으로 위임.
+# (anti-patterns §1: ai-service 외부에서 직접 OpenAI SDK 사용 금지 — 통합 R2.)
+from shared.common.agenthub_client import AgentHubClient, AgentHubError, get_agenthub_client
 
 from ..database import execute_query, execute_one, execute_scalar, execute_command
 from ..config import get_settings
@@ -44,11 +46,17 @@ def _parse_jsonb(data: Any) -> dict:
 
 
 class SimulationService:
-    def __init__(self):
+    def __init__(self, agenthub_client: AgentHubClient | None = None):
+        # Phase 7.4 — LLM 호출은 AgentHub 위임. OPENAI_API_KEY 의존성 제거.
+        # 환경변수 AGENTHUB_URL / AGENTHUB_API_KEY 가 설정된 경우만 AI 분석 활성화.
+        # (테스트에서는 mock client 주입 가능)
         self.settings = get_settings()
-        self.openai_client = None
-        if self.settings.OPENAI_API_KEY:
-            self.openai_client = AsyncOpenAI(api_key=self.settings.OPENAI_API_KEY)
+        self.agenthub_client: AgentHubClient | None = None
+        try:
+            self.agenthub_client = agenthub_client or get_agenthub_client()
+        except ValueError as ex:
+            # AGENTHUB_URL/API_KEY 미설정 — AI 분석은 fallback(_generate_default_*) 사용
+            logger.warning(f"AgentHub 클라이언트 초기화 실패 — AI 분석 비활성화: {ex}")
     # ============================================
     # Scenario CRUD
     # ============================================
@@ -969,9 +977,14 @@ class SimulationService:
 
 위 학생에게 가장 유용한 4개의 시뮬레이션 시나리오를 추천해주세요."""
 
+        # AgentHub `career-simulation-suggester` Agent 위임 (Phase 7.4 / CA-12)
+        if self.agenthub_client is None:
+            logger.warning("AgentHub client unavailable, returning default suggestions")
+            return []
+
         try:
-            response = await self.openai_client.chat.completions.create(
-                model=self.settings.OPENAI_MODEL,
+            response = await self.agenthub_client.chat(
+                agent_code="career-simulation-suggester",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -980,9 +993,9 @@ class SimulationService:
                 max_tokens=2000,
             )
 
-            content = response.choices[0].message.content
+            content = response["choices"][0]["message"]["content"]
 
-            # Parse JSON from response
+            # Parse JSON from response (LLM 이 ```json ... ``` 코드펜스로 감쌀 수 있음)
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
             elif "```" in content:
@@ -1018,10 +1031,13 @@ class SimulationService:
             return suggestions
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse GPT response: {e}")
+            logger.error(f"Failed to parse AgentHub response: {e}")
+            return []
+        except AgentHubError as e:
+            logger.error(f"AgentHub call failed (suggester): {e}")
             return []
         except Exception as e:
-            logger.error(f"GPT API call failed: {e}")
+            logger.error(f"Unexpected AI suggestion failure: {e}")
             return []
 
     def _get_default_suggestions(self, grade: int = 3) -> List[SuggestedScenario]:
@@ -1717,8 +1733,10 @@ class SimulationService:
     async def _generate_ai_analysis(
         self, data: ScenarioCreate, results: List[SimulationResult], overall_score: float
     ) -> Optional[Dict[str, Any]]:
-        """GPT를 사용하여 시뮬레이션 결과에 대한 상세 분석 생성"""
-        if not self.openai_client:
+        """AgentHub `career-simulation-analyzer` 를 사용하여 시뮬레이션 결과에 대한 상세 분석 생성."""
+        # Phase 7.4 — 분기는 _generate_default_analysis 가드만 유지. 실제 호출 가드는
+        # 본 함수 하단의 `if self.agenthub_client is None` 에서 처리한다.
+        if self.agenthub_client is None:
             return self._generate_default_analysis(results, overall_score)
 
         system_prompt = """당신은 대학생 커리어 개발 전문 AI 분석가입니다.
@@ -1760,9 +1778,14 @@ class SimulationService:
 
 위 시뮬레이션 결과를 분석해주세요."""
 
+        # AgentHub `career-simulation-analyzer` Agent 위임 (Phase 7.4 / CA-13)
+        if self.agenthub_client is None:
+            logger.warning("AgentHub client unavailable, returning default analysis")
+            return self._generate_default_analysis(results, overall_score)
+
         try:
-            response = await self.openai_client.chat.completions.create(
-                model=self.settings.OPENAI_MODEL,
+            response = await self.agenthub_client.chat(
+                agent_code="career-simulation-analyzer",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -1771,9 +1794,9 @@ class SimulationService:
                 max_tokens=1500,
             )
 
-            content = response.choices[0].message.content
+            content = response["choices"][0]["message"]["content"]
 
-            # Parse JSON
+            # Parse JSON (LLM 이 코드펜스로 감쌀 수 있음)
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
             elif "```" in content:
@@ -1783,6 +1806,9 @@ class SimulationService:
             logger.info(f"AI analysis generated for scenario: {data.name}")
             return analysis
 
+        except AgentHubError as e:
+            logger.error(f"AgentHub analysis call failed: {e}")
+            return self._generate_default_analysis(results, overall_score)
         except Exception as e:
             logger.error(f"AI analysis generation failed: {e}")
             return self._generate_default_analysis(results, overall_score)

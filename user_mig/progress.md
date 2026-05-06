@@ -1,6 +1,6 @@
 # IDINO Agent Hub — 통합 작업 진행 상황
 
-> **마지막 갱신**: 2026-05-06 (Phase 7.3 완료 — DocUtil LLM 호출 9곳 → AgentHubLLMWrapper 위임. factory.py 외부 시그니처 보존 + agentic_search.py / data_generator.py P1 위반 정리)
+> **마지막 갱신**: 2026-05-06 (Phase 4.4 완료 — career idino_career schema pgvector(1536D, ADR-10) 활성화. tb_course/tb_program/tb_success_pattern 3개 테이블에 `embedding vector(1536)` ADD COLUMN + IVFFlat cosine lists=100 인덱스 3개. ORM 2개 모델 갱신 + pgvector==0.3.6 의존성 3개 requirements.txt 추가. Phase 7.4 직후 진행)
 > **갱신 규칙**: 모든 작업 완료 시 본 파일을 갱신한다 (CLAUDE.md 의무 사항).
 > **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세), `docs/AI_INVENTORY.md` (Phase 1 산출물)
 
@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 7.3 완료 (DocUtil 9곳 LLM 호출 → AgentHubLLMWrapper 위임. factory.py 의 `create_llm_client()` 외부 시그니처 보존 + 내부적으로 AgentCode 매핑 후 AgentHubClient 호출. agentic_search.py DU-16 + training/data_generator.py DU-17 의 P1 위반 4건 모두 factory 경유로 정리. 임베딩/이미지/graph_rag 는 AgentHub `/v1/embeddings` `/v1/images` 미구현 + graph_rag_enabled=False 로 별도 트랙 보류). Phase 4.3 완료 상태 유지 (Tenants + Departments). Phase 4.2 완료 (career idino_career 62 tb_*). Phase 7.2 운영 PG 그대로. 코드 측면 변경 (DocUtil 5개 파일 + .env / .env.example) — commit 대기 |
-| **다음 Phase** | Phase 7.4 (career 18 MS LLM 호출 → AgentHubClient 위임 — career/shared/common/agenthub_client.py 활용 + 각 MS 의 직접 OpenAI/Claude SDK 사용 정리), 또는 Phase 4.4 (career pgvector 도입), 또는 Phase 4.5 (Agent.TenantId/DepartmentId FK 통합 검증), 또는 Phase 7.5 (이미지/임베딩 별도 트랙 — AgentHub `/v1/images` `/v1/embeddings` 신규 컨트롤러 추가) — 사용자 결정 대기 |
-| **마지막 commit** | `ce8a52c` (Phase 4.1/4.2/4.3/7.1/7.2/7.3 commit 미실행 — 사용자 승인 대기. master ApiKey 평문은 commit 미포함) |
+| **현재 Phase** | Phase 4.4 완료 (career idino_career schema 에 pgvector(1536D, ADR-10) 활성화. tb_course/tb_program/tb_success_pattern 3개 테이블에 `embedding vector(1536)` ADD COLUMN IF NOT EXISTS + IVFFlat cosine lists=100 인덱스 3개 + COMMENT ON COLUMN 한국어. Npgsql 직접 검증 PASS — 운영 PG idino_career schema 의 vector 컬럼 3 / vector 인덱스 3 / 다른 schema 영향 0 / 행 수 모두 0(시연용 빈 테이블). ORM 2개 모델 갱신: student-service `tb_course`/`tb_program` + alumni-service `tb_success_pattern` 에 `embedding = Column(Vector(1536), nullable=True)` 추가. pgvector==0.3.6 의존성 3개 requirements.txt(student/alumni/ai)에 추가. 백필 미진행(빈 테이블). retrieval_service.hybrid_search 의 임베딩 활용 SQL 분기는 별도 트랙 — 현재는 BM25 fallback 만 동작). Phase 7.4/7.3/4.3/4.2/4.1/7.2/7.1 상태 유지. 코드 측면 변경 (career 5개 파일) — commit 대기 |
+| **다음 Phase** | Phase 7.5 (career frontend → AgentHub 직결 — `frontend/lib/api/ai.ts` 의 `AI_SERVICE_URL` → `AGENTHUB_URL`, ai-service deprecate 검토 + AgentHub `/v1/embeddings` `/v1/images` 신규 컨트롤러 추가 + AgentHubClient.embed/.generate_image 메서드 보강), 또는 Phase 4.5 (Agent.TenantId/DepartmentId FK 통합 검증 + retrieval_service 임베딩 활용 SQL 분기 추가 + tb_user FK 3건 복구), 또는 Phase 5+ 별도 트랙 — 사용자 결정 대기 |
+| **마지막 commit** | `ce8a52c` (Phase 4.1/4.2/4.3/4.4/7.1/7.2/7.3/7.4 commit 미실행 — 사용자 승인 대기. master ApiKey 평문은 commit 미포함) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -29,7 +29,7 @@
 | **1** | AI 호출 인벤토리 작성 (`docs/AI_INVENTORY.md`) | ✅ 완료 | 2026-05-05 |
 | **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | ✅ 완료 | 2026-05-05 |
 | **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | ✅ 핵심 완료 (3.1 + 3.2 + 3.3 + 3.4 + 3.5 + 3.5b + 3.6) | 2026-05-06 |
-| **4** | DocUtil/career → AGENT_HUB 통합 | 🔄 진행 중 (4.1 + 4.2 + 4.3 완료, 4.4 대기) | 2026-05-06~ |
+| **4** | DocUtil/career → AGENT_HUB 통합 | 🔄 진행 중 (4.1 + 4.2 + 4.3 + 4.4 완료, 4.5 대기) | 2026-05-06~ |
 | **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | ✅ 핵심 완료 (5.1 + 5.2 코드 작업 + 빌드 0E/단위 검증 6/6) | 2026-05-06 |
 | **6** | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | ⏳ 대기 | Phase 5 후 |
 | **7** | DocUtil/career AI 호출 → AgentHub 위임 | ⏳ 대기 | Phase 5+6 후 |
@@ -142,7 +142,7 @@
 - [ ] R8: CIDR IP 검증
 - [ ] R10: Nexus 인증 미들웨어
 - [ ] R12: Cascade Delete 강등
-- [ ] R13: 임베딩 차원 통일
+- [x] ~~R13: 임베딩 차원 통일 (career)~~ → **Phase 4.4 완료 (2026-05-06, career 1536D vector + IVFFlat). DocUtil 임베딩 1536D vs Qwen3 2048D 분기는 Phase 7.5 별도 트랙(Q6)**
 - [ ] R17: Qdrant collection 단일성 vs Nexus 1024D
 - [ ] R18: 평문 시크릿 잔존
 - [ ] R20: AgentHub KB → DocUtil visibility 매핑
@@ -153,6 +153,124 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-06 (Phase 7.4 — career 12곳 LLM 호출 → AgentHubClient 위임, R2 단일 진입점 강제)
+- **목적**: AI_INVENTORY.md CA-3~CA-13 + CA-14~CA-16 의 직접 OpenAI/LangChain 호출 12곳을 `shared.common.agenthub_client.AgentHubClient` (Phase 7.2 신설, 18 MS 공용) 로 위임. anti-patterns.md §1 (외부 SDK 직접 import 금지) 위반 정리. ai-service 라우터의 외부 시그니처 보존으로 5개 위임 호출자(coaching/competency/roadmap/opportunity/skill MS) 회귀 0건 달성
+- **사전 조사 결과** (`grep "from openai|AsyncOpenAI|langchain_openai"`):
+  - **3 파일에 LLM SDK 직접 사용 확정**:
+    - `services/ai-service/app/services/llm_service.py` — LangChain `ChatOpenAI` 1 인스턴스 (CA-1) + OpenAI SDK `AsyncOpenAI` 1 인스턴스 (CA-2) + Tool Calling 본문 4 호출 (CA-7~CA-10) + LangChain `ainvoke` 4 호출 (CA-3~CA-6)
+    - `services/ai-service/app/services/embedding_service.py` — `AsyncOpenAI` 1 인스턴스 (CA-14) + `client.embeddings.create` 단일 (CA-15) + 배치 (CA-16)
+    - `services/simulation-service/app/services/simulation_service.py` — `AsyncOpenAI` 1 인스턴스 (CA-11) + `chat.completions.create` 2 호출 (CA-12 max=2000 / CA-13 temp=0.7,max=1500)
+  - **5 위임 호출 (이미 ai-service `/ai/*` 로 httpx 위임 — 본 Phase 무변경)**: coaching-service `_call_ai_service` (`/ai/chat`) / competency-service (`/ai/analyze`) / roadmap-service (`/ai/recommendations/tools`) / opportunity-service (config-only, 호출 미발견) / skill-service (config-only, 호출 미발견). ai-service 라우터(`ai_router.py`: `/chat` `/analyze` `/recommendations/tools` `/sprint/{id}` `/actions/{id}`) 응답 schema(Pydantic `ChatResponse`/`CompetencyAnalysisResponse` 등) 변경 없음 → 위임 호출자 자동 호환
+- **변경 파일 (3 modify)**:
+  - **MODIFY `career/services/ai-service/app/services/llm_service.py`** (전체 재작성, ~635 LOC) — 모듈 헤더 docstring Phase 7.4 마이그레이션 노트 (AgentCode 매핑 표 + Tool Calling 처리 + W2 Structured Outputs 의존성 주석). `from langchain_openai import ChatOpenAI` + `from openai import AsyncOpenAI` + `from langchain.prompts/schema` 모두 제거 → `from shared.common.agenthub_client import AgentHubClient, AgentHubError, get_agenthub_client`. `__init__` 의 `self.llm = ChatOpenAI(...)` + `self.openai_client = AsyncOpenAI(...)` 제거 → `self._agenthub = agenthub_client or get_agenthub_client()` (테스트 mock 주입 가능). 6 public 메서드 모두 `await self._agenthub.chat(agent_code="career-...", messages=..., temperature=, max_tokens=, extra={...})` 패턴으로 교체. Tool Calling 루프(`generate_with_tools`/`generate_with_tools_and_rag`)는 dict 응답(`response["choices"][0]["message"]["tool_calls"]`) 파싱 + `extra={"tools": TOOLS, "tool_choice": "auto"}` / `extra={"response_format": {"type": "json_schema", "json_schema": JSON_SCHEMA_ACTIONBOARD}}` 분리 호출. `AgentHubError` catch 추가 + 한국어 fallback 메시지
+  - **MODIFY `career/services/simulation-service/app/services/simulation_service.py`** (4 hunks) — `from openai import AsyncOpenAI` 제거 + `from shared.common.agenthub_client import AgentHubClient, AgentHubError, get_agenthub_client` 추가. `__init__` 의 `self.openai_client = AsyncOpenAI(...)` → `self.agenthub_client = agenthub_client or get_agenthub_client()` + ValueError 가드(미설정 환경에서 AI 분석 비활성화). `_generate_ai_suggestions` (line 973 호출): `agent_code="career-simulation-suggester"` + `max_tokens=2000` + AgentHubError 분기. `_generate_ai_analysis` (line 1764 호출): `agent_code="career-simulation-analyzer"` + `temperature=0.7, max_tokens=1500` + fallback 가드 `if self.agenthub_client is None`. 응답 파싱 `response.choices[0].message.content` → `response["choices"][0]["message"]["content"]`
+  - **MODIFY `career/services/ai-service/app/services/embedding_service.py`** (전체 재작성, ~210 LOC) — 모듈 헤더 docstring Phase 7.4 마이그레이션 노트. `from openai import AsyncOpenAI` 제거 + `import httpx` 추가. `EmbeddingService.__init__` 의 `self.client = AsyncOpenAI(...)` → `self._client = httpx.AsyncClient(base_url=AGENTHUB_URL, headers={"X-API-Key": ..., ...})`. `self.model = "embedding-default"` (AgentCode), `self.dimensions = 1536` (TECHSPEC ADR-10 표준 유지). `embed_text` / `embed_batch` 모두 `await self._client.post("/v1/embeddings", json={"model": self.model, "input": ...})` 호출 + OpenAI 호환 응답(`data["data"][0]["embedding"]`) 파싱. `aclose()` lifespan 정리 메서드 추가. 비고: AgentHubClient 가 chat 만 노출하므로 임베딩은 별도 httpx 인스턴스 — Phase 7.5 에서 `AgentHubClient.embed()` 메서드 보강 후 통합 권장
+- **AgentCode 매핑 표 (호출처 → AgentCode → Phase 7.1 시드 라우팅)**:
+
+  | 호출처 | 함수 | AgentCode | LlmRouting | 시드 모델 |
+  |---|---|---|---|---|
+  | ai-service llm_service.py:90  | `generate_action_recommendations` | `career-action-recommender`       | Hybrid   | gpt-4o-mini |
+  | ai-service llm_service.py:146 | `analyze_competencies`            | `career-competency-analyzer`      | Hybrid   | gpt-4o-mini |
+  | ai-service llm_service.py:203 | `chat`                            | `career-chatbot`                  | **Internal** | nexus/primary |
+  | ai-service llm_service.py:260 | `generate_semester_goals`         | `career-semester-planner`         | Hybrid   | gpt-4o-mini |
+  | ai-service llm_service.py:317/334 | `generate_with_tools` (+Schema)   | `career-actionboard-orchestrator` | Hybrid   | gpt-4o-mini |
+  | ai-service llm_service.py:507/524 | `generate_with_tools_and_rag` (+Schema) | `career-rag-actionboard`     | Hybrid + RAG | gpt-4o-mini |
+  | simulation-service simulation_service.py:973  | `_generate_ai_suggestions` | `career-simulation-suggester` | Hybrid | gpt-4o-mini |
+  | simulation-service simulation_service.py:1764 | `_generate_ai_analysis`    | `career-simulation-analyzer`  | Hybrid | gpt-4o-mini |
+  | ai-service embedding_service.py:* (3 호출)  | `embed_text`/`embed_batch` | `embedding-default`           | External | text-embedding-3-small (1536D) |
+
+- **호환성 검증 (5 위임 호출자 회귀 0건 목표)**:
+  - **ai-service 라우터 응답 schema 보존**: `ai_router.py` 의 `/chat` (`ChatResponse`) / `/analyze` (`CompetencyAnalysisResponse`) / `/actions/{student_id}` (`ActionRecommendationResponse`) / `/sprint/{student_id}` (`SemesterSprintResponse`) / `/recommendations/tools` 모두 Pydantic schema 그대로. `LLMService` 메서드 반환 타입(`Dict[str, Any]` / `List[Dict[str, Any]]`) 무변경 → `RecommendationService` 변환 로직 무변경 → 응답 형식 보존
+  - **5 위임 호출자 무변경 확인**: coaching-service `_call_ai_service` (httpx → `{AI_SERVICE_URL}/ai/chat`) / competency-service `/ai/analyze` / roadmap-service `/ai/recommendations/tools` / opportunity-service / skill-service — 모두 본 Phase 코드 변경 0건. ai-service 가 AgentHub 위임으로 전환되어도 `/ai/*` 엔드포인트는 `LLMService` 출력을 그대로 직렬화하므로 자동 호환
+  - **Tool Calling 응답 형식**: AgentHub Phase 5.2 Hybrid 라우팅이 OpenAI provider 로 분기 시 OpenAI SDK 의 `tool_calls` 형식 그대로 dict 변환되어 반환됨. 본 클라이언트는 `tool_calls[i]["function"]["name"]` 형태로 dict 액세스 — SDK obj attribute 액세스에서 dict key 액세스로 패턴 변경
+- **Import 정리 결과**:
+  - `llm_service.py`: `from langchain_openai import ChatOpenAI` 제거 / `from openai import AsyncOpenAI` 제거 / `from langchain.prompts ...` `from langchain.schema import HumanMessage, SystemMessage, AIMessage` 제거 (메시지 변환은 dict 로 직접 작성)
+  - `embedding_service.py`: `from openai import AsyncOpenAI` 제거 / `import httpx` 추가
+  - `simulation_service.py`: `from openai import AsyncOpenAI` 제거 / AgentHubClient import 추가
+  - **잔존 검증**: `grep "from openai|AsyncOpenAI|langchain_openai|ChatOpenAI"` → docstring 주석 2건만 검출 (실제 import 0건)
+  - `requirements.txt` 의 `openai` / `langchain-openai` 패키지 자체는 보존 (전환 안전망 + 추후 별도 정리 트랙)
+- **단위 import 검증 결과 (모두 PASS)**:
+  - `python -c "from app.services.llm_service import LLMService"` → llm_service import OK
+  - `python -c "from app.services.embedding_service import EmbeddingService"` → embedding_service import OK
+  - `python -c "from app.services.simulation_service import SimulationService"` → simulation_service import OK
+  - 환경변수 stub: `AGENTHUB_URL=http://localhost:5000`, `AGENTHUB_API_KEY=ak-stub` (Phase 7.2 발급된 평문 키는 운영 환경에서만 사용)
+- **잠재 위험 (Phase 7.5 e2e 검증 항목)**:
+  - **W2 (TECHSPEC §16 R3) — Tool Calling Structured Outputs 의존성**: `JSON_SCHEMA_ACTIONBOARD` 는 OpenAI strict 전용. AgentHub Hybrid 라우팅이 Internal(Nexus) 분기 시 schema 호환 불가 → `career-actionboard-orchestrator` / `career-rag-actionboard` Agent 정의는 ServiceCode="openai" 강제 권장 (Phase 7.5 Agent 정의 검증 필요)
+  - **W6 — `career-chatbot` Internal 라우팅**: AgentHub `CallNexusAsync` 가 `messages` 단일화/`session_id` 매핑 처리. 학생 발화의 PII 가 외부로 새지 않도록 Phase 5.2 시드된 Internal 강제 정책 e2e 검증 필요
+  - **AgentHub `/v1/embeddings` 엔드포인트 부재**: 현재 AgentHub `OpenAICompatController.cs` 는 `/v1/chat/completions` + `/v1/models` 만 노출. embedding_service 가 호출 시 404 예상 — Phase 7.5 작업 항목 (AgentHub `[HttpPost("embeddings")]` 신규 추가 + `IAiProxyService.GetEmbeddingsAsync` 메서드 + `embedding-default` Agent 라우팅)
+  - **opportunity-service / skill-service config-only**: AI_SERVICE_URL config 만 정의되어 있고 실제 LLM 호출 코드 미발견 — 향후 호출 추가 시 직접 AgentHub 호출로 작성하도록 코드 리뷰 가이드 필요
+  - **simulation-service `__init__` 가드 변경**: 기존 `if self.settings.OPENAI_API_KEY` → `try get_agenthub_client() except ValueError`. AgentHub 미설정 환경에서는 `_generate_default_*` fallback 으로 자동 분기 — 운영 환경에서 `AGENTHUB_URL`/`AGENTHUB_API_KEY` 환경변수 누락 시 AI 분석 silent 비활성화 위험. docker-compose 점검 필요 (Phase 7.5)
+- **다음 단계 (Phase 7.5)**:
+  1. AgentHub `/v1/embeddings` 컨트롤러 신규 추가 + `embedding-default` Agent 라우팅 → 실 임베딩 호출 e2e 검증
+  2. ai-service / simulation-service 통합 e2e 시나리오: 학생 ID → ActionBoard → 시뮬레이션 → 챗봇 (PII 라우팅 검증)
+  3. coaching-service `/ai/chat` 호출 후 `career-chatbot` Internal 라우팅으로 Nexus 응답 도달 검증
+  4. AgentHubClient.embed() / .generate_image() 메서드 추가 후 embedding_service 의 별도 httpx 인스턴스 통합
+
+### 2026-05-06 (Phase 4.4 — career idino_career schema pgvector(1536D) 활성화, ADR-10 적용 + R13 부분 해소)
+- **목적**: `career` 의 `tb_course` / `tb_program` / `tb_success_pattern` 3개 테이블에 pgvector 임베딩 컬럼 + IVFFlat 인덱스를 추가하여 RAG 의미 검색(retrieval_service.hybrid_search) 의 vector 분기 활성 기반 마련. ADR-10 (1536D 단일화) + ADR-4 (단일 PG schema) 준수. TECHSPEC §15.5 / §12.6 의 "career schema pgvector 활성화" 항목 이행
+- **사전 조사 결과**:
+  - **schema 정의 부재 확인**: `career/database/01_schema_create.sql` 의 `tb_course`(L134), `02_techspec_tables.sql` 의 `tb_program`(L179) / `tb_success_pattern`(L360) 모두 schema DDL 에 `embedding` 컬럼 정의 없음. backup/migration 파일 모두 점검 — 일관되게 부재. 02_techspec_tables.sql:459 의 `retrieval_method VARCHAR(20)` 은 메타데이터(bm25/vector/hybrid)만 보유, 임베딩 자체는 별도 컬럼 필요
+  - **운영 PG 사전 점검**: Phase 4.2 적용으로 idino_career schema 의 3개 테이블 모두 존재 + 행 수 0(시연용 빈 테이블) + embedding 컬럼 부재 확인 → ADD COLUMN 진행 적합
+  - **사용 패턴 분석**: `career/services/ai-service/app/services/retrieval_service.py:32,45-59` 가 `check_pgvector()` 로 extension 만 점검하고 실제 SQL(`_search_courses`/`_search_programs`/`_search_success_patterns`) 은 `to_tsvector` BM25 + `ILIKE` 만 사용 — 임베딩 활용 SQL 분기 부재 확인. `embedding_service.py:31` 에 1536D 표준 명시(`text-embedding-3-small`) — ADR-10 일치 검증
+  - **ORM 위치**: Course/Program 은 `career/services/student-service/app/models/student.py:138,225` / SuccessPattern 은 `career/services/alumni-service/app/models/alumni.py:36`. ai-service 는 ORM 모델 미보유 (raw SQL만 사용)
+  - **pgvector Python 패키지 부재**: 18 MS 의 모든 requirements.txt 검색 결과 `pgvector` 의존성 없음 — student-service / alumni-service / ai-service 3곳에 신규 추가 필요
+  - **추가 임베딩 후보 부재 확인**: `embedding`/`vector` grep 결과 schema 파일에 다른 임베딩 후보 컬럼 0건. TECHSPEC §15.5 에 명시된 3개가 정확히 전부
+- **변경 적용 (DDL — Npgsql 직접, idempotent)**:
+  - **EXTENSION**: `CREATE EXTENSION IF NOT EXISTS vector` (Phase 3.6/Phase 2 init.sql 에서 이미 적용 — pgvector v0.8.0 확인)
+  - **ALTER TABLE × 3**:
+    ```sql
+    ALTER TABLE idino_career.tb_course           ADD COLUMN IF NOT EXISTS embedding vector(1536);
+    ALTER TABLE idino_career.tb_program          ADD COLUMN IF NOT EXISTS embedding vector(1536);
+    ALTER TABLE idino_career.tb_success_pattern  ADD COLUMN IF NOT EXISTS embedding vector(1536);
+    ```
+  - **COMMENT ON COLUMN × 3** (한국어 — 운영자 유지보수 도움): "과목 설명/명 임베딩 벡터 (OpenAI text-embedding-3-small, 1536D, ADR-10)" 등
+  - **CREATE INDEX × 3** (IVFFlat cosine, lists=100):
+    ```sql
+    CREATE INDEX IF NOT EXISTS ix_tb_course_embedding           ON idino_career.tb_course           USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+    CREATE INDEX IF NOT EXISTS ix_tb_program_embedding          ON idino_career.tb_program          USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+    CREATE INDEX IF NOT EXISTS ix_tb_success_pattern_embedding  ON idino_career.tb_success_pattern  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+    ```
+  - **lists=100 선택 근거**: pgvector 권장 가이드라인은 `rows < 1M → lists ≈ rows/1000`, `rows ≥ 1M → lists ≈ sqrt(rows)`. 본 운영 데이터 사이즈 확정 전(시연용 빈 테이블) 일반적 default 100 적용 — 운영 데이터 백필 후 `REINDEX INDEX ... WITH (lists=N)` 또는 DROP+CREATE 재조정 별도 트랙
+- **Npgsql 직접 검증 결과 (모두 PASS)**:
+  - 검증 1 (vector 컬럼 3개): tb_course.embedding / tb_program.embedding / tb_success_pattern.embedding 모두 `USER-DEFINED/vector (atttypmod=1536)`
+  - 검증 2 (vector 인덱스 3개): ix_tb_course_embedding / ix_tb_program_embedding / ix_tb_success_pattern_embedding 모두 `USING ivfflat (embedding vector_cosine_ops) WITH (lists='100')`
+  - 검증 3 (R3 schema 격리): vector 컬럼 분포 = `idino_career: 3` 단일 — AIAgentManagement / document_utilization / public 다른 schema 영향 0
+  - 검증 4 (행 수): 3개 테이블 모두 0 rows — 시연용 빈 테이블 확정, 백필 미진행
+- **변경 파일 (5 modify)**:
+  - **MODIFY `career/services/student-service/app/models/student.py`** (+8 LOC) — 모듈 헤더에 `from pgvector.sqlalchemy import Vector` import 추가 (한국어 주석으로 Phase 4.4 / 의존성 추가 명시). `class Course` 의 `description` 다음 줄에 `embedding = Column(Vector(1536), nullable=True)` 추가 + 한국어 주석(`# 과목 RAG 임베딩 ... IVFFlat cosine 인덱스: ix_tb_course_embedding`). `class Program` 의 `competency_contributions` 다음 줄에 동일 패턴
+  - **MODIFY `career/services/alumni-service/app/models/alumni.py`** (+5 LOC) — 모듈 헤더에 `from pgvector.sqlalchemy import Vector` 추가. `class SuccessPattern` 의 `sample_size` 다음 줄에 `embedding = Column(Vector(1536), nullable=True)` 추가 + 한국어 주석
+  - **MODIFY `career/services/student-service/requirements.txt`** (+2 LOC) — `# Phase 4.4 — pgvector(1536D) 임베딩 컬럼 매핑 (Vector SQLAlchemy 타입)` + `pgvector==0.3.6` (alembic 다음 줄)
+  - **MODIFY `career/services/alumni-service/requirements.txt`** (+2 LOC) — 동일 패턴
+  - **MODIFY `career/services/ai-service/requirements.txt`** (+2 LOC) — `# Phase 4.4 — pgvector(1536D) 검색 + Vector SQLAlchemy 타입 매핑 (retrieval_service)` + `pgvector==0.3.6` (asyncpg 다음 줄)
+- **AgentCode/Agent 매핑 (Phase 7.4 와 연결)**:
+  | 임베딩 컬럼 | 사용 시점 | Agent | 비고 |
+  |---|---|---|---|
+  | tb_course.embedding | RAG 의미 검색 (학생-과목 매칭) | embedding-default (Phase 7.1 시드, External, gpt) | retrieval_service.py 의 vector 분기 (Phase 4.5 또는 별도 트랙에서 추가) |
+  | tb_program.embedding | RAG 의미 검색 (비교과 추천) | embedding-default | 동일 |
+  | tb_success_pattern.embedding | P2 추천 엔진 (성공 패턴 매칭) | embedding-default | 동일 |
+- **백필 결정 (미진행)**:
+  - **시연용 monorepo COPY 환경**: 3개 테이블 모두 0 rows — 빈 테이블에 백필 불필요
+  - **IVFFlat 빈 테이블 동작**: pgvector IVFFlat 은 데이터 0건 환경에서도 인덱스 생성 가능 (실제 검색 시 학습 부족으로 의미 없으나, 운영 데이터 적재 후 자동으로 동작 — `vacuum analyze` 후 권장)
+  - **운영 PG 별도 트랙 권고**: 운영 데이터 (운영 DB 의 tb_course 100~500 rows, tb_program 50~200, tb_success_pattern 30~100 추정) 가 별도 적재될 때 `embedding_service.embed_batch` (or AgentHub `/v1/embeddings` 위임) 로 백필 + IVFFlat lists 재조정 (예: `lists ≈ sqrt(N) → 10~25`)
+- **잠재 위험 / 다음 단계 (Phase 4.5 또는 별도 트랙 의존)**:
+  - **retrieval_service.hybrid_search 의 vector 분기 부재**: 현재 `_search_courses`/`_search_programs`/`_search_success_patterns` 모두 `to_tsvector` + `ILIKE` 만 사용. 실제 의미 검색은 동작 안 함. **Phase 4.5 또는 별도 트랙에서**: `check_pgvector()` 분기에 `embedding <=> :query_embedding` (cosine distance) 절 추가 + `alpha`(BM25/vector 가중치) 파라미터 활용 필요. 임베딩 query vector 는 `embedding_service.embed_text(query)` 또는 (Phase 7.4 이후) AgentHub `/v1/embeddings` 호출
+  - **embedding_service.py 의 P1 위반**: `services/ai-service/app/services/embedding_service.py:30` 의 `AsyncOpenAI(api_key=...)` 직접 호출은 anti-patterns.md §1 위반 (R2 단일 진입점). Phase 7.4 에서 AgentHub `/v1/embeddings` 위임으로 정리 필요. AgentHub 측 `/v1/embeddings` 컨트롤러 구현은 Phase 7.5 별도 트랙
+  - **운영 데이터 백필 시 lists 재조정**: 백필 후 `lists=100` 은 1k 행 미만 환경에서 과도한 partitioning. `DROP INDEX ... CASCADE` + `CREATE INDEX ... WITH (lists=N)` 또는 HNSW 전환 검토 (HNSW 는 빈 테이블에서도 적정 동작 + cold-start 우수, 단 빌드 시간 증가)
+  - **pgvector Python 패키지 미설치 환경**: docker compose 재빌드 또는 `pip install -r requirements.txt` 필요. 현재 코드는 import 추가만 됐으나 미설치 환경에서 student-service/alumni-service/ai-service 기동 시 ImportError 발생 — Phase 4.4 commit + 재배포 필수
+  - **schema DDL 파일 미반영**: 본 변경은 운영 PG 에만 적용. `career/database/01_schema_create.sql` / `02_techspec_tables.sql` 의 DDL 정의는 그대로 — Fresh setup 시 임베딩 컬럼/인덱스 누락. **Phase 4.5 또는 별도 트랙에서** `ALTER TABLE` 문을 별도 마이그레이션 SQL 로 추가하거나 schema DDL 직접 수정
+- **Phase 4.4 진입/완료 조건 체크**:
+  - [x] pgvector extension 활성 (Phase 3.6 / Phase 2 init.sql 에서 적용됨, idempotent 재확인)
+  - [x] 3개 테이블 임베딩 컬럼 추가 (vector(1536), nullable)
+  - [x] 3개 IVFFlat 인덱스 생성 (cosine, lists=100)
+  - [x] ORM 2개 모델 갱신 (student-service Course/Program + alumni-service SuccessPattern)
+  - [x] pgvector==0.3.6 의존성 3개 requirements.txt 추가 (student/alumni/ai)
+  - [x] R3 schema 격리 검증 (idino_career 만 vector 컬럼 보유)
+  - [x] R5 한국어 주석 + COMMENT ON COLUMN
+  - [x] R13 임베딩 차원 통일 (career 부분 해소 — DocUtil/Nexus 는 Phase 7.5 별도 트랙)
+  - [ ] commit 대기 (Phase 4.1/4.2/4.3/4.4/7.1/7.2/7.3/7.4 통합 commit 또는 Phase 별 분리)
+  - [ ] retrieval_service vector 분기 추가 (Phase 4.5 또는 별도 트랙)
+  - [ ] 운영 데이터 백필 (별도 트랙)
 
 ### 2026-05-06 (Phase 7.3 — DocUtil 9곳 LLM 호출 → AgentHubLLMWrapper 위임, R2 단일 진입점 강제)
 - **목적**: AI_INVENTORY.md DU-01~DU-19 중 LLM 채팅 호출 9곳을 `AgentHubClient` (Phase 7.2 신설) 로 위임. 외부 SDK 직접 import (anti-patterns.md §1) 위반 정리. factory.py 외부 시그니처 보존으로 호출처(documents_v2/templates/workers/* 등) 무변경 달성
