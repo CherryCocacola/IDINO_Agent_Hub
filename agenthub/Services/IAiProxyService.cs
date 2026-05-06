@@ -30,4 +30,33 @@ public interface IAiProxyService
     Task<ImageGenerationResponseDto> SendImageGenerationAsync(int serviceId, string model, ImageGenerationRequestDto request, CancellationToken cancellationToken = default);
     Task<decimal> CalculateImageGenerationCostAsync(int serviceId, string model, string size, string quality, int numberOfImages);
 
+    /// <summary>
+    /// Phase 7.5 — Embeddings 위임 (OpenAI 호환).
+    /// AgentHub 는 ApiService.ServiceCode 분기로 OpenAI/Azure OpenAI Embeddings API 를 호출한다.
+    /// 외부 SDK 호환을 위해 OpenAI Embeddings API 와 동일한 응답 schema 를 그대로 반환한다.
+    /// </summary>
+    /// <param name="service">조회된 ApiService (Embeddings 호환 프로바이더만 허용).</param>
+    /// <param name="model">실제 LLM 모델명 (예: "text-embedding-3-small").</param>
+    /// <param name="inputs">임베딩 대상 텍스트 배열 (단건도 길이 1 배열로 전달).</param>
+    /// <returns>임베딩 벡터 배열 + 토큰 사용량.</returns>
+    Task<EmbeddingResultDto> GenerateEmbeddingAsync(
+        Models.ApiService service,
+        string model,
+        string[] inputs,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Phase 7.5 — 내부용 임베딩 결과 컨테이너. OpenAICompatController 가 OpenAI 호환 응답으로 매핑한다.
+/// </summary>
+public class EmbeddingResultDto
+{
+    /// <summary>입력 순서를 보존한 임베딩 벡터 배열. inputs.Length == Embeddings.Length.</summary>
+    public float[][] Embeddings { get; set; } = Array.Empty<float[]>();
+
+    /// <summary>실제 호출된 모델명 (프로바이더가 echo 한 값 우선, 없으면 요청 model).</summary>
+    public string Model { get; set; } = string.Empty;
+
+    public int PromptTokens { get; set; }
+    public int TotalTokens { get; set; }
 }

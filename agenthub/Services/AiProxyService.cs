@@ -4244,4 +4244,231 @@ You are a professional and helpful AI assistant.
             raw);
         return "primary";
     }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // Phase 7.5 — Embeddings 위임 (OpenAI 호환)
+    //
+    // 사용처:
+    //   /v1/embeddings 컨트롤러 → 본 메서드 호출 → ApiService.ServiceCode 분기
+    //
+    // 지원 프로바이더 (현재):
+    //   - "openai" / "chatgpt"  : POST {BaseUrl}/embeddings
+    //   - "azureopenai" / "azure-openai" / "microsoft-copilot" / "copilot"
+    //                            : POST {BaseUrl}/openai/deployments/{model}/embeddings?api-version=...
+    //
+    // 미지원 프로바이더 (향후 트랙):
+    //   - claude/gemini/perplexity/mistral/nexus → NotSupportedException
+    //   - 임베딩 모델은 OpenAI/Azure OpenAI 가 사실상 표준 (Anthropic 미제공, Gemini 별도 SDK)
+    //
+    // OpenAI Embeddings API 응답 형식:
+    //   {"object":"list","data":[{"object":"embedding","index":0,"embedding":[..1536..]}],
+    //    "model":"text-embedding-3-small","usage":{"prompt_tokens":N,"total_tokens":N}}
+    // ════════════════════════════════════════════════════════════════════════════
+    public async Task<EmbeddingResultDto> GenerateEmbeddingAsync(
+        ApiService service,
+        string model,
+        string[] inputs,
+        CancellationToken cancellationToken = default)
+    {
+        if (service == null)
+            throw new ArgumentNullException(nameof(service));
+        if (inputs == null || inputs.Length == 0)
+            throw new ArgumentException("inputs 는 최소 1건의 텍스트를 포함해야 합니다.", nameof(inputs));
+
+        var providerCode = service.ServiceCode?.Trim().ToLowerInvariant() ?? string.Empty;
+
+        return providerCode switch
+        {
+            "openai" or "chatgpt" => await CallOpenAiEmbeddingsAsync(model, inputs, cancellationToken),
+            "azureopenai" or "azure-openai" or "copilot" or "microsoft-copilot"
+                => await CallAzureOpenAiEmbeddingsAsync(service, model, inputs, cancellationToken),
+            _ => throw new NotSupportedException(
+                $"임베딩 프로바이더 '{service.ServiceCode}' 미지원 (Phase 7.5). " +
+                "현재 OpenAI / Azure OpenAI 만 지원합니다 — Agent.ServiceId 를 'openai' 로 변경하세요.")
+        };
+    }
+
+    /// <summary>
+    /// OpenAI Embeddings API 호출. ApiKeyPool 라운드로빈 + 429 cooldown 적용.
+    /// </summary>
+    private async Task<EmbeddingResultDto> CallOpenAiEmbeddingsAsync(
+        string model,
+        string[] inputs,
+        CancellationToken cancellationToken)
+    {
+        var apiKey = GetApiKey("openai", "AiApiSettings:OpenAI:ApiKey");
+        var baseUrl = _configuration["AiApiSettings:OpenAI:BaseUrl"] ?? "https://api.openai.com/v1";
+
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            _logger.LogError("OpenAI API key is not configured (embeddings)");
+            throw new InvalidOperationException("OpenAI API 키가 설정되지 않았습니다.");
+        }
+
+        // OpenAI Embeddings API 는 input 으로 string 또는 string[] 모두 허용.
+        // 단건/배치 분기 없이 항상 배열로 전송하면 응답이 항상 동일 schema 가 된다.
+        var payload = new
+        {
+            model,
+            input = inputs,
+        };
+        var json = JsonSerializer.Serialize(payload);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _httpClientFactory.CreateClient("openai");
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+        var startTime = DateTime.UtcNow;
+        var response = await client.PostAsync($"{baseUrl}/embeddings", content, cancellationToken);
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError(
+                "OpenAI Embeddings API error. Status: {StatusCode}, Response: {Response}, Model={Model}, Inputs={Count}",
+                response.StatusCode, responseJson, model, inputs.Length);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                _apiKeyPool?.MarkAsCoolingDown("openai", apiKey ?? string.Empty);
+                throw new HttpRequestException(
+                    $"OpenAI Embeddings 429 Too Many Requests - {responseJson}",
+                    null, response.StatusCode);
+            }
+            throw new InvalidOperationException(
+                $"OpenAI Embeddings API error: {response.StatusCode} - {responseJson}");
+        }
+
+        return ParseOpenAiEmbeddingsResponse(responseJson, model, inputs.Length, startTime);
+    }
+
+    /// <summary>
+    /// Azure OpenAI Embeddings API 호출. deployment 별도 path 사용.
+    /// </summary>
+    private async Task<EmbeddingResultDto> CallAzureOpenAiEmbeddingsAsync(
+        ApiService service,
+        string model,
+        string[] inputs,
+        CancellationToken cancellationToken)
+    {
+        var apiKey = GetApiKey("azureopenai", "AiApiSettings:AzureOpenAI:ApiKey")
+                     ?? _configuration["AiApiSettings:AzureOpenAI:ApiKey"];
+        var endpoint = _configuration["AiApiSettings:AzureOpenAI:Endpoint"] ?? service.ApiEndpoint;
+        var apiVersion = _configuration["AiApiSettings:AzureOpenAI:ApiVersion"] ?? "2024-02-15-preview";
+
+        if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(endpoint))
+        {
+            _logger.LogError("Azure OpenAI API key or endpoint not configured (embeddings)");
+            throw new InvalidOperationException("Azure OpenAI 설정이 누락되었습니다.");
+        }
+
+        var payload = new { input = inputs };
+        var json = JsonSerializer.Serialize(payload);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _httpClientFactory.CreateClient("azureopenai");
+        client.DefaultRequestHeaders.Remove("api-key");
+        client.DefaultRequestHeaders.Add("api-key", apiKey);
+
+        var url = $"{endpoint.TrimEnd('/')}/openai/deployments/{model}/embeddings?api-version={apiVersion}";
+        var startTime = DateTime.UtcNow;
+
+        var response = await client.PostAsync(url, content, cancellationToken);
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError(
+                "Azure OpenAI Embeddings API error. Status: {StatusCode}, Response: {Response}, Deployment={Model}",
+                response.StatusCode, responseJson, model);
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                _apiKeyPool?.MarkAsCoolingDown("azureopenai", apiKey ?? string.Empty);
+                throw new HttpRequestException(
+                    $"Azure OpenAI Embeddings 429 - {responseJson}",
+                    null, response.StatusCode);
+            }
+            throw new InvalidOperationException(
+                $"Azure OpenAI Embeddings API error: {response.StatusCode} - {responseJson}");
+        }
+
+        return ParseOpenAiEmbeddingsResponse(responseJson, model, inputs.Length, startTime);
+    }
+
+    /// <summary>
+    /// OpenAI Embeddings API 응답(JSON) 파싱 — Azure OpenAI 도 동일 schema.
+    /// 입력 순서를 보존하기 위해 data[].index 로 재정렬.
+    /// </summary>
+    private EmbeddingResultDto ParseOpenAiEmbeddingsResponse(
+        string responseJson, string requestedModel, int inputCount, DateTime startTime)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(responseJson);
+            var root = doc.RootElement;
+
+            // 입력 순서 보존: index 별로 슬롯에 끼워넣기.
+            var ordered = new float[inputCount][];
+            if (root.TryGetProperty("data", out var dataElem) && dataElem.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in dataElem.EnumerateArray())
+                {
+                    int index = item.TryGetProperty("index", out var idxElem) ? idxElem.GetInt32() : 0;
+                    if (index < 0 || index >= inputCount) continue;
+
+                    if (!item.TryGetProperty("embedding", out var embedElem)
+                        || embedElem.ValueKind != JsonValueKind.Array)
+                    {
+                        continue;
+                    }
+
+                    var vec = new float[embedElem.GetArrayLength()];
+                    int vi = 0;
+                    foreach (var v in embedElem.EnumerateArray())
+                    {
+                        vec[vi++] = (float)v.GetDouble();
+                    }
+                    ordered[index] = vec;
+                }
+            }
+
+            // 누락 슬롯 방어 — 0 벡터로 채워 client 가 IndexError 를 보지 않도록.
+            for (int i = 0; i < inputCount; i++)
+            {
+                ordered[i] ??= Array.Empty<float>();
+            }
+
+            string echoedModel = root.TryGetProperty("model", out var modelElem)
+                ? modelElem.GetString() ?? requestedModel
+                : requestedModel;
+
+            int promptTokens = 0, totalTokens = 0;
+            if (root.TryGetProperty("usage", out var usageElem) && usageElem.ValueKind == JsonValueKind.Object)
+            {
+                if (usageElem.TryGetProperty("prompt_tokens", out var pt)) promptTokens = pt.GetInt32();
+                if (usageElem.TryGetProperty("total_tokens", out var tt)) totalTokens = tt.GetInt32();
+            }
+
+            var elapsedMs = (int)(DateTime.UtcNow - startTime).TotalMilliseconds;
+            _logger.LogInformation(
+                "Embeddings API success. Model={Model}, Inputs={Count}, Tokens={Tokens}, ElapsedMs={Elapsed}",
+                echoedModel, inputCount, totalTokens, elapsedMs);
+
+            return new EmbeddingResultDto
+            {
+                Embeddings = ordered,
+                Model = echoedModel,
+                PromptTokens = promptTokens,
+                TotalTokens = totalTokens,
+            };
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse Embeddings response. Response={Response}",
+                responseJson.Length > 500 ? responseJson.Substring(0, 500) : responseJson);
+            throw new InvalidOperationException(
+                "임베딩 응답 파싱에 실패했습니다 — 프로바이더 응답 형식을 확인하세요.", ex);
+        }
+    }
 }

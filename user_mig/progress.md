@@ -1,8 +1,8 @@
 # IDINO Agent Hub — 통합 작업 진행 상황
 
-> **마지막 갱신**: 2026-05-06 (Phase 4.4 완료 — career idino_career schema pgvector(1536D, ADR-10) 활성화. tb_course/tb_program/tb_success_pattern 3개 테이블에 `embedding vector(1536)` ADD COLUMN + IVFFlat cosine lists=100 인덱스 3개. ORM 2개 모델 갱신 + pgvector==0.3.6 의존성 3개 requirements.txt 추가. Phase 7.4 직후 진행)
+> **마지막 갱신**: 2026-05-06 (Phase 4.5 완료 — 4 schema 통합 검증 + R3 격리 강제 PASS. dotnet-script + Npgsql 직접으로 15개 검증 항목 실행. cross-schema FK 0건 / search_path 시뮬레이션 3/3 PASS / PK 누락 0건. Phase 5 Nexus + Phase 7.1 15 Agent + Phase 7.2 2 ApiKey 시드 모두 정상. `docs/PHASE4_VALIDATION.md` 신설. Phase 4 종합 완료. 직전 Phase 7.5 임베딩 위임 완료 상태 유지)
 > **갱신 규칙**: 모든 작업 완료 시 본 파일을 갱신한다 (CLAUDE.md 의무 사항).
-> **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세), `docs/AI_INVENTORY.md` (Phase 1 산출물)
+> **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세), `docs/AI_INVENTORY.md` (Phase 1 산출물), `docs/PHASE4_VALIDATION.md` (Phase 4.5 검증 보고서)
 
 ---
 
@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 4.4 완료 (career idino_career schema 에 pgvector(1536D, ADR-10) 활성화. tb_course/tb_program/tb_success_pattern 3개 테이블에 `embedding vector(1536)` ADD COLUMN IF NOT EXISTS + IVFFlat cosine lists=100 인덱스 3개 + COMMENT ON COLUMN 한국어. Npgsql 직접 검증 PASS — 운영 PG idino_career schema 의 vector 컬럼 3 / vector 인덱스 3 / 다른 schema 영향 0 / 행 수 모두 0(시연용 빈 테이블). ORM 2개 모델 갱신: student-service `tb_course`/`tb_program` + alumni-service `tb_success_pattern` 에 `embedding = Column(Vector(1536), nullable=True)` 추가. pgvector==0.3.6 의존성 3개 requirements.txt(student/alumni/ai)에 추가. 백필 미진행(빈 테이블). retrieval_service.hybrid_search 의 임베딩 활용 SQL 분기는 별도 트랙 — 현재는 BM25 fallback 만 동작). Phase 7.4/7.3/4.3/4.2/4.1/7.2/7.1 상태 유지. 코드 측면 변경 (career 5개 파일) — commit 대기 |
-| **다음 Phase** | Phase 7.5 (career frontend → AgentHub 직결 — `frontend/lib/api/ai.ts` 의 `AI_SERVICE_URL` → `AGENTHUB_URL`, ai-service deprecate 검토 + AgentHub `/v1/embeddings` `/v1/images` 신규 컨트롤러 추가 + AgentHubClient.embed/.generate_image 메서드 보강), 또는 Phase 4.5 (Agent.TenantId/DepartmentId FK 통합 검증 + retrieval_service 임베딩 활용 SQL 분기 추가 + tb_user FK 3건 복구), 또는 Phase 5+ 별도 트랙 — 사용자 결정 대기 |
-| **마지막 commit** | `ce8a52c` (Phase 4.1/4.2/4.3/4.4/7.1/7.2/7.3/7.4 commit 미실행 — 사용자 승인 대기. master ApiKey 평문은 commit 미포함) |
+| **현재 Phase** | Phase 4.5 완료 (4 schema 통합 검증 — AGENT_HUB DB 192.168.10.39:5440 / PG 17.9 / pgvector 0.8.0). 15개 검증 항목 PASS: 1) BASE TABLE 127 (AgentHub 37 + DocUtil 28 + career 62 + hangfire 0) / 2) cross-schema FK **0** [PASS — R3 강제] / 3) FK ON DELETE 분포 (AgentHub 32C+12N+2R+1S=47 / DocUtil 30C+1R+26S=57 / career 82N=82) / 4) FK 총수 186 / 5) audit 컬럼 분포 (AgentHub CreatedAt 32 + DocUtil ins_dt 27 + career ins_dt 62) / 6) audit 누락 (AgentHub 5 / DocUtil 10(alembic_version 정상 + 9 별도 트랙) / career 0) / 7) 인덱스 342 (UNIQUE 175 + Vector 3) / 8) Nexus ApiService 시드 1 / 9) Phase 7.1 Agent 시드 15 / 10) Phase 7.2 ApiKey 2 / 11) Tenants=1 Departments=1 / 12) Vector 컬럼 3 (idino_career.tb_course/tb_program/tb_success_pattern) / 13) **R3 search_path 시뮬레이션 3/3 PASS** (각 connection 자기 schema 만 unqualified 접근, 타 schema relation does not exist) / 14) UNIQUE DocUtil 10 + career 21 / 15) PK 누락 **0**. `docs/PHASE4_VALIDATION.md` v1.0 신설(~290 라인) + `user_mig/scripts/phase45_validate.csx` 검증 스크립트 신설. R1/R13 해소 표기. R12(ON DELETE CASCADE 32건 강등) / R7(ApiKey 회전) / audit 통합 view / 시드 reproducibility(EF migration codify) 등은 별도 트랙. 직전 Phase 7.5/7.4/7.3/4.4/4.3/4.2/4.1/7.2/7.1 상태 유지. **코드 변경 0건 — 검증 + 보고서만**. commit 대기 |
+| **다음 Phase** | Phase 5+ 별도 트랙 (R12 ON DELETE 강등 / R7 ApiKey 회전 + Per-MS 분리 / 시드 EF migration codify / DU-14 `/v1/images` 컨트롤러 / career frontend AgentHub 직결 / ai-service deprecate / retrieval_service vector 분기 추가) 또는 Phase 6 (DocUtil 운영자 → AgentHub 흡수) 또는 secret leak sanitize + push — 사용자 결정 대기 |
+| **마지막 commit** | `ce8a52c` (Phase 4.1/4.2/4.3/4.4/4.5/7.1/7.2/7.3/7.4/7.5 commit 미실행 — 사용자 승인 대기. master ApiKey 평문은 commit 미포함) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -29,10 +29,10 @@
 | **1** | AI 호출 인벤토리 작성 (`docs/AI_INVENTORY.md`) | ✅ 완료 | 2026-05-05 |
 | **2** | AGENT_HUB DB 설계 + 생성 (`infra/db/init.sql`) | ✅ 완료 | 2026-05-05 |
 | **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | ✅ 핵심 완료 (3.1 + 3.2 + 3.3 + 3.4 + 3.5 + 3.5b + 3.6) | 2026-05-06 |
-| **4** | DocUtil/career → AGENT_HUB 통합 | 🔄 진행 중 (4.1 + 4.2 + 4.3 + 4.4 완료, 4.5 대기) | 2026-05-06~ |
+| **4** | DocUtil/career → AGENT_HUB 통합 | ✅ 완료 (4.1 + 4.2 + 4.3 + 4.4 + 4.5 — R3 격리 검증 PASS) | 2026-05-06 |
 | **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | ✅ 핵심 완료 (5.1 + 5.2 코드 작업 + 빌드 0E/단위 검증 6/6) | 2026-05-06 |
 | **6** | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | ⏳ 대기 | Phase 5 후 |
-| **7** | DocUtil/career AI 호출 → AgentHub 위임 | ⏳ 대기 | Phase 5+6 후 |
+| **7** | DocUtil/career AI 호출 → AgentHub 위임 | ✅ 완료 (7.1+7.2+7.3+7.4+7.5) | 2026-05-06 |
 | **8** | (보류) Vue → Next.js | ⏸ 보류 | — |
 
 범례: ✅ 완료 / 🔄 진행 중 / ⏸ 사용자 승인 대기 / ⏳ 의존성 대기
@@ -132,6 +132,7 @@
 
 ### Critical (Phase 3 진입 전 결정 필수)
 - [x] ~~R1: Tenant/Organization/Department 모델 설계 → §4.5~~ → **Phase 4.3 완료 (2026-05-06)**
+- [x] ~~R3-iso: schema 격리 강제 (cross-schema FK 0 / search_path 시뮬레이션 PASS)~~ → **Phase 4.5 완료 (2026-05-06)** — `docs/PHASE4_VALIDATION.md`
 - [ ] R5: Nexus DB 별도 유지 → ADR-11 확정
 - [ ] R11: EF baseline 부재 → Phase 3에서 신규 작성
 - [ ] R15: JWT 알고리즘 통일 → ADR-9 확정
@@ -153,6 +154,119 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-06 (Phase 7.5 — AgentHub /v1/embeddings 컨트롤러 신설 + AgentHubClient.embed() + 통합, R2 단일 진입점 완료)
+- **목적**: Phase 7.3/7.4 에서 보류한 임베딩 호출의 R2 단일 진입점 강제. AgentHub `OpenAICompatController` 에 OpenAI 호환 `/v1/embeddings` 엔드포인트 신설 + `IAiProxyService.GenerateEmbeddingAsync` 분기(OpenAI/Azure OpenAI) + DocUtil/career 양 클라이언트에 `embed()` 메서드 통합. career embedding_service.py(7.4 별도 httpx 인스턴스) → AgentHubClient.embed() 위임으로 connection pool 통합 + DocUtil embedding_generator.py(7.4 OpenAI/vLLM 직접 httpx) → AgentHub 위임 교체. Phase 7 전체 완료
+- **변경 파일 (7 modify)**:
+  - **MODIFY `agenthub/DTOs/OpenAICompatDto.cs`** (+72 LOC) — `EmbeddingsRequestDto` (model / input(object) / encoding_format / user) + `EmbeddingsResponseDto` + `EmbeddingItemDto` (object/index/embedding float[]) + `EmbeddingUsageDto` (prompt_tokens/total_tokens). OpenAI Embeddings API 와 100% 호환되는 schema. `Input` 은 OpenAI 명세상 string / string[] 둘 다 허용해야 하므로 `object` 타입 — JsonElement 로 deserialize 후 컨트롤러에서 정규화
+  - **MODIFY `agenthub/Services/IAiProxyService.cs`** (+33 LOC) — `Task<EmbeddingResultDto> GenerateEmbeddingAsync(Models.ApiService service, string model, string[] inputs, CancellationToken)` 시그니처 추가. 내부용 `EmbeddingResultDto` (Embeddings float[][], Model, PromptTokens, TotalTokens) 신규 — 컨트롤러가 OpenAI 호환 응답으로 매핑
+  - **MODIFY `agenthub/Services/AiProxyService.cs`** (+~190 LOC, 파일 끝에 추가) — 3 메서드:
+    - `GenerateEmbeddingAsync(service, model, inputs, ct)` — ServiceCode 분기(`openai`/`chatgpt`/`azureopenai`/`azure-openai`/`copilot`/`microsoft-copilot`), 그 외 NotSupportedException(claude/gemini/perplexity/mistral/nexus 미지원 — Anthropic 임베딩 미제공, Gemini 별도 SDK)
+    - `CallOpenAiEmbeddingsAsync(model, inputs, ct)` — `GetApiKey("openai", "AiApiSettings:OpenAI:ApiKey")` 풀 경유 + `IHttpClientFactory.CreateClient("openai")` 재사용 + `Bearer {apiKey}` Authorization. POST `{baseUrl}/embeddings` body `{model, input: string[]}`. 429 → `_apiKeyPool.MarkAsCoolingDown` + HttpRequestException
+    - `CallAzureOpenAiEmbeddingsAsync(service, model, inputs, ct)` — Azure deployment URL 패턴 `{endpoint}/openai/deployments/{model}/embeddings?api-version={apiVersion}` + `api-key` 헤더
+    - `ParseOpenAiEmbeddingsResponse` — JsonDocument 로 `data[].index` 정렬 보존 + `usage.prompt_tokens/total_tokens` 추출. 입력 슬롯 누락 시 빈 float[] 폴백 (client IndexError 방어)
+  - **MODIFY `agenthub/Controllers/OpenAICompatController.cs`** (+~190 LOC) — `[HttpPost("embeddings")]` `EmbeddingsAsync` 액션 추가. 클래스 레벨 `[ApiKeyAuthorize]` 자동 적용. 처리 흐름: (1) 인증 (2) 요청 유효성 (model 필수 + input 정규화 + encoding_format=='float') (3) Agent 룩업 — model 그대로 AgentCode → 미일치 시 `embedding-default` 자동 폴백 (4) 권한 (IsPublic 또는 CreatedBy 일치) (5) 실제 모델명 결정 — request.Model 이 `text-embedding-` prefix 면 그대로 전달, 아니면 `agent.DefaultModel ?? agent.ApiService.DefaultModel ?? "text-embedding-3-small"` (6) `aiProxy.GenerateEmbeddingAsync` 위임 (NotSupportedException → 400 / 429 → 429 / InvalidOperationException → 502) (7) OpenAI 호환 응답 매핑. `NormalizeEmbeddingInputs(object?)` 헬퍼 — string / string[] / List<string> / JsonElement(String|Array) 4가지 입력 형태 정규화
+  - **MODIFY `docutil/backend/app/integrations/agenthub_client.py`** (+55 LOC) — `AgentHubClient.embed(agent_code, input, *, encoding_format=None, extra=None)` 비동기 메서드 추가. 동일한 httpx.AsyncClient 인스턴스 재사용 — chat 호출과 connection pool 공유. 401/403/429 등 한국어 매핑(`_raise_for_status`) 재사용. timeout/network 에러는 `AgentHubError("AgentHub 임베딩 응답 시간 초과/연결 실패")`
+  - **MODIFY `career/shared/common/agenthub_client.py`** (+58 LOC) — 동일 `embed()` 메서드 추가 (career 측 사본). 18 MS 공용 사용. consumer_label 그대로 이어받음
+  - **MODIFY `career/services/ai-service/app/services/embedding_service.py`** (전체 재작성, ~190 LOC) — Phase 7.4 의 별도 httpx.AsyncClient 인스턴스 폐기 → `from shared.common.agenthub_client import AgentHubClient, AgentHubError, get_agenthub_client` import. `__init__(self, settings=None, agenthub_client: Optional[AgentHubClient] = None)` — 의존성 주입 패턴(테스트 mock 가능). `self._agenthub = agenthub_client or get_agenthub_client()` 싱글턴 재사용. `embed_text` / `embed_batch` 모두 `await self._agenthub.embed(agent_code=self.model, input=...)` 호출. `aclose()` 는 의도적 no-op — 싱글턴은 다른 모듈도 공유하므로 본 모듈에서 정리 시 chat 호출도 죽음. 모듈 헤더에 7.4→7.5 마이그레이션 노트 + connection pool 공유 명시
+  - **MODIFY `docutil/backend/app/workers/embedding_generator.py`** (~25 LOC 변경) — 모듈 헤더에 7.5 마이그레이션 노트. `_generate_dense_embeddings(texts)` 의 본문 전체 교체: `EMBEDDING_PROVIDER` 분기(openai/local) + `httpx.post(...)` 직접 호출 → `asyncio.run(_embed_via_agenthub())` (Celery sync 컨텍스트 + AgentHubClient 비동기 호환). agent_code = "embedding-default" 고정. `OpenAI` 모델명 / vLLM URL 하드코딩 모두 제거 — AgentHub 가 라우팅 담당
+- **AgentCode/Agent 매핑 표** (Phase 7.1 시드와 일관):
+
+  | 호출처 | task | AgentCode | LlmRouting | 시드 모델 |
+  |---|---|---|---|---|
+  | docutil/workers/embedding_generator._generate_dense_embeddings | RAG 임베딩 (문서 청크) | `embedding-default` | External | text-embedding-3-small (1536D) |
+  | career/services/ai-service/services/embedding_service.embed_text | 단건 임베딩 | `embedding-default` | External | text-embedding-3-small (1536D) |
+  | career/services/ai-service/services/embedding_service.embed_batch | 배치 임베딩 (batch_size=100) | `embedding-default` | External | text-embedding-3-small (1536D) |
+  | (외부 OpenAI SDK) `model="text-embedding-3-small"` | 외부 호환 | (자동 폴백 → embedding-default) | External | text-embedding-3-small |
+
+- **AgentHub `/v1/embeddings` 처리 흐름**:
+  1. `[ApiKeyAuthorize]` (클래스 레벨, X-API-Key 또는 Bearer) → JWT 우선 / 없으면 ApiKey + Scope 검증
+  2. model 정규화: AgentCode 룩업 (`Agents` JOIN `ApiService`) → 미일치 시 `embedding-default` 폴백
+  3. 권한: `IsPublic` 또는 `CreatedBy == userId` 일치 검증 → /v1/chat/completions 와 동일 패턴
+  4. 실제 모델명 결정: request.Model 이 `text-embedding-` prefix 시 그대로 / 그 외 `Agent.DefaultModel` 또는 `ApiService.DefaultModel` 폴백
+  5. `IAiProxyService.GenerateEmbeddingAsync(ApiService, model, inputs, ct)` 위임
+  6. OpenAI 호환 응답 schema 직렬화: `{"object":"list","data":[{"object":"embedding","index":N,"embedding":float[]}],"model":"...","usage":{"prompt_tokens":N,"total_tokens":N}}`
+- **빌드 검증**:
+  - `dotnet build --no-restore -v quiet` → **에러 0건 / 경고 11개 (모두 pre-existing CS1998)**. 본 Phase 변경이 새로 도입한 경고 0건. 첫 시도에서 `service.BaseUrl` 사용 → `service.ApiEndpoint` 정정 (ApiService 모델 실제 컬럼명) 후 PASS
+  - 단위 import 검증 (DocUtil): `from app.integrations.agenthub_client import get_agenthub_client; client = get_agenthub_client(); print(hasattr(client, 'embed'))` → `True` PASS
+  - 단위 import 검증 (career): `from shared.common.agenthub_client import get_agenthub_client; client = get_agenthub_client(); print(hasattr(client, 'embed'))` → `True` PASS
+  - AST 검증 (career embedding_service.py): `agenthub_client` import 1건 / `httpx` 직접 import 0건 / `openai` import 0건 / 메서드 6개 (`__init__`/`aclose`/`embed_text`/`embed_batch`/`compute_similarity`/`format_for_pgvector`) → all_OK
+  - AST 검증 (docutil embedding_generator.py): `_generate_dense_embeddings` 함수 본문에 `asyncio` 사용 + `agenthub_client` 사용 + `api.openai.com` 직접 URL 0건 → all_OK
+- **호환성 검증 (회귀 0건 목표)**:
+  - **OpenAI Embeddings API schema 100% 호환**: 응답 `object/data[].object/data[].index/data[].embedding/model/usage.prompt_tokens/usage.total_tokens` 모두 일치. 외부 OpenAI Python SDK / LangChain `OpenAIEmbeddings` 도 호출 가능 — 운영자 환경 별도 e2e 검증 단계
+  - **input(object) 정규화 패턴**: System.Text.Json 이 `object` 를 `JsonElement` 로 deserialize → `NormalizeEmbeddingInputs` 가 `JsonValueKind.String|Array` 분기 처리. 비-문자열 entry → 400 BadRequest
+  - **AgentCode 폴백**: 외부 SDK 가 `model="text-embedding-3-small"` 보내도 자동으로 `embedding-default` Agent 룩업 → ApiService 매핑 → OpenAI 호출. AgentCode `embedding-default` 가 시드되어 있는 한 동작
+  - **career embedding_service.py 호출자 무변경**: `EmbeddingService(settings=...).embed_text/embed_batch/compute_similarity/format_for_pgvector` 모두 시그니처 보존. 호출처(retrieval_service / 향후 백필 스크립트) 코드 수정 0건
+  - **AgentHubClient 싱글턴 공유**: career embedding_service 가 chat 호출과 같은 `get_agenthub_client()` 반환 인스턴스 사용 → connection pool 공유. 단, `EmbeddingService.aclose()` 는 의도적 no-op (싱글턴 보호)
+- **잠재 위험**:
+  - **AgentHub 부팅 + 실 OpenAI 호출 미검증 (e2e 한계)**: 본 Phase 검증은 dotnet build + AST + import 까지. 실제 HTTP 라운드트립은 (a) AgentHub IIS/dotnet run 부팅 (b) `embedding-default` Agent 시드 적용 (c) OPENAI_API_KEY 환경변수 주입 (d) `curl POST /v1/embeddings` 실 호출까지 필요. 시연 환경에 실 OpenAI API 키 부재 가능성 — 운영자 환경에서 별도 검증 필요
+  - **Azure OpenAI 분기 미검증**: `CallAzureOpenAiEmbeddingsAsync` 는 `appsettings.AiApiSettings:AzureOpenAI:Endpoint/ApiVersion` 설정 의존. Azure 환경 부재 시 코드 path 미실행 — 운영 도입 시 별도 검증
+  - **Anthropic/Gemini/Nexus 미지원**: ServiceCode 분기에서 `NotSupportedException` 발생. 본 Phase 의 의도적 결정 (Anthropic 임베딩 모델 미제공, Gemini SDK 별도, Nexus 1024D 정책 차이). Agent.LlmRouting=Hybrid 라도 임베딩 호출은 항상 OpenAI/Azure 로 강제 — TECHSPEC R17 (Qdrant collection 단일성 vs Nexus 1024D) 의존
+  - **Celery worker asyncio.run 패턴**: docutil `_generate_dense_embeddings` 가 매 호출마다 `asyncio.run(_embed_via_agenthub())` 호출 → 새 이벤트 루프 생성/파괴 비용. 다수 task 동시 실행 시 비효율 — Phase 8+ 에서 Celery `asgiref.sync.async_to_sync` 또는 worker 단위 영속 루프로 최적화 권장
+  - **AgentHubClient.embed() vs chat() pool 공유**: 두 메서드가 동일 `httpx.AsyncClient` pool 을 공유 — embedding 의 평균 응답시간(~200ms)이 chat(~수초) 과 충돌 시 starvation 가능성. 운영 부하 측정 후 별도 풀 분리 검토
+  - **외부 OpenAI SDK 호환 e2e 미검증**: `import openai; openai.OpenAI(base_url="http://agenthub:5000/v1", api_key="ak-...").embeddings.create(model="text-embedding-3-small", input="...")` 패턴이 동작하는지는 운영자 환경에서 별도 e2e 필요
+- **Phase 7 완료 평가**:
+  - [x] 7.1 — AgentHub 15개 신규 Agent 카탈로그 등록 (DU 4 + CA 8 + 공통 3, embedding-default 포함)
+  - [x] 7.2 — ApiKey 발급 + DocUtil/career 환경변수 + AgentHubClient 라이브러리 (chat/chat_stream)
+  - [x] 7.3 — DocUtil 9곳 LLM 호출 → AgentHubLLMWrapper 위임 (factory 외부 시그니처 보존)
+  - [x] 7.4 — career 12곳 LLM 호출 → AgentHubClient 직접 호출 (ai-service 라우터 응답 schema 보존)
+  - [x] 7.5 — AgentHub /v1/embeddings 컨트롤러 + AgentHubClient.embed() + 통합 (본 Phase)
+  - **R2 단일 진입점 강제 완료**: DocUtil/career 의 모든 LLM/Embedding 호출이 AgentHub 경유. anti-patterns.md §1 (LLM SDK 직접 import 금지) 위반 0건 — `from openai import` / `from langchain_openai import` / `https://api.openai.com` 직접 URL 모두 정리. 잔존 항목(DU-14 image_generation, DU-15 graph_rag 비활성, claude_client.py / gemini_client.py 등 dead code)은 Phase 8+ 별도 트랙
+- **다음 작업**:
+  1. (사용자 승인 시) Phase 4.1/4.2/4.3/4.4/7.1/7.2/7.3/7.4/7.5 통합 commit + push (secret leak 미해결 — 별도 sanitize 후)
+  2. Phase 4.5 추가 트랙 (retrieval_service 임베딩 SQL 분기 추가, tb_user FK 3건 복구) — 이미 수행된 4.5 검증과 별개
+  3. AgentHub IIS 부팅 + e2e 실 OpenAI 호출 검증 (운영자 환경)
+  4. (별도 트랙) DU-14 `/v1/images` 컨트롤러 + AgentHubClient.generate_image, career frontend → AgentHub 직결, ai-service deprecate 검토
+
+### 2026-05-06 (Phase 4.5 — 4 schema 통합 검증 + R3 격리 강제 검증, Phase 4 종합 완료)
+- **목적**: Phase 4.1+4.2+4.3+4.4 적용 결과를 운영 PG (192.168.10.39:5440 / AGENT_HUB / PG 17.9 / pgvector 0.8.0) 에서 일괄 검증. R3 (스키마 격리) 강제 / FK 정합 / audit 일관성 / Phase 5 Nexus + Phase 7.1/7.2 시드 reproducibility / pgvector 활성화 / PK 누락 점검. **검증 + 보고서만, 코드/마이그레이션 변경 0건**
+- **검증 도구 / 재현**: `user_mig/scripts/phase45_validate.csx` (dotnet-script + Npgsql 직접) — 15개 검증 항목 단일 실행. `dotnet-script user_mig/scripts/phase45_validate.csx`
+- **검증 결과 (15 항목 모두 통과)**:
+  1. **schema 별 BASE TABLE 수**: AgentHub 37 + DocUtil 28 + career 62 + hangfire 0 = **127 합계**. AgentHub 37은 35(EF) + Tenants + Departments(Phase 4.3) 로 일치
+  2. **Cross-schema FK = 0건 [PASS]** — anti-patterns.md §3 의 DDL-level 보장. Tenants/Departments 가 idino_career.tb_user 를 FK 로 묶지 않음 (옵션 B 디자인 일치)
+  3. **FK ON DELETE 정책 분포**:
+     - AgentHub: CASCADE 32 / NO ACTION 12 / RESTRICT 2 / SET NULL 1 = 47
+     - DocUtil: CASCADE 30 / RESTRICT 1 / SET NULL 26 = 57
+     - career: NO ACTION **82** (100%) — Phase 4.2 적용 시 default 유지
+  4. **FK 총수**: 186 (AgentHub 47 + DocUtil 57 + career 82)
+  5. **audit 컬럼 분포**: AgentHub `CreatedAt` 32 + `UpdatedAt` 24 + `CreatedBy` 6 / DocUtil `ins_dt` 27 + `upd_dt` 27 + `created_by` 7 / career `ins_dt` 62 + `ins_user_id` 62 + `upd_dt` 55 + `upd_user_id` 55 + `created_at` 4 (잔존)
+  6. **audit 누락**:
+     - AgentHub `CreatedAt` 누락 5건 (PiiDetectionLogs, TeamMembers, UserRoles, WorkflowExecutions, WorkflowNodeExecutions — 일부는 자체 Timestamp 컬럼 보유)
+     - DocUtil `created_at` 누락 10건 — 그러나 DocUtil 표준은 `ins_dt` (snake_case + timestamptz, 27건 100% 보유). alembic_version 1건 정상, 9건은 `ins_dt` 보유 차이만 — 별도 트랙
+     - career `ins_dt` 누락 **0건** (62/62 100%)
+  7. **인덱스 통계**: 총 342 (AgentHub 110 / DocUtil 101 / career 131) / UNIQUE 175 / Vector 3 (idino_career)
+  8. **Phase 5 Nexus 시드**: `ServiceCode='nexus'` `ServiceName='Project Nexus'` `ServiceType=Chat` 1건 [PASS]
+  9. **Phase 7.1 Agent 시드 15건 [PASS]**: agentic-search / career-action-recommender / career-actionboard-orchestrator / career-chatbot(**Internal/Nexus 강제**) / career-competency-analyzer / career-rag-actionboard / career-semester-planner / career-simulation-analyzer / career-simulation-suggester / docutil-evaluator / docutil-image-generator / docutil-rag-chat / docutil-report-generator / embedding-default / web-search-default
+  10. **Phase 7.2 ApiKey 2건 [PASS]**: docutil-master-key (id=1, scopes=chat,stream,info,usage, active=true) / career-master-key (id=2, 동일 스코프, active=true)
+  11. **Phase 4.3 Tenants/Departments**: Tenants=1, Departments=1 (bootstrap row)
+  12. **Phase 4.4 vector 컬럼 3건 [PASS]**: idino_career.tb_course.embedding / tb_program.embedding / tb_success_pattern.embedding (모두 vector(1536))
+  13. **R3 search_path 시뮬레이션 3/3 PASS**:
+      - agenthub `SET search_path TO "AIAgentManagement",public` → Users OK / tb_documents FAIL(`relation "tb_documents" does not exist`) / tb_student FAIL
+      - docutil `document_utilization,public` → Users FAIL / tb_documents OK / tb_student FAIL
+      - career `idino_career,public` → Users FAIL / tb_documents FAIL / tb_student OK
+      - 의미: 동일 DB user 라도 search_path 만으로 의도하지 않은 cross-schema 참조 차단. 운영 환경에서는 추가로 schema-level GRANT 차등 부여 권장 (별도 트랙, TECHSPEC §13)
+  14. **UNIQUE 제약**: DocUtil 10 + career 21 (AgentHub 는 인덱스로 산출 — UNIQUE 인덱스 54)
+  15. **PK 누락 BASE TABLE = 0건** [PASS] — 187 BASE TABLE 모두 PK 보유 (alembic_version 포함)
+- **잠재 위험 / Known Issues (별도 트랙)**:
+  - **R12 (CASCADE 강등)**: AgentHub CASCADE 32건 중 ApiUsages/PiiDetectionLogs 등 감사성 테이블은 SET NULL/RESTRICT 강등 권장
+  - **R12-c (career NO ACTION 100%)**: 운영 데이터 적재 전 명시적 정책 (RESTRICT/CASCADE) 전환 필요. 현재는 시연용 빈 테이블이라 운영 영향 없음
+  - **audit 통합 view 권장**: 3 schema 별 표준 분기 (CreatedAt/created_at/ins_dt) — `v_audit_log` 글로벌 view 신규 (별도 트랙)
+  - **R7 (master ApiKey 회전)**: master 키 단일 발급 → Per-MS 키 분리 + 회전 정책 별도 트랙
+  - **시드 reproducibility**: Phase 5.1 Nexus + Phase 7.1 15 Agent + Phase 7.2 ApiKey 가 init.sql 또는 EF migration 으로 codify 되지 않음. CI 에서 빈 환경 → init.sql + EF update 시 시드 자동 적용되도록 보강 필요
+  - **R3 schema GRANT 미구분**: 동일 DB user (`AGENT_HUB`) 가 모든 schema 접근 — schema-level GRANT 차등 부여 권장
+  - **IVFFlat lists=100**: 빈 테이블 + 운영 적재 후 과도. 백필 후 `lists ≈ sqrt(N)` 재조정
+- **신설 파일**:
+  - `user_mig/scripts/phase45_validate.csx` (검증 스크립트, dotnet-script + Npgsql 직접, 15 항목)
+  - `docs/PHASE4_VALIDATION.md` (검증 보고서, ~290 라인 / 9개 섹션 / 한국어)
+- **TECHSPEC 영향**:
+  - §16 R3 (스키마 격리) PASS 증거 확보 — `docs/PHASE4_VALIDATION.md` §2 인용
+  - §16 R12 / R7 / audit 통합 / 시드 codify 는 별도 트랙으로 분리 (본 Phase 책임 범위 밖)
+- **Phase 4 종합 완료**: 4.1 (DocUtil 28) + 4.2 (career 62) + 4.3 (Tenants/Departments) + 4.4 (pgvector 3) + 4.5 (검증) — Phase 4 ✅
+- **다음 단계 후보 (사용자 결정 대기)**:
+  1. Phase 6 — DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션
+  2. Phase 5+ 별도 트랙 — R12 ON DELETE 강등 / R7 ApiKey 회전 / 시드 EF migration codify / DU-14 `/v1/images` 컨트롤러
+  3. Phase 4/7 통합 commit — `[infra/db]` `[docutil]` `[career]` `[agenthub]` `[docs]` 분리 또는 통합 커밋
+  4. secret leak sanitize + force-push (#16 pending task)
 
 ### 2026-05-06 (Phase 7.4 — career 12곳 LLM 호출 → AgentHubClient 위임, R2 단일 진입점 강제)
 - **목적**: AI_INVENTORY.md CA-3~CA-13 + CA-14~CA-16 의 직접 OpenAI/LangChain 호출 12곳을 `shared.common.agenthub_client.AgentHubClient` (Phase 7.2 신설, 18 MS 공용) 로 위임. anti-patterns.md §1 (외부 SDK 직접 import 금지) 위반 정리. ai-service 라우터의 외부 시그니처 보존으로 5개 위임 호출자(coaching/competency/roadmap/opportunity/skill MS) 회귀 0건 달성

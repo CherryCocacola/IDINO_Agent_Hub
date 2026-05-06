@@ -191,6 +191,81 @@ public class OpenAIModelDto
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// POST /v1/embeddings — 요청 (Phase 7.5)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/// <summary>
+/// OpenAI 호환 Embeddings 요청. DocUtil/career 의 임베딩 위임 진입점.
+///
+/// model 필드는 다음 중 하나로 지정한다 (R2 단일 진입점):
+///  1) AgentCode (예: "embedding-default") — Agents 테이블 룩업 후 ApiService 매핑.
+///  2) OpenAI 모델명 (예: "text-embedding-3-small") — embedding-default Agent 로 자동 폴백.
+///
+/// input 필드는 OpenAI 명세상 string 또는 string[] 두 형태를 모두 허용한다.
+/// 외부 SDK(LangChain/openai-python 등)가 단건/배치를 자유롭게 호출할 수 있도록 object 로 받는다.
+/// </summary>
+public class EmbeddingsRequestDto
+{
+    [JsonPropertyName("model")]
+    public string Model { get; set; } = string.Empty;
+
+    /// <summary>string 또는 string[] 둘 다 허용 (OpenAI 호환).</summary>
+    [JsonPropertyName("input")]
+    public object Input { get; set; } = string.Empty;
+
+    /// <summary>"float" 만 지원 (Phase 7.5). "base64" 는 미지원.</summary>
+    [JsonPropertyName("encoding_format")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EncodingFormat { get; set; }
+
+    /// <summary>호환용 — AgentHub 는 user 필드를 무시.</summary>
+    [JsonPropertyName("user")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? User { get; set; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// POST /v1/embeddings — 응답 (Phase 7.5)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/// <summary>OpenAI Embeddings API 와 100% 호환되는 응답 형식.</summary>
+public class EmbeddingsResponseDto
+{
+    [JsonPropertyName("object")]
+    public string Object { get; set; } = "list";
+
+    [JsonPropertyName("data")]
+    public List<EmbeddingItemDto> Data { get; set; } = new();
+
+    [JsonPropertyName("model")]
+    public string Model { get; set; } = string.Empty;
+
+    [JsonPropertyName("usage")]
+    public EmbeddingUsageDto Usage { get; set; } = new();
+}
+
+public class EmbeddingItemDto
+{
+    [JsonPropertyName("object")]
+    public string Object { get; set; } = "embedding";
+
+    [JsonPropertyName("index")]
+    public int Index { get; set; }
+
+    [JsonPropertyName("embedding")]
+    public float[] Embedding { get; set; } = Array.Empty<float>();
+}
+
+public class EmbeddingUsageDto
+{
+    [JsonPropertyName("prompt_tokens")]
+    public int PromptTokens { get; set; }
+
+    [JsonPropertyName("total_tokens")]
+    public int TotalTokens { get; set; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // 오류 응답
 // ══════════════════════════════════════════════════════════════════════════════
 

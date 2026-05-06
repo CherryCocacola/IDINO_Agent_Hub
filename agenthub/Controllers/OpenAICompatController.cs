@@ -433,6 +433,208 @@ public class OpenAICompatController : ControllerBase
     }
 
     // ════════════════════════════════════════════════════════════════════════════
+    // POST /v1/embeddings  (Phase 7.5)
+    //
+    // OpenAI Embeddings API 호환 엔드포인트.
+    // DocUtil/career 의 직접 OpenAI 호출(P1 위반)을 본 게이트웨이로 흡수한다.
+    //
+    // model 파싱 우선순위:
+    //   1) AgentCode 가 Agents 테이블에 존재하면 → 그 Agent 의 ApiService + DefaultModel 사용
+    //   2) 그렇지 않으면 → "embedding-default" Agent 로 자동 폴백 (OpenAI 모델명 호환)
+    //
+    // input 파싱:
+    //   - string  → 단건 임베딩
+    //   - string[] → 배치 임베딩
+    //   - 그 외   → 400
+    // ════════════════════════════════════════════════════════════════════════════
+
+    [HttpPost("embeddings")]
+    public async Task<IActionResult> EmbeddingsAsync(
+        [FromBody] EmbeddingsRequestDto request,
+        [FromServices] IAiProxyService aiProxy,
+        CancellationToken cancellationToken)
+    {
+        // ── 인증 ────────────────────────────────────────────────────────────────
+        if (!TryGetUserId(out var userId))
+            return Unauthorized(ErrorBody("authentication_error", "Unauthorized"));
+
+        // ── 요청 유효성 ─────────────────────────────────────────────────────────
+        if (string.IsNullOrWhiteSpace(request?.Model))
+            return BadRequest(ErrorBody("invalid_request_error", "'model' is required."));
+
+        if (request.Input == null)
+            return BadRequest(ErrorBody("invalid_request_error", "'input' is required."));
+
+        // input 정규화: string / string[] / JsonElement 모두 허용
+        var inputs = NormalizeEmbeddingInputs(request.Input);
+        if (inputs == null || inputs.Length == 0)
+        {
+            return BadRequest(ErrorBody("invalid_request_error",
+                "'input' must be a non-empty string or array of strings."));
+        }
+        if (inputs.Any(s => s == null))
+        {
+            return BadRequest(ErrorBody("invalid_request_error",
+                "'input' array entries must be non-null strings."));
+        }
+
+        // encoding_format 은 float 만 지원 (Phase 7.5)
+        if (!string.IsNullOrEmpty(request.EncodingFormat)
+            && !string.Equals(request.EncodingFormat, "float", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(ErrorBody("invalid_request_error",
+                $"encoding_format '{request.EncodingFormat}' is not supported. Use 'float'."));
+        }
+
+        // ── Agent 룩업 ──────────────────────────────────────────────────────────
+        // 우선 model 그대로 AgentCode 시도 → 실패 시 embedding-default 폴백.
+        var agent = await _context.Agents
+            .Include(a => a.ApiService)
+            .FirstOrDefaultAsync(
+                a => a.AgentCode == request.Model && a.IsActive, cancellationToken);
+
+        if (agent == null)
+        {
+            // OpenAI 호환 SDK 가 "text-embedding-3-small" 같은 모델명을 보내는 경우 처리.
+            agent = await _context.Agents
+                .Include(a => a.ApiService)
+                .FirstOrDefaultAsync(
+                    a => a.AgentCode == "embedding-default" && a.IsActive, cancellationToken);
+
+            if (agent == null)
+            {
+                _logger.LogWarning(
+                    "/v1/embeddings 요청 model='{Model}' AgentCode 미일치 + embedding-default Agent 미시드",
+                    request.Model);
+                return NotFound(ErrorBody(
+                    "model_not_found",
+                    $"The model '{request.Model}' does not exist and 'embedding-default' fallback is not seeded."));
+            }
+        }
+
+        // ApiKey 가 특정 Agent 에 묶인 경우 권한 검사 (chat 과 동일 패턴).
+        if (!agent.IsPublic && agent.CreatedBy != userId)
+            return StatusCode(403, ErrorBody("permission_denied", "You do not have access to this model."));
+
+        if (agent.ApiService == null)
+        {
+            _logger.LogError(
+                "Embeddings Agent '{AgentCode}' 가 ApiService 를 보유하지 않음 — 시드 누락 가능성",
+                agent.AgentCode);
+            return StatusCode(500, ErrorBody("internal_error",
+                "Agent 의 ApiService 매핑이 누락되었습니다."));
+        }
+
+        // ── 실제 모델명 결정 ────────────────────────────────────────────────────
+        // Agent.DefaultModel 이 우선 (예: "text-embedding-3-small") — 미설정 시 ApiService.DefaultModel.
+        // 단, request.Model 이 OpenAI 모델 prefix("text-embedding-") 로 시작하면 그 값을 우선 — 외부 SDK 호환.
+        string actualModel;
+        if (request.Model.StartsWith("text-embedding-", StringComparison.OrdinalIgnoreCase))
+        {
+            actualModel = request.Model;
+        }
+        else
+        {
+            actualModel = agent.DefaultModel
+                ?? agent.ApiService.DefaultModel
+                ?? "text-embedding-3-small";
+        }
+
+        // ── AiProxyService 위임 ────────────────────────────────────────────────
+        EmbeddingResultDto result;
+        try
+        {
+            result = await aiProxy.GenerateEmbeddingAsync(
+                agent.ApiService, actualModel, inputs!, cancellationToken);
+        }
+        catch (NotSupportedException ex)
+        {
+            _logger.LogWarning(ex, "/v1/embeddings 미지원 프로바이더: {ServiceCode}",
+                agent.ApiService.ServiceCode);
+            return BadRequest(ErrorBody("invalid_request_error", ex.Message));
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            _logger.LogWarning(ex, "/v1/embeddings 외부 LLM 429");
+            return StatusCode(429, ErrorBody("rate_limit_exceeded", "외부 LLM Rate Limit 초과 — 잠시 후 재시도하세요."));
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "/v1/embeddings 외부 LLM 호출 실패");
+            return StatusCode(502, ErrorBody("upstream_error", "임베딩 외부 호출에 실패했습니다."));
+        }
+
+        // ── 응답 구성 (OpenAI 호환 schema) ────────────────────────────────────
+        var data = new List<EmbeddingItemDto>(result.Embeddings.Length);
+        for (int i = 0; i < result.Embeddings.Length; i++)
+        {
+            data.Add(new EmbeddingItemDto
+            {
+                Index = i,
+                Embedding = result.Embeddings[i] ?? Array.Empty<float>(),
+            });
+        }
+
+        var response = new EmbeddingsResponseDto
+        {
+            Object = "list",
+            Data = data,
+            // 외부 SDK 가 model 을 echo 받기를 기대 — 실제 호출 모델 우선.
+            Model = string.IsNullOrEmpty(result.Model) ? actualModel : result.Model,
+            Usage = new EmbeddingUsageDto
+            {
+                PromptTokens = result.PromptTokens,
+                TotalTokens = result.TotalTokens > 0 ? result.TotalTokens : result.PromptTokens,
+            },
+        };
+
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// OpenAI 호환을 위해 input(object) 을 string[] 로 정규화.
+    /// 허용: string / string[] / JsonElement(String|Array of String).
+    /// </summary>
+    private static string[]? NormalizeEmbeddingInputs(object? raw)
+    {
+        if (raw == null) return null;
+
+        // 직접 string
+        if (raw is string s)
+            return string.IsNullOrEmpty(s) ? Array.Empty<string>() : new[] { s };
+
+        // 직접 string[]
+        if (raw is string[] arr) return arr;
+
+        // List<string>
+        if (raw is List<string> list) return list.ToArray();
+
+        // System.Text.Json deserialization 결과 — JsonElement
+        if (raw is JsonElement elem)
+        {
+            if (elem.ValueKind == JsonValueKind.String)
+            {
+                var v = elem.GetString();
+                return v == null ? Array.Empty<string>() : new[] { v };
+            }
+            if (elem.ValueKind == JsonValueKind.Array)
+            {
+                var result = new List<string>(elem.GetArrayLength());
+                foreach (var item in elem.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.String) return null; // 비-문자열 entry 거부
+                    var v = item.GetString();
+                    if (v != null) result.Add(v);
+                }
+                return result.ToArray();
+            }
+            return null;
+        }
+
+        return null;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
     // 헬퍼
     // ════════════════════════════════════════════════════════════════════════════
 

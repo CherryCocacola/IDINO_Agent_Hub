@@ -3,6 +3,14 @@ Embedding generation Celery worker.
 
 Generates dense and sparse vector embeddings for document chunks and
 upserts them into the Qdrant vector store for hybrid retrieval.
+
+Phase 7.5 — `_generate_dense_embeddings` 가 AgentHub `/v1/embeddings` 위임으로 전환.
+이전(7.4)에는 `https://api.openai.com/v1/embeddings` 또는 vLLM 엔드포인트 직접 호출.
+변경 후: AgentHubClient.embed() 호출 — R2 단일 진입점 강제 + ApiKeyPool 라운드로빈/사용량 기록.
+
+본 모듈은 Celery worker (sync 컨텍스트) 에서 실행되므로 asyncio.run 으로 비동기 클라이언트를
+호출한다. AgentHubClient 의 connection pool 은 worker 프로세스 단위 싱글턴 — 다중 task 가
+같은 pool 을 공유.
 """
 
 from __future__ import annotations
@@ -146,41 +154,36 @@ async def _update_document_chunk_count(document_id: str) -> None:
 
 
 def _generate_dense_embeddings(texts: list[str]) -> list[list[float]]:
-    """Dense 임베딩을 생성한다.
+    """Dense 임베딩을 생성한다 (Phase 7.5 — AgentHub `/v1/embeddings` 위임).
 
-    EMBEDDING_PROVIDER 설정에 따라 OpenAI API 또는 내부 GPU 서비스를 사용한다.
-    - "openai": OpenAI text-embedding-3-small (1536D) 사용
-    - "local": 내부 GPU의 Qwen3-Embedding-8B (2048D) 사용
+    이전(7.4 까지)에는 EMBEDDING_PROVIDER 설정에 따라 OpenAI API 또는 vLLM 직접 호출이었다.
+    Phase 7.5 부터는 AgentHubClient.embed() 로 모두 위임 — AgentHub 내부에서 라우팅.
 
-    두 프로바이더 모두 OpenAI-compatible API 형식을 사용하므로
-    엔드포인트 URL과 모델명만 바꾸면 스왑된다.
+    AgentCode "embedding-default" 가 Phase 7.1 에 시드되어 1536D `text-embedding-3-small`
+    호출로 자동 매핑된다. 운영자가 AgentHub UI 에서 라우팅을 외부/내부로 변경 가능.
+
+    Note:
+        Celery sync 컨텍스트에서 호출되므로 asyncio.run 으로 비동기 메서드를 동기화한다.
+        worker 프로세스의 단일 이벤트 루프 사용은 권장되지 않으므로 task 마다 새 루프 생성.
     """
-    import httpx
+    import asyncio
 
-    if settings.embedding_provider == "openai":
-        # OpenAI Embedding API 사용
-        url = "https://api.openai.com/v1/embeddings"
-        model = settings.openai_embedding_model
-        headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
-    else:
-        # 내부 GPU 임베딩 서비스 사용
-        url = f"{settings.vllm_url}/embeddings"
-        model = settings.embedding_model
-        headers = {}
-        if settings.openai_api_key:
-            headers["Authorization"] = f"Bearer {settings.openai_api_key}"
+    from app.integrations.agenthub_client import AgentHubError, get_agenthub_client
 
-    response = httpx.post(
-        url,
-        json={"model": model, "input": texts},
-        headers=headers,
-        timeout=120.0,
-    )
-    response.raise_for_status()
-    data = response.json()
+    async def _embed_via_agenthub() -> list[list[float]]:
+        client = get_agenthub_client()
+        # AgentCode "embedding-default" — Phase 7.1 시드. 외부 SDK 호환을 위해 모델명 직접 전달도 가능.
+        agent_code = "embedding-default"
+        try:
+            response = await client.embed(agent_code=agent_code, input=texts)
+        except AgentHubError as ex:
+            logger.error("AgentHub /v1/embeddings 호출 실패: %s", ex)
+            raise
+        # OpenAI 호환 응답: {"data": [{"index": N, "embedding": [...]}, ...]}
+        # AgentHub 가 index 순서를 보존하므로 그대로 사용.
+        return [item["embedding"] for item in response["data"]]
 
-    embeddings = [item["embedding"] for item in data["data"]]
-    return embeddings
+    return asyncio.run(_embed_via_agenthub())
 
 
 def _generate_sparse_embeddings(

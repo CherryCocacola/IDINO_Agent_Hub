@@ -234,6 +234,61 @@ class AgentHubClient:
             logger.error("AgentHub chat_stream 네트워크 오류: agent=%s err=%s", agent_code, ex)
             raise AgentHubError("AgentHub 스트리밍 서버에 연결할 수 없습니다") from ex
 
+    async def embed(
+        self,
+        agent_code: str,
+        input: "str | list[str]",
+        *,
+        encoding_format: Optional[str] = None,
+        extra: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """
+        Phase 7.5 — 임베딩 호출. AgentHub `/v1/embeddings` 엔드포인트 위임.
+
+        OpenAI Embeddings API 와 100% 호환되는 응답 dict 를 반환한다 — 호출처는
+        OpenAI SDK 와 동일한 패턴(`resp["data"][0]["embedding"]`) 으로 사용 가능.
+
+        사용 예:
+            client = get_agenthub_client()
+            resp = await client.embed("embedding-default", ["학생 자기소개 텍스트"])
+            vec_1536 = resp["data"][0]["embedding"]  # list[float], 길이 1536
+
+        :param agent_code: AgentCode (예: "embedding-default") 또는 OpenAI 모델명
+                           ("text-embedding-3-small"). AgentHub 가 자동 폴백.
+        :param input: 단일 문자열 또는 문자열 리스트 (배치).
+        :param encoding_format: 현재 "float" 만 지원. None 이면 기본값 사용.
+        :param extra: 향후 호환용 추가 파라미터.
+        :return: OpenAI 호환 dict.
+        :raises AgentHubError: HTTP 4xx/5xx 또는 네트워크/타임아웃 실패.
+        """
+        payload: dict[str, Any] = {
+            "model": agent_code,
+            "input": input,
+        }
+        if encoding_format:
+            payload["encoding_format"] = encoding_format
+        if extra:
+            payload.update(extra)
+
+        try:
+            resp = await self._client.post("/v1/embeddings", json=payload)
+        except httpx.TimeoutException as ex:
+            logger.error("AgentHub embed 호출 타임아웃: agent=%s", agent_code)
+            raise AgentHubError("AgentHub 임베딩 응답 시간 초과") from ex
+        except httpx.RequestError as ex:
+            logger.error("AgentHub embed 호출 네트워크 오류: agent=%s err=%s", agent_code, ex)
+            raise AgentHubError("AgentHub 임베딩 서버에 연결할 수 없습니다") from ex
+
+        if resp.status_code >= 400:
+            self._raise_for_status(resp)
+
+        try:
+            return resp.json()
+        except json.JSONDecodeError as ex:
+            logger.error("AgentHub embed 응답 JSON 파싱 실패: agent=%s body=%s",
+                         agent_code, resp.text[:500])
+            raise AgentHubError("AgentHub 임베딩 응답 형식이 올바르지 않습니다") from ex
+
     async def aclose(self) -> None:
         """내부 httpx.AsyncClient 의 connection pool 을 종료한다 (lifespan shutdown)."""
         await self._client.aclose()

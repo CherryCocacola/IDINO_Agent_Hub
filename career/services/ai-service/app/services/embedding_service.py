@@ -1,29 +1,39 @@
 """
-Embedding Service — Phase 7.4 (AgentHub `embedding-default` Agent 위임)
-=======================================================================
+Embedding Service — Phase 7.5 (AgentHubClient.embed() 위임으로 통합)
+======================================================================
 
-Phase 7.4 변경 요약:
-    - 기존: `from openai import AsyncOpenAI` 직접 호출 (OPENAI_API_KEY 필요)
-    - 변경: AgentHub `embedding-default` Agent 의 `/v1/embeddings` 엔드포인트로 위임
-    - 사유: 통합 R2 단일 진입점. AgentHub 가 ApiKeyPool / 차원 정책(1536D 표준) /
-      사용량 추적을 일괄 관리한다 (TECHSPEC ADR-10 / W1).
+Phase 7.4 → 7.5 변경 요약:
+    - 7.4: 별도 httpx.AsyncClient 인스턴스 보유, `/v1/embeddings` 직접 호출.
+    - 7.5: `shared.common.agenthub_client.AgentHubClient.embed()` 위임으로 통합.
+           AgentHub `OpenAICompatController.EmbeddingsAsync` 가 라우팅을 처리.
 
-호출 패턴:
-    - `httpx.AsyncClient` 으로 `POST {AGENTHUB_URL}/v1/embeddings`
-    - 헤더: `X-API-Key: {AGENTHUB_API_KEY}`
-    - body: `{"model": "embedding-default", "input": "text" or [text,...]}`
+설계 원칙:
+    - **R2 단일 진입점**: 모든 임베딩 호출은 AgentHub `/v1/embeddings` 경유.
+      OpenAI SDK 직접 호출 금지 (anti-patterns.md §1).
+    - **Single Implementation**: 본 모듈은 AgentHubClient 싱글턴을 재사용 — chat 호출과
+      connection pool 공유. 별도 httpx.AsyncClient 보유 X.
+    - **R5 한국어 주석**: 초보자도 이해할 수 있도록 한국어로.
 
-주의:
-    - AgentHubClient (career/shared/common/agenthub_client.py) 는 chat 만 노출하므로
-      본 모듈은 임베딩 전용 httpx 클라이언트를 별도 보유한다.
-    - Phase 7.5 에서 AgentHubClient.embed() 메서드 추가 시 본 모듈도 연계 변경한다.
+호출 흐름:
+    EmbeddingService.embed_text()
+        → AgentHubClient.embed(agent_code="embedding-default", input=text)
+        → AgentHub `/v1/embeddings`
+        → AgentHub 가 ApiService 분기 (OpenAI/Azure OpenAI Embeddings)
+        → 1536D 벡터 반환
+
+대상 차원:
+    - 1536D 표준 (TECHSPEC ADR-10) — Qdrant collection 단일성 보장.
+    - AgentCode "embedding-default" 가 `text-embedding-3-small` 시드됨 (Phase 7.1).
 """
 
 import logging
-import os
 from typing import List, Optional
 
-import httpx
+from shared.common.agenthub_client import (
+    AgentHubClient,
+    AgentHubError,
+    get_agenthub_client,
+)
 
 from ..config import get_settings
 
@@ -32,11 +42,12 @@ logger = logging.getLogger(__name__)
 
 class EmbeddingService:
     """
-    AgentHub `embedding-default` Agent 위임 임베딩 서비스.
+    AgentHub `embedding-default` Agent 위임 임베딩 서비스 (Phase 7.5).
 
     초보자 가이드:
         - 텍스트(예: 학생 자기소개) 를 1536차원 벡터로 변환한다.
-        - 이전에는 OpenAI SDK 로 직접 호출했지만, 이제는 AgentHub 게이트웨이를 거친다.
+        - 이전(7.4)에는 본 모듈이 직접 httpx 로 AgentHub 를 호출했지만,
+          이제 7.5 부터는 공용 `AgentHubClient` 싱글턴의 `embed()` 메서드를 사용한다.
         - AgentHub 가 OpenAI `text-embedding-3-small` 호출을 라우팅한다.
 
     Attributes:
@@ -44,35 +55,27 @@ class EmbeddingService:
         dimensions:   출력 임베딩 차원 (1536, TECHSPEC ADR-10 표준)
     """
 
-    def __init__(self, settings=None):
+    def __init__(self, settings=None, agenthub_client: Optional[AgentHubClient] = None):
+        # settings 는 향후 호환용 — 현재는 사용하지 않음 (AgentHubClient 가 환경변수 직접 로드).
         self.settings = settings or get_settings()
         # 1536D 표준 — TECHSPEC ADR-10 / W1 (단일 차원 정책으로 Qdrant collection 통일)
         self.model = "embedding-default"  # AgentCode (Phase 7.1 시드 등록됨)
         self.dimensions = 1536
 
-        # AgentHub 임베딩 엔드포인트 — chat 과 동일한 base_url, 다른 path
-        base_url = os.environ.get("AGENTHUB_URL", "").strip().rstrip("/")
-        api_key = os.environ.get("AGENTHUB_API_KEY", "").strip()
-        if not base_url or not api_key:
-            logger.warning(
-                "AGENTHUB_URL/AGENTHUB_API_KEY 미설정 — 임베딩 호출 시 실패 예상. "
-                "Phase 7.2 발급된 career-master-key 가 환경변수에 주입되었는지 확인."
-            )
-
-        # httpx.AsyncClient 인스턴스를 보유하여 connection pool 재사용
-        self._client = httpx.AsyncClient(
-            base_url=base_url,
-            timeout=httpx.Timeout(60.0, connect=10.0),
-            headers={
-                "X-API-Key": api_key,
-                "Content-Type": "application/json",
-                "User-Agent": "career-ai-service/embedding/1.0",
-            },
-        )
+        # 의존성 주입 패턴 — 테스트에서 mock AgentHubClient 주입 가능.
+        # 운영 환경에서는 싱글턴 재사용으로 connection pool 효율 확보.
+        self._agenthub: AgentHubClient = agenthub_client or get_agenthub_client()
 
     async def aclose(self) -> None:
-        """FastAPI lifespan shutdown 에서 호출 — connection pool 정리."""
-        await self._client.aclose()
+        """
+        FastAPI lifespan shutdown 에서 호출.
+
+        주의: AgentHubClient 자체는 싱글턴(@lru_cache)으로 다른 모듈도 공유 사용한다 —
+        본 모듈에서 aclose() 를 호출하면 chat 호출도 죽는다. 따라서 lifespan 의 shutdown
+        에서는 AgentHubClient 직접 aclose 를 1회만 호출하고, 본 메서드는 no-op 으로 둔다.
+        """
+        # Phase 7.5: 의도적으로 no-op — 싱글턴 보호.
+        return
 
     async def embed_text(self, text: str) -> List[float]:
         """
@@ -89,26 +92,20 @@ class EmbeddingService:
             return [0.0] * self.dimensions
 
         try:
-            response = await self._client.post(
-                "/v1/embeddings",
-                json={
-                    "model": self.model,
-                    "input": text.strip(),
-                },
+            # AgentHubClient.embed 는 OpenAI 호환 dict 를 반환.
+            response = await self._agenthub.embed(
+                agent_code=self.model,
+                input=text.strip(),
             )
-            if response.status_code >= 400:
-                logger.error(
-                    f"AgentHub embedding 호출 실패: status={response.status_code} body={response.text[:300]}"
-                )
-                raise httpx.HTTPStatusError(
-                    f"AgentHub /v1/embeddings returned {response.status_code}",
-                    request=response.request,
-                    response=response,
-                )
-            data = response.json()
-            return data["data"][0]["embedding"]
-        except (httpx.RequestError, httpx.HTTPStatusError, KeyError, IndexError) as e:
-            logger.error(f"Failed to generate embedding via AgentHub: {e}")
+            return response["data"][0]["embedding"]
+        except AgentHubError as ex:
+            logger.error("Failed to generate embedding via AgentHub: %s", ex)
+            raise
+        except (KeyError, IndexError) as ex:
+            logger.error(
+                "AgentHub embedding 응답 파싱 실패: %s (response=%r)",
+                ex, response if "response" in locals() else None,
+            )
             raise
 
     async def embed_batch(self, texts: List[str], batch_size: int = 100) -> List[List[float]]:
@@ -118,9 +115,11 @@ class EmbeddingService:
         Args:
             texts: 임베딩할 텍스트 리스트
             batch_size: 한 번의 API 호출에 보낼 최대 텍스트 수
+                        (OpenAI 권장 ≤ 2048, 기본 100 으로 보수적 설정)
 
         Returns:
-            각 입력에 대응하는 1536차원 임베딩 리스트
+            각 입력에 대응하는 1536차원 임베딩 리스트.
+            빈 텍스트 위치에는 0 벡터를 끼워 입력 인덱스를 보존.
         """
         if not texts:
             return []
@@ -144,25 +143,13 @@ class EmbeddingService:
             # batch_size 단위로 잘라 AgentHub 호출
             for i in range(0, len(non_empty_texts), batch_size):
                 batch = non_empty_texts[i:i + batch_size]
-                response = await self._client.post(
-                    "/v1/embeddings",
-                    json={
-                        "model": self.model,
-                        "input": batch,
-                    },
+                response = await self._agenthub.embed(
+                    agent_code=self.model,
+                    input=batch,
                 )
-                if response.status_code >= 400:
-                    logger.error(
-                        f"AgentHub batch embedding 호출 실패: status={response.status_code} body={response.text[:300]}"
-                    )
-                    raise httpx.HTTPStatusError(
-                        f"AgentHub /v1/embeddings returned {response.status_code}",
-                        request=response.request,
-                        response=response,
-                    )
-                data = response.json()
                 # OpenAI 호환 응답: data["data"] = [{"embedding": [...], "index": N}, ...]
-                batch_embeddings = [item["embedding"] for item in data["data"]]
+                # AgentHub 가 index 순서를 보존하므로 그대로 사용.
+                batch_embeddings = [item["embedding"] for item in response["data"]]
                 embeddings.extend(batch_embeddings)
 
             # 빈 텍스트 위치에 0 벡터를 끼워 원래 순서 복원
@@ -177,8 +164,11 @@ class EmbeddingService:
 
             return result
 
-        except (httpx.RequestError, httpx.HTTPStatusError, KeyError, IndexError) as e:
-            logger.error(f"Failed to generate batch embeddings via AgentHub: {e}")
+        except AgentHubError as ex:
+            logger.error("Failed to generate batch embeddings via AgentHub: %s", ex)
+            raise
+        except (KeyError, IndexError) as ex:
+            logger.error("AgentHub batch embedding 응답 파싱 실패: %s", ex)
             raise
 
     async def compute_similarity(
