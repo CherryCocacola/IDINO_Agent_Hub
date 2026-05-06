@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 5 (AgentHub Nexus provider + LlmRouting + Hybrid 라우팅) — **완료 (5.1 + 5.2 코드 작업 완료, commit 대기)** |
-| **다음 Phase** | Phase 4 (DocUtil/career → AGENT_HUB 통합) 또는 Phase 6 (DocUtil 운영자 → AgentHub 흡수) — 사용자 결정 |
-| **마지막 commit** | `624b50f [agenthub/migration] Phase 3.6 — AGENT_HUB DB 운영 PG 적용 + T-SQL bracket 잔존 PG 호환 변환` (Phase 5.1 + 5.2 commit 미진행 — 사용자 결정 대기) |
+| **현재 Phase** | Phase 3 + Phase 5 모두 완료 — Phase 5.1 + 5.2 commit 완료 (HybridRouter 단위 6/6 PASS) |
+| **다음 Phase** | Phase 4 (DocUtil/career → AGENT_HUB 통합) 또는 Phase 6 (DocUtil 운영자 → AgentHub 흡수) |
+| **마지막 commit** | `40b69eb [agenthub/nexus] Phase 5.2 — AiProxyService Nexus 분기 + HybridRouter (PII/dataLabel/capability/cost)` |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
