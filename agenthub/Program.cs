@@ -247,6 +247,17 @@ builder.Services.AddHttpClient("nexus", client =>
         builder.Configuration.GetValue<int>("Nexus:DefaultTimeoutSeconds", 60));
 });
 
+// DocUtil(RAG/문서 운영) Named HttpClient — Phase 6.1, ADR-2 RAG 단일 권위.
+// BaseUrl 기본값은 로컬 docker compose (docutil-api). JwtToken/ApiKey 는 DocUtilClient 내부에서 부착.
+builder.Services.AddHttpClient("docutil", client =>
+{
+    var docutilBaseUrl = builder.Configuration["DocUtil:BaseUrl"]
+                         ?? "http://localhost:8000"; // DocUtil FastAPI 기본값
+    client.BaseAddress = new Uri(docutilBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(
+        builder.Configuration.GetValue<int>("DocUtil:DefaultTimeoutSeconds", 60));
+});
+
 builder.Services.AddHttpClient(); // 기본 클라이언트 (기타 HTTP 호출용)
 
 // HttpContextAccessor 추가 (PII 로깅용)
@@ -263,6 +274,7 @@ builder.Services.AddScoped<IRagService, RagService>();
 builder.Services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
 builder.Services.AddScoped<IQuotaService, QuotaService>();
 builder.Services.AddScoped<INexusClient, NexusClient>(); // Phase 5.1 — Nexus 옵션 B 클라이언트
+builder.Services.AddScoped<IDocUtilClient, DocUtilClient>(); // Phase 6.1 — DocUtil RAG/문서 BFF 클라이언트 (ADR-2 RAG 단일 권위)
 builder.Services.AddScoped<IHybridRouter, HybridRouter>(); // Phase 5.2 — Hybrid 라우팅 결정 엔진(PII/라벨/capability/cost)
 builder.Services.AddScoped<IAiProxyService, AiProxyService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();

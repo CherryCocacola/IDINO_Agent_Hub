@@ -1,6 +1,6 @@
 # IDINO Agent Hub — 통합 작업 진행 상황
 
-> **마지막 갱신**: 2026-05-06 (Phase 4.5 완료 — 4 schema 통합 검증 + R3 격리 강제 PASS. dotnet-script + Npgsql 직접으로 15개 검증 항목 실행. cross-schema FK 0건 / search_path 시뮬레이션 3/3 PASS / PK 누락 0건. Phase 5 Nexus + Phase 7.1 15 Agent + Phase 7.2 2 ApiKey 시드 모두 정상. `docs/PHASE4_VALIDATION.md` 신설. Phase 4 종합 완료. 직전 Phase 7.5 임베딩 위임 완료 상태 유지)
+> **마지막 갱신**: 2026-05-06 (Phase 6.1+6.2 코드 작업 완료 — DocUtil RAG/문서 BFF 클라이언트 신설 + RagService 분기. 신규 파일 2 (`Services/IDocUtilClient.cs`, `Services/DocUtilClient.cs`) + 수정 3 (`Program.cs`, `appsettings.json`, `Services/RagService.cs`). `dotnet build` 0 errors / 11 pre-existing warnings (CS1998). ADR-2 RAG 단일 권위 = DocUtil 코드 진입점 확보. 직전 Phase 4.5 / Phase 7.5 상태 유지)
 > **갱신 규칙**: 모든 작업 완료 시 본 파일을 갱신한다 (CLAUDE.md 의무 사항).
 > **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세), `docs/AI_INVENTORY.md` (Phase 1 산출물), `docs/PHASE4_VALIDATION.md` (Phase 4.5 검증 보고서)
 
@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 4.5 완료 (4 schema 통합 검증 — AGENT_HUB DB 192.168.10.39:5440 / PG 17.9 / pgvector 0.8.0). 15개 검증 항목 PASS: 1) BASE TABLE 127 (AgentHub 37 + DocUtil 28 + career 62 + hangfire 0) / 2) cross-schema FK **0** [PASS — R3 강제] / 3) FK ON DELETE 분포 (AgentHub 32C+12N+2R+1S=47 / DocUtil 30C+1R+26S=57 / career 82N=82) / 4) FK 총수 186 / 5) audit 컬럼 분포 (AgentHub CreatedAt 32 + DocUtil ins_dt 27 + career ins_dt 62) / 6) audit 누락 (AgentHub 5 / DocUtil 10(alembic_version 정상 + 9 별도 트랙) / career 0) / 7) 인덱스 342 (UNIQUE 175 + Vector 3) / 8) Nexus ApiService 시드 1 / 9) Phase 7.1 Agent 시드 15 / 10) Phase 7.2 ApiKey 2 / 11) Tenants=1 Departments=1 / 12) Vector 컬럼 3 (idino_career.tb_course/tb_program/tb_success_pattern) / 13) **R3 search_path 시뮬레이션 3/3 PASS** (각 connection 자기 schema 만 unqualified 접근, 타 schema relation does not exist) / 14) UNIQUE DocUtil 10 + career 21 / 15) PK 누락 **0**. `docs/PHASE4_VALIDATION.md` v1.0 신설(~290 라인) + `user_mig/scripts/phase45_validate.csx` 검증 스크립트 신설. R1/R13 해소 표기. R12(ON DELETE CASCADE 32건 강등) / R7(ApiKey 회전) / audit 통합 view / 시드 reproducibility(EF migration codify) 등은 별도 트랙. 직전 Phase 7.5/7.4/7.3/4.4/4.3/4.2/4.1/7.2/7.1 상태 유지. **코드 변경 0건 — 검증 + 보고서만**. commit 대기 |
-| **다음 Phase** | Phase 5+ 별도 트랙 (R12 ON DELETE 강등 / R7 ApiKey 회전 + Per-MS 분리 / 시드 EF migration codify / DU-14 `/v1/images` 컨트롤러 / career frontend AgentHub 직결 / ai-service deprecate / retrieval_service vector 분기 추가) 또는 Phase 6 (DocUtil 운영자 → AgentHub 흡수) 또는 secret leak sanitize + push — 사용자 결정 대기 |
-| **마지막 commit** | `ce8a52c` (Phase 4.1/4.2/4.3/4.4/4.5/7.1/7.2/7.3/7.4/7.5 commit 미실행 — 사용자 승인 대기. master ApiKey 평문은 commit 미포함) |
+| **현재 Phase** | Phase 6.1+6.2 코드 작업 완료 (DocUtil 운영자 → AgentHub 흡수 첫 단계). **신규 파일 2건**: `agenthub/Services/IDocUtilClient.cs` (~135 LOC, 6 메서드 + 6 record DTO) + `agenthub/Services/DocUtilClient.cs` (~410 LOC, IHttpClientFactory + JWT/ApiKey Bearer + 6 엔드포인트 호출). **수정 3건**: `agenthub/Program.cs` (Named HttpClient `"docutil"` 등록 — `DocUtil:BaseUrl` 폴백 `http://localhost:8000` + `DefaultTimeoutSeconds=60` + `IDocUtilClient` Scoped DI 등록) / `agenthub/appsettings.json` (DocUtil 섹션 — BaseUrl/JwtToken/ApiKey/DefaultTimeoutSeconds. JwtToken/ApiKey 빈 폴백 — 시연용 운영자 발급 후 디스크 주입) / `agenthub/Services/RagService.cs` (KnowledgeBaseSource="DocUtil" 분기 추가 — agentId 룩업 후 `_context.Agents.AsNoTracking().Select(KnowledgeBaseSource, KnowledgeBaseRef)` → DocUtil 시 `_docUtilClient.SearchAsync(query, KnowledgeBaseRef, topK)` 위임 + `MapDocUtilHitToDto` 헬퍼 신설 — DocUtil string Id → RagSearchResultDto.ChunkId(int hash) / Score(double)→Similarity(float) / metadata 메타에서 document_id/title/source best-effort 추출). **빌드 검증**: `dotnet build --no-restore -v quiet` → **에러 0개 / 경고 11개 (모두 pre-existing CS1998, Phase 7.5 시점부터 동일 — 본 Phase 신규 경고 0건)**. ADR-2 RAG 단일 권위 = DocUtil 의 코드 진입점 확보. EF 모델 변경 0건 — Phase 5.1 의 Agent.KnowledgeBaseSource/KnowledgeBaseRef 컬럼 그대로 활용. **외부 시그니처 불변**: IRagService.RetrieveAsync 무변경. 직전 Phase 7.5/4.5 상태 유지. commit 대기 |
+| **다음 Phase** | Phase 6.3 (운영자 KB 콘솔 Vue UI — AgentHub `/admin/knowledge-base` 신설 + IDocUtilClient 6 메서드 노출) / Phase 6.4 (자체 KB deprecate 마킹 — `[Obsolete]` 어트리뷰트 + 운영자 마이그레이션 가이드) / Phase 6.5 (e2e — 시연용 DocUtil JWT 발급 + Agent.KnowledgeBaseSource="DocUtil" 전환 시 RAG 응답 동작 검증) — 사용자 결정 대기 |
+| **마지막 commit** | `2eb622e` (Phase 6.1+6.2 commit 미실행 — 사용자 승인 대기. Phase 4.1~4.5/7.1~7.5 도 commit 미실행 상태 — secret leak sanitize 와 함께 별도 트랙) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -31,7 +31,7 @@
 | **3** | AgentHub MSSQL → PostgreSQL 마이그레이션 | ✅ 핵심 완료 (3.1 + 3.2 + 3.3 + 3.4 + 3.5 + 3.5b + 3.6) | 2026-05-06 |
 | **4** | DocUtil/career → AGENT_HUB 통합 | ✅ 완료 (4.1 + 4.2 + 4.3 + 4.4 + 4.5 — R3 격리 검증 PASS) | 2026-05-06 |
 | **5** | AgentHub Nexus provider + LlmRouting + 진짜 SSE | ✅ 핵심 완료 (5.1 + 5.2 코드 작업 + 빌드 0E/단위 검증 6/6) | 2026-05-06 |
-| **6** | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | ⏳ 대기 | Phase 5 후 |
+| **6** | DocUtil 운영자 → AgentHub 흡수 + KB 마이그레이션 | 🔄 진행 중 (6.1+6.2 완료 — DocUtil BFF 클라이언트 + RagService 분기. 6.3 Vue UI / 6.4 deprecate / 6.5 e2e 대기) | 2026-05-06 |
 | **7** | DocUtil/career AI 호출 → AgentHub 위임 | ✅ 완료 (7.1+7.2+7.3+7.4+7.5) | 2026-05-06 |
 | **8** | (보류) Vue → Next.js | ⏸ 보류 | — |
 
@@ -154,6 +154,68 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-06 (Phase 6.1+6.2 — DocUtil RAG/문서 BFF 클라이언트 + RagService.RetrieveAsync 분기, ADR-2 RAG 단일 권위 코드 진입점 확보)
+- **목적**: 통합 비전(ADR-2) 의 "RAG 단일 권위 = DocUtil" 을 실제 코드에서 강제하는 첫 단계. AgentHub 가 자체 KB 임베딩/유사도 계산을 하지 않고, `Agent.KnowledgeBaseSource="DocUtil"` 로 운영자가 전환한 Agent 의 RAG 검색을 DocUtil FastAPI(`/api/v1/search`) 로 위임한다. Phase 5.1 에서 미리 추가해둔 `Agent.KnowledgeBaseSource` / `KnowledgeBaseRef` 컬럼을 그대로 활용 — EF 모델 변경 0건. 외부 시그니처(`IRagService.RetrieveAsync`) 도 무변경 — 호출자(`AiProxyService.SendChatMessageAsync` 의 EnableRag 분기) 무영향
+- **변경 파일 (2 신규 + 3 수정)**:
+  - **NEW `agenthub/Services/IDocUtilClient.cs`** (~135 LOC) — DocUtil BFF 인터페이스 (6 메서드) + 6 record DTO. 메서드: `SearchAsync(query, collectionRef, maxResults)` (RAG 핵심) / `ListDocumentsAsync(collectionRef, page, size)` (운영자 콘솔 — Phase 6.3 의존 항목) / `GetDocumentAsync(documentId)` (404 → null 정규화) / `UploadDocumentAsync(stream, fileName, collectionRef, visibility)` (multipart/form-data) / `DeleteDocumentAsync(documentId)` / `GetChunksAsync(documentId)` (운영자 청크 검수). DTO: `DocUtilSearchResult`/`DocUtilSearchHit`/`DocUtilDocumentList`/`DocUtilDocumentSummary`/`DocUtilDocumentDetail`/`DocUtilUploadResult`/`DocUtilChunk`. 모든 record 는 sealed + 한국어 XML doc 부착
+  - **NEW `agenthub/Services/DocUtilClient.cs`** (~410 LOC) — IDocUtilClient 구현체. 핵심 설계:
+    - **Named HttpClient `"docutil"` 사용** (P1 단일 진입점 + .claude/rules/anti-patterns.md #2 — 직접 인스턴스화 금지). 생성자 주입: `IHttpClientFactory`, `IConfiguration`, `ILogger<DocUtilClient>`
+    - **Bearer 부착 정책**: `ApplyAuthorizationHeader` 헬퍼 — 우선순위 `DocUtil:JwtToken` > `DocUtil:ApiKey`. 둘 다 비어있으면 헤더 미부착 후 LogWarning("운영자 토큰 발급 후 환경변수 / appsettings 에 주입 필요"). DocUtil 측 401/403 응답 시 `EnsureSuccessOrThrowKoreanAsync` 가 한국어 메시지로 매핑 — 시연용 graceful 폴백
+    - **JSON 직렬화 옵션**: `JsonNamingPolicy.SnakeCaseLower` + `PropertyNameCaseInsensitive=true` + `WhenWritingNull` ignore. DocUtil FastAPI(SQLAlchemy 2 / Pydantic) 의 snake_case 와 1:1 매핑. private response DTO 는 `[JsonPropertyName]` 명시(`created_at`/`uploader_name`/`visibility_targets`/`job_id`/`chunk_id`/`chunk_index`)
+    - **SearchAsync**: `POST /api/v1/search` body `{query, max_results, scope_id?}`. collectionRef 비어있으면 글로벌 검색. 빈 query 는 빈 결과 반환(DocUtil 호출 비용 절감 + 422 회피)
+    - **UploadDocumentAsync multipart 처리**: `MultipartFormDataContent` + `StreamContent` (호출자 stream 소유 — 본 메서드 Dispose 금지) + `application/octet-stream` Content-Type 부착. boundary 는 .NET 기본 자동 생성. folder_id/visibility 는 `StringContent(_, Encoding.UTF8)` 로 form field 추가
+    - **GetDocumentAsync**: 404 → null 정규화(NotFoundException 미사용 — 호출자 분기 단순화)
+    - **DeleteDocumentAsync**: 204 NoContent / 200 OK 모두 성공 인정
+    - **에러 매핑** (`EnsureSuccessOrThrowKoreanAsync`): 401/403 → `"DocUtil 인증 실패. JwtToken 또는 ApiKey 설정을 확인하세요."` / 5xx → `"DocUtil 응답 실패. 네트워크 또는 서비스 상태를 확인하세요. (HTTP {status})"` / 그 외 4xx → `"DocUtil 호출이 실패했습니다 (HTTP {status}): {body 200자 절사}"`. 모두 `InvalidOperationException` 으로 통일 — AgentHub `GlobalExceptionHandlerMiddleware` 가 502/503 합성
+  - **MODIFY `agenthub/Program.cs`** (+13 LOC) — Nexus Named HttpClient 등록부 인접에 `"docutil"` HttpClient 추가: `BaseUrl` 기본값 `http://localhost:8000` (DocUtil docker compose 기본 포트) + `Timeout=DocUtil:DefaultTimeoutSeconds (default 60s)`. 서비스 등록부에 `builder.Services.AddScoped<IDocUtilClient, DocUtilClient>();` 추가 (Phase 5.1 의 `INexusClient` 등록 직후 — 자연 인접)
+  - **MODIFY `agenthub/appsettings.json`** (+6 LOC) — `Nexus` 섹션 직후에 `DocUtil` 섹션 추가: `BaseUrl=http://localhost:8000` + `JwtToken=""` + `ApiKey=""` + `DefaultTimeoutSeconds=60`. JwtToken/ApiKey 빈 폴백은 시연용 시작 환경 보호 — 운영자가 DocUtil 운영자 JWT 발급 후 환경변수(`DocUtil__JwtToken`) 또는 디스크 `appsettings.Development.json` 에 주입하면 즉시 동작. **R4 시크릿 비커밋 준수** — appsettings.json 의 빈 문자열은 placeholder 일 뿐, 실제 값은 .gitignore 대상 디스크 파일에서만 로드
+  - **MODIFY `agenthub/Services/RagService.cs`** (+85 LOC) — Phase 6.2 분기 추가:
+    - 생성자에 `IDocUtilClient _docUtilClient` 의존성 주입(필드 추가 + 매개변수 + 할당)
+    - `RetrieveAsync` 의 RAG 캐시 hit 분기 직후, 자체 KB 임베딩 흐름(`_embeddingService.GetEmbeddingAsync` 호출) 직전에 KnowledgeBaseSource 권위 시스템 분기 신설:
+      ```
+      if (agentId.HasValue) {
+          var agentRouting = await _context.Agents.AsNoTracking()
+              .Where(a => a.AgentId == agentId.Value)
+              .Select(a => new { a.KnowledgeBaseSource, a.KnowledgeBaseRef })
+              .FirstOrDefaultAsync(ct);
+          if (agentRouting != null && agentRouting.KnowledgeBaseSource == "DocUtil") {
+              try { var search = await _docUtilClient.SearchAsync(query, agentRouting.KnowledgeBaseRef, topK, ct);
+                    var results = search.Results.Select(MapDocUtilHitToDto).ToList();
+                    await _cachingService.SetAsync(ragCacheKey, results, TimeSpan.FromMinutes(10));
+                    return results; }
+              catch (Exception ex) { _logger.LogError(ex, ...); return new List<RagSearchResultDto>(); }
+          }
+      }
+      ```
+    - `MapDocUtilHitToDto(DocUtilSearchHit hit)` 정적 헬퍼 신설 — `RagSearchResultDto` 와 DocUtil 응답 schema mismatch 흡수: ChunkId(long) ← `hit.Id?.GetHashCode()` 안정적 hash (DocUtil string UUID → int) / Similarity(float) ← `(float)hit.Score` / Title/Source ← `metadata.title`/`metadata.source` JsonElement best-effort 추출, 미존재 시 "DocUtil Document"/"DocUtil" 폴백 / DocumentId(int) ← `metadata.document_id` (Number 또는 String 모두 처리), 실패 시 0 / Metadata ← DocUtil 원본을 `JsonSerializer.Serialize` 로 직렬화하여 보존. 본 매핑은 임시 — Phase 6.4 에서 `RagSearchResultDto.ChunkId` 자체를 string 으로 확장하는 것이 정도(正道)
+- **빌드 검증**:
+  - `cd /d/workspace/IDINO_Agent_Hub/agenthub && dotnet build --no-restore -v quiet` → **에러 0개 / 경고 11개 (모두 pre-existing CS1998 — Phase 7.5 시점부터 동일, 본 Phase 신규 경고 0건)**. 첫 시도 PASS
+  - `IDocUtilClient` / `DocUtilClient` / `RagService` 모두 컴파일 성공 — 의존성 그래프 순환 없음(`RagService → IDocUtilClient → IHttpClientFactory + IConfiguration + ILogger`)
+- **호환성 검증 (회귀 0건)**:
+  - **외부 시그니처 보존**: `IRagService.RetrieveAsync` 무변경 — 호출자(`AiProxyService.SendChatMessageAsync` 의 EnableRag 분기) 코드 수정 0건
+  - **AgentHub 자체 KB 폴백**: KnowledgeBaseSource ≠ "DocUtil" (또는 NULL/"AgentHub") 인 모든 기존 Agent 는 기존 흐름 그대로 — 임베딩 캐시 → DocumentChunks 조회 → 코사인 유사도 계산 → Top-K. 즉, Phase 5.1 의 기본값 "AgentHub" 가 보존됨
+  - **DocUtil JWT/ApiKey 미설정 시**: appsettings.json 빈 문자열 폴백 → DocUtilClient 가 LogWarning 후 헤더 미부착 → DocUtil 측 401 → `EnsureSuccessOrThrowKoreanAsync` 가 `"DocUtil 인증 실패..."` 한국어 예외 → RagService catch 블록이 LogError + 빈 결과 반환. 사용자 화면은 "검색 결과 없음" 으로 graceful 동작
+  - **EF 모델 변경 0건**: Phase 5.1 의 `Agent.KnowledgeBaseSource` (Required, MaxLength 32, default "AgentHub") + `Agent.KnowledgeBaseRef` (MaxLength 100, nullable) 컬럼 그대로 활용 — 마이그레이션 신규 생성 불필요
+  - **DI 그래프 검증**: `IDocUtilClient` 는 Scoped 등록 → `RagService` (Scoped) 의 의존성 적합. captive dependency 없음
+- **AgentCode/AgentRouting 매핑 (예시 — Phase 6.5 e2e 시 운영자가 SQL UPDATE 또는 Vue UI 로 전환)**:
+
+  | AgentCode | KnowledgeBaseSource | KnowledgeBaseRef | 동작 |
+  |---|---|---|---|
+  | (기존 모든 Phase 7.1 시드 Agent) | AgentHub (default) | NULL | 자체 KB(AgentDocuments + DocumentChunks) 검색. 기존 흐름 보존 |
+  | (운영자가 전환한 Agent) | DocUtil | "{folder_id}" 또는 NULL | DocUtil `/api/v1/search` 위임. NULL 이면 DocUtil 글로벌 검색 |
+
+- **잠재 위험 / Open Questions**:
+  - **R20 (TECHSPEC §16): AgentHub KB → DocUtil visibility 매핑 미정** — 운영자가 자체 KB 문서를 DocUtil 로 일괄 마이그레이션할 때, AgentHub 의 IsPublic / CreatedBy 권한 모델이 DocUtil 의 visibility_targets(folder/scope/role) 와 어떻게 매핑되는지 정책 결정 필요. Phase 6.4 에서 운영자 마이그레이션 가이드 작성 시 정리
+  - **DocUtil JWT 발급 트랙**: AgentHub 의 운영자 화면이 DocUtil 의 운영자 권한 토큰을 어떻게 획득할 것인지(시연용=관리자 직접 발급 / 운영=Service Account + token rotation) 별도 트랙. Phase 6.5 e2e 검증 전 결정
+  - **RagSearchResultDto.ChunkId(long) 와 DocUtil string UUID 의 mismatch**: 현재 `GetHashCode()` 로 안정적 int 변환하지만 충돌 가능성 0 아님(매우 낮음). 운영자 화면에서 ChunkId 를 직접 사용하는 곳 없으므로 시연 영향 없음. Phase 6.4 에서 RagSearchResultDto 자체를 string 으로 확장하는 schema 변경(EF migration + Frontend 동기화 필요)이 정도(正道)
+  - **DocUtil 측 SearchRequest schema 검증 미완**: `scope_id` / `folder_id` / `doc_ids` / `agentic` 필드명이 DocUtil 의 실제 Pydantic schema 와 정확히 일치하는지 Phase 6.5 e2e 에서 확인. 본 코드는 사전 조사 결과 + DocUtil source_DOCUTIL.md 기반 추정
+  - **Phase 6.3 의존**: 운영자 Vue UI(`/admin/knowledge-base`) 는 본 Phase 6.1 의 IDocUtilClient 6 메서드를 그대로 노출하면 됨 — 별도 Service 레이어 추가 불필요(BFF 패턴 그대로)
+- **다음 단계**:
+  - **Phase 6.3** (운영자 KB 콘솔 Vue UI) — AgentHub `/admin/knowledge-base` 페이지 신설. `KnowledgeBaseController` 신설 + `IDocUtilClient` 6 메서드 노출 + Vue 측 `views/admin/KnowledgeBase.vue` + `services/knowledgeBaseService.ts` + `stores/knowledgeBase.ts`. 한국어 UI(목록/업로드/삭제/검색/청크 검수). Pinia 스토어로 페이지네이션 상태 관리. 한국어 사용자 메시지 + ErrorResponseDto 패턴 준수
+  - **Phase 6.4** (자체 KB deprecate 마킹) — `IKnowledgeBaseService` / `KnowledgeBaseService` / `KnowledgeBaseDocument` 모델에 `[Obsolete("ADR-2 — DocUtil 로 위임. Phase 6.3 의 운영자 콘솔 사용 권장.", error: false)]` 부착. 빌드 경고로 신규 사용 차단. 운영자 마이그레이션 가이드(`docs/PHASE6_MIGRATION.md`) 작성
+  - **Phase 6.5** (e2e 검증) — 시연용 DocUtil 운영자 JWT 발급 → `appsettings.Development.json` 의 `DocUtil:JwtToken` 주입 → 시드 Agent 1건 (예: AgentCode `customer-support`) 의 KnowledgeBaseSource SQL UPDATE → DocUtil 의 시드 collection 으로 KnowledgeBaseRef 설정 → /v1/chat/completions 호출 시 RAG 결과가 DocUtil 청크에서 오는지 로그 검증
+- **시드 / 데이터 영향 0건**: 본 Phase 는 DB 변경 없음 — 코드 + appsettings 만. AGENT_HUB DB 의 Agents 테이블은 Phase 5.1 시점 그대로
 
 ### 2026-05-06 (Phase 7.5 — AgentHub /v1/embeddings 컨트롤러 신설 + AgentHubClient.embed() + 통합, R2 단일 진입점 완료)
 - **목적**: Phase 7.3/7.4 에서 보류한 임베딩 호출의 R2 단일 진입점 강제. AgentHub `OpenAICompatController` 에 OpenAI 호환 `/v1/embeddings` 엔드포인트 신설 + `IAiProxyService.GenerateEmbeddingAsync` 분기(OpenAI/Azure OpenAI) + DocUtil/career 양 클라이언트에 `embed()` 메서드 통합. career embedding_service.py(7.4 별도 httpx 인스턴스) → AgentHubClient.embed() 위임으로 connection pool 통합 + DocUtil embedding_generator.py(7.4 OpenAI/vLLM 직접 httpx) → AgentHub 위임 교체. Phase 7 전체 완료

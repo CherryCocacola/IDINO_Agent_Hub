@@ -12,17 +12,20 @@ public class RagService : IRagService
     private readonly AIAgentManagementDbContext _context;
     private readonly IEmbeddingService _embeddingService;
     private readonly CachingService _cachingService;
+    private readonly IDocUtilClient _docUtilClient;
     private readonly ILogger<RagService> _logger;
 
     public RagService(
         AIAgentManagementDbContext context,
         IEmbeddingService embeddingService,
         CachingService cachingService,
+        IDocUtilClient docUtilClient,
         ILogger<RagService> logger)
     {
         _context = context;
         _embeddingService = embeddingService;
         _cachingService = cachingService;
+        _docUtilClient = docUtilClient;
         _logger = logger;
     }
 
@@ -47,6 +50,53 @@ public class RagService : IRagService
         {
             _logger.LogDebug("RAG cache hit for query hash {Hash}", queryHash);
             return cachedResult;
+        }
+
+        // ── Phase 6.2 (ADR-2): KnowledgeBaseSource 권위 시스템 분기 ─────────
+        // Agent.KnowledgeBaseSource="DocUtil" 인 경우 자체 임베딩/유사도 계산을
+        // 건너뛰고 DocUtil 의 하이브리드 검색(/api/v1/search) 으로 위임한다.
+        // 자체 KB(AgentHub) 폴백은 본 분기 이후 기존 흐름 그대로 유지.
+        // ----------------------------------------------------------------
+        if (agentId.HasValue)
+        {
+            var agentRouting = await _context.Agents
+                .AsNoTracking()
+                .Where(a => a.AgentId == agentId.Value)
+                .Select(a => new { a.KnowledgeBaseSource, a.KnowledgeBaseRef })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (agentRouting != null
+                && string.Equals(agentRouting.KnowledgeBaseSource, "DocUtil", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    _logger.LogInformation(
+                        "RAG 위임 - AgentId={AgentId}, KnowledgeBaseSource=DocUtil, CollectionRef={Ref}, TopK={TopK}",
+                        agentId.Value, agentRouting.KnowledgeBaseRef ?? "(global)", topK);
+
+                    var search = await _docUtilClient.SearchAsync(
+                        query, agentRouting.KnowledgeBaseRef, topK, cancellationToken);
+
+                    var docutilResults = search.Results
+                        .Select(hit => MapDocUtilHitToDto(hit))
+                        .ToList();
+
+                    // RAG 결과 캐싱(10분) — AgentHub 자체 KB 분기와 TTL 동일.
+                    await _cachingService.SetAsync(ragCacheKey, docutilResults, TimeSpan.FromMinutes(10));
+                    return docutilResults;
+                }
+                catch (Exception ex)
+                {
+                    // DocUtil 응답 실패는 사용자 화면에 의미 있는 메시지로 노출되어야 한다.
+                    // RagService 의 외부 시그니처는 빈 리스트 반환이지만, 운영자가 원인을
+                    // 파악할 수 있도록 ERROR 레벨로 기록한 뒤 빈 결과를 반환한다.
+                    _logger.LogError(
+                        ex,
+                        "DocUtil RAG 위임 실패 - AgentId={AgentId}, CollectionRef={Ref}. 빈 결과로 폴백.",
+                        agentId.Value, agentRouting.KnowledgeBaseRef ?? "(global)");
+                    return new List<RagSearchResultDto>();
+                }
+            }
         }
 
         // [A] 쿼리 임베딩 캐싱 - 같은 질문이면 OpenAI API 호출 스킵
@@ -175,5 +225,52 @@ public class RagService : IRagService
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(query.Trim().ToLowerInvariant()));
         return Convert.ToBase64String(bytes).Replace("/", "_").Replace("+", "-")[..16];
+    }
+
+    // ── Phase 6.2: DocUtil 응답 → RagSearchResultDto 매핑 ───────────────────
+    // DocUtil 의 청크 식별자(string UUID/문자열) 와 RagSearchResultDto 의 정수
+    // DocumentId/ChunkId 사이 mismatch 를 한국어 주석과 함께 흡수한다.
+    //   - DocumentId: 청크 메타에 document_id 가 정수로 들어있을 수 있으므로 best-effort 추출, 실패 시 0
+    //   - ChunkId: hit.Id 의 안정적 hash(int) 로 매핑 — 운영자 화면에서는 Source 가 우선 표시되므로 비결정성 영향 없음
+    //   - Title/Source: 메타에서 source 또는 title 추출, 미존재 시 "DocUtil" 폴백
+    //   - Metadata: DocUtil 원본 메타를 JSON 문자열로 직렬화하여 RagSearchResultDto.Metadata 에 보존
+    // 이 매핑은 임시 — Phase 6.4 에서 RagSearchResultDto 자체를 string ID 로 확장하는 것이 정도(正道).
+    // ----------------------------------------------------------------------
+    private static RagSearchResultDto MapDocUtilHitToDto(DocUtilSearchHit hit)
+    {
+        var metadataJson = hit.Metadata is null
+            ? null
+            : System.Text.Json.JsonSerializer.Serialize(hit.Metadata);
+
+        // 메타에서 정수 document_id / 제목 / 소스를 best-effort 로 추출.
+        int documentId = 0;
+        string? title = null;
+        string? source = null;
+        if (hit.Metadata is System.Text.Json.JsonElement el && el.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+            if (el.TryGetProperty("document_id", out var docIdProp))
+            {
+                if (docIdProp.ValueKind == System.Text.Json.JsonValueKind.Number && docIdProp.TryGetInt32(out var dId))
+                    documentId = dId;
+                else if (docIdProp.ValueKind == System.Text.Json.JsonValueKind.String
+                         && int.TryParse(docIdProp.GetString(), out var dIdStr))
+                    documentId = dIdStr;
+            }
+            if (el.TryGetProperty("title", out var titleProp) && titleProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                title = titleProp.GetString();
+            if (el.TryGetProperty("source", out var srcProp) && srcProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                source = srcProp.GetString();
+        }
+
+        return new RagSearchResultDto
+        {
+            DocumentId = documentId,
+            ChunkId = hit.Id?.GetHashCode() ?? 0, // string UUID → 안정적 int hash. RagSearchResultDto.ChunkId 는 long.
+            Title = title ?? "DocUtil Document",
+            Content = hit.Content,
+            Similarity = (float)hit.Score,
+            Source = source ?? "DocUtil",
+            Metadata = metadataJson,
+        };
     }
 }
