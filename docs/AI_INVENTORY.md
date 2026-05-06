@@ -504,3 +504,45 @@ const aiApi = axios.create({
 | career LLM 직접 호출 위치 | 11곳 | 11곳 (검증 완료) |
 | career 위임 호출 | 4 (coaching/competency/roadmap + opportunity 추정) | **3 명시 + 2 config-only** (skill, opportunity는 호출 미발견) |
 | DocUtil 단일 진입점 위반 | 3건 (image_generation, graph_rag, embedding_generator) | **5건** — 위 부록 A의 2건 추가 |
+
+---
+
+## 부록 C — Phase 7.1 시드 매핑 (2026-05-06 적용)
+
+§6 의 15개 신규 Agent 카탈로그를 `agenthub/Data/DatabaseInitializer.cs:SeedAgentsAsync` 에 멱등 시드로 등록 완료.
+앱 부팅 시 자동 적용 (`SeedAsync` → `MigrateAsync` 후 `SeedAgentsAsync` 호출). 관련자가 운영자 콘솔/SDK 에서 즉시 호출 가능.
+
+### C.1 등록된 15개 Agent (시드 위치: `DatabaseInitializer.cs` 의 `seeds` 배열)
+
+| AgentCode | 시스템 | DefaultModel | LlmRouting | RAG | PII | ConsumerSystems |
+|---|---|---|---|:---:|---|---|
+| `docutil-rag-chat`               | docutil | gpt-4o                  | Hybrid   | ✅ | Mask | docutil-user |
+| `docutil-report-generator`       | docutil | gpt-4o                  | Hybrid   | ✅ | Mask | docutil-user |
+| `docutil-evaluator`              | docutil | gpt-4o (LLM-as-judge)   | External | ❌ | (off) | docutil-user |
+| `docutil-image-generator`        | docutil | dall-e-3                | External | ❌ | (off) | docutil-user |
+| `career-actionboard-orchestrator`| career  | gpt-4o-mini             | Hybrid   | ❌ | Mask | career-student, career-coaching |
+| `career-rag-actionboard`         | career  | gpt-4o-mini             | Hybrid   | ✅ | Mask | career-student, career-coaching |
+| `career-competency-analyzer`     | career  | gpt-4o-mini             | Hybrid   | ❌ | Mask | career-student, career-coaching |
+| `career-action-recommender`      | career  | gpt-4o-mini             | Hybrid   | ❌ | Mask | career-student, career-coaching |
+| `career-chatbot`                 | career  | nexus/primary           | **Internal** | ❌ | Block | career-coaching |
+| `career-semester-planner`        | career  | gpt-4o-mini             | Hybrid   | ❌ | Mask | career-student |
+| `career-simulation-suggester`    | career  | gpt-4o-mini             | Hybrid   | ❌ | Mask | career-student |
+| `career-simulation-analyzer`     | career  | gpt-4o-mini             | Hybrid   | ❌ | Mask | career-student |
+| `embedding-default`              | 공통    | text-embedding-3-small  | External | ❌ | (off) | docutil-user, career-student, career-coaching |
+| `web-search-default`             | 공통    | gpt-4o-mini (+Tavily)   | External | ❌ | (off) | docutil-user, career-student |
+| `agentic-search`                 | 공통    | gpt-4o-mini             | Hybrid   | ✅ | Mask | docutil-user |
+
+### C.2 시드 멱등성 가드
+
+- `AgentCode` 존재 검사 후 INSERT — 운영자가 UI 에서 수정한 SystemPrompt/Temperature 가 재기동 시 덮어써지지 않음
+- `ServiceCode` 부재 환경(예: 외부망에서 `nexus` 미등록 상태) → 해당 Agent skip + stderr 경고
+- `admin@example.com` 부재 시 시드 전체 skip (`Agents.CreatedBy` NOT NULL FK 제약)
+- `IsPublic=false`, `SortOrder=100` — 사용자 생성 Agent(0~99)와 우선순위 분리
+
+### C.3 다음 단계 (Phase 7.2~7.4)
+
+- **Phase 7.2** — 위 15개 AgentCode 별 ApiKey 발급 + `ConsumerSystem` 라벨 매핑 + 환경변수 분배 (`AGENTHUB_API_KEY_*`)
+- **Phase 7.3** — DocUtil 의 LLM 직접 호출 6곳(DU-7~DU-13의 사용처) 을 `httpx -> AGENTHUB_URL/v1/chat/completions` 위임으로 교체
+- **Phase 7.4** — career 의 LLM 직접 호출 11곳(CA-3~CA-13) 을 동일 패턴으로 교체. Tool Calling 구조화 응답은 Agent 사전 등록된 `JSON_SCHEMA_ACTIONBOARD` 자동 적용
+
+본 시드는 코드 교체 시 즉시 사용 가능한 사전 카탈로그를 제공한다 (R2 단일 진입점).

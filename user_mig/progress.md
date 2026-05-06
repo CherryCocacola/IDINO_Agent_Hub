@@ -1,6 +1,6 @@
 # IDINO Agent Hub — 통합 작업 진행 상황
 
-> **마지막 갱신**: 2026-05-06 (Phase 5.2 완료)
+> **마지막 갱신**: 2026-05-05 (Phase 4.1 완료 — DocUtil alembic schema → AGENT_HUB.document_utilization)
 > **갱신 규칙**: 모든 작업 완료 시 본 파일을 갱신한다 (CLAUDE.md 의무 사항).
 > **참조**: `user_mig/TECHSPEC.md` (통합 기술 명세), `docs/AI_INVENTORY.md` (Phase 1 산출물)
 
@@ -10,9 +10,9 @@
 
 | 항목 | 값 |
 |---|---|
-| **현재 Phase** | Phase 3 + Phase 5 모두 완료 — Phase 5.1 + 5.2 commit 완료 (HybridRouter 단위 6/6 PASS) |
-| **다음 Phase** | Phase 4 (DocUtil/career → AGENT_HUB 통합) 또는 Phase 6 (DocUtil 운영자 → AgentHub 흡수) |
-| **마지막 commit** | `40b69eb [agenthub/nexus] Phase 5.2 — AiProxyService Nexus 분기 + HybridRouter (PII/dataLabel/capability/cost)` |
+| **현재 Phase** | Phase 3 + 5 + 7.1 commit 완료. Phase 4.1 운영 PG 적용 완료 (document_utilization=28 테이블, alembic head=009) — commit 대기 |
+| **다음 Phase** | Phase 4.2 (DocUtil 부팅 검증) 또는 Phase 7.2 (Agent 별 ApiKey 발급/스코프) — 사용자 결정 대기 |
+| **마지막 commit** | `40b69eb [agenthub/nexus] Phase 5.2 — AiProxyService Nexus 분기 + HybridRouter (PII/dataLabel/capability/cost)` (Phase 4.1/7.1 commit 미실행) |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -153,6 +153,70 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-05 (Phase 4.1 — DocUtil alembic schema → AGENT_HUB.document_utilization)
+- **목적**: Q3 옵션 B 의 첫 단계 — monorepo 안에 복사된 DocUtil 코드를 AGENT_HUB DB(192.168.10.39:5440) 의 `document_utilization` schema 로 연결. 시연용 monorepo COPY 환경이라 데이터 이전(pg_dump → import) 은 생략하고 **빈 schema 에 alembic head 까지 적용**. R3 스키마 격리 + cross-schema FK 차단 검증
+- **변경 파일 (4 modify)**:
+  - **`docutil/backend/app/core/config.py`** (+8 LOC) — `db_schema: str = Field(default="document_utilization", ...)` 신규 Settings. 환경변수 `DB_SCHEMA` override 가능. 한국어 docstring 으로 R3 격리 의도 명시
+  - **`docutil/backend/app/core/database.py`** (총 +28 LOC, 순서 재배치)
+    - `_settings` / `_is_sqlite` 정의를 `metadata` 정의 *전* 으로 이동 (의존 순서 정정)
+    - `MetaData(naming_convention=..., schema=None if _is_sqlite else _settings.db_schema)` 글로벌 schema 적용 — 18 모듈의 모든 모델이 자동으로 `document_utilization` 에 매핑되어 `__table_args__={"schema":...}` 일괄 추가 불요 (방법 B)
+    - PostgreSQL 분기에 `connect_args={"server_settings": {"search_path": f"{_settings.db_schema},public"}}` 추가 — asyncpg 드라이버 connect 직후부터 schema 격리. public 은 pgcrypto/uuid-ossp 확장 함수 위치라 fallback 으로 두 번째에 배치
+    - 한국어 docstring 으로 cross-schema FK 가 있을 때만 명시적 schema 지정해야 한다는 가이드 추가
+  - **`docutil/backend/alembic/env.py`** (총 +35 LOC)
+    - `import sqlalchemy as sa` 추가
+    - `_db_schema = settings.db_schema`, `_is_sqlite` 모듈 레벨 helper
+    - `set_main_option("sqlalchemy.url", ...)` 호출 시 URL 의 `%` 문자를 `%%` 로 escape (configparser 보간 충돌 회피 — `%21%40%23%24` 같은 percent-encoded 비밀번호 처리)
+    - `run_migrations_offline` / `do_run_migrations` 양쪽에 `version_table_schema=_db_schema, include_schemas=True` 추가 — alembic_version 테이블도 동일 schema 안에 격리
+    - **`do_run_migrations` 가 alembic transaction 내부에서** `CREATE SCHEMA IF NOT EXISTS "document_utilization"` + `SET LOCAL search_path TO "document_utilization", public` 발행 — DDL 멱등성 + AGENT_HUB DB default search_path(`"AIAgentManagement", document_utilization, ...`) 무시하고 db_schema 우선 (시행착오 기록: `begin_transaction` 밖에서 SET 을 발행하면 SQLAlchemy autobegin 으로 transaction 분리되어 outer commit 누락 → DDL 전체 롤백되는 silent 실패)
+    - `run_async_migrations` 의 `async_engine_from_config` 에 `connect_args={"server_settings":{"search_path":...}}` 추가 (이중 안전)
+  - **`docutil/.env`** + **`docutil/backend/.env`** — DocUtil 전용 PG(5434/5440 docutil DB) → AGENT_HUB(192.168.10.39:5440) 으로 전환:
+    - `POSTGRES_USER=AGENT_HUB`, `POSTGRES_PASSWORD=idino!@#$`, `POSTGRES_DB=AGENT_HUB`, `POSTGRES_HOST=192.168.10.39`, `POSTGRES_PORT=5440`, `DB_SCHEMA=document_utilization` 신규
+    - `DATABASE_URL=postgresql+asyncpg://AGENT_HUB:idino%21%40%23%24@192.168.10.39:5440/AGENT_HUB` (특수문자 percent-encoded — `!`=%21, `@`=%40, `#`=%23, `$`=%24)
+    - 두 파일 모두 `.gitignore` 차단됨 (R4) — 디스크에만 갱신
+- **알렘빅 적용 결과 (운영 PG 검증 — asyncpg 직접 쿼리)**:
+  - `document_utilization` schema 의 일반 테이블 수 = **28 개** (alembic_version 포함)
+  - `alembic_version.version_num` = **`009_organization_quotas`** (head 일치)
+  - 적용 마이그레이션 8 개 모두 성공: `001_initial → 002_dept_proj_restructure → 003_templates_agents → 004_jinja2_template_system → 005_multi_provider → 006_evaluation → 007_documents_v2 → 009_organization_quotas`
+  - 시드 검증: `tb_organizations` 의 Default Organization (slug="default") + `tb_users` 의 admin (role=super_admin, email=admin@docutil.local) 모두 존재
+  - **R3 누설 점검 = 0건**: `public`/`AIAgentManagement`/`idino_career`/`hangfire` 4 schema 에 `tb_*` 테이블이나 `alembic_version` 신규 생성 없음 (PG `pg_class` JOIN `pg_namespace` 직접 점검)
+  - 다른 schema 현황: AIAgentManagement=35 (Phase 3.6 그대로), public=`__EFMigrationsHistory` 1 (그대로)
+- **cross-schema FK / search_path 결정**:
+  - DocUtil 18 모듈의 모든 ForeignKey 가 `tb_xxx.id` 단순 참조 (Grep 48 occurrences 분석 완료) — cross-schema FK 0 건, 방법 B(글로벌 metadata.schema) 안전
+  - search_path = `document_utilization, public` 우선 (public 은 pgcrypto `gen_random_uuid()` / `crypt()` 호출용 fallback)
+  - 운영자가 다른 schema 의 객체에 우연히 접근하지 못하도록 connection-time + alembic-time 두 곳에서 강제
+- **잠재 위험 / 다음 단계 (Phase 4.2)**:
+  - DocUtil 부팅 검증(`docker compose up` 또는 로컬 venv `uvicorn app.main:app`) 미수행 — 별도 트랙 (HW/Docker 환경 의존)
+  - Qdrant/MinIO/Redis 외부 의존성은 5440 docutil 클러스터의 인스턴스를 그대로 사용 — 별도 마이그레이션 시점에 통합 결정 필요 (Phase 4.2 또는 그 이후)
+  - **운영 데이터 미이전**: 시연용 monorepo COPY 환경 결정 사항 — 실 데이터 이전 필요 시 별도 `pg_dump --schema-only` + `pg_dump --data-only --no-owner` 2 단계 + sequence reset 필요 (TECHSPEC §12.4 참조)
+  - DocUtil S6/S7 작업이 `tb_search_history`/`tb_documents_v2` 컬럼을 추가하면 모델/마이그레이션이 monorepo 와 docutil 원본 두 곳에 동기화되어야 함 — Q3 옵션 B 의 핵심 위험 (별도 트랙)
+  - alembic.ini 의 `sqlalchemy.url` placeholder(`postgresql+asyncpg://postgres:postgres@localhost:5432/doc_util`)는 개발자 헷갈림 방지를 위해 향후 비워두거나 주석 처리 검토 (현재는 env.py 에서 settings.database_url 로 override 하므로 동작상 문제 없음)
+- **commit 대기**: 사용자 확인 후 진행
+
+### 2026-05-06 (Phase 7.1 — AgentHub 15개 신규 Agent 카탈로그 시드 등록)
+- **목적**: AI_INVENTORY.md §6 의 15개 신규 Agent 정의(DocUtil 4 + career 8 + 공통 3)를 `DatabaseInitializer.SeedAgentsAsync` 에 멱등 시드로 등록. Phase 7.3/7.4 의 LLM 직접 호출 → AgentHub Agent 위임 교체 시 즉시 사용할 수 있는 사전 카탈로그 확보. R2(단일 진입점) 의 코드 측면 사전 준비
+- **변경 파일 (1 modify + 1 docs)**:
+  - **`agenthub/Data/DatabaseInitializer.cs`** (937 → 약 1,200 LOC, +263)
+    - 신규 `SeedAgentsAsync` private static 메서드 (약 250 LOC) — 15개 Agent 카탈로그를 튜플 배열 `seeds` 로 정의 후 foreach 멱등 INSERT
+    - `SeedAsync` 흐름의 `UpdateApiServiceModelsAsync` 직후 호출 추가 — 호출 순서: Roles → Users → ApiServices → ApiServiceModels → **Agents (신규)**
+    - 멱등 가드 3중:
+      1. `AgentCode` 존재 검사 후 INSERT — 운영자 UI 수정값 보존(SystemPrompt/Temperature 덮어쓰기 금지)
+      2. `ServiceCode` 부재 환경(외부망에서 nexus 미등록) → 해당 Agent skip + stderr 경고 (career-chatbot 만 영향)
+      3. `admin@example.com` 부재 시 시드 전체 skip (`Agents.CreatedBy` NOT NULL FK)
+    - 시드 카탈로그 분포 (LlmRouting 분포):
+      - **External 4개**: docutil-evaluator, docutil-image-generator, embedding-default, web-search-default — 정확도/외부 API 의존
+      - **Internal 1개**: career-chatbot — 학생 PII 위험(Nexus LAN-only 강제)
+      - **Hybrid 10개**: 나머지 — HybridRouter(Phase 5.2) 가 PII/dataLabel/capability/cost 평가 후 분기
+    - RAG 활성 5개(docutil-rag-chat, docutil-report-generator, career-rag-actionboard, agentic-search) → KnowledgeBaseSource="DocUtil" 자동 매핑(ADR-2). 나머지는 "AgentHub" 폴백
+    - SystemPrompt 200~500 자 한국어(R5) — 각 Agent 의 페르소나/역할/제약(예: career-chatbot 은 위기 신호 감지 시 상담 센터 권유, docutil-evaluator 는 RAGAS JSON only 출력 강제)
+    - 모든 시드 Agent: `IsPublic=false`(시스템 시드는 운영자 콘솔 한정), `SortOrder=100`(사용자 생성 Agent 0~99 보다 뒤로), `CreatedBy=admin.UserId`, `IconClass="bi-robot"`, `ColorCode="#6366f1"`
+  - **`docs/AI_INVENTORY.md`** — 부록 C 신설 (Phase 7.1 시드 매핑 테이블 + 멱등성 가드 명세 + Phase 7.2~7.4 다음 단계)
+- **빌드 검증**: `dotnet build --no-restore -v quiet` 결과 **0 errors / 0 warnings (재실행 시) / 11 warnings (초회, 모두 기존 CS1998 unrelated)**
+- **DB 변경 0건** — 본 작업은 DatabaseInitializer 코드만 수정. 운영 PG 적용은 AgentHub 부팅 시 자동 (또는 사용자 시연 시점)
+- **다음 단계 (Phase 7.2)**: 15개 AgentCode 별 `ApiKey` 발급 + `ConsumerSystem` 라벨 매핑 + 환경변수(`AGENTHUB_API_KEY_DOCUTIL` / `AGENTHUB_API_KEY_CAREER` 등) 분배 시나리오 정의
+- **잠재 위험**:
+  - `career-chatbot` 은 LlmRouting="Internal" + ServiceCode="nexus" — 외부망 환경에서 nexus 미등록 시 Agent 자체가 시드되지 않음. 외부망 시연 시 운영자 UI 에서 LlmRouting 을 "Hybrid" 로 변경 또는 별도 ServiceCode 매핑 필요 (시드는 멱등이므로 안전)
+  - `dalle` 서비스가 ImageGeneration ServiceType — `docutil-image-generator` 는 Chat 호출이 아닌 별도 ImageGeneration 흐름이 필요. Phase 7.3 에서 DocUtil DU-14/DU-19 의 위임 코드 작성 시 AgentHub 의 `/api/images` 엔드포인트(또는 신규) 와 결합 정책 확정 필요
 
 ### 2026-05-06 (Phase 5.2 — AiProxyService nexus 분기 + CallNexusAsync/StreamNexusChunksAsync + IHybridRouter/HybridRouter 5단계 결정 엔진 + ChatService ResolveServiceIdAsync + ApiServiceModels nexus 시드)
 - **목적**: Phase 5.1 의 INexusClient + Agent 라우팅 컬럼을 실 호출 경로에 결합. ADR-1 옵션 B 의 native /v1/chat 호출, TECHSPEC §10.3 / §15.4 의 HybridRouter 결정 엔진(PII / 데이터 라벨 / 모델 capability / 비용 임계치 / default 5단계), ChatService 진입점에서 LlmRouting 평가 후 ServiceId 보정. EF 모델 변경 0건 — 마이그레이션 add 불필요

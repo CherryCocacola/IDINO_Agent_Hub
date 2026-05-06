@@ -479,6 +479,12 @@ public static class DatabaseInitializer
 
             // 모델명 최신 업데이트 (기존 DB 레코드 갱신)
             await UpdateApiServiceModelsAsync(context);
+
+            // ── Phase 7.1 — AI_INVENTORY.md §6 의 15개 신규 Agent 카탈로그 시드 ───
+            // DocUtil(4) + career(8) + 공통(3). End-User 앱(DocUtil/career) 의 35곳 LLM
+            // 직접 호출을 R2(단일 진입점)에 따라 AgentHub Agent API 호출로 교체할 때
+            // 즉시 사용할 수 있도록 사전 등록한다.
+            await SeedAgentsAsync(context);
         }
         catch (Exception ex)
         {
@@ -927,5 +933,314 @@ public static class DatabaseInitializer
                 await context.SaveChangesAsync();
             }
         }
+    }
+
+    /// <summary>
+    /// Phase 7.1 — AI_INVENTORY.md §6 의 15개 신규 Agent 카탈로그를 멱등적으로 시드한다.
+    /// </summary>
+    /// <remarks>
+    /// 본 시드의 목적:
+    ///   1) DocUtil/career 35곳의 LLM 직접 호출(R2 위반)을 AgentHub `/v1/chat/completions`
+    ///      위임으로 교체할 때(Phase 7.3/7.4) 사전에 Agent 정의가 존재해야 한다.
+    ///   2) AgentCode UNIQUE 식별자 + ConsumerSystems 화이트리스트 + LlmRouting 정책이
+    ///      Phase 5.2(HybridRouter) + Phase 5.1(Agent 5컬럼) 위에서 즉시 동작하도록.
+    ///
+    /// 멱등 패턴:
+    ///   - AgentCode 존재 검사 후 INSERT (R7: 시드 재실행 안전)
+    ///   - ServiceCode 매핑 실패 시 LogWarning + skip (예: nexus 미등록 외부망 환경)
+    ///   - 이미 존재하는 Agent 의 SystemPrompt/Temperature 등은 *덮어쓰지 않음* —
+    ///     운영자가 UI 에서 수정한 값을 보존 (재기동 시 복원되면 운영 사고).
+    ///
+    /// CreatedBy 매핑:
+    ///   - admin@example.com (DatabaseInitializer 자체가 생성하는 시스템 admin) FK 사용.
+    ///   - admin 시드 부재 시 시드 전체 skip (Agents.CreatedBy 는 NOT NULL FK).
+    /// </remarks>
+    private static async Task SeedAgentsAsync(AIAgentManagementDbContext context)
+    {
+        var adminUser = await context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Email == "admin@example.com");
+
+        if (adminUser == null)
+        {
+            // admin 시드는 본 메서드 앞 단계에서 처리됨. 그럼에도 부재 시 시드 자체를 skip 한다.
+            // (관리자 직접 운영 환경에서는 UI 의 Agent 빌더로 수동 등록 가능)
+            Console.Error.WriteLine("[DatabaseInitializer] SeedAgentsAsync skip: admin@example.com 미존재");
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+
+        // ── 시드 카탈로그 (AI_INVENTORY.md §6) ────────────────────────────────
+        // 필드 의미:
+        //   AgentCode          : UNIQUE 외부 식별자 (R5: kebab-case 영문)
+        //   AgentName / Desc   : 한국어 사용자 노출 (R5)
+        //   ServiceCode        : ApiServices.ServiceCode FK 매핑 키 (소문자)
+        //   DefaultModel       : 첫 호출 시 모델 — 운영자가 UI 에서 추후 변경 가능
+        //   Temperature        : 0~2 범위 (Agent 스키마 decimal(3,2))
+        //   MaxTokens          : 응답 토큰 상한 — 0 은 임베딩 전용
+        //   SystemPrompt       : Agent 인격 / 역할 / 제약 (R5 한국어, 200~500 자)
+        //   EnableRag          : DocUtil collection 검색 활성화 여부
+        //   PiiEnabled / Mode  : "Block" 강제 차단 / "Mask" 마스킹 후 진행
+        //   LlmRouting         : "External"=ApiKeyPool 경유 / "Internal"=Nexus / "Hybrid"=정책 평가
+        //   ConsumerSystems    : End-User App 화이트리스트 JSON 배열
+        var seeds = new (
+            string AgentCode,
+            string AgentName,
+            string Description,
+            string ServiceCode,
+            string DefaultModel,
+            decimal Temperature,
+            int MaxTokens,
+            string SystemPrompt,
+            bool EnableRag,
+            bool PiiEnabled,
+            string PiiMode,
+            string LlmRouting,
+            string ConsumerSystems
+        )[]
+        {
+            // ── DocUtil 영역 (4개 — AI_INVENTORY §6.1) ─────────────────────────
+            (
+                "docutil-rag-chat",
+                "DocUtil RAG 챗봇",
+                "DocUtil 사용자 챗봇의 RAG 검색-증강 응답 Agent (DU-7, DU-8 통합)",
+                "chatgpt", "gpt-4o", 0.5m, 4096,
+                "당신은 사내 문서 검색-증강(RAG) 챗봇입니다. 사용자의 질문에 대해 제공된 문서 컨텍스트만을 근거로 정확한 답변을 합니다. " +
+                "출처가 없는 추측이나 일반 지식으로 답변하지 마세요. 답변은 한국어로 친절하고 명확하게 작성하며, " +
+                "근거가 된 문서/문단을 인용 표기하세요. 문서에서 답을 찾을 수 없으면 솔직히 모른다고 답합니다. " +
+                "기밀 문서가 노출될 수 있는 질문이라면 사용자의 권한 범위를 우선 확인하세요.",
+                true, true, "Mask", "Hybrid",
+                "[\"docutil-user\"]"
+            ),
+            (
+                "docutil-report-generator",
+                "DocUtil 보고서 생성기",
+                "DocUtil documents_v2 Mode A 보고서 생성 Agent (DU-9)",
+                "chatgpt", "gpt-4o", 0.4m, 8192,
+                "당신은 사내 보고서 작성 전문 AI 입니다. 사용자가 제공한 자료/메모/회의록을 바탕으로 구조적이고 일관된 한국어 보고서를 생성합니다. " +
+                "응답은 1) 개요 2) 본문(섹션별 헤더) 3) 결론 4) 참고/출처 의 4단 구성을 기본으로 하며, 마크다운 헤더(##, ###)를 사용합니다. " +
+                "사실 관계가 불분명한 부분은 추측하지 말고 '확인 필요' 로 표기합니다. 회사명/사람 이름은 입력에 명시된 표기를 그대로 따릅니다.",
+                true, true, "Mask", "Hybrid",
+                "[\"docutil-user\"]"
+            ),
+            (
+                "docutil-evaluator",
+                "DocUtil RAGAS 평가기",
+                "RAG 응답 품질 평가용 LLM-as-judge Agent (DU-13). 정확도 우선 — External 강제",
+                "chatgpt", "gpt-4o", 0.0m, 2048,
+                "당신은 RAG 시스템의 응답 품질을 평가하는 심사 AI 입니다. " +
+                "RAGAS 지표(faithfulness, answer_relevancy, context_precision, context_recall)에 따라 0~1 사이의 점수와 그 근거를 한국어로 제시합니다. " +
+                "JSON 형식으로 {\"faithfulness\":0~1, \"relevancy\":0~1, \"precision\":0~1, \"recall\":0~1, \"reasoning\":\"...\"} 만 출력하며 추가 설명을 붙이지 않습니다. " +
+                "주관적 호감이 아닌 검증 가능한 사실 일치 여부만 판단합니다.",
+                false, false, "Block", "External",
+                "[\"docutil-user\"]"
+            ),
+            (
+                "docutil-image-generator",
+                "DocUtil 이미지 생성기",
+                "DocUtil 보고서/문서 자동 이미지 채움용 Agent (DU-14, DU-19, DU-20)",
+                "dalle", "dall-e-3", 0.7m, 0,
+                "당신은 한국어 보고서/문서에 들어갈 일러스트와 인포그래픽을 생성하는 이미지 AI 입니다. " +
+                "요청된 주제를 적절한 비유와 색감으로 시각화하며, 텍스트는 가급적 포함하지 않습니다(언어 의존성 회피). " +
+                "회사 로고, 실존 인물, 폭력적/선정적 요소는 생성하지 않습니다. 1024x1024 기본 해상도로 1장 생성합니다.",
+                false, false, "Block", "External",
+                "[\"docutil-user\"]"
+            ),
+
+            // ── career 영역 (8개 — AI_INVENTORY §6.2) ──────────────────────────
+            (
+                "career-actionboard-orchestrator",
+                "career ActionBoard 추천 오케스트레이터",
+                "ai-service Tool Calling + Structured Outputs strict 진입점 (CA-7, CA-8, CA-19)",
+                "chatgpt", "gpt-4o-mini", 0.3m, 4096,
+                "당신은 학생 진로 ActionBoard 추천 오케스트레이터입니다. " +
+                "입력으로 학생 프로필/현재 학기/목표 직무 데이터를 받아, get_student_profile / get_competency_scores / search_alumni_patterns / check_constraints " +
+                "4개 도구를 적절히 호출하여 데이터를 수집한 후, 학생에게 추천할 액션 리스트(JSON_SCHEMA_ACTIONBOARD strict) 를 생성합니다. " +
+                "학사 위험(check_constraints) 이 발견되면 위험 완화 액션을 우선합니다. 응답은 반드시 사전 정의된 JSON 스키마에 정확히 맞춥니다 — 자유 텍스트 금지.",
+                false, true, "Mask", "Hybrid",
+                "[\"career-student\",\"career-coaching\"]"
+            ),
+            (
+                "career-rag-actionboard",
+                "career RAG ActionBoard 추천기",
+                "ai-service /ai/recommendations/rag (CA-9, CA-10) — 동문 RAG 컨텍스트 prepend",
+                "chatgpt", "gpt-4o-mini", 0.3m, 4096,
+                "당신은 동문 진로 사례 RAG 컨텍스트를 활용하는 ActionBoard 추천기입니다. " +
+                "주어진 동문 패턴/유사 학생 사례를 근거로 현재 학생에게 가장 효과적인 액션을 JSON_SCHEMA_ACTIONBOARD strict 로 응답합니다. " +
+                "RAG 결과가 비어 있으면 일반 추천으로 폴백하되, 'rag_used': false 플래그를 응답에 포함합니다. " +
+                "학생의 개인 정보(이름/학번/연락처)는 절대 응답 본문에 노출하지 않습니다.",
+                true, true, "Mask", "Hybrid",
+                "[\"career-student\",\"career-coaching\"]"
+            ),
+            (
+                "career-competency-analyzer",
+                "career 역량 분석기",
+                "competency-service / ai-service /ai/analyze (CA-4, CA-18)",
+                "chatgpt", "gpt-4o-mini", 0.4m, 4096,
+                "당신은 학생 역량 분석 전문 AI 입니다. " +
+                "주어진 학생 데이터(성적, 활동 이력, 자격증, 프로젝트)와 역량 점수, 목표 직무를 분석하여 " +
+                "1) 강점 2) 약점 3) 격차 분석 4) 개선 제안 의 4단 구조 한국어 분석 결과를 작성합니다. " +
+                "정량 점수는 1~5 척도로 일관되게 표기합니다. 학생의 성장 가능성을 긍정적으로 격려하되 사실에 기반합니다.",
+                false, true, "Mask", "Hybrid",
+                "[\"career-student\",\"career-coaching\"]"
+            ),
+            (
+                "career-action-recommender",
+                "career 액션 추천기",
+                "ai-service /ai/actions/{id} (CA-3) — 단일 액션 상세 추천",
+                "chatgpt", "gpt-4o-mini", 0.5m, 2048,
+                "당신은 진로 액션 상세 추천 AI 입니다. " +
+                "지정된 액션 ID에 대해 학생 맞춤형 실행 가이드(예상 소요 시간, 사전 요구 사항, 단계별 체크리스트, 성공 지표)를 한국어로 작성합니다. " +
+                "현실적이고 구체적이어야 하며, 추상적인 동기 부여 문구만으로 채우지 않습니다.",
+                false, true, "Mask", "Hybrid",
+                "[\"career-student\",\"career-coaching\"]"
+            ),
+            (
+                "career-chatbot",
+                "career 코칭 챗봇",
+                "coaching-service / ai-service /ai/chat (CA-5, CA-17). PII 위험 — Internal Nexus 강제",
+                "nexus", "primary", 0.7m, 4096,
+                "당신은 학생 진로 코칭 챗봇입니다. " +
+                "학생의 진로 고민/감정/심리적 어려움을 경청하고 공감하는 어조로 한국어로 응답합니다. " +
+                "다만 의료/법률/정신과적 진단을 내리지 않으며, 위기 신호(자해/극단적 불안)가 감지되면 즉시 학생 상담 센터 연결을 권유합니다. " +
+                "학생의 이름·학번·연락처는 응답에 다시 표기하지 않습니다(개인정보 보호). " +
+                "본 Agent 는 사내 LAN-only Nexus 로 라우팅되어 외부 LLM 으로 데이터가 유출되지 않습니다.",
+                false, true, "Block", "Internal",
+                "[\"career-coaching\"]"
+            ),
+            (
+                "career-semester-planner",
+                "career 학기 목표 플래너",
+                "ai-service /ai/sprint/{id} (CA-6) — 학기 단위 목표/스프린트 생성",
+                "chatgpt", "gpt-4o-mini", 0.4m, 4096,
+                "당신은 학기 단위 진로 학습 목표 플래너입니다. " +
+                "현재 학기/잔여 주차/학생 목표 직무를 입력받아 SMART 원칙에 따른 한 학기 목표 3~5개와 주차별 마일스톤을 한국어로 생성합니다. " +
+                "각 목표에는 측정 가능한 산출물(포트폴리오/프로젝트/자격증 등)을 포함하며, 학사 일정과 충돌이 없는지 확인합니다.",
+                false, true, "Mask", "Hybrid",
+                "[\"career-student\"]"
+            ),
+            (
+                "career-simulation-suggester",
+                "career 시뮬레이션 추천기",
+                "simulation-service _generate_ai_suggestions (CA-12) — 4개 시나리오 추천",
+                "chatgpt", "gpt-4o-mini", 0.7m, 2000,
+                "당신은 학생 진로 시뮬레이션 시나리오 생성 AI 입니다. " +
+                "학생 현재 상태(전공/학년/관심분야) 기준으로 진로 가설 시나리오 4개를 한국어 JSON 배열로 추천합니다. " +
+                "각 시나리오는 {\"title\":..., \"summary\":..., \"required_actions\":[...], \"expected_outcome\":...} 구조이며, " +
+                "다양성을 위해 안전한 선택 1개 + 도전적 선택 2개 + 비전형 선택 1개를 균형 있게 포함합니다.",
+                false, true, "Mask", "Hybrid",
+                "[\"career-student\"]"
+            ),
+            (
+                "career-simulation-analyzer",
+                "career 시뮬레이션 분석기",
+                "simulation-service _generate_ai_analysis (CA-13) — 선택 결과 분석",
+                "chatgpt", "gpt-4o-mini", 0.7m, 1500,
+                "당신은 학생이 선택한 진로 시뮬레이션 결과 분석 AI 입니다. " +
+                "선택된 시나리오와 학생의 현재 데이터를 비교하여 1) 성공 가능성 (0~100%) 2) 주요 위험 요소 3) 보완 액션 의 3단 분석을 한국어로 제공합니다. " +
+                "수치는 학생의 정량 데이터에 근거하여 산출하며, 근거가 부족하면 신뢰도(낮음/중간/높음)를 함께 표기합니다.",
+                false, true, "Mask", "Hybrid",
+                "[\"career-student\"]"
+            ),
+
+            // ── 공통 영역 (3개 — AI_INVENTORY §6.3) ────────────────────────────
+            (
+                "embedding-default",
+                "기본 임베딩",
+                "모든 시스템의 임베딩 위임 (DU-18, CA-14~16). 1536D 표준 (ADR-10)",
+                "chatgpt", "text-embedding-3-small", 0.0m, 0,
+                "(임베딩 전용 Agent — system prompt 미사용)",
+                false, false, "Block", "External",
+                "[\"docutil-user\",\"career-student\",\"career-coaching\"]"
+            ),
+            (
+                "web-search-default",
+                "기본 웹 검색",
+                "Tavily 검색 위임 Agent (AH-14). EnableWebSearch=true 로 동작",
+                "chatgpt", "gpt-4o-mini", 0.3m, 2048,
+                "당신은 웹 검색 결과를 한국어로 요약하는 AI 입니다. " +
+                "사용자의 질문에 대해 Tavily 검색으로 수집된 최신 결과를 바탕으로 객관적으로 요약하며, 출처(URL)를 함께 표기합니다. " +
+                "검색 결과가 모순되면 양측 입장을 모두 제시하고, 단정적 주장은 피합니다. " +
+                "광고/홍보성 콘텐츠는 사실과 분리하여 표기합니다.",
+                false, false, "Block", "External",
+                "[\"docutil-user\",\"career-student\"]"
+            ),
+            (
+                "agentic-search",
+                "DocUtil Agentic Search",
+                "DocUtil agentic_search 모듈 (DU-16) — factory 우회 P1 위반 정리용",
+                "chatgpt", "gpt-4o-mini", 0.4m, 4096,
+                "당신은 다단계 에이전틱 검색 AI 입니다. " +
+                "사용자의 복잡한 질문을 하위 질문으로 분해하고, 각 하위 질문에 대해 RAG 검색을 수행한 후 결과를 종합하여 한국어로 응답합니다. " +
+                "각 단계의 추론 과정을 간결히 보여주며(Chain-of-Thought 요약), 최종 답변에는 사용된 문서 출처를 명시합니다. " +
+                "검색 단계가 5회를 초과할 경우 자체 종료하고 부분 답변을 반환합니다.",
+                true, true, "Mask", "Hybrid",
+                "[\"docutil-user\"]"
+            ),
+        };
+
+        var inserted = 0;
+        var skipped = 0;
+
+        foreach (var s in seeds)
+        {
+            // 멱등 가드: AgentCode 가 이미 있으면 운영자가 수정했을 가능성이 있으므로 skip.
+            if (await context.Agents.AnyAsync(a => a.AgentCode == s.AgentCode))
+            {
+                skipped++;
+                continue;
+            }
+
+            // ServiceCode 매핑 — nexus 외부망 미등록 환경에서는 해당 Agent skip.
+            var service = await context.ApiServices
+                .AsNoTracking()
+                .FirstOrDefaultAsync(svc => svc.ServiceCode == s.ServiceCode);
+
+            if (service == null)
+            {
+                Console.Error.WriteLine(
+                    $"[DatabaseInitializer] SeedAgentsAsync skip {s.AgentCode}: ServiceCode '{s.ServiceCode}' 미등록 (외부망 환경에서 nexus skip 가능)");
+                skipped++;
+                continue;
+            }
+
+            context.Agents.Add(new Agent
+            {
+                AgentCode = s.AgentCode,
+                AgentName = s.AgentName,
+                Description = s.Description,
+                ServiceId = service.ServiceId,
+                DefaultModel = s.DefaultModel,
+                SystemPrompt = s.SystemPrompt,
+                Temperature = s.Temperature,
+                MaxTokens = s.MaxTokens > 0 ? s.MaxTokens : (int?)null,
+                EnableRag = s.EnableRag,
+                PiiProtectionEnabled = s.PiiEnabled,
+                PiiProtectionMode = s.PiiMode,
+                LlmRouting = s.LlmRouting,
+                RoutingPolicyJson = null,                                  // External/Internal 은 NULL. Hybrid 는 운영자가 UI 에서 정의.
+                KnowledgeBaseSource = s.EnableRag ? "DocUtil" : "AgentHub", // ADR-2: RAG 활성 시 DocUtil 위임
+                KnowledgeBaseRef = null,                                   // Phase 6 KB 마이그레이션 시 collection ID 매핑
+                ConsumerSystems = s.ConsumerSystems,
+                IsActive = true,
+                IsPublic = false,                                          // 시스템 시드는 운영자 콘솔 한정 — 게스트 노출 금지
+                CreatedBy = adminUser.UserId,
+                SortOrder = 100,                                            // 사용자 생성 Agent(0~99) 보다 뒤로
+                IconClass = "bi-robot",
+                ColorCode = "#6366f1",
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+            inserted++;
+        }
+
+        if (inserted > 0)
+        {
+            await context.SaveChangesAsync();
+        }
+
+        Console.Out.WriteLine(
+            $"[DatabaseInitializer] SeedAgentsAsync 완료: inserted={inserted} skipped={skipped} (총 {seeds.Length})");
     }
 }
