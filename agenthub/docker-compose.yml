@@ -34,7 +34,7 @@ services:
       ASPNETCORE_URLS: http://+:8080
       # DB / Cache / DocUtil — compose 내부 서비스명으로 해결
       ConnectionStrings__DefaultConnection: "Host=docutil-postgres;Port=5432;Database=AGENT_HUB;Username=AGENT_HUB;Password=${AGENT_HUB_DB_PASSWORD};Search Path=AIAgentManagement,public"
-      ConnectionStrings__Redis: "docutil-redis:6379"
+      ConnectionStrings__Redis: "docutil-redis:6379,password=${REDIS_PASSWORD},abortConnect=false"
       DocUtil__BaseUrl: "http://docutil-api:8000"
       DocUtil__JwtToken: "${DOCUTIL_JWT_TOKEN:-}"
       DocUtil__ApiKey: "${DOCUTIL_API_KEY:-}"
