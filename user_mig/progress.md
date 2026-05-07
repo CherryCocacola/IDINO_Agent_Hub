@@ -14,7 +14,7 @@
 
    **Phase 6.4 상태 (직전 완료)**: 자체 KB deprecate 마킹. **수정 7건 ([Obsolete] error: false 부착)**: `agenthub/Models/KnowledgeBaseDocument.cs` (클래스 레벨, `[Table("KnowledgeBaseDocuments")]` 인접) + `agenthub/Models/DocumentChunk.cs` (동일) + `agenthub/Services/IKnowledgeBaseService.cs` (인터페이스 레벨) + `agenthub/Services/KnowledgeBaseService.cs` (구현체 레벨) + `agenthub/Services/IDocumentIndexingService.cs` (인터페이스 레벨) + `agenthub/Services/DocumentIndexingService.cs` (구현체 레벨) + `agenthub/Controllers/KnowledgeBaseController.cs` (`/api/knowledgebase` 라우트 보존, 클래스 레벨). 모두 ADR-2 인용 + Phase 8+ drop 약속 + 한국어 XML 주석 (.claude/rules/anti-patterns.md §7 / architecture.md P8 인용). **수정 1건 (한국어 주석)**: `agenthub/Services/RagService.cs` 의 자체 KB 폴백 흐름 진입부 (KnowledgeBaseSource != "DocUtil") 직전에 ADR-2 / Phase 5+ 호환 / Phase 6.5 안전망 / CS0618 의도적 발생 설명 주석 11라인 추가. 외부 시그니처/본문 변경 0. **빌드 검증**: `dotnet build --no-restore --no-incremental -v quiet` → **에러 0건 / CS0618 신규 11건 (고유 위치) + CS1998 pre-existing 11건 (총 22 경고)**. CS0618 분포: Controllers/FilesController.cs (2 — 필드+생성자) + Data/AIAgentManagementDbContext.cs (4 — DbSet 2 + 인덱스 설정 2) + Models/AgentDocument.cs (1 — Navigation `KnowledgeBaseDocument Document`) + Program.cs (4 — DI 등록 4: `AddScoped<IDocumentIndexingService, DocumentIndexingService>` + `AddScoped<IKnowledgeBaseService, KnowledgeBaseService>`). 자체 KB CRUD/인덱싱 호출처는 위 11곳에 한정 — DocUtil 위임 전환 별도 트랙(Phase 8+) 으로 격리. RagService.RetrieveAsync 의 자체 KB 폴백 분기는 [Obsolete] 클래스를 내부 사용하나 `_context.{DbSet<T>}` generic 타입 추론 경로라 컴파일러 CS0618 미생성 — 의도된 동작(폴백 흐름 보존). **외부 시그니처/라우트/본문 모두 보존** — 호출처 회귀 0건, EF 모델 변경 0건, 마이그레이션 신규 생성 불필요. 직전 Phase 6.1+6.2 상태 유지. commit 대기 |
 | **다음 Phase** | **Phase A 디버깅 (선택) + 시연 종료(C/D 일괄 테스트)**. (1) Phase A — `/v1/chat/completions` 의 ChatService → RagService → DocUtilClient 호출 분기 디버깅: 현재 OpenAI 호환 라우트가 RagService 를 우회하여 RAG 인용 미적용. 로그에 `RagService`/`DocUtilClient` 호출 흔적 0. ChatService 의 EnableRag 게이트가 OpenAI 호환 라우트에서 동작하는지 확인 필요. (2) 시연 일괄 테스트 — 사용자 환경에서 본 PC localhost:64005 + 컨테이너 192.168.10.39:64005 양측 동일 화면(운영자 KB 콘솔, 검색, 업로드 등) 검증. 별도 트랙: Nexus 컨테이너화 (GPU 호스트 확보 후 + ADR-11 LAN-only 정책 검토) / DocUtil JWT 자동 갱신 (refresh_token 또는 service account, 30분 만료 회전 자동화) / vue-tsc 2.x 업그레이드 (Node 24 호환) / Phase 8+ 자체 KB DB drop + 운영 데이터 DocUtil 마이그레이션 / secret leak history sanitize + force-push (시연용 보류) / SQL Server stale 비밀번호 회전 / appsettings LLM API 키 회전 |
-| **마지막 commit** | `51e4b85` (Phase B — `[agenthub/docker] Phase B — AgentHub 컨테이너화 + 192.168.10.39 docker 배포`). 이전 commit `1a1466f` (progress.md) / `c9d61a4` (사이드바 메뉴) / `d9784f0` (Hangfire fix) / `9801b06` (Phase 6.3) / `055de5a` (Phase 6.4) / `77e7486` (Phase 6.1+6.2) — 모두 누적. Phase 4.1~4.5/7.1~7.5 도 commit 누적 — secret leak sanitize 와 함께 별도 트랙 |
+| **마지막 commit** | `4f868c4` (Phase B 보강 — `[agenthub/docker] Phase B 보강 — Redis 비밀번호 인증 추가`). 이전 commit `cbc4e2d` (progress.md) / `51e4b85` (Phase B Docker assets) / `1a1466f` (progress.md) / `c9d61a4` (사이드바 메뉴) / `d9784f0` (Hangfire fix) / `9801b06` (Phase 6.3) / `055de5a` (Phase 6.4) / `77e7486` (Phase 6.1+6.2) — 모두 누적. Phase 4.1~4.5/7.1~7.5 도 commit 누적 — secret leak sanitize 와 함께 별도 트랙 |
 | **GitHub remote** | https://github.com/CherryCocacola/IDINO_Agent_Hub.git (push 대기 — secret leak 미해결) |
 | **TECHSPEC** | `user_mig/TECHSPEC.md` v1.0 (작성 완료) |
 | **AI 인벤토리** | `docs/AI_INVENTORY.md` v1.0 (Phase 1 산출, 35 호출 + 5 위임 + 15 신규 Agent 카탈로그) |
@@ -156,6 +156,40 @@
 ---
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
+
+### 2026-05-07 (Phase A — RAG 회로 진단 정정 + Redis 비밀번호 인증 추가, commit `4f868c4`)
+- **목적**: 직전 Phase 6.5 옵션 ③ 진단(`/v1/chat/completions` 가 ChatService → RagService 분기를 우회한다)이 **잘못된 판단** 임을 정정. 실제로는 RAG 회로가 처음부터 동작 중이었으나 ① 이전 grep 패턴(`RagService|DocUtilClient|DocUtil|Knowledge|Retrieve|chunk|citation`)에 핵심 로그(`"RAG check"`, `"Chat request prepared. EnableRag"`, `"RAG 위임"`)가 매치되지 않아 흔적이 안 보였고 ② Redis 인증 실패로 RAG 캐시가 매 호출마다 미스되어 fallback in-memory cache 로 동작하던 정황. 본 Phase 에서 ① 회로 동작 검증(로그 확보) ② Redis 비밀번호 인증 추가로 캐시 히트 정상화
+- **회로 검증 로그 (192.168.10.39 컨테이너)**:
+  - `Chat request prepared. EnableRag: True, DocumentIds: null, AgentId: 1` (ChatService.cs:646-649)
+  - `RAG check in SendChatMessageAsync: EnableRag=True, RagService=available, DocumentIds=null` (AiProxyService.cs:65-68)
+  - `RAG search starting. EnableRag: True, Query: ..., UserId: 2, AgentId: 1` (AiProxyService.cs:103-108)
+  - `RAG 위임 - AgentId=1, KnowledgeBaseSource=DocUtil, CollectionRef=(global), TopK=3` (RagService.cs:73-75) — **DocUtil 위임 분기 진입 PASS**
+  - `RAG search completed and added to request.Messages. Found 3 relevant chunks. DocumentIds: null` (AiProxyService.cs:183-184)
+  - 응답 prompt_tokens=362 (시스템 메시지 + 800자 절단 청크 3건 = ~2400자 → ~362 토큰, RAG 컨텍스트 prepend 정상)
+- **Redis 인증 진단**:
+  - 호스트의 docutil-redis 컨테이너는 비밀번호 필수 (`docutil_redis_2024`, /home/idino/docutil/.env:REDIS_PASSWORD)
+  - 직전 Phase B compose 의 `ConnectionStrings__Redis: "docutil-redis:6379"` 는 password 미포함 → 매 캐시 호출마다 NOAUTH → fallback 흐름:
+    - get 실패 → "Redis connection exception ... Falling back to direct database query"
+    - set 실패 → "Falling back to in-memory cache"
+  - graceful 폴백으로 동작 자체에는 영향 없으나 매 호출 ~50ms 지연 + Redis 캐시 효율 0 + 다중 인스턴스 환경에서 캐시 공유 불가
+- **변경 파일 (2 modify, commit `4f868c4`)**:
+  - **MODIFY `agenthub/docker-compose.yml`** (1 LOC) — `ConnectionStrings__Redis` 환경변수에 `password` 파라미터 + `abortConnect=false` 추가. StackExchange.Redis 형식 `docutil-redis:6379,password=${REDIS_PASSWORD},abortConnect=false`. abortConnect=false 는 Redis 일시 다운 시 ConnectionMultiplexer 재시도 동작 보장
+  - **MODIFY `agenthub/.env.example`** (4 LOC) — `REDIS_PASSWORD=` 키 신설 + 한국어 주석. docutil/.env 의 REDIS_PASSWORD 와 동일 값 필수
+- **호스트 .env 갱신 (paramiko)**:
+  - 기존 .env 에 `REDIS_PASSWORD=docutil_redis_2024` 라인 append (chmod 600 유지)
+  - 갱신된 docker-compose.yml SCP 전송 (compose 파일 내부 환경변수 구문 변경)
+  - `docker compose up -d --force-recreate` 13초 부팅 healthy
+- **검증 결과**:
+  - `/v1/chat/completions` HTTP 200 (prompt_tokens=362 동일 — RAG 컨텍스트 정상 prepend)
+  - 로그: **Redis connection exception 0건** (이전 매 호출 2건 → 현재 0건). RAG 캐시 정상 동작 (`rag:1:2:<hash>` 키)
+  - 응답 LLM 콘텐츠는 여전히 청크에서 정확한 인용을 추출 못 함 — 본 호출의 RAG search score 0.016 (매우 낮음). 영문 query vs 한글 docs 매칭 약함 + Qdrant 글로벌 검색(collection 미지정)으로 부산대 인수시험 청크가 3건 안에 포함되었으나 LLM 모델이 "관련 정보 없음" 으로 판단. 향후 ① Agent 의 KnowledgeBaseRef 설정(특정 collection 한정) ② query rewrite (LLM 으로 영문 query → 한국어로 변환 후 재검색) ③ score threshold ④ rerank 모델 도입 등으로 개선 가능 (별도 트랙)
+- **호환성 검증 (회귀 0건)**:
+  - 본 PC AgentHub (Production 모드 dotnet run, PID 8240) 는 영향 없음 — `appsettings.Production.json:ConnectionStrings:Redis="localhost:6379"` 그대로. 본 PC 에는 Redis 미설치라 부팅 시 MemoryCache 자동 폴백 (`Program.cs:170-174`)
+  - docutil 14 컨테이너 무영향 — agenthub 컨테이너 ConnectionString 변경만, docutil-redis 자체는 무변경
+- **잠재 위험 / 다음 단계**:
+  - **RAG 응답 품질 개선** — score threshold / query rewrite / rerank / Agent.KnowledgeBaseRef 설정 (별도 트랙)
+  - **본 PC AgentHub 의 Redis 미사용** — 실제 운영 시 Redis 캐시가 RAG/응답 캐시에서 큰 가치 제공. 본 PC 시연 시 docutil-redis 직접 사용 (`appsettings.Development.json` 변경) 또는 본 PC 에 redis Docker 컨테이너 (별도 트랙)
+  - **본 진단 정정 사례** — 향후 grep 패턴 시 한국어 로그 키워드(`RAG 위임`, `RAG check`, `RAG search`) 도 포함 필요
 
 ### 2026-05-07 (Phase B — AgentHub 컨테이너화 + 192.168.10.39 docker 배포 PASS, commit `51e4b85`)
 - **목적**: 사용자 의도 — "모든 시스템(PG / IDINO_Agent_Hub / Nexus)을 192.168.10.39 docker 에 올린다". 진단 결과 PG 는 이미 docutil-postgres 컨테이너로 가동 중 (Phase 4 통합 PG = 본 컨테이너). DocUtil 14 컨테이너도 모두 healthy. **AgentHub 만 컨테이너화 + 같은 docutil-network 합류** 가 본 Phase 의 핵심. Nexus 는 GPU 부재 + ADR-11(LAN-only, 에어갭) 정책 충돌으로 보류 (별도 호스트 트랙).
