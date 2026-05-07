@@ -59,4 +59,7 @@ Thumbs.db
 
 # App specific
 wwwroot/uploads/
+# Vite/npm 빌드 산출물 (npm run build 또는 dotnet publish 가 wwwroot 에 자동 재생성)
+wwwroot/assets/
+wwwroot/index.html
 appsettings.Production.json

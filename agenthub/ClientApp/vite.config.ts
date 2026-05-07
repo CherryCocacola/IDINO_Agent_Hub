@@ -12,14 +12,23 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Phase 6.5 e2e — AgentHub launchSettings.json applicationUrl 기준
+    // (HTTP 64005, HTTPS 64004). Vue dev server 단독 접근(localhost:5173) 시
+    // /api/* /hubs/* /v1/* 모두 AgentHub 로 프록시. 운영 환경(IIS InProcess)
+    // 에서는 wwwroot 정적 서빙이라 본 설정 미사용.
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:64005',
+        changeOrigin: true
+      },
+      '/v1': {
+        target: 'http://localhost:64005',
         changeOrigin: true
       },
       '/hubs': {
-        target: 'http://localhost:5000',
-        ws: true
+        target: 'http://localhost:64005',
+        ws: true,
+        changeOrigin: true
       }
     }
   },

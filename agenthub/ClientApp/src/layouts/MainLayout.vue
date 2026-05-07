@@ -391,6 +391,13 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         icon: 'bi bi-book'
       },
       {
+        // Phase 6.3 운영자 KB 콘솔 (DocUtil BFF) - Admin/SuperAdmin 전용
+        name: t('nav.adminKnowledgeBase'),
+        path: '/admin/knowledge-base',
+        icon: 'bi bi-book-half',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      {
         name: t('nav.systemHealth'),
         path: '/system-health',
         icon: 'bi bi-heart-pulse',
