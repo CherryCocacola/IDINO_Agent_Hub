@@ -38,6 +38,8 @@ services:
       DocUtil__BaseUrl: "http://docutil-api:8000"
       DocUtil__JwtToken: "${DOCUTIL_JWT_TOKEN:-}"
       DocUtil__ApiKey: "${DOCUTIL_API_KEY:-}"
+      DocUtil__ServiceUsername: "${DOCUTIL_SERVICE_USERNAME:-}"
+      DocUtil__ServicePassword: "${DOCUTIL_SERVICE_PASSWORD:-}"
       DocUtil__DefaultTimeoutSeconds: "60"
       # Nexus (LAN-only, ADR-11 — 외부망 노출 금지. 미배포 시 미사용)
       Nexus__BaseUrl: "${NEXUS_BASE_URL:-http://192.168.22.28:8001}"

@@ -32,6 +32,7 @@ public class DocUtilClient : IDocUtilClient
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
+    private readonly IDocUtilTokenProvider _tokenProvider;
     private readonly ILogger<DocUtilClient> _logger;
 
     // DocUtil FastAPI 는 snake_case(SQLAlchemy 2 / Pydantic) — JsonNamingPolicy.SnakeCaseLower 일관 적용.
@@ -46,10 +47,12 @@ public class DocUtilClient : IDocUtilClient
     public DocUtilClient(
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
+        IDocUtilTokenProvider tokenProvider,
         ILogger<DocUtilClient> logger)
     {
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
+        _tokenProvider = tokenProvider;
         _logger = logger;
     }
 
@@ -84,7 +87,7 @@ public class DocUtilClient : IDocUtilClient
             requestBody["scope_id"] = collectionRef;
         }
 
-        using var httpRequest = BuildJsonRequest(HttpMethod.Post, "/api/v1/search", requestBody);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, "/api/v1/search", requestBody, cancellationToken);
 
         _logger.LogDebug(
             "DocUtil 하이브리드 검색 호출 - CollectionRef={CollectionRef}, MaxResults={MaxResults}, QueryLen={QueryLen}",
@@ -140,7 +143,7 @@ public class DocUtilClient : IDocUtilClient
         }
         var path = $"/api/v1/documents?{string.Join("&", query)}";
 
-        using var httpRequest = BuildJsonRequest(HttpMethod.Get, path, body: null);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
 
         using var response = await client.SendAsync(
             httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
@@ -181,7 +184,7 @@ public class DocUtilClient : IDocUtilClient
         var client = _httpClientFactory.CreateClient(HttpClientName);
         var path = $"/api/v1/documents/{Uri.EscapeDataString(documentId)}";
 
-        using var httpRequest = BuildJsonRequest(HttpMethod.Get, path, body: null);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
 
         using var response = await client.SendAsync(
             httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
@@ -258,7 +261,16 @@ public class DocUtilClient : IDocUtilClient
         {
             Content = multipart,
         };
-        ApplyAuthorizationHeader(httpRequest);
+        var uploadToken = await _tokenProvider.GetTokenAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(uploadToken))
+        {
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", uploadToken);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "DocUtil 토큰 미설정 — multipart upload 호출이 401 로 실패할 수 있음.");
+        }
 
         _logger.LogDebug(
             "DocUtil 문서 업로드 호출 - FileName={FileName}, CollectionRef={CollectionRef}, Visibility={Visibility}",
@@ -299,7 +311,7 @@ public class DocUtilClient : IDocUtilClient
         var client = _httpClientFactory.CreateClient(HttpClientName);
         var path = $"/api/v1/documents/{Uri.EscapeDataString(documentId)}";
 
-        using var httpRequest = BuildJsonRequest(HttpMethod.Delete, path, body: null);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
 
         _logger.LogDebug("DocUtil 문서 삭제 호출 - DocumentId={DocumentId}", documentId);
 
@@ -325,7 +337,7 @@ public class DocUtilClient : IDocUtilClient
         var client = _httpClientFactory.CreateClient(HttpClientName);
         var path = $"/api/v1/documents/{Uri.EscapeDataString(documentId)}/chunks";
 
-        using var httpRequest = BuildJsonRequest(HttpMethod.Get, path, body: null);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
 
         using var response = await client.SendAsync(
             httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
@@ -354,12 +366,25 @@ public class DocUtilClient : IDocUtilClient
     // ══════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// JSON 요청 빌더 — 인증 헤더 + (선택) JSON body 부착.
+    /// JSON 요청 빌더 — IDocUtilTokenProvider 에서 받은 Bearer 토큰 + (선택) JSON body 부착.
+    /// 토큰은 만료 5분 전부터 자동 refresh / re-login 되며 매 호출 fast cache hit.
     /// </summary>
-    private HttpRequestMessage BuildJsonRequest(HttpMethod method, string relativePath, object? body)
+    private async Task<HttpRequestMessage> BuildJsonRequestAsync(
+        HttpMethod method, string relativePath, object? body, CancellationToken cancellationToken)
     {
         var httpRequest = new HttpRequestMessage(method, relativePath);
-        ApplyAuthorizationHeader(httpRequest);
+
+        var token = await _tokenProvider.GetTokenAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+        else
+        {
+            // 토큰 미설정 — 401 이 나면 EnsureSuccessOrThrowKoreanAsync 가 한국어 메시지로 안내한다.
+            _logger.LogWarning(
+                "DocUtil 토큰 미설정 — JwtToken / ServiceAccount(Username/Password) / ApiKey 중 하나 필수.");
+        }
 
         if (body is not null)
         {
@@ -368,34 +393,6 @@ public class DocUtilClient : IDocUtilClient
         }
 
         return httpRequest;
-    }
-
-    /// <summary>
-    /// DocUtil 운영자 JWT 또는 ApiKey 를 Authorization: Bearer 헤더로 부착한다.
-    /// 우선순위: JwtToken > ApiKey. 둘 다 비어있으면 헤더 미부착(401 발생 시 한국어 예외 매핑).
-    /// </summary>
-    private void ApplyAuthorizationHeader(HttpRequestMessage request)
-    {
-        var jwt = _configuration["DocUtil:JwtToken"];
-        var apiKey = _configuration["DocUtil:ApiKey"];
-
-        if (!string.IsNullOrWhiteSpace(jwt))
-        {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(apiKey))
-        {
-            // DocUtil 의 ApiKey 검증 미들웨어가 Bearer 또는 X-API-Key 어느 쪽이든 받도록 설계되어 있는 가정.
-            // (Phase 7.2 의 AgentHubClient 와 동일 컨벤션 — Bearer 통일).
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            return;
-        }
-
-        // 토큰 미설정 — 401 이 나면 EnsureSuccessOrThrowKoreanAsync 가 한국어 메시지로 안내한다.
-        _logger.LogWarning(
-            "DocUtil:JwtToken / DocUtil:ApiKey 모두 미설정 — 운영자 토큰 발급 후 환경변수 / appsettings 에 주입 필요.");
     }
 
     /// <summary>
