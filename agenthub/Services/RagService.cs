@@ -13,19 +13,25 @@ public class RagService : IRagService
     private readonly IEmbeddingService _embeddingService;
     private readonly CachingService _cachingService;
     private readonly IDocUtilClient _docUtilClient;
+    private readonly IQueryRewriter _queryRewriter;
     private readonly ILogger<RagService> _logger;
+
+    // RRF (Reciprocal Rank Fusion) 상수 — Cormack et al. 2009 표준값
+    private const int RrfK = 60;
 
     public RagService(
         AIAgentManagementDbContext context,
         IEmbeddingService embeddingService,
         CachingService cachingService,
         IDocUtilClient docUtilClient,
+        IQueryRewriter queryRewriter,
         ILogger<RagService> logger)
     {
         _context = context;
         _embeddingService = embeddingService;
         _cachingService = cachingService;
         _docUtilClient = docUtilClient;
+        _queryRewriter = queryRewriter;
         _logger = logger;
     }
 
@@ -70,16 +76,52 @@ public class RagService : IRagService
             {
                 try
                 {
+                    // ── 다국어 query rewrite + RRF (Reciprocal Rank Fusion) ─────
+                    // 한국어 query 가 DocUtil 검색에서 results=0 으로 나오는 케이스를
+                    // 보강하기 위해 LLM 으로 영문 변환 후 양쪽 검색 → 순위 결합.
+                    // 실패 시 원본 query 만 사용(graceful).
+                    var queries = await _queryRewriter.RewriteAsync(query, cancellationToken);
+
                     _logger.LogInformation(
-                        "RAG 위임 - AgentId={AgentId}, KnowledgeBaseSource=DocUtil, CollectionRef={Ref}, TopK={TopK}",
-                        agentId.Value, agentRouting.KnowledgeBaseRef ?? "(global)", topK);
+                        "RAG 위임 - AgentId={AgentId}, KnowledgeBaseSource=DocUtil, CollectionRef={Ref}, TopK={TopK}, QueryCount={Count}",
+                        agentId.Value, agentRouting.KnowledgeBaseRef ?? "(global)", topK, queries.Count);
 
-                    var search = await _docUtilClient.SearchAsync(
-                        query, agentRouting.KnowledgeBaseRef, topK, cancellationToken);
+                    // hit 식별 키: ChunkId 우선, 없으면 Content 해시 — 동일 청크의 RRF 누적
+                    var rrfScores = new Dictionary<string, (DocUtilSearchHit hit, double score)>();
 
-                    var docutilResults = search.Results
-                        .Select(hit => MapDocUtilHitToDto(hit))
+                    foreach (var q in queries)
+                    {
+                        var search = await _docUtilClient.SearchAsync(
+                            q, agentRouting.KnowledgeBaseRef, topK, cancellationToken);
+
+                        for (int rank = 0; rank < search.Results.Length; rank++)
+                        {
+                            var hit = search.Results[rank];
+                            var key = !string.IsNullOrEmpty(hit.Id)
+                                ? hit.Id
+                                : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(hit.Content ?? string.Empty)), 0, 16);
+                            var rrf = 1.0 / (RrfK + rank);
+
+                            if (rrfScores.TryGetValue(key, out var existing))
+                            {
+                                rrfScores[key] = (existing.hit, existing.score + rrf);
+                            }
+                            else
+                            {
+                                rrfScores[key] = (hit, rrf);
+                            }
+                        }
+                    }
+
+                    var docutilResults = rrfScores.Values
+                        .OrderByDescending(x => x.score)
+                        .Take(topK)
+                        .Select(x => MapDocUtilHitToDto(x.hit))
                         .ToList();
+
+                    _logger.LogInformation(
+                        "RAG 결과 - DistinctChunks={Distinct}, TopK 반환={Count}",
+                        rrfScores.Count, docutilResults.Count);
 
                     // RAG 결과 캐싱(10분) — AgentHub 자체 KB 분기와 TTL 동일.
                     await _cachingService.SetAsync(ragCacheKey, docutilResults, TimeSpan.FromMinutes(10));

@@ -280,6 +280,9 @@ builder.Services.AddScoped<INexusClient, NexusClient>(); // Phase 5.1 — Nexus 
 //   하여 모든 DocUtilClient 인스턴스(Scoped) 가 공통 토큰 캐시 공유.
 builder.Services.AddSingleton<IDocUtilTokenProvider, DocUtilTokenProvider>();
 builder.Services.AddScoped<IDocUtilClient, DocUtilClient>(); // Phase 6.1 — DocUtil RAG/문서 BFF 클라이언트 (ADR-2 RAG 단일 권위)
+// RAG 응답 품질 개선 — query 다국어 정규화 (한국어↔영문) + RRF 결합.
+// IServiceScopeFactory 로 IAiProxyService 를 lazy 해결(순환 의존 차단)하므로 Singleton 안전.
+builder.Services.AddSingleton<IQueryRewriter, LlmQueryRewriter>();
 builder.Services.AddScoped<IHybridRouter, HybridRouter>(); // Phase 5.2 — Hybrid 라우팅 결정 엔진(PII/라벨/capability/cost)
 builder.Services.AddScoped<IAiProxyService, AiProxyService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
