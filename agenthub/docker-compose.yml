@@ -1,0 +1,80 @@
+# =============================================================================
+# AgentHub - Docker Compose
+# ---------------------------------------------------------------------------
+# 기존 docutil 스택과 같은 호스트(192.168.10.39) 의 docker engine 위에서
+# `docutil-network` 에 합류하여 컨테이너명으로 PG/Redis/DocUtil 을 찾는다.
+#
+# 의존 컨테이너 (docutil compose 가 이미 띄워둔 것). 다른 compose stack 에서
+# 합류하므로 service name 이 아닌 컨테이너명(또는 network alias) 으로 해결한다:
+#   - docutil-postgres (5432, AGENT_HUB user/DB 보유)
+#   - docutil-redis    (6379)
+#   - docutil-api      (8000, DocUtil FastAPI)
+#
+# 사용 절차:
+#   1) `.env.example` 을 `.env` 로 복사하고 시크릿 입력
+#   2) `docker compose build` (~5-10분, .NET SDK + ClientApp build)
+#   3) `docker compose up -d`
+#   4) `curl http://192.168.10.39:64005/swagger` 헬스체크
+# =============================================================================
+
+services:
+  agenthub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agenthub
+    restart: unless-stopped
+    ports:
+      - "64005:8080"
+    env_file:
+      - .env
+    environment:
+      # ASP.NET Core
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      # DB / Cache / DocUtil — compose 내부 서비스명으로 해결
+      ConnectionStrings__DefaultConnection: "Host=docutil-postgres;Port=5432;Database=AGENT_HUB;Username=AGENT_HUB;Password=${AGENT_HUB_DB_PASSWORD};Search Path=AIAgentManagement,public"
+      ConnectionStrings__Redis: "docutil-redis:6379"
+      DocUtil__BaseUrl: "http://docutil-api:8000"
+      DocUtil__JwtToken: "${DOCUTIL_JWT_TOKEN:-}"
+      DocUtil__ApiKey: "${DOCUTIL_API_KEY:-}"
+      DocUtil__DefaultTimeoutSeconds: "60"
+      # Nexus (LAN-only, ADR-11 — 외부망 노출 금지. 미배포 시 미사용)
+      Nexus__BaseUrl: "${NEXUS_BASE_URL:-http://192.168.22.28:8001}"
+      Nexus__SharedSecret: "${NEXUS_SHARED_SECRET:-}"
+      Nexus__DefaultTimeoutSeconds: "60"
+      Nexus__DefaultTenantId: "default"
+      # JWT / 암호화
+      JwtSettings__SecretKey: "${JWT_SECRET_KEY}"
+      JwtSettings__Issuer: "AIAgentManagement"
+      JwtSettings__Audience: "AIAgentManagementUsers"
+      JwtSettings__ExpirationInMinutes: "60"
+      JwtSettings__RefreshTokenExpirationInDays: "7"
+      Encryption__ApiKeyAesKey: "${ENCRYPTION_API_KEY_AES_KEY:-}"
+      # 외부 LLM 프로바이더
+      AiApiSettings__OpenAI__ApiKey: "${OPENAI_API_KEY:-}"
+      AiApiSettings__OpenAI__BaseUrl: "https://api.openai.com/v1"
+      AiApiSettings__Claude__ApiKey: "${CLAUDE_API_KEY:-}"
+      AiApiSettings__Claude__BaseUrl: "https://api.anthropic.com/v1"
+      AiApiSettings__Gemini__ApiKey: "${GEMINI_API_KEY:-}"
+      AiApiSettings__Perplexity__ApiKey: "${PERPLEXITY_API_KEY:-}"
+      AiApiSettings__Tavily__ApiKey: "${TAVILY_API_KEY:-}"
+      AiApiSettings__DefaultTimeout: "300"
+      # 로깅
+      Logging__LogLevel__Default: "Information"
+      Logging__LogLevel__Microsoft.AspNetCore: "Warning"
+      Logging__LogLevel__Microsoft.EntityFrameworkCore: "Warning"
+      Logging__LogLevel__Hangfire: "Information"
+    networks:
+      - docutil-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/swagger"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+# docutil 스택이 만든 외부 네트워크 참조
+networks:
+  docutil-network:
+    external: true

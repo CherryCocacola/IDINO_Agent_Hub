@@ -1,0 +1,57 @@
+# =============================================================================
+# Docker 빌드 컨텍스트 제외 패턴
+# ---------------------------------------------------------------------------
+# build context 를 가볍게 유지 + 시크릿/캐시/IDE 잡파일을 이미지에 포함시키지
+# 않기 위함. dotnet publish 가 ClientApp 을 새로 빌드하므로 ClientApp/dist
+# 와 wwwroot 도 제외해도 무방하다.
+# =============================================================================
+
+# .NET 빌드 산출물
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Frontend 빌드 산출물 (Dockerfile 빌드 시 vite build 가 새로 생성)
+ClientApp/node_modules/
+ClientApp/dist/
+ClientApp/.vite/
+ClientApp/.cache/
+ClientApp/coverage/
+wwwroot/assets/
+wwwroot/index.html
+wwwroot/uploads/
+
+# IDE / OS
+.vs/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 시크릿 (.env / appsettings.Development|Production.json)
+appsettings.Development.json
+appsettings.Production.json
+.env
+.env.*
+!.env.example
+
+# 마이그레이션 archive (.csproj 가 Compile Remove 처리, 빌드에서 제외됨)
+Migrations.mssql.archive/
+
+# Git / 도구
+.git/
+.gitignore
+.gitattributes
+
+# 테스트/스크립트/문서 산출물 (런타임 불필요)
+test-results/
+playwright-report/
+e2e-screenshots/
+performance-tests/
+docs/
+e2e_server_test/
+sample_templates/
+test_proposal.pptx
+*.log
+*.bak
