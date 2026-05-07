@@ -1,0 +1,65 @@
+# =============================================================================
+# Nexus Docker 빌드 컨텍스트 제외
+# =============================================================================
+
+# Python 캐시
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# 가상환경 / 빌드 산출물
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+
+# IDE / OS
+.vs/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 시크릿
+.env
+.env.*
+!.env.example
+config/nexus_config.yaml
+config/permission_rules.yaml
+config/tenants.yaml
+config/ssl/
+
+# 학습 산출물 / 모델 (이미지에 포함하지 않음 — 별도 볼륨 마운트)
+models/
+training/checkpoints/
+training/data/
+*.bin
+*.safetensors
+*.gguf
+
+# Git / 도구
+.git/
+.gitignore
+.gitattributes
+.claude/
+
+# 테스트 / 문서 (런타임 불필요)
+tests/
+docs/
+user_mig/
+README.md
+*.md
+
+# 로그
+logs/
+*.log
+audit_log/
+
+# CLI 데이터
+~/.nexus/
+.nexus/

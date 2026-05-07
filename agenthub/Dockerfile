@@ -19,15 +19,18 @@ RUN apt-get update \
 
 WORKDIR /src
 
-# .csproj 만 먼저 복사하여 dotnet restore 캐시 레이어 확보
+# .csproj 만 먼저 복사하여 dotnet restore 캐시 레이어 확보. 같은 디렉토리의
+# .sln 파일이 함께 복사되면 dotnet 이 솔루션 빌드를 우선 선택해 NETSDK1194
+# (--output 옵션 미지원) 경고가 발생하므로 .csproj 만 명시 복사 + 명시 빌드.
 COPY AIAgentManagement.csproj ./
-RUN dotnet restore
+RUN dotnet restore AIAgentManagement.csproj
 
 # 나머지 소스 복사 (.dockerignore 가 bin/obj/wwwroot/node_modules 제외)
 COPY . ./
 
-# Production 빌드 + publish (wwwroot 자동 생성)
-RUN dotnet publish -c Release -o /app/publish --no-restore /p:UseAppHost=false
+# Production 빌드 + publish (wwwroot 자동 생성). .csproj 명시로 .sln 우선 선택을
+# 차단하여 NETSDK1194 경고 제거.
+RUN dotnet publish AIAgentManagement.csproj -c Release -o /app/publish --no-restore /p:UseAppHost=false
 
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime

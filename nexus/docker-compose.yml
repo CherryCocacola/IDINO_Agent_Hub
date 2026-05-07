@@ -1,0 +1,99 @@
+# =============================================================================
+# Project Nexus - Docker Compose (Machine A — Orchestrator)
+# ---------------------------------------------------------------------------
+# 정책:
+#   - ADR-11: Nexus 자체 PG 인스턴스 (통합 PG `192.168.10.39:5440 / AGENT_HUB`
+#     와 별개). 에어갭 격리 유지를 위해 본 compose 가 별도 postgres + redis 띄움
+#   - architecture.md P4: Machine B (vLLM/GPU 서버) 는 별도 호스트 — 본 compose
+#     에 포함하지 않음. NEXUS_GPU_SERVER_URL 환경변수로 LAN 주소를 가리킨다
+#   - anti-patterns #10: 외부 네트워크 노출 금지. ports 는 호스트 내부만 노출
+#     (운영 시에는 nginx/iptables 로 LAN 한정 + reverse proxy 추가 검토)
+#
+# 사용 환경:
+#   - LAN 전용 호스트 (예: 192.168.22.28) 에서 부팅
+#   - 시연용 192.168.10.39 호스트는 부팅 미권장 (GPU 부재 + 외부망 노출 위험)
+# =============================================================================
+
+services:
+  nexus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexus-orchestrator
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8001"   # 호스트 루프백 한정 (외부 노출 금지)
+    env_file:
+      - .env
+    environment:
+      # GPU 서버 (Machine B) — LAN 주소 강제
+      NEXUS_GPU_SERVER_URL: "${NEXUS_GPU_SERVER_URL}"
+      # PG (ADR-11 별도 인스턴스 — nexus-postgres 컨테이너) — pydantic-settings nested env
+      NEXUS_POSTGRESQL__HOST: "nexus-postgres"
+      NEXUS_POSTGRESQL__PORT: "5432"
+      NEXUS_POSTGRESQL__DATABASE: "nexus"
+      NEXUS_POSTGRESQL__USER: "nexus"
+      NEXUS_POSTGRESQL__PASSWORD: "${NEXUS_POSTGRESQL_PASSWORD}"
+      # Redis 단기 메모리 — nexus-redis 컨테이너
+      NEXUS_REDIS__HOST: "nexus-redis"
+      NEXUS_REDIS__PORT: "6379"
+      NEXUS_REDIS__PASSWORD: "${NEXUS_REDIS_PASSWORD}"
+      # 인증 — ADR-13 공유 시크릿
+      NEXUS_SHARED_SECRET: "${NEXUS_SHARED_SECRET}"
+      # 운영 정책
+      NEXUS_LOG_LEVEL: "${NEXUS_LOG_LEVEL:-INFO}"
+      NEXUS_AIR_GAP_MODE: "true"
+    depends_on:
+      nexus-postgres:
+        condition: service_healthy
+      nexus-redis:
+        condition: service_healthy
+    networks:
+      - nexus-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  nexus-postgres:
+    image: postgres:17-alpine
+    container_name: nexus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: ${NEXUS_POSTGRESQL_PASSWORD}
+      POSTGRES_DB: nexus
+    volumes:
+      - nexus-pg-data:/var/lib/postgresql/data
+    networks:
+      - nexus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nexus-redis:
+    image: redis:7-alpine
+    container_name: nexus-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${NEXUS_REDIS_PASSWORD}"]
+    volumes:
+      - nexus-redis-data:/data
+    networks:
+      - nexus-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${NEXUS_REDIS_PASSWORD} ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  nexus-network:
+    driver: bridge
+
+volumes:
+  nexus-pg-data:
+  nexus-redis-data:
