@@ -293,6 +293,105 @@
               </div>
             </div>
           </div>
+
+          <!-- 후속 트랙 (2026-05-08): 운영자 고급 설정 카드 — 백엔드 b3a2d85 의 6 신규 필드 GUI.
+               LlmRouting (Phase 5.1) / KnowledgeBaseSource+Ref (ADR-2) / ConsumerSystems (호출 화이트리스트) / SortOrder. -->
+          <div class="card aiuiux-card mb-4">
+            <div class="card-header bg-transparent border-bottom">
+              <h5><i class="bi bi-sliders"></i> {{ t('agentBuilder.advancedSettings') }}</h5>
+              <small class="text-muted">{{ t('agentBuilder.advancedSettingsDescription') }}</small>
+            </div>
+            <div class="card-body">
+              <!-- 그룹 1: LLM 라우팅 -->
+              <h6 class="mb-3"><i class="bi bi-shuffle"></i> {{ t('agentBuilder.fields.llmRouting') }}</h6>
+              <div class="mb-4">
+                <label class="form-label">{{ t('agentBuilder.fields.llmRouting') }}</label>
+                <select class="form-select" v-model="agentForm.llmRouting">
+                  <option value="External">{{ t('agentBuilder.llmRoutingOptions.external') }}</option>
+                  <option value="Internal">{{ t('agentBuilder.llmRoutingOptions.internal') }}</option>
+                  <option value="Hybrid">{{ t('agentBuilder.llmRoutingOptions.hybrid') }}</option>
+                </select>
+                <small class="text-muted">{{ t('agentBuilder.fields.llmRoutingHelp') }}</small>
+              </div>
+
+              <div v-if="agentForm.llmRouting === 'Hybrid'" class="mb-4">
+                <label class="form-label">{{ t('agentBuilder.fields.routingPolicyJson') }}</label>
+                <textarea
+                  class="form-control"
+                  :class="{ 'is-invalid': routingPolicyJsonError }"
+                  v-model="agentForm.routingPolicyJson"
+                  rows="4"
+                  placeholder='{"default":"external","piiAction":"internal"}'
+                  @blur="validateRoutingPolicyJson"
+                ></textarea>
+                <div v-if="routingPolicyJsonError" class="invalid-feedback d-block">
+                  {{ routingPolicyJsonError }}
+                </div>
+                <small class="text-muted">{{ t('agentBuilder.fields.routingPolicyJsonHelp') }}</small>
+              </div>
+
+              <hr class="my-4">
+
+              <!-- 그룹 2: 지식베이스 (RAG) -->
+              <h6 class="mb-3"><i class="bi bi-database"></i> {{ t('agentBuilder.fields.knowledgeBaseSource') }}</h6>
+              <div class="mb-4">
+                <label class="form-label">{{ t('agentBuilder.fields.knowledgeBaseSource') }}</label>
+                <select class="form-select" v-model="agentForm.knowledgeBaseSource">
+                  <option value="DocUtil">{{ t('agentBuilder.knowledgeBaseSourceOptions.docutil') }}</option>
+                  <option value="AgentHub" class="text-muted">{{ t('agentBuilder.knowledgeBaseSourceOptions.agentHub') }}</option>
+                </select>
+                <small class="text-muted">{{ t('agentBuilder.fields.knowledgeBaseSourceHelp') }}</small>
+              </div>
+
+              <div v-if="agentForm.knowledgeBaseSource === 'DocUtil'" class="mb-4">
+                <label class="form-label">{{ t('agentBuilder.fields.knowledgeBaseRef') }}</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  v-model="agentForm.knowledgeBaseRef"
+                  placeholder="예: 부산대-2024-사업계획"
+                />
+                <small class="text-muted">{{ t('agentBuilder.fields.knowledgeBaseRefHelp') }}</small>
+              </div>
+
+              <hr class="my-4">
+
+              <!-- 그룹 3: 호출 화이트리스트 -->
+              <h6 class="mb-3"><i class="bi bi-shield-check"></i> {{ t('agentBuilder.fields.consumerSystems') }}</h6>
+              <div class="mb-4">
+                <label class="form-label">{{ t('agentBuilder.fields.consumerSystems') }}</label>
+                <textarea
+                  class="form-control"
+                  :class="{ 'is-invalid': consumerSystemsError }"
+                  v-model="agentForm.consumerSystems"
+                  rows="2"
+                  placeholder='["docutil-user","career-coaching"]'
+                  @blur="validateConsumerSystems"
+                ></textarea>
+                <div v-if="consumerSystemsError" class="invalid-feedback d-block">
+                  {{ consumerSystemsError }}
+                </div>
+                <small class="text-muted">{{ t('agentBuilder.fields.consumerSystemsHelp') }}</small>
+              </div>
+
+              <hr class="my-4">
+
+              <!-- 그룹 4: 정렬 순서 -->
+              <h6 class="mb-3"><i class="bi bi-sort-numeric-down"></i> {{ t('agentBuilder.fields.sortOrder') }}</h6>
+              <div class="mb-2">
+                <label class="form-label">{{ t('agentBuilder.fields.sortOrder') }}</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  style="max-width: 200px;"
+                  v-model.number="agentForm.sortOrder"
+                  min="0"
+                  placeholder="0"
+                />
+                <small class="text-muted">{{ t('agentBuilder.fields.sortOrderHelp') }}</small>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Step 5: 테스트 & 배포 -->
@@ -579,8 +678,12 @@
 // 백엔드 C# Models/DTOs (Agent.cs / ConversationDto.cs / ApiServiceDto.cs) 와 정렬 후 `@ts-nocheck` 해제.
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import type { AgentDto } from '@/types'
+
+// 후속 트랙 (2026-05-08): 신규 운영자 고급 설정 카드(LlmRouting/KB/ConsumerSystems/SortOrder) 의 라벨/help 텍스트는 i18n locale 에서 로드.
+const { t } = useI18n()
 
 interface ApiService {
   serviceId: number
@@ -636,8 +739,51 @@ const agentForm = ref({
   placeholderText: '',
   chatTheme: 'light',
   allowGuestChat: false,
-  allowedEmbedDomains: ''
+  allowedEmbedDomains: '',
+  // 후속 트랙 (2026-05-08): 백엔드 AgentDto 갭 보강 commit b3a2d85 의 6 신규 필드 운영자 폼.
+  // 빈 문자열은 백엔드 서비스 레이어에서 null 정규화 + 기본값 폴백 처리 (CreateAgentAsync line 153-179, UpdateAgentAsync line 209-236).
+  llmRouting: 'External', // Phase 5.1 라우팅 모드, 기본 External
+  routingPolicyJson: '', // Hybrid 전용 결정 규칙 JSON, 비어두면 백엔드 기본 정책 사용
+  knowledgeBaseSource: 'AgentHub', // ADR-2: 신규 Agent 는 백엔드 default 와 정렬, UI 가 'DocUtil' 권장
+  knowledgeBaseRef: '', // DocUtil collection ID, 비어두면 글로벌 corpus
+  consumerSystems: '', // 호출 가능 End-User App ID JSON 배열 텍스트
+  sortOrder: 0, // 같은 카테고리 내 정렬 순서
 })
+// 후속 트랙 (2026-05-08): 신규 6 필드 중 JSON 입력 필드 2개의 클라이언트 검증 상태.
+// 빈 문자열은 valid 로 취급하고, 비어있지 않을 때만 JSON 파싱 시도. 실패 시 한국어 에러 메시지 표시 (제출은 막지 않음 — 백엔드가 최종 검증).
+const routingPolicyJsonError = ref<string>('')
+const consumerSystemsError = ref<string>('')
+
+const validateRoutingPolicyJson = () => {
+  const raw = agentForm.value.routingPolicyJson?.trim() ?? ''
+  if (!raw) { routingPolicyJsonError.value = ''; return }
+  try {
+    const parsed = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      routingPolicyJsonError.value = 'JSON 객체 형식이어야 합니다. 예: {"default":"external","piiAction":"internal"}'
+      return
+    }
+    routingPolicyJsonError.value = ''
+  } catch {
+    routingPolicyJsonError.value = '유효한 JSON 형식이 아닙니다. 예: {"default":"external","piiAction":"internal"}'
+  }
+}
+
+const validateConsumerSystems = () => {
+  const raw = agentForm.value.consumerSystems?.trim() ?? ''
+  if (!raw) { consumerSystemsError.value = ''; return }
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed) || !parsed.every((v) => typeof v === 'string')) {
+      consumerSystemsError.value = '문자열 JSON 배열 형식이어야 합니다. 예: ["docutil-user","career-coaching"]'
+      return
+    }
+    consumerSystemsError.value = ''
+  } catch {
+    consumerSystemsError.value = '유효한 JSON 형식이 아닙니다. 예: ["docutil-user","career-coaching"]'
+  }
+}
+
 const step5Tab = ref<'test' | 'share'>('test')
 const savedAgentCode = ref<string | null>(null)
 const embedWidth = ref(400)
@@ -941,7 +1087,15 @@ const loadAgentForEdit = async (agentId: number) => {
       placeholderText: agent.placeholderText || '',
       chatTheme: agent.chatTheme || 'light',
       allowGuestChat: agent.allowGuestChat || false,
-      allowedEmbedDomains: agent.allowedEmbedDomains || ''
+      allowedEmbedDomains: agent.allowedEmbedDomains || '',
+      // 후속 트랙 (2026-05-08): 백엔드 b3a2d85 의 6 신규 필드 매핑.
+      // null/undefined → 화면 default 값으로 폴백, 빈 문자열은 그대로 유지하여 placeholder 가 보이도록.
+      llmRouting: agent.llmRouting || 'External',
+      routingPolicyJson: agent.routingPolicyJson ?? '',
+      knowledgeBaseSource: agent.knowledgeBaseSource || 'AgentHub',
+      knowledgeBaseRef: agent.knowledgeBaseRef ?? '',
+      consumerSystems: agent.consumerSystems ?? '',
+      sortOrder: agent.sortOrder ?? 0,
     }
   } catch (error: any) {
     console.error('Error loading agent for edit:', error)
@@ -976,8 +1130,17 @@ const resetBuilder = () => {
       placeholderText: '',
       chatTheme: 'light',
       allowGuestChat: false,
-      allowedEmbedDomains: ''
+      allowedEmbedDomains: '',
+      // 후속 트랙 (2026-05-08): 6 신규 필드 default reset.
+      llmRouting: 'External',
+      routingPolicyJson: '',
+      knowledgeBaseSource: 'AgentHub',
+      knowledgeBaseRef: '',
+      consumerSystems: '',
+      sortOrder: 0,
     }
+    routingPolicyJsonError.value = ''
+    consumerSystemsError.value = ''
     currentStep.value = 1
     step5Tab.value = 'test'
     savedAgentCode.value = null

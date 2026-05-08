@@ -659,5 +659,36 @@
       "distinctChunks": "Cumulative distinct chunks after RRF dedup",
       "derived": "Server-derived statistic (zero-safe)"
     }
+  },
+  "agentBuilder": {
+    "advancedSettings": "Advanced Settings",
+    "advancedSettingsDescription": "Operator-only settings including LLM routing, knowledge base source, and consumer whitelist.",
+    "fields": {
+      "llmRouting": "LLM Routing",
+      "llmRoutingHelp": "External (OpenAI/Claude/Gemini), Internal (Nexus, LAN-only), or policy-based dispatch (Hybrid).",
+      "routingPolicyJson": "Routing Policy (JSON)",
+      "routingPolicyJsonHelp": "Decision rules for Hybrid mode. Leave blank to use the default policy (PII routes Internal, otherwise External).",
+      "knowledgeBaseSource": "Knowledge Base Source",
+      "knowledgeBaseSourceHelp": "ADR-2: DocUtil is the single source of truth. AgentHub built-in KB is deprecated; new agents should use DocUtil.",
+      "knowledgeBaseRef": "DocUtil Collection ID",
+      "knowledgeBaseRefHelp": "DocUtil collection identifier. Leave blank for global (full-corpus) search. Future iteration will replace this with a dropdown sourced from the operator console.",
+      "consumerSystems": "Consumer Systems",
+      "consumerSystemsHelp": "JSON array of End-User App IDs allowed to invoke this agent. Leave blank to allow any system.",
+      "sortOrder": "Sort Order",
+      "sortOrderHelp": "Display order within the same category. Higher values appear first. Default 0."
+    },
+    "llmRoutingOptions": {
+      "external": "External (OpenAI / Claude / Gemini ...)",
+      "internal": "Internal (Nexus, LAN-only)",
+      "hybrid": "Hybrid (policy-based)"
+    },
+    "knowledgeBaseSourceOptions": {
+      "docutil": "DocUtil (recommended)",
+      "agentHub": "AgentHub (deprecated)"
+    },
+    "errors": {
+      "routingPolicyJsonInvalid": "Not a valid JSON object.",
+      "consumerSystemsInvalid": "Not a valid JSON array of strings."
+    }
   }
 }

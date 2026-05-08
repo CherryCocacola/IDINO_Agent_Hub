@@ -45,6 +45,15 @@ export interface AgentDto {
   welcomeMessage?: string
   placeholderText?: string
   chatTheme?: string
+  // 후속 트랙 (2026-05-08): 백엔드 AgentDto 갭 보강 commit b3a2d85 의 6 신규 필드.
+  // Phase 5.1 LLM 라우팅 + ADR-2 단일 권위 + Phase 6.5 호출 화이트리스트.
+  // 모두 백엔드 직렬화 키 (camelCase) 와 일치. nullable 필드는 string | null 폴백.
+  llmRouting?: string // "External" | "Internal" | "Hybrid", 백엔드 default "External"
+  routingPolicyJson?: string | null // Hybrid 전용 결정 규칙 JSON, null 이면 기본 정책
+  knowledgeBaseSource?: string // "AgentHub" | "DocUtil", Phase 6+ 는 "DocUtil" 권장
+  knowledgeBaseRef?: string | null // DocUtil collection ID, null 이면 글로벌 corpus
+  consumerSystems?: string | null // 호출 가능 End-User App ID JSON 배열 문자열
+  sortOrder?: number // 같은 카테고리 내 정렬 순서, 큰 값이 위로
   createdBy: number
   createdByName: string
   isActive: boolean
