@@ -34,14 +34,36 @@ namespace AIAgentManagement.Controllers;
 public class AdminKnowledgeBaseController : ControllerBase
 {
     private readonly IDocUtilClient _docUtilClient;
+    private readonly CachingService _cachingService;
     private readonly ILogger<AdminKnowledgeBaseController> _logger;
 
     public AdminKnowledgeBaseController(
         IDocUtilClient docUtilClient,
+        CachingService cachingService,
         ILogger<AdminKnowledgeBaseController> logger)
     {
         _docUtilClient = docUtilClient;
+        _cachingService = cachingService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// DocUtil 검색 캐시 일괄 무효화 — version-key 패턴.
+    /// upload/delete 등 mutation 성공 후 호출. 실패는 swallow + 경고 로그
+    /// (캐시 무효화는 best-effort, 본 mutation 자체를 죽이지 않음).
+    /// </summary>
+    private async Task InvalidateSearchCacheAsync()
+    {
+        try
+        {
+            var v = await _cachingService.IncrementVersionAsync(DocUtilClient.SearchCacheVersionNamespace);
+            _logger.LogInformation("DocUtil 검색 캐시 invalidate - newVersion={V}", v);
+        }
+        catch (Exception ex)
+        {
+            // best-effort — mutation 응답을 막지 않는다.
+            _logger.LogWarning(ex, "DocUtil 검색 캐시 invalidate 실패(무시)");
+        }
     }
 
     /// <summary>
@@ -131,6 +153,11 @@ public class AdminKnowledgeBaseController : ControllerBase
             _logger.LogInformation(
                 "운영자 KB 업로드 성공: {FileName} ({Size} bytes) → DocUtil id={Id}",
                 file.FileName, file.Length, result.Id);
+
+            // KB mutation 성공 → DocUtil 검색 캐시 일괄 무효화(version-key bump).
+            // 다음 RAG 검색부터 새 문서가 즉시 반영(이전 5분 TTL 대기 제거).
+            await InvalidateSearchCacheAsync();
+
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -158,6 +185,11 @@ public class AdminKnowledgeBaseController : ControllerBase
         {
             await _docUtilClient.DeleteDocumentAsync(id, ct);
             _logger.LogInformation("운영자 KB 삭제: id={Id}", id);
+
+            // KB mutation 성공 → DocUtil 검색 캐시 일괄 무효화(version-key bump).
+            // 다음 RAG 검색부터 삭제된 문서 결과가 사라짐(이전 5분 TTL 대기 제거).
+            await InvalidateSearchCacheAsync();
+
             return NoContent();
         }
         catch (InvalidOperationException ex)

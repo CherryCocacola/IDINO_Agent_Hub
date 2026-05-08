@@ -146,4 +146,132 @@ public class CachingService
     public string GetStatsKey(string type) => $"stats:{type}";
     public string GetEmbeddingKey(string queryHash) => $"embedding:{queryHash}";
     public string GetRagResultKey(string queryHash, int? agentId, int? userId) => $"rag:{agentId}:{userId}:{queryHash}";
+
+    // ════════════════════════════════════════════════════════════════════
+    // 후속 트랙 — 캐시 버전 키(version-key namespacing) 패턴
+    //
+    // 목적:
+    //   prefix iteration / SCAN / KEYS 비효율을 우회하면서 다수의 캐시 키를
+    //   일괄 무효화한다. 호출자는 자신의 캐시 키에 현재 version 을 prefix 로
+    //   포함하고(예: `du:s:v{N}:{hash}`), 무효화가 필요할 때 IncrementVersionAsync
+    //   를 호출한다. 이전 version 의 키들은 자동으로 stale 처리되어 TTL 자연
+    //   expire 또는 LRU eviction 으로 정리된다.
+    //
+    // 설계 선택:
+    //   - IDistributedCache 만 사용(StackExchange.Redis 의 IConnectionMultiplexer
+    //     를 별도 등록하지 않는 현재 패턴 보존). 결과적으로 INCR atomic 은
+    //     불가능하나 단순한 Get→Increment→Set 으로도 무효화 효과는 동일
+    //     (race condition 으로 두 INCR 가 같은 N+1 로 수렴해도 N 이하 키는 모두
+    //     stale 처리됨 — 캐시 무효화의 본질은 보존됨).
+    //   - 키 prefix 는 `cv:` (cache-version) — 다른 도메인 키와 충돌 회피.
+    //   - 본 헬퍼 자체는 캐시 백엔드(Redis / MemoryCache 폴백) 어느 쪽이든
+    //     동일하게 동작한다. MemoryCache 폴백 환경에서는 인스턴스 재시작 시
+    //     0 으로 초기화되지만 그 시점에 캐시 데이터도 함께 초기화되므로 무해.
+    //   - 무한 TTL — 버전 키 자체는 만료시키지 않음(만료되면 0 으로 reset 되어
+    //     새 버전이 이전 버전과 충돌할 위험). MemoryCache 백엔드는 LRU eviction
+    //     가능성이 있으나 실사용에서는 매우 드물고, eviction 발생 시에도 0 부터
+    //     재시작 + 모든 종속 캐시 키도 동시에 stale 처리되므로 정합성 보장.
+    // ════════════════════════════════════════════════════════════════════
+
+    private const string VersionKeyPrefix = "cv:";
+
+    /// <summary>
+    /// 지정 namespace 의 현재 캐시 버전 반환. 키가 없거나 파싱 실패 시 0 반환.
+    /// 이 값을 캐시 키 prefix 에 포함시키면 IncrementVersionAsync 호출 시
+    /// 이전 버전의 키가 자동으로 stale 처리된다.
+    /// </summary>
+    /// <param name="ns">버전 격리 단위(예: "docutil-search").</param>
+    public async Task<long> GetVersionAsync(string ns)
+    {
+        if (string.IsNullOrWhiteSpace(ns))
+        {
+            throw new ArgumentException("namespace 가 비어 있습니다.", nameof(ns));
+        }
+
+        var key = $"{VersionKeyPrefix}{ns}";
+        try
+        {
+            var raw = await _cache.GetStringAsync(key);
+            if (string.IsNullOrEmpty(raw))
+            {
+                return 0L;
+            }
+            return long.TryParse(raw, out var v) ? v : 0L;
+        }
+        catch (System.Net.Sockets.SocketException ex)
+        {
+            _logger.LogWarning(ex, "Redis 연결 오류 (version key {Key}) — 폴백 0 반환", key);
+            return 0L;
+        }
+        catch (StackExchange.Redis.RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "Redis 연결 예외 (version key {Key}) — 폴백 0 반환", key);
+            return 0L;
+        }
+        catch (StackExchange.Redis.RedisTimeoutException ex)
+        {
+            _logger.LogWarning(ex, "Redis 타임아웃 (version key {Key}) — 폴백 0 반환", key);
+            return 0L;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "캐시 버전 조회 실패 - key={Key}, type={Type}", key, ex.GetType().Name);
+            return 0L;
+        }
+    }
+
+    /// <summary>
+    /// 지정 namespace 의 캐시 버전을 +1 증가시키고 새 값을 반환한다.
+    /// IDistributedCache 한계로 atomic INCR 아님 — 동시 호출 시 동일 N+1 로 수렴할
+    /// 수 있으나 캐시 무효화의 본질(이전 버전 키 일괄 stale)은 보장된다.
+    /// 실패 시 LogWarning + 0 반환(best-effort, 호출자 흐름 차단 금지).
+    /// </summary>
+    /// <param name="ns">버전 격리 단위(예: "docutil-search").</param>
+    public async Task<long> IncrementVersionAsync(string ns)
+    {
+        if (string.IsNullOrWhiteSpace(ns))
+        {
+            throw new ArgumentException("namespace 가 비어 있습니다.", nameof(ns));
+        }
+
+        var key = $"{VersionKeyPrefix}{ns}";
+        try
+        {
+            // Get + Increment + Set — IDistributedCache 의 atomic INCR 미지원 한계 수용.
+            // 캐시 무효화 용도이므로 race condition 으로 두 INCR 가 같은 N+1 에 수렴해도
+            // 이전 N 이하 키들은 모두 stale 처리되어 본 작업의 의도는 보존됨.
+            var current = await GetVersionAsync(ns);
+            var next = current + 1L;
+
+            // 무한 TTL — 버전 키 자체는 만료되지 않아야 함.
+            // (만료되면 0 으로 reset 되며 새 버전이 이전 버전과 충돌할 위험)
+            await _cache.SetStringAsync(
+                key,
+                next.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                new DistributedCacheEntryOptions());
+
+            _logger.LogDebug("캐시 버전 증가 - namespace={Namespace}, newVersion={Version}", ns, next);
+            return next;
+        }
+        catch (System.Net.Sockets.SocketException ex)
+        {
+            _logger.LogWarning(ex, "Redis 연결 오류 (version key {Key}) — 무효화 실패(best-effort)", key);
+            return 0L;
+        }
+        catch (StackExchange.Redis.RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "Redis 연결 예외 (version key {Key}) — 무효화 실패(best-effort)", key);
+            return 0L;
+        }
+        catch (StackExchange.Redis.RedisTimeoutException ex)
+        {
+            _logger.LogWarning(ex, "Redis 타임아웃 (version key {Key}) — 무효화 실패(best-effort)", key);
+            return 0L;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "캐시 버전 증가 실패 - key={Key}, type={Type}", key, ex.GetType().Name);
+            return 0L;
+        }
+    }
 }

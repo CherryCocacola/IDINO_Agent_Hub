@@ -34,8 +34,15 @@ public class DocUtilClient : IDocUtilClient
 
     // ── Phase 4: SearchAsync 응답 캐시 ─────────────────────────────────────
     // 캐시 네임스페이스 prefix — RagService 의 결과 캐시(`rag:`) 와 분리하여
-    // 운영자 KB 수정 후 prefix-base 무효화(별도 트랙)에 대비.
+    // 후속 트랙: 운영자 KB 수정 시 version-key 패턴으로 일괄 무효화.
+    //
+    // 캐시 키 패턴: `du:s:v{N}:{hash}` — N 은 CachingService.GetVersionAsync("docutil-search")
+    //   에서 받아온 단조 증가 정수. 운영자가 KB 문서 업로드/삭제 시 IncrementVersionAsync
+    //   호출 → N+1 → 이전 버전 키 일괄 stale (TTL 5분 자연 expire / LRU eviction).
+    //
+    // SearchCacheVersionNamespace 는 CachingService 의 version key 격리 단위.
     private const string SearchCacheKeyPrefix = "du:s:";
+    public const string SearchCacheVersionNamespace = "docutil-search";
     // RagService 결과 캐시(10분) 보다 짧게 — sub-query 단계라 KB 수정의 빠른 반영 우선.
     private static readonly TimeSpan SearchCacheTtl = TimeSpan.FromMinutes(5);
 
@@ -87,19 +94,27 @@ public class DocUtilClient : IDocUtilClient
             return new DocUtilSearchResult(Array.Empty<DocUtilSearchHit>(), 0d, null);
         }
 
-        // ── Phase 4: SearchAsync 응답 캐시 ─────────────────────────────────
-        // 캐시 키: `du:s:{SHA256(query|collectionRef|maxResults)[..16]}` — RAG sub-query
-        //   레벨 dedup. 다른 Agent 가 동일 KB 컬렉션으로 동일 sub-query 호출 시 hit.
-        // 빈 결과(Hits=0)도 캐싱 — 부하 절감 우선(KB 수정 시 5분 후 자동 반영).
-        var cacheKey = BuildSearchCacheKey(query, collectionRef, maxResults);
+        // ── Phase 4 + 후속 트랙: SearchAsync 응답 캐시 ─────────────────────
+        // 캐시 키: `du:s:v{N}:{SHA256(query|collectionRef|maxResults)[..16]}`
+        //   - N: CachingService 의 version-key namespace `docutil-search` 현재 값.
+        //   - 운영자가 KB upload/delete 시 IncrementVersionAsync 호출 → N+1 →
+        //     이전 버전 키 일괄 stale (TTL 5분 자연 expire 또는 LRU eviction).
+        //   - hash: query+collectionRef+maxResults 의 SHA256 short hex.
+        // 다른 Agent 가 동일 KB 컬렉션으로 동일 sub-query 호출 시 hit.
+        // 빈 결과(Hits=0)도 캐싱 — 부하 절감 우선(KB 수정 시 5분 또는 invalidate 시점에 반영).
+        //
+        // 버전 fetch 실패 시 0 으로 graceful 폴백 — 본 호출 흐름은 차단되지 않음.
+        var version = await _cachingService.GetVersionAsync(SearchCacheVersionNamespace);
+        var cacheKey = BuildSearchCacheKey(version, query, collectionRef, maxResults);
 
         var cached = await _cachingService.GetAsync<CachedSearchResultDto>(cacheKey);
         if (cached != null)
         {
             _ragMetrics.IncrementDocUtilSearchCacheHit();
             _logger.LogDebug(
-                "DocUtil 검색 캐시 hit - key={Key}, query={QueryPreview}, hits={HitCount}",
+                "DocUtil 검색 캐시 hit - key={Key}, version={Version}, query={QueryPreview}, hits={HitCount}",
                 cacheKey,
+                version,
                 query.Length > 40 ? query[..40] + "..." : query,
                 cached.Hits?.Length ?? 0);
             return new DocUtilSearchResult(
@@ -108,6 +123,11 @@ public class DocUtilClient : IDocUtilClient
                 cached.Metadata);
         }
         _ragMetrics.IncrementDocUtilSearchCacheMiss();
+        _logger.LogDebug(
+            "DocUtil 검색 캐시 miss - key={Key}, version={Version}, query={QueryPreview}",
+            cacheKey,
+            version,
+            query.Length > 40 ? query[..40] + "..." : query);
 
         var client = _httpClientFactory.CreateClient(HttpClientName);
 
@@ -191,14 +211,17 @@ public class DocUtilClient : IDocUtilClient
     }
 
     /// <summary>
-    /// SearchAsync 캐시 키 생성기 — query+collectionRef+maxResults 의 SHA256 short hash.
-    /// query 는 trim + lower 정규화하여 다른 공백/대소문자 표기를 동일 키로 융합.
+    /// SearchAsync 캐시 키 생성기 — version + query + collectionRef + maxResults 의
+    /// SHA256 short hash. query 는 trim + lower 정규화하여 다른 공백/대소문자 표기를
+    /// 동일 키로 융합.
     /// </summary>
-    private static string BuildSearchCacheKey(string query, string? collectionRef, int maxResults)
+    /// <param name="version">현재 캐시 버전(CachingService.GetVersionAsync). KB 수정 시
+    /// IncrementVersionAsync 로 +1 → 이전 버전 키 일괄 stale.</param>
+    private static string BuildSearchCacheKey(long version, string query, string? collectionRef, int maxResults)
     {
         var input = $"{query.Trim().ToLowerInvariant()}|{collectionRef ?? string.Empty}|{maxResults}";
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return $"{SearchCacheKeyPrefix}{Convert.ToHexString(hash, 0, 8)}";
+        return $"{SearchCacheKeyPrefix}v{version}:{Convert.ToHexString(hash, 0, 8)}";
     }
 
     // ══════════════════════════════════════════════════════════════════════
