@@ -38,6 +38,7 @@
     "analytics": "Analytics",
     "knowledgeBase": "Knowledge Base",
     "adminKnowledgeBase": "Knowledge Base (Admin)",
+    "adminRagMetrics": "RAG Metrics",
     "apiKeys": "API Key Management",
     "bannedWords": "Banned Words Management",
     "piiProtection": "PII Protection Settings",
@@ -64,6 +65,7 @@
       "management": "Management",
       "analytics": "Analytics",
       "system": "System",
+      "admin": "Administration",
       "settings": "Settings"
     }
   },
@@ -595,5 +597,68 @@
     "notFound": "The document could not be found.",
     "pageInfo": "Page {page} of {total}",
     "pagination": "Pagination"
+  },
+  "adminRagMetrics": {
+    "title": "RAG Metrics",
+    "subtitle": "Real-time view of Query Rewriter cache, DocUtil search cache, and RAG pipeline statistics.",
+    "refresh": "Refresh",
+    "loading": "Loading...",
+    "autoRefresh": "Auto refresh (5s)",
+    "lastUpdated": "Last updated",
+    "errorGeneric": "An error occurred while loading metrics.",
+    "authErrorTitle": "Access denied",
+    "authErrorBody": "This page requires Admin or SuperAdmin role. Please contact your administrator.",
+    "summary": {
+      "ragInvocations": "RAG Invocations",
+      "ragZeroResults": "Zero results",
+      "docUtilSearchCalls": "DocUtil Search Calls",
+      "queryRewriteHitRatio": "Query Rewrite Cache Hit Ratio",
+      "calls": "Total calls",
+      "failures": "Failures",
+      "avgLatency": "DocUtil Avg. Latency",
+      "totalLatency": "Total latency"
+    },
+    "groups": {
+      "queryRewrite": "Query Rewriter Cache",
+      "docUtilSearch": "DocUtil Search Cache",
+      "ragPipeline": "RAG Pipeline"
+    },
+    "fields": {
+      "queryRewriteCacheHit": "Cache Hit",
+      "queryRewriteCacheMiss": "Cache Miss",
+      "queryRewriteCalls": "LLM Calls",
+      "queryRewriteFailures": "LLM Failures",
+      "queryRewriteCacheHitRatio": "Cache Hit Ratio",
+      "docUtilSearchCacheHit": "Cache Hit",
+      "docUtilSearchCacheMiss": "Cache Miss",
+      "docUtilSearchCalls": "HTTP Calls",
+      "docUtilSearchFailures": "HTTP Failures",
+      "docUtilSearchLatencyMsTotal": "Total Latency",
+      "avgDocUtilSearchLatencyMs": "Avg. Latency",
+      "docUtilSearchCacheHitRatio": "Cache Hit Ratio",
+      "ragInvocations": "RAG Invocations",
+      "ragZeroResults": "Zero Results",
+      "ragDistinctChunksTotal": "Distinct Chunks (Total)",
+      "avgRagDistinctChunks": "Avg. Distinct Chunks"
+    },
+    "details": {
+      "title": "Detailed Metrics",
+      "subtitle": "(in-memory, resets to 0 on server restart)",
+      "metric": "Metric",
+      "value": "Value",
+      "note": "Note"
+    },
+    "notes": {
+      "cacheHit": "Previously cached — bypassed LLM/HTTP call",
+      "cacheMiss": "Not in cache — invoked downstream",
+      "llmCalls": "Actual LLM invocations",
+      "httpCalls": "Actual DocUtil HTTP requests",
+      "failures": "Exceptions or failed responses",
+      "latencyTotal": "Cumulative latency of cache-miss calls",
+      "ragInvocations": "RagService delegation entries (excludes RagService result-cache hits)",
+      "ragZeroResults": "Times DocUtil search returned an empty result",
+      "distinctChunks": "Cumulative distinct chunks after RRF dedup",
+      "derived": "Server-derived statistic (zero-safe)"
+    }
   }
 }

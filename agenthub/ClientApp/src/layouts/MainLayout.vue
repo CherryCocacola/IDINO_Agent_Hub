@@ -235,6 +235,7 @@ const expandedCategories = ref<Record<string, boolean>>({
   management: false,
   analytics: false,
   system: false,
+  admin: false,
   settings: false
 })
 
@@ -305,11 +306,31 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
       }
     ]
   },
+  // Phase 5: management 카테고리는 모든 항목이 Admin 전용이므로 admin 으로 통합 이동 → 카테고리 자체 제거
+  // Phase 5: analytics 카테고리는 모든 항목이 Admin 전용이므로 admin 으로 통합 이동 → 카테고리 자체 제거
+  // Phase 5: system 카테고리는 모든 항목이 admin 으로 이동 + Phase 2 자체 KB drop 잔재(/knowledge-base) 메뉴 제거 → 카테고리 자체 제거
+  //         (라우트는 후속 트랙 C-1 에서 일괄 제거. SPA fallback 유지로 북마크 호환)
   {
-    id: 'management',
-    name: t('nav.categories.management'),
-    icon: 'bi bi-gear',
+    id: 'admin',
+    name: t('nav.categories.admin'),
+    icon: 'bi bi-shield-lock',
+    roles: ['Admin', 'SuperAdmin'],
     items: [
+      // Phase 6.3 운영자 KB 콘솔 (DocUtil BFF) - Admin/SuperAdmin 전용
+      {
+        name: t('nav.adminKnowledgeBase'),
+        path: '/admin/knowledge-base',
+        icon: 'bi bi-book-half',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      // Phase 4 RAG 메트릭 대시보드 (`/api/admin/metrics/rag`) - Admin/SuperAdmin 전용
+      {
+        name: t('nav.adminRagMetrics'),
+        path: '/admin/rag-metrics',
+        icon: 'bi bi-graph-up-arrow',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      // 기존 management 에서 이동
       {
         name: t('nav.users'),
         path: '/users',
@@ -345,15 +366,8 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         path: '/pii-protection',
         icon: 'bi bi-shield-lock',
         roles: ['Admin']
-      }
-    ]
-  },
-  {
-    id: 'analytics',
-    name: t('nav.categories.analytics'),
-    icon: 'bi bi-graph-up',
-    roles: ['Admin'],
-    items: [
+      },
+      // 기존 analytics 에서 이동
       {
         name: t('nav.analytics'),
         path: '/analytics',
@@ -377,37 +391,14 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         path: '/usage-history',
         icon: 'bi bi-clock-history',
         roles: ['Admin']
-      }
-    ]
-  },
-  {
-    id: 'system',
-    name: t('nav.categories.system'),
-    icon: 'bi bi-server',
-    items: [
-      {
-        name: t('nav.knowledgeBase'),
-        path: '/knowledge-base',
-        icon: 'bi bi-book'
       },
-      {
-        // Phase 6.3 운영자 KB 콘솔 (DocUtil BFF) - Admin/SuperAdmin 전용
-        name: t('nav.adminKnowledgeBase'),
-        path: '/admin/knowledge-base',
-        icon: 'bi bi-book-half',
-        roles: ['Admin', 'SuperAdmin']
-      },
+      // 기존 system 에서 이동
       {
         name: t('nav.systemHealth'),
         path: '/system-health',
         icon: 'bi bi-heart-pulse',
         roles: ['Admin']
       },
-      /*{
-        name: t('nav.databaseBackup'),
-        path: '/database-backup',
-        icon: 'bi bi-hdd-stack'
-      },*/
       {
         name: t('nav.presentationTemplateManagement'),
         path: '/presentation-templates',

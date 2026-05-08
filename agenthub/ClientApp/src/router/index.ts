@@ -163,6 +163,13 @@ const routes = [
         component: () => import('@/views/AdminKnowledgeBaseDetail.vue'),
         meta: { requiresAuth: true, role: 'Admin' }
       },
+      // Phase 5 RAG 메트릭 대시보드 (Phase 4 endpoint /api/admin/metrics/rag 의 시각화 view)
+      {
+        path: 'admin/rag-metrics',
+        name: 'AdminRagMetrics',
+        component: () => import('@/views/admin/AdminRagMetrics.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
       {
         path: 'reports',
         name: 'Reports',

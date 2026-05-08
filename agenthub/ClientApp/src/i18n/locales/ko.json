@@ -38,6 +38,7 @@
     "analytics": "통계",
     "knowledgeBase": "지식베이스",
     "adminKnowledgeBase": "지식베이스 관리",
+    "adminRagMetrics": "RAG 메트릭",
     "apiKeys": "API 키 관리",
     "bannedWords": "금칙어 관리",
     "piiProtection": "개인정보 보호 설정",
@@ -64,6 +65,7 @@
       "management": "관리",
       "analytics": "분석",
       "system": "시스템",
+      "admin": "운영자",
       "settings": "설정"
     }
   },
@@ -595,5 +597,68 @@
     "notFound": "해당 문서를 찾을 수 없습니다.",
     "pageInfo": "{page} / {total} 페이지",
     "pagination": "페이지 이동"
+  },
+  "adminRagMetrics": {
+    "title": "RAG 메트릭",
+    "subtitle": "Query Rewriter 캐시, DocUtil 검색 캐시, RAG 파이프라인 호출 통계를 실시간으로 확인합니다.",
+    "refresh": "새로고침",
+    "loading": "불러오는 중...",
+    "autoRefresh": "5초마다 자동 갱신",
+    "lastUpdated": "마지막 갱신",
+    "errorGeneric": "메트릭을 불러오는 중 오류가 발생했습니다.",
+    "authErrorTitle": "권한이 없습니다.",
+    "authErrorBody": "이 페이지는 운영자(Admin/SuperAdmin) 권한이 필요합니다. 관리자에게 문의해 주세요.",
+    "summary": {
+      "ragInvocations": "RAG 호출 수",
+      "ragZeroResults": "결과 없음",
+      "docUtilSearchCalls": "DocUtil 검색 호출",
+      "queryRewriteHitRatio": "Query Rewrite 캐시 적중률",
+      "calls": "총 호출",
+      "failures": "실패",
+      "avgLatency": "DocUtil 검색 평균 응답 시간",
+      "totalLatency": "누적 응답 시간"
+    },
+    "groups": {
+      "queryRewrite": "Query Rewriter 캐시",
+      "docUtilSearch": "DocUtil 검색 캐시",
+      "ragPipeline": "RAG 파이프라인"
+    },
+    "fields": {
+      "queryRewriteCacheHit": "캐시 적중 (Hit)",
+      "queryRewriteCacheMiss": "캐시 누락 (Miss)",
+      "queryRewriteCalls": "LLM 호출 수",
+      "queryRewriteFailures": "LLM 호출 실패",
+      "queryRewriteCacheHitRatio": "캐시 적중률",
+      "docUtilSearchCacheHit": "캐시 적중 (Hit)",
+      "docUtilSearchCacheMiss": "캐시 누락 (Miss)",
+      "docUtilSearchCalls": "HTTP 호출 수",
+      "docUtilSearchFailures": "HTTP 호출 실패",
+      "docUtilSearchLatencyMsTotal": "누적 응답 시간",
+      "avgDocUtilSearchLatencyMs": "평균 응답 시간",
+      "docUtilSearchCacheHitRatio": "캐시 적중률",
+      "ragInvocations": "RAG 호출 수",
+      "ragZeroResults": "결과 없음 (Zero Results)",
+      "ragDistinctChunksTotal": "누적 고유 청크 수",
+      "avgRagDistinctChunks": "평균 고유 청크 수"
+    },
+    "details": {
+      "title": "상세 메트릭",
+      "subtitle": "(in-memory, 서버 재시작 시 0 으로 초기화)",
+      "metric": "지표",
+      "value": "값",
+      "note": "비고"
+    },
+    "notes": {
+      "cacheHit": "이전에 동일 키가 있어 LLM/HTTP 호출을 우회",
+      "cacheMiss": "캐시에 없어 새로 호출",
+      "llmCalls": "실제 LLM 호출 횟수",
+      "httpCalls": "실제 DocUtil HTTP 호출 횟수",
+      "failures": "예외 또는 실패 응답",
+      "latencyTotal": "캐시 미스 호출의 누적 응답 시간",
+      "ragInvocations": "RagService 위임 진입 횟수 (RagService 결과 캐시 hit 은 미포함)",
+      "ragZeroResults": "DocUtil 검색이 빈 결과를 반환한 횟수",
+      "distinctChunks": "RRF 결합 후 dedup 된 청크 누적 수",
+      "derived": "서버 측 파생 통계 (0 보호 적용)"
+    }
   }
 }
