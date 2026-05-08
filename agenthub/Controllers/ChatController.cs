@@ -90,6 +90,12 @@ public class ChatController : ControllerBase
             var conversation = await _chatService.CreateConversationAsync(request, userId);
             return CreatedAtAction(nameof(GetConversation), new { id = conversation.ConversationId }, conversation);
         }
+        catch (ArgumentException ex)
+        {
+            // ServiceId/AgentId 누락 또는 존재하지 않는 AgentId — 400 으로 사용자에게 한국어 안내.
+            _logger.LogWarning(ex, "대화 생성 입력값 검증 실패");
+            return BadRequest(new ErrorResponseDto(ex.Message, "VALIDATION_ERROR", null));
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating conversation");

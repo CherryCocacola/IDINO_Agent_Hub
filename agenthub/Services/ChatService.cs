@@ -131,11 +131,38 @@ public class ChatService : IChatService
 
     public async Task<ConversationDto> CreateConversationAsync(CreateConversationRequestDto request, int userId)
     {
+        // AgentId 가 제공되면 Agent 메타에서 ServiceId/Model/Temperature/MaxTokens/SystemPrompt 의 기본값을 보충.
+        // SendDirectMessageAsync 등 다른 ChatService 메서드와 동일한 패턴(line 454-464). 둘 다 null 이면 400.
+        if (request.AgentId.HasValue)
+        {
+            var agent = await _context.Agents
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.AgentId == request.AgentId.Value);
+
+            if (agent == null)
+            {
+                throw new ArgumentException(
+                    $"AgentId={request.AgentId.Value} 에 해당하는 에이전트를 찾을 수 없습니다.");
+            }
+
+            request.ServiceId ??= agent.ServiceId;
+            request.Model ??= agent.DefaultModel;
+            request.Temperature ??= agent.Temperature;
+            request.MaxTokens ??= agent.MaxTokens;
+            request.SystemPrompt ??= agent.SystemPrompt;
+        }
+
+        if (!request.ServiceId.HasValue || request.ServiceId.Value <= 0)
+        {
+            throw new ArgumentException(
+                "ServiceId 또는 AgentId 중 하나는 반드시 제공되어야 합니다.");
+        }
+
         var conversation = new Models.ChatConversation
         {
             UserId = userId,
             AgentId = request.AgentId,
-            ServiceId = request.ServiceId,
+            ServiceId = request.ServiceId.Value,
             Title = request.Title ?? "New Conversation",
             Model = request.Model,
             Temperature = request.Temperature,
@@ -154,8 +181,8 @@ public class ChatService : IChatService
         _context.ChatConversations.Add(conversation);
         await _context.SaveChangesAsync();
 
-        return await GetConversationByIdAsync(conversation.ConversationId, userId) 
-            ?? throw new InvalidOperationException("Failed to create conversation");
+        return await GetConversationByIdAsync(conversation.ConversationId, userId)
+            ?? throw new InvalidOperationException("생성된 대화를 다시 조회하지 못했습니다.");
     }
 
     public async Task<ConversationDto?> UpdateConversationAsync(int conversationId, UpdateConversationRequestDto request, int userId)
