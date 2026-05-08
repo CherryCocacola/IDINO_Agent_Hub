@@ -26,6 +26,13 @@ public class CreateAgentRequestDto
     public bool? IsPublic { get; set; }
     public int? SortOrder { get; set; }
     public bool EnableRag { get; set; } = false;
+    // ── LLM 라우팅 / RAG 권위 (Phase 5.1, ADR-1/ADR-2). null 시 서비스 레이어가 기본값 적용 ──
+    public string? LlmRouting { get; set; }              // null → "External" 폴백
+    public string? RoutingPolicyJson { get; set; }       // Hybrid 전용
+    public string? KnowledgeBaseSource { get; set; }     // null → "AgentHub" 폴백
+    public string? KnowledgeBaseRef { get; set; }        // DocUtil collection ID
+    public string? ConsumerSystems { get; set; }         // 호출 화이트리스트 JSON
+    // ───────────────────────────────────────────────────────────────────────
     public bool? PiiProtectionEnabled { get; set; }
     public string? PiiProtectionMode { get; set; }
     public List<int>? SelectedDocumentIds { get; set; }

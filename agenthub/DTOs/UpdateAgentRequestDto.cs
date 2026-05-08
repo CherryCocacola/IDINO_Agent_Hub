@@ -23,6 +23,14 @@ public class UpdateAgentRequestDto
     public string? DefaultModel { get; set; }
     public bool? IsPublic { get; set; }
     public int? SortOrder { get; set; }
+    public bool? EnableRag { get; set; }
+    // ── LLM 라우팅 / RAG 권위 (Phase 5.1, ADR-1/ADR-2). null 이면 기존 값 보존 ──
+    public string? LlmRouting { get; set; }              // null 이면 기존 값 유지
+    public string? RoutingPolicyJson { get; set; }
+    public string? KnowledgeBaseSource { get; set; }
+    public string? KnowledgeBaseRef { get; set; }
+    public string? ConsumerSystems { get; set; }
+    // ─────────────────────────────────────────────────────────────────────
     public bool? PiiProtectionEnabled { get; set; }
     public string? PiiProtectionMode { get; set; }
     // 공유 / 임베드 설정

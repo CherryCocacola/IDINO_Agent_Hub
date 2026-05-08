@@ -75,6 +75,12 @@ public class AgentService : IAgentService
                 DefaultModel = a.DefaultModel ?? (services.TryGetValue(a.ServiceId, out var svc) ? svc.DefaultModel : null),
                 IsPublic = a.IsPublic,
                 EnableRag = a.EnableRag,
+                SortOrder = a.SortOrder,
+                LlmRouting = a.LlmRouting,
+                RoutingPolicyJson = a.RoutingPolicyJson,
+                KnowledgeBaseSource = a.KnowledgeBaseSource,
+                KnowledgeBaseRef = a.KnowledgeBaseRef,
+                ConsumerSystems = a.ConsumerSystems,
                 PiiProtectionEnabled = a.PiiProtectionEnabled,
                 PiiProtectionMode = a.PiiProtectionMode,
                 WelcomeMessage = a.WelcomeMessage,
@@ -119,6 +125,12 @@ public class AgentService : IAgentService
                 DefaultModel = a.DefaultModel ?? (a.ApiService != null ? a.ApiService.DefaultModel : null),
                 IsPublic = a.IsPublic,
                 EnableRag = a.EnableRag,
+                SortOrder = a.SortOrder,
+                LlmRouting = a.LlmRouting,
+                RoutingPolicyJson = a.RoutingPolicyJson,
+                KnowledgeBaseSource = a.KnowledgeBaseSource,
+                KnowledgeBaseRef = a.KnowledgeBaseRef,
+                ConsumerSystems = a.ConsumerSystems,
                 PiiProtectionEnabled = a.PiiProtectionEnabled,
                 PiiProtectionMode = a.PiiProtectionMode,
                 WelcomeMessage = a.WelcomeMessage,
@@ -164,6 +176,13 @@ public class AgentService : IAgentService
             DefaultModel = request.DefaultModel,
             IsPublic = request.IsPublic ?? false,
             EnableRag = request.EnableRag,
+            // ── Phase 5.1 / ADR-1, ADR-2: 라우팅/RAG 권위 필드. null 시 엔티티 기본값 폴백 ──
+            // LlmRouting 빈 문자/null → "External", KnowledgeBaseSource 빈 문자/null → "AgentHub"
+            LlmRouting = string.IsNullOrWhiteSpace(request.LlmRouting) ? "External" : request.LlmRouting,
+            RoutingPolicyJson = string.IsNullOrWhiteSpace(request.RoutingPolicyJson) ? null : request.RoutingPolicyJson,
+            KnowledgeBaseSource = string.IsNullOrWhiteSpace(request.KnowledgeBaseSource) ? "AgentHub" : request.KnowledgeBaseSource,
+            KnowledgeBaseRef = string.IsNullOrWhiteSpace(request.KnowledgeBaseRef) ? null : request.KnowledgeBaseRef,
+            ConsumerSystems = string.IsNullOrWhiteSpace(request.ConsumerSystems) ? null : request.ConsumerSystems,
             PiiProtectionEnabled = request.PiiProtectionEnabled ?? true,
             PiiProtectionMode = request.PiiProtectionMode,
             WelcomeMessage = request.WelcomeMessage,
@@ -220,6 +239,32 @@ public class AgentService : IAgentService
         }
         agent.IsPublic = request.IsPublic ?? agent.IsPublic;
         agent.SortOrder = request.SortOrder ?? agent.SortOrder;
+        if (request.EnableRag.HasValue)
+        {
+            agent.EnableRag = request.EnableRag.Value;
+        }
+        // ── Phase 5.1 / ADR-1, ADR-2: 라우팅/RAG 권위 필드 — null 이면 기존 값 보존 ──
+        if (!string.IsNullOrWhiteSpace(request.LlmRouting))
+        {
+            agent.LlmRouting = request.LlmRouting;
+        }
+        if (request.RoutingPolicyJson != null)
+        {
+            // 빈 문자열은 정책 해제 의도로 해석 → null 로 정규화
+            agent.RoutingPolicyJson = string.IsNullOrWhiteSpace(request.RoutingPolicyJson) ? null : request.RoutingPolicyJson;
+        }
+        if (!string.IsNullOrWhiteSpace(request.KnowledgeBaseSource))
+        {
+            agent.KnowledgeBaseSource = request.KnowledgeBaseSource;
+        }
+        if (request.KnowledgeBaseRef != null)
+        {
+            agent.KnowledgeBaseRef = string.IsNullOrWhiteSpace(request.KnowledgeBaseRef) ? null : request.KnowledgeBaseRef;
+        }
+        if (request.ConsumerSystems != null)
+        {
+            agent.ConsumerSystems = string.IsNullOrWhiteSpace(request.ConsumerSystems) ? null : request.ConsumerSystems;
+        }
         if (request.PiiProtectionEnabled.HasValue)
         {
             agent.PiiProtectionEnabled = request.PiiProtectionEnabled.Value;
