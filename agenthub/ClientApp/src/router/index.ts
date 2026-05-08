@@ -139,11 +139,8 @@ const routes = [
         name: 'Help',
         component: () => import('@/views/Help.vue')
       },
-      {
-        path: 'knowledge-base',
-        name: 'KnowledgeBase',
-        component: () => import('@/views/KnowledgeBase.vue')
-      },
+      // ── 후속 트랙 C-1 (2026-05-08) 완료: Phase 2 자체 KB drop 잔재 라우트 `/knowledge-base` 완전 제거.
+      // 운영자 KB 진입점은 아래 `/admin/knowledge-base` (DocUtil BFF, Phase 6.3) 단일화 — R2 통합 원칙.
       // ── 운영자 KB(DocUtil BFF) — Phase 6.3 신설. R2 단일 진입점: 운영자 KB 관리는 AgentHub 에서만 ──
       {
         path: 'admin/knowledge-base',

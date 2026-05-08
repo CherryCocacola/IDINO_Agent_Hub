@@ -36,7 +36,6 @@
     "agents": "Agent 실행",
     "quota": "할당량 관리",
     "analytics": "통계",
-    "knowledgeBase": "지식베이스",
     "adminKnowledgeBase": "지식베이스 관리",
     "adminRagMetrics": "RAG 메트릭",
     "apiKeys": "API 키 관리",

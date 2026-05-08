@@ -36,7 +36,6 @@
     "agents": "Agent Execution",
     "quota": "Quota Management",
     "analytics": "Analytics",
-    "knowledgeBase": "Knowledge Base",
     "adminKnowledgeBase": "Knowledge Base (Admin)",
     "adminRagMetrics": "RAG Metrics",
     "apiKeys": "API Key Management",
