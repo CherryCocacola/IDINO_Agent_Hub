@@ -2108,70 +2108,7 @@ body {
 .cd-hint { font-size: 10px; color: var(--ai-text-muted); margin-top: 3px; }
 .cd-hint-inline { margin-top: 0; font-weight: 400; }
 
-/* Knowledge 문서 선택 리스트 (RAG) */
-.cd-doc-list {
-  max-height: 200px;
-  overflow-y: auto;
-  border: 1.5px solid var(--ai-border);
-  border-radius: var(--ai-radius);
-  background: var(--ai-bg-light);
-  padding: 6px;
-}
-.cd-doc-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-.cd-doc-item:hover:not(.disabled) { background: rgba(79, 70, 229, 0.04); }
-.cd-doc-item.disabled { opacity: 0.6; }
-.cd-doc-check {
-  width: 14px;
-  height: 14px;
-  margin-top: 2px;
-  accent-color: var(--ai-primary);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.cd-doc-item.disabled .cd-doc-check { cursor: not-allowed; }
-.cd-doc-label {
-  flex: 1;
-  min-width: 0;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.cd-doc-item.disabled .cd-doc-label { cursor: default; }
-.cd-doc-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ai-text-primary);
-  line-height: 1.35;
-}
-.cd-doc-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  width: fit-content;
-}
-.cd-doc-status i { font-size: 10px; }
-.cd-doc-status.status-indexed {
-  background: var(--ai-success-bg);
-  color: #065F46;
-  border: 1px solid rgba(16, 185, 129, 0.25);
-}
-.cd-doc-status.status-pending {
-  background: var(--ai-warning-bg);
-  color: #92400E;
-  border: 1px solid rgba(245, 158, 11, 0.25);
-}
+/* Knowledge 문서 선택 리스트 (.cd-doc-*) 는 Phase 2 자체 KB drop (ADR-2) 으로 제거됨. */
 
 .cd-svc-strip { display: flex; gap: 5px; flex-wrap: wrap; }
 .cd-svc-chip {

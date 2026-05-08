@@ -297,7 +297,7 @@
                     </label>
                     <label class="ag-switch-row">
                       <div class="ag-switch">
-                        <input type="checkbox" v-model="newAgent.enableRag" id="enableRag" @change="onRagToggle">
+                        <input type="checkbox" v-model="newAgent.enableRag" id="enableRag">
                         <span class="ag-switch-knob"></span>
                       </div>
                       <span>RAG 기능 <small>(Knowledge Base 연동)</small></span>
@@ -306,104 +306,11 @@
                 </div>
               </div>
               
-              <!-- RAG 문서 선택 (enableRag 시 표시) -->
-              <div v-if="newAgent.enableRag" class="ag-form-group mt-3">
-                <div class="ms-0 mt-2">
-                  <div class="alert alert-info mb-3">
-                    <small>
-                      <i class="bi bi-info-circle"></i> 
-                      RAG 기능을 사용하면 Agent가 Knowledge Base의 문서를 참조하여 더 정확한 답변을 제공할 수 있습니다.
-                    </small>
-                  </div>
-                  
-                  <!-- 문서 제약 조건 -->
-                  <div class="mb-3">
-                    <label class="form-label">문서 제약 조건</label>
-                    <div class="row">
-                      <div class="col-md-6 mb-2">
-                        <label class="form-label small">최대 문서 수</label>
-                        <input 
-                          type="number" 
-                          class="form-control form-control-sm" 
-                          v-model.number="ragConstraints.maxDocuments" 
-                          min="1" 
-                          max="50" 
-                          :value="ragConstraints.maxDocuments"
-                        >
-                        <small class="text-muted">선택 가능한 최대 문서 수 (1-50)</small>
-                      </div>
-                      <div class="col-md-6 mb-2">
-                        <div class="form-check mt-4">
-                          <input 
-                            class="form-check-input" 
-                            type="checkbox" 
-                            v-model="ragConstraints.requireIndexed" 
-                            id="requireIndexed"
-                          >
-                          <label class="form-check-label small" for="requireIndexed">
-                            인덱싱된 문서만 허용
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- 문서 선택 -->
-                  <div class="mb-3">
-                    <label class="form-label">
-                      연결할 문서 선택 
-                      <span class="badge bg-secondary ms-2">
-                        {{ newAgent.selectedDocumentIds?.length || 0 }} / {{ ragConstraints.maxDocuments }}
-                      </span>
-                    </label>
-                    <div v-if="loadingDocuments" class="text-center py-3">
-                      <div class="spinner-border spinner-border-sm" role="status"></div>
-                      <small class="d-block mt-2 text-muted">문서 목록을 불러오는 중...</small>
-                    </div>
-                    <div v-else-if="availableDocuments.length === 0" class="alert alert-warning">
-                      <small>
-                        <i class="bi bi-exclamation-triangle"></i> 
-                        사용 가능한 문서가 없습니다. Knowledge Base에서 문서를 먼저 생성하고 인덱싱하세요.
-                      </small>
-                    </div>
-                    <div v-else class="border rounded p-2 max-height-300 scrollable">
-                      <div 
-                        v-for="doc in availableDocuments" 
-                        :key="doc.documentId"
-                        class="form-check mb-2"
-                      >
-                        <input 
-                          class="form-check-input" 
-                          type="checkbox" 
-                          :value="doc.documentId"
-                          :id="`doc-${doc.documentId}`"
-                          :checked="newAgent.selectedDocumentIds?.includes(doc.documentId)"
-                          @change="toggleDocument(doc.documentId)"
-                          :disabled="!newAgent.selectedDocumentIds?.includes(doc.documentId) && 
-                                     (newAgent.selectedDocumentIds?.length || 0) >= ragConstraints.maxDocuments"
-                        >
-                        <label class="form-check-label" :for="`doc-${doc.documentId}`">
-                          <strong>{{ doc.title }}</strong>
-                          <small class="text-muted d-block">
-                            <span class="badge bg-success" v-if="doc.isIndexed">
-                              <i class="bi bi-check-circle"></i> 인덱싱됨 ({{ doc.chunkCount }} chunks)
-                            </span>
-                            <span class="badge bg-warning" v-else>
-                              <i class="bi bi-exclamation-circle"></i> 인덱싱 필요
-                            </span>
-                            <span class="ms-2">{{ doc.sourceType }}</span>
-                          </small>
-                        </label>
-                      </div>
-                    </div>
-                    <small class="text-muted d-block mt-2">
-                      <i class="bi bi-info-circle"></i> 
-                      최대 {{ ragConstraints.maxDocuments }}개의 문서를 선택할 수 있습니다.
-                      <span v-if="ragConstraints.requireIndexed">인덱싱된 문서만 선택 가능합니다.</span>
-                    </small>
-                  </div>
-                </div>
-              </div>
+              <!--
+                RAG 문서 선택 UI 는 Phase 2 자체 KB drop (ADR-2) 으로 제거됨.
+                정식 RAG 권위 설정(KnowledgeBaseSource/KnowledgeBaseRef + 라우팅 정책)은
+                AgentBuilder.vue (`/agents/builder/:id`) 의 "고급 설정" 카드에서 관리한다.
+              -->
             </form>
           </div>
           <div class="modal-footer d-flex justify-content-end gap-2">
@@ -663,31 +570,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { getAgentDisplayColor, getAgentContrastTextColor } from '@/utils/agentUtils'
 import { useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import type { AgentDto, ApiServiceDto } from '@/types'
 
-interface KnowledgeBaseDocument {
-  documentId: number
-  userId: number
-  userName: string
-  title: string
-  sourceType: string
-  sourceId?: string
-  isIndexed: boolean
-  indexedAt?: string
-  chunkCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-interface RagConstraints {
-  maxDocuments: number
-  requireIndexed: boolean
-}
+// KnowledgeBaseDocument / RagConstraints 타입은 Phase 2 자체 KB drop (ADR-2) 으로 제거됨.
+// 정식 RAG 권위 설정은 AgentBuilder.vue 의 "고급 설정" 카드에서 KnowledgeBaseSource/Ref 로 관리.
 
 const ICON_OPTIONS = [
   { value: 'bi bi-robot', icon: 'bi-robot' },
@@ -714,7 +605,6 @@ interface CreateAgentData {
   colorCode?: string
   isPublic: boolean
   enableRag?: boolean
-  selectedDocumentIds?: number[]
   allowGuestChat?: boolean
   welcomeMessage?: string
   placeholderText?: string
@@ -727,7 +617,6 @@ const agents = ref<AgentDto[]>([])
 const services = ref<ApiServiceDto[]>([])
 const loading = ref(false)
 const loadingModels = ref(false)
-const loadingDocuments = ref(false)
 const searchText = ref('')
 const serviceFilter = ref('')
 const viewMode = ref<'grid' | 'list'>('grid')
@@ -736,12 +625,6 @@ const showEditModal = ref(false)
 const editingAgent = ref<AgentDto | null>(null)
 const availableModels = ref<string[]>([])
 const editAvailableModels = ref<string[]>([])
-const availableDocuments = ref<KnowledgeBaseDocument[]>([])
-
-const ragConstraints = ref<RagConstraints>({
-  maxDocuments: 10,
-  requireIndexed: true
-})
 
 const newAgent = ref<CreateAgentData>({
   agentName: '',
@@ -754,8 +637,7 @@ const newAgent = ref<CreateAgentData>({
   iconClass: 'bi bi-robot',
   colorCode: '#4F46E5',
   isPublic: false,
-  enableRag: false,
-  selectedDocumentIds: []
+  enableRag: false
 })
 
 const editAgentData = ref<CreateAgentData>({
@@ -770,7 +652,6 @@ const editAgentData = ref<CreateAgentData>({
   colorCode: '#4F46E5',
   isPublic: false,
   enableRag: false,
-  selectedDocumentIds: [],
   allowGuestChat: false,
   welcomeMessage: '',
   placeholderText: '',
@@ -854,60 +735,9 @@ const loadServiceModels = async () => {
   }
 }
 
-const loadDocuments = async () => {
-  try {
-    loadingDocuments.value = true
-    const response = await api.get<KnowledgeBaseDocument[]>('/knowledgebase', {
-      params: { 
-        isIndexed: ragConstraints.value.requireIndexed ? true : undefined 
-      }
-    })
-    
-    let docs = response.data || []
-    
-    // 인덱싱 필수인 경우 필터링 (백엔드에서 이미 필터링되지만 이중 체크)
-    if (ragConstraints.value.requireIndexed) {
-      docs = docs.filter(doc => doc.isIndexed)
-    }
-    
-    availableDocuments.value = docs
-  } catch (error) {
-    console.error('Error loading documents:', error)
-    availableDocuments.value = []
-  } finally {
-    loadingDocuments.value = false
-  }
-}
-
-const onRagToggle = () => {
-  if (newAgent.value.enableRag) {
-    loadDocuments()
-  } else {
-    newAgent.value.selectedDocumentIds = []
-  }
-}
-
-const toggleDocument = (documentId: number) => {
-  if (!newAgent.value.selectedDocumentIds) {
-    newAgent.value.selectedDocumentIds = []
-  }
-  
-  const index = newAgent.value.selectedDocumentIds.indexOf(documentId)
-  if (index > -1) {
-    newAgent.value.selectedDocumentIds.splice(index, 1)
-  } else {
-    if (newAgent.value.selectedDocumentIds.length < ragConstraints.value.maxDocuments) {
-      newAgent.value.selectedDocumentIds.push(documentId)
-    }
-  }
-}
-
-// 모달이 열릴 때 문서 목록 로드
-watch(showCreateModal, (isOpen) => {
-  if (isOpen && newAgent.value.enableRag) {
-    loadDocuments()
-  }
-})
+// loadDocuments / onRagToggle / toggleDocument / showCreateModal watch 는
+// Phase 2 자체 KB drop (ADR-2) 으로 제거됨. `/api/knowledgebase` 백엔드 컨트롤러는
+// `7f1a9ae` 에서 완전 제거되었고, 정식 RAG 권위 설정은 AgentBuilder.vue 에서 관리한다.
 
 const filterAgents = () => {
   // computed property가 자동으로 업데이트됨
@@ -942,7 +772,6 @@ const editAgent = async (agent: AgentDto) => {
     colorCode: agent.colorCode || '#4F46E5',
     isPublic: agent.isPublic,
     enableRag: agent.enableRag || false,
-    selectedDocumentIds: [],
     allowGuestChat: agent.allowGuestChat || false,
     welcomeMessage: agent.welcomeMessage || '',
     placeholderText: agent.placeholderText || '',
@@ -1071,11 +900,9 @@ const closeCreateModal = () => {
     iconClass: 'bi bi-robot',
     colorCode: '#4F46E5',
     isPublic: false,
-    enableRag: false,
-    selectedDocumentIds: []
+    enableRag: false
   }
   availableModels.value = []
-  availableDocuments.value = []
 }
 
 // 수정 모달 닫기
@@ -1096,7 +923,6 @@ const closeEditModal = () => {
     colorCode: '#4F46E5',
     isPublic: false,
     enableRag: false,
-    selectedDocumentIds: [],
     allowGuestChat: false,
     welcomeMessage: '',
     placeholderText: '',
@@ -1122,28 +948,8 @@ const handleCreateAgent = async () => {
     return
   }
 
-  if (newAgent.value.enableRag && (!newAgent.value.selectedDocumentIds || newAgent.value.selectedDocumentIds.length === 0)) {
-    const confirm = window.confirm('RAG 기능을 사용하지만 문서를 선택하지 않았습니다. 계속하시겠습니까?')
-    if (!confirm) return
-  }
-
-  // RAG 제약 조건 검사
-  if (newAgent.value.enableRag && newAgent.value.selectedDocumentIds) {
-    if (newAgent.value.selectedDocumentIds.length > ragConstraints.value.maxDocuments) {
-      alert(`최대 ${ragConstraints.value.maxDocuments}개의 문서만 선택할 수 있습니다.`)
-      return
-    }
-
-    if (ragConstraints.value.requireIndexed) {
-      const unindexedDocs = availableDocuments.value.filter(
-        doc => newAgent.value.selectedDocumentIds?.includes(doc.documentId) && !doc.isIndexed
-      )
-      if (unindexedDocs.length > 0) {
-        alert('인덱싱되지 않은 문서가 포함되어 있습니다. 인덱싱된 문서만 선택할 수 있습니다.')
-        return
-      }
-    }
-  }
+  // RAG 문서 사전 선택 / 제약 조건 검증은 Phase 2 자체 KB drop (ADR-2) 으로 제거됨.
+  // 정식 RAG 권위(KnowledgeBaseSource/Ref) 는 AgentBuilder.vue 에서 관리한다.
 
   try {
     // API 요청 데이터 준비
@@ -1159,11 +965,6 @@ const handleCreateAgent = async () => {
       colorCode: newAgent.value.colorCode,
       isPublic: newAgent.value.isPublic,
       enableRag: newAgent.value.enableRag
-    }
-
-    // RAG 문서 ID 추가
-    if (newAgent.value.enableRag && newAgent.value.selectedDocumentIds && newAgent.value.selectedDocumentIds.length > 0) {
-      requestData.selectedDocumentIds = newAgent.value.selectedDocumentIds
     }
 
     await api.post('/agents', requestData)

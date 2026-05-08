@@ -95,62 +95,21 @@
               </label>
             </div>
 
+            <!--
+              EnableRag 토글: per-conversation RAG override.
+              Agent.KnowledgeBaseSource="DocUtil" + Agent.KnowledgeBaseRef(collection ID) 정의(ADR-2)에 따라
+              실제 RAG 권위는 Agent 단위로 결정되며, 사용자가 채팅 화면에서 문서를 직접 선택하는 패러다임은
+              Phase 2 자체 KB drop 으로 폐기됨. 본 토글은 대화 단위 RAG on/off 만 제어한다.
+            -->
             <div class="cd-toggle-item">
               <div class="cd-toggle-info">
                 <div class="cd-toggle-title"><i class="bi bi-database"></i> {{ $t('agentChat.enableRag') }}</div>
                 <div class="cd-toggle-desc">{{ $t('agentChat.enableRagDesc') }}</div>
               </div>
               <label class="cd-switch">
-                <input type="checkbox" id="enableRag" v-model="enableRag" @change="onRagToggle">
+                <input type="checkbox" id="enableRag" v-model="enableRag">
                 <span class="cd-switch-knob"></span>
               </label>
-            </div>
-
-            <!-- Knowledge 선택 UI (RAG 활성화 시에만 표시) -->
-            <div class="cd-field" v-if="enableRag">
-              <label class="cd-label cd-label-row">
-                <span>{{ $t('agentChat.selectKnowledge') }}</span>
-                <span class="cd-val-badge">{{ selectedDocumentIds.length }} / 10</span>
-              </label>
-              <div v-if="loadingDocuments" class="text-center py-2">
-                <div class="spinner-border spinner-border-sm" role="status"></div>
-                <small class="d-block mt-2 text-muted">{{ $t('agentChat.loadingDocuments') }}</small>
-              </div>
-              <div v-else-if="availableDocuments.length === 0" class="alert alert-warning py-2 mb-0">
-                <small>
-                  <i class="bi bi-exclamation-triangle"></i> 
-                  {{ $t('agentChat.noDocumentsAvailable') }}
-                </small>
-              </div>
-              <div v-else class="cd-doc-list">
-                <div 
-                  v-for="doc in availableDocuments" 
-                  :key="doc.documentId"
-                  class="cd-doc-item"
-                  :class="{ disabled: !selectedDocumentIds.includes(doc.documentId) && selectedDocumentIds.length >= 10 }"
-                >
-                  <input 
-                    type="checkbox" 
-                    :value="doc.documentId"
-                    :id="`doc-${doc.documentId}`"
-                    :checked="selectedDocumentIds.includes(doc.documentId)"
-                    @change="toggleDocument(doc.documentId)"
-                    :disabled="!selectedDocumentIds.includes(doc.documentId) && selectedDocumentIds.length >= 10"
-                    class="cd-doc-check"
-                  >
-                  <label class="cd-doc-label" :for="`doc-${doc.documentId}`">
-                    <span class="cd-doc-title">{{ doc.title }}</span>
-                    <span :class="['cd-doc-status', doc.isIndexed ? 'status-indexed' : 'status-pending']">
-                      <i :class="doc.isIndexed ? 'bi bi-check-circle' : 'bi bi-exclamation-circle'"></i>
-                      {{ doc.isIndexed ? $t('agentChat.indexed') : $t('agentChat.indexingRequired') }}
-                    </span>
-                  </label>
-                </div>
-              </div>
-              <div class="cd-hint mt-2">
-                <i class="bi bi-info-circle"></i> 
-                {{ $t('agentChat.maxDocumentsHint') }}
-              </div>
             </div>
 
             <div class="cd-toggle-item">
@@ -909,24 +868,9 @@ const useStreaming = ref(true)
 // 진행 중 스트리밍을 사용자가 중단할 수 있도록 AbortController 보관
 const streamAbortController = ref<AbortController | null>(null)
 
-// Knowledge Base 문서 관련
-interface KnowledgeBaseDocument {
-  documentId: number
-  userId: number
-  userName: string
-  title: string
-  sourceType: string
-  sourceId?: string
-  isIndexed: boolean
-  indexedAt?: string
-  chunkCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-const loadingDocuments = ref(false)
-const availableDocuments = ref<KnowledgeBaseDocument[]>([])
-const selectedDocumentIds = ref<number[]>([])
+// Knowledge Base 문서 선택 UI 는 Phase 2 자체 KB drop (ADR-2) 으로 제거됨.
+// 운영자가 Agent.KnowledgeBaseSource="DocUtil" + Agent.KnowledgeBaseRef(collection ID) 로 화이트리스트를 결정하므로,
+// 사용자 채팅 화면에서는 EnableRag 토글로 대화 단위 on/off 만 제어한다.
 
 // 편집 공간 관련
 const editingMessageId = ref<string | number | null>(null)
@@ -1039,40 +983,8 @@ watch(() => modelSettings.value.model, () => {
   }
 })
 
-// Knowledge Base 문서 로드
-const loadDocuments = async () => {
-  try {
-    loadingDocuments.value = true
-    const response = await api.get<KnowledgeBaseDocument[]>('/knowledgebase')
-    availableDocuments.value = response.data || []
-  } catch (error) {
-    console.error('Error loading documents:', error)
-    availableDocuments.value = []
-  } finally {
-    loadingDocuments.value = false
-  }
-}
-
-// RAG 활성화/비활성화 시 문서 목록 로드
-const onRagToggle = () => {
-  if (enableRag.value) {
-    loadDocuments()
-  } else {
-    selectedDocumentIds.value = []
-  }
-}
-
-// 문서 선택/해제
-const toggleDocument = (documentId: number) => {
-  const index = selectedDocumentIds.value.indexOf(documentId)
-  if (index > -1) {
-    selectedDocumentIds.value.splice(index, 1)
-  } else {
-    if (selectedDocumentIds.value.length < 10) {
-      selectedDocumentIds.value.push(documentId)
-    }
-  }
-}
+// loadDocuments / onRagToggle / toggleDocument 함수는 Phase 2 자체 KB drop (ADR-2) 으로 제거됨.
+// `/api/knowledgebase` 백엔드 컨트롤러가 `7f1a9ae` 에서 완전 제거되어 SPA fallback HTML 을 200 으로 반환하던 dead code 였음.
 
 // ── AgentChat 응답 스타일 ──────────────────────────────────────────────────
 const chatStyleSnippets: Record<string, string> = {
@@ -1128,12 +1040,10 @@ const loadAgent = async () => {
       modelSettings.value.model = agent.value.defaultModel
     }
     
-    // Agent의 RAG 설정 적용
+    // Agent의 RAG 설정 적용 — Agent.EnableRag 만 토글에 반영.
+    // 문서 목록 fetch 는 Phase 2 자체 KB drop (ADR-2) 으로 제거됨.
     if (agent.value.enableRag !== undefined) {
       enableRag.value = agent.value.enableRag
-      if (enableRag.value) {
-        loadDocuments()
-      }
     }
     
     // Agent의 서비스 찾기
@@ -1751,7 +1661,9 @@ const sendMessage = async () => {
       ),
       enableRag: enableRag.value,
       ragTopK: 3,
-      documentIds: enableRag.value && selectedDocumentIds.value.length > 0 ? selectedDocumentIds.value : null,
+      // documentIds 필드는 Phase 2 자체 KB drop (ADR-2) 으로 제거됨.
+      // 백엔드 RagService.cs(line 88-93) 도 documentIds 를 디버그 로그만 남기고 무시하므로
+      // 페이로드에서 아예 제외해 라인 노이즈를 줄인다. RAG 권위는 Agent.KnowledgeBaseSource/Ref 로 결정.
       language: responseLanguage.value,
       enableDeepResearch: enableDeepResearch.value,
       enableDeepThinking: enableDeepThinking.value,

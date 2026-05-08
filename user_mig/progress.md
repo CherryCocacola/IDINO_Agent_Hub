@@ -158,6 +158,56 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-08 (후속 트랙 #8 — AgentChat / AgentSelect 의 deprecated `/api/knowledgebase` GET dead code 완전 청산)
+- **목적**: Phase 2 (`7f1a9ae`) 에서 백엔드 자체 KB 컨트롤러 `/api/knowledgebase` 가 완전 제거된 후, AgentChat.vue (사용자 채팅) 와 AgentSelect.vue (Agent 카탈로그 + 빠른 생성/수정 모달) 에 잔존하던 `api.get<KnowledgeBaseDocument[]>('/knowledgebase')` 호출 + 문서 선택 UI 가 SPA fallback HTML 200 → JSON parse 실패 → catch 분기 빈 배열 처리되어 사용자 화면에 "노 문서" 알림만 노출하는 dead code 였음. ADR-2 단일 권위 = DocUtil + 사용자가 채팅 화면에서 문서를 직접 선택하는 패러다임 자체가 폐기되었으므로 (운영자가 Agent 단위로 KnowledgeBaseSource/Ref 화이트리스트 결정) 본 트랙으로 청산.
+- **AgentSelect.vue 라우트 + 빌더 중복 진단**: 라우트 `/agents` 는 Agent 카탈로그 + 빠른 생성/수정 모달 (router/index.ts:80). 정식 빌더는 `/agents/builder/:id?` AgentBuilder.vue 5단계 (Phase 5 admin 메뉴 그룹화). AgentSelect 의 수정 모달은 `router.push('/agents/builder/${editingAgent.agentId}')` 로 빌더 deep link 제공 — 즉 AgentSelect 의 생성/수정 모달은 "빠른 진입용 보조 폼" 으로 활용 중. **사장 페이지 아님** → 빌더 영역 통째 제거는 별도 트랙으로 격리, 본 작업은 dead code 핀포인트만 청산.
+- **수정 5 파일 (commit 대상)**:
+  - **MODIFY `agenthub/ClientApp/src/views/agent/AgentChat.vue`** —
+    - **템플릿** (line 109-154 일대): `<div class="cd-field" v-if="enableRag">` 의 Knowledge 선택 UI 블록 (label/loading spinner/no-documents alert/checkbox list/cd-hint) **전체 삭제**. EnableRag 토글 자체는 보존 (per-conversation 영구 override 기능 유지) + `@change="onRagToggle"` 핸들러만 제거. 한국어 주석으로 ADR-2 / Phase 2 자체 KB drop 맥락 명시.
+    - **script (line 912-929)**: `interface KnowledgeBaseDocument` (12 키 정의) + `loadingDocuments`/`availableDocuments`/`selectedDocumentIds` ref 3개 **제거** + 한국어 대체 주석.
+    - **script (line 1042-1075)**: `loadDocuments` async 함수 + `onRagToggle` 함수 + `toggleDocument` 함수 **3개 제거** + 한국어 대체 주석 (`/api/knowledgebase` 가 `7f1a9ae` 에서 완전 제거되어 SPA fallback HTML 200 반환하던 dead code).
+    - **script (line 1131-1137)**: `loadAgent` 의 RAG 설정 적용 분기에서 `if (enableRag.value) { loadDocuments() }` **제거**, `enableRag.value = agent.value.enableRag` 만 보존. 한국어 주석으로 정정 사유 명시.
+    - **script (line 1754)**: 채팅 페이로드 `chatPayload` 의 `documentIds: enableRag.value && selectedDocumentIds.value.length > 0 ? selectedDocumentIds.value : null,` **제거**. 백엔드 `RagService.cs:88-93` 가 documentIds 를 디버그 로그만 남기고 무시하므로 안전하며, 페이로드에서 아예 제외해 라인 노이즈 + Agent.KnowledgeBaseSource/Ref 권위 정합성 회복.
+  - **MODIFY `agenthub/ClientApp/src/views/agent/AgentSelect.vue`** —
+    - **템플릿** (line 296-407 일대): `v-if="newAgent.enableRag"` 블록 (alert info + 문서 제약 조건 row + 문서 선택 list + small text-muted hint) **전체 삭제** + 한국어 대체 주석. 토글에 붙어있던 `@change="onRagToggle"` 핸들러 제거.
+    - **script** : `import { ... watch }` → `import { ... }` (사장된 watch 제거) + `interface KnowledgeBaseDocument` + `interface RagConstraints` **2개 제거** + 한국어 대체 주석.
+    - **script** : `CreateAgentData.selectedDocumentIds?: number[]` 필드 **제거** (동일 인터페이스를 newAgent / editAgentData 양쪽에서 공유하므로 단일 변경).
+    - **script** : `loadingDocuments` ref + `availableDocuments` ref + `ragConstraints` ref 3개 **제거**.
+    - **script (line 857-910)**: `loadDocuments` async 함수 + `onRagToggle` 함수 + `toggleDocument` 함수 + `watch(showCreateModal, ...)` watcher **4개 제거** + 한국어 대체 주석.
+    - **script** : `editAgent` / `closeCreateModal` / `closeEditModal` 의 `selectedDocumentIds: []` reset 라인 + `availableDocuments.value = []` 라인 정리.
+    - **script** : `handleCreateAgent` 의 RAG 사전 선택 confirm 다이얼로그 + `ragConstraints.maxDocuments` 초과 검증 + `requireIndexed` 미인덱싱 검증 + `requestData.selectedDocumentIds = ...` 페이로드 추가 분기 **4개 모두 제거** + 한국어 주석으로 권위는 AgentBuilder.vue 의 KnowledgeBaseSource/Ref 임을 명시.
+  - **MODIFY `agenthub/ClientApp/src/i18n/locales/ko.json`** — `agentChat.*` 의 사장 키 6개 (`selectKnowledge` / `loadingDocuments` / `noDocumentsAvailable` / `indexed` / `indexingRequired` / `maxDocumentsHint`) **제거**. `enableRag` / `enableRagDesc` 는 보존 (토글 자체 유지). 다른 파일 사용처 grep 결과 0건 — AgentChat.vue 단독 사용처였음.
+  - **MODIFY `agenthub/ClientApp/src/i18n/locales/en.json`** — 동일 6개 영문 키 제거.
+  - **MODIFY `agenthub/ClientApp/src/assets/css/aiuiux-theme.css`** (line 2111-2174): `cd-doc-list` / `cd-doc-item` / `cd-doc-check` / `cd-doc-label` / `cd-doc-title` / `cd-doc-status.status-indexed` / `cd-doc-status.status-pending` 등 64 라인 CSS 블록 **전체 제거** + 한국어 대체 주석. AgentChat.vue 단독 참조처였으므로 안전.
+- **빌드 PASS**:
+  - `cd ClientApp && npx vue-tsc --noEmit` → **exit=0 errors=0** (`@ts-nocheck` 부착 0, 게이트 유지).
+  - `npm run build:check` (= vue-tsc + vite build) → **PASS, 3.59s, 263 modules transformed**.
+  - 청크 카탈로그 비교: `AgentChat-CwTpD9n2.js` 70.68 kB / gzip 21.66 kB (fingerprint 신규) + `AgentSelect-D8sTXokk.js` 28.66 kB / gzip 8.14 kB (fingerprint 신규) + `index-BQthdxdM.js` 133.46 kB / gzip 44.07 kB (i18n 키 6개 제거 반영, 이전 133.98 → -0.52 kB) + `AgentBuilder-CEaL4L2Q.js` 35.00 kB (변경 0). 다른 청크(WorkflowBuilder/vue-vendor/chart-vendor/marked.esm) 변경 0.
+  - **dist 청크 grep 검증**: `D:\workspace\IDINO_Agent_Hub\agenthub\ClientApp\dist\assets` 안 소문자 `/knowledgebase` (deprecated GET 라우트) 매치 **0건** + AgentChat 청크 `KnowledgeBaseDocument` 매치 0건 + AgentSelect 청크 `KnowledgeBaseDocument` 매치 0건. case-insensitive 매치는 운영자 KB(`AdminKnowledgeBase*`, `KnowledgeBaseSource` 필드명) 정상 잔재만 — 본 작업 범위 외.
+- **wwwroot 동기화**: `agenthub/wwwroot/assets/` rm + `ClientApp/dist/assets/` 복사 + `index.html` 갱신. `agenthub/.gitignore` 가 `wwwroot/assets/` + `wwwroot/index.html` 제외 → commit 미포함 (정상).
+- **호스트 192.168.10.39 배포 PASS**: `tmp/deploy_track8_kb_cleanup/deploy.py` (paramiko 자동화) —
+  - SFTP 5 파일 소스 ~377 KB 업로드 (`AgentChat.vue` 200 KB / `AgentSelect.vue` 41 KB / `ko.json` 33 KB / `en.json` 28 KB / `aiuiux-theme.css` 73 KB)
+  - `docker compose build agenthub` → BuildKit cache + publish layer ~12s, `agenthub-agenthub:latest` 신규 manifest sha256:36f77733... config sha256:d3220c7b... attestation sha256:995734ac...
+  - `docker compose up -d --force-recreate agenthub` → Container Recreated/Started
+  - 4초 만에 healthy (iter 2)
+  - 컨테이너 내 wwwroot grep: `docker exec agenthub sh -c "grep -ro '/knowledgebase' /app/wwwroot/assets | wc -l"` → **0건** (호스트 자산까지 dead code 청산 확정)
+  - 컨테이너 wwwroot 청크 fingerprint 신규: `AgentChat-CHGs2jd8.js` / `AgentSelect-BfGMgH-6.js` / `index-0gqFo1vt.js` (호스트 BuildKit 의 deterministic 해시는 로컬 dist 와 다르나 코드/i18n 동등성 검증 PASS).
+- **회귀 검증 PASS**:
+  - `admin@example.com / Admin123!` 로그인 → JWT 555 chars 정상 발급.
+  - `GET /api/agents/1` Bearer JWT → 200 + 6 신규 필드 모두 노출: `{llmRouting:True, routingPolicyJson:True, knowledgeBaseSource:True, knowledgeBaseRef:True, consumerSystems:True, sortOrder:True}` — 직전 `b3a2d85` 백엔드 회귀 + `845382c` UI 회귀 PASS 유지.
+  - **한국어 RAG 쿼리 회귀** (`tmp/deploy_track8_kb_cleanup/verify_chat.py`): `POST /api/chat/conversations/2/messages` `{"message":"안녕하세요, RAG 회귀 테스트입니다."}` → **200**, messageId=46, conversationId=2, role=assistant, 한국어 응답(환영 메시지) 정상, tokensUsed=3279, model=gpt-4o-2024-08-06, finishReason=stop. **`documentIds` 페이로드 제거 후에도 백엔드 정상 동작 확인** (RagService.cs 가 documentIds 무시 + KnowledgeBaseSource/Ref 권위로 결정).
+- **외부 API 라우트 변경 0** — 페이로드에서 무시되던 documentIds 필드만 제거, 컨트롤러/엔드포인트/응답 schema 변경 0. 다른 페이지(AgentBuilder/AgentMultiChat/Marketplace/AdminKnowledgeBase) 동작 회귀 0. EnableRag 토글 per-conversation override 보존.
+- **anti-patterns.md 준수**: §4(Frontend 하드코딩 API URL — `import api from '@/services/api'` 그대로 사용) + §11(컴포넌트에서 axios 직접 사용 금지) + §7(자체 KB 신규 사용 차단) 모두 위반 0. Pinia/ref/computed/v-model 패턴 보존, React 관용구 부재.
+- **Side effect**: ADR-2 단일 권위 = DocUtil 정책이 사용자 화면 dead code 까지 빠짐없이 집행됨. 코드 부채 카탈로그 1건 청산. 빌드 산출물에서 `/knowledgebase` 매치 0건 확정.
+- **변경 파일 목록 (commit 대상)**:
+  - `agenthub/ClientApp/src/views/agent/AgentChat.vue`
+  - `agenthub/ClientApp/src/views/agent/AgentSelect.vue`
+  - `agenthub/ClientApp/src/i18n/locales/ko.json`
+  - `agenthub/ClientApp/src/i18n/locales/en.json`
+  - `agenthub/ClientApp/src/assets/css/aiuiux-theme.css`
+- **별도 트랙 (예정)**: AgentSelect.vue 의 빠른 생성/수정 모달(빌더 영역) 자체 deprecate 또는 AgentBuilder.vue 로 흡수 — 사용자가 두 진입점 중 어느 쪽을 기본으로 할지 결정 필요.
+- **다음 트랙 후보**: D-1 vue-flow 업그레이드 (WorkflowBuilder.vue `@ts-nocheck` 해제) / Nexus 실제 부팅 (LAN GPU 호스트 192.168.22.28) / KnowledgeBaseRef 텍스트 입력 → DocUtil collection BFF dropdown 전환 / RagService 결과 캐시(`rag:*` 10분) version-key 무효화 확장 / 시연 종료 후 secret leak history sanitize + 키 회전.
+
 ### 2026-05-08 (후속 트랙 — AgentBuilder.vue UI 운영자 폼 필드 확장 — 백엔드 b3a2d85 갭 보강을 사용자 단까지 활용)
 - **목적**: 직전 commit `b3a2d85` 의 백엔드 AgentDto 6 필드 갭 보강(`LlmRouting/RoutingPolicyJson/KnowledgeBaseSource/KnowledgeBaseRef/ConsumerSystems/SortOrder`)이 BFF 정합성을 회복했으나, Vue 운영자 콘솔 `AgentBuilder.vue` 가 여전히 read/write 양쪽 모두 미지원이라 운영자가 GUI 로 LLM 라우팅 정책 + RAG 권위 + 호출 화이트리스트를 관리할 수 없었음. 본 트랙은 6 필드를 운영자 폼 UI 단까지 활용 가능하게 확장.
 - **수정 4 파일**:
