@@ -47,6 +47,19 @@ public interface IRagMetrics
     /// <summary>DocUtil 검색 HTTP 호출 latency 누적(밀리초). 평균은 latency_total / max(1, calls).</summary>
     void RecordDocUtilSearchLatency(long milliseconds);
 
+    // ── DocUtilClient.ListCollectionsAsync (후속 트랙 2026-05-08) ─────────
+    // collection 카탈로그는 운영자 AgentBuilder dropdown 워크플로에서 자주 호출되지만
+    // 변경 빈도는 낮음 → 단순 TTL 10분 캐시(version-key 미적용 — DocUtil mutation 이
+    // AgentHub BFF 를 경유하지 않으므로 explicit invalidate 불가).
+    /// <summary>DocUtil 컬렉션 응답 캐시 hit (CachingService 10분 TTL, du:c:* prefix).</summary>
+    void IncrementDocUtilCollectionCacheHit();
+    /// <summary>DocUtil 컬렉션 응답 캐시 miss (HTTP 호출 직전).</summary>
+    void IncrementDocUtilCollectionCacheMiss();
+    /// <summary>DocUtil 컬렉션 HTTP 호출 시도.</summary>
+    void IncrementDocUtilCollectionCall();
+    /// <summary>DocUtil 컬렉션 HTTP 호출 실패(InvalidOperationException 등).</summary>
+    void IncrementDocUtilCollectionFailure();
+
     // ── RagService.RetrieveAsync ──────────────────────────────────────────
     /// <summary>RAG 위임 진입(빈 query / 비활성 분기 포함하지 않는 실제 위임 흐름).</summary>
     void IncrementRagInvocation();
@@ -78,6 +91,10 @@ public sealed record RagMetricsSnapshot(
     long DocUtilSearchCalls,
     long DocUtilSearchFailures,
     long DocUtilSearchLatencyMsTotal,
+    long DocUtilCollectionCacheHit,
+    long DocUtilCollectionCacheMiss,
+    long DocUtilCollectionCalls,
+    long DocUtilCollectionFailures,
     long RagInvocations,
     long RagZeroResults,
     long RagDistinctChunksTotal,

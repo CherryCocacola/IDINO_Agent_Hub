@@ -26,6 +26,13 @@ public sealed class RagMetricsSnapshotDto
     public long DocUtilSearchFailures { get; set; }
     public long DocUtilSearchLatencyMsTotal { get; set; }
 
+    // ── DocUtilClient.ListCollectionsAsync (후속 트랙 2026-05-08) ────────
+    // 단순 TTL 10분 캐시(version-key 미적용 — DocUtil mutation 비BFF 통과).
+    public long DocUtilCollectionCacheHit { get; set; }
+    public long DocUtilCollectionCacheMiss { get; set; }
+    public long DocUtilCollectionCalls { get; set; }
+    public long DocUtilCollectionFailures { get; set; }
+
     // ── RagService.RetrieveAsync ──────────────────────────────────────────
     public long RagInvocations { get; set; }
     public long RagZeroResults { get; set; }
@@ -44,6 +51,9 @@ public sealed class RagMetricsSnapshotDto
 
     /// <summary>DocUtil 검색 캐시 hit 비율 (0.0~1.0). hit+miss=0 이면 0.</summary>
     public double DocUtilSearchCacheHitRatio { get; set; }
+
+    /// <summary>DocUtil 컬렉션 캐시 hit 비율 (0.0~1.0). hit+miss=0 이면 0.</summary>
+    public double DocUtilCollectionCacheHitRatio { get; set; }
 
     /// <summary>RagService 결과 캐시 hit 비율 (0.0~1.0). hit+miss=0 이면 0.</summary>
     public double RagResultCacheHitRatio { get; set; }

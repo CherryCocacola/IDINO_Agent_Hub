@@ -59,6 +59,7 @@ public class AdminMetricsController : ControllerBase
         // calls=0 분모 보호 — 0 으로 나누기 회피.
         var queryRewriteTotal = snapshot.QueryRewriteCacheHit + snapshot.QueryRewriteCacheMiss;
         var docUtilSearchTotal = snapshot.DocUtilSearchCacheHit + snapshot.DocUtilSearchCacheMiss;
+        var docUtilCollectionTotal = snapshot.DocUtilCollectionCacheHit + snapshot.DocUtilCollectionCacheMiss;
         var ragResultCacheTotal = snapshot.RagResultCacheHit + snapshot.RagResultCacheMiss;
 
         var dto = new RagMetricsSnapshotDto
@@ -73,6 +74,11 @@ public class AdminMetricsController : ControllerBase
             DocUtilSearchCalls = snapshot.DocUtilSearchCalls,
             DocUtilSearchFailures = snapshot.DocUtilSearchFailures,
             DocUtilSearchLatencyMsTotal = snapshot.DocUtilSearchLatencyMsTotal,
+
+            DocUtilCollectionCacheHit = snapshot.DocUtilCollectionCacheHit,
+            DocUtilCollectionCacheMiss = snapshot.DocUtilCollectionCacheMiss,
+            DocUtilCollectionCalls = snapshot.DocUtilCollectionCalls,
+            DocUtilCollectionFailures = snapshot.DocUtilCollectionFailures,
 
             RagInvocations = snapshot.RagInvocations,
             RagZeroResults = snapshot.RagZeroResults,
@@ -93,6 +99,10 @@ public class AdminMetricsController : ControllerBase
 
             DocUtilSearchCacheHitRatio = docUtilSearchTotal > 0
                 ? (double)snapshot.DocUtilSearchCacheHit / docUtilSearchTotal
+                : 0d,
+
+            DocUtilCollectionCacheHitRatio = docUtilCollectionTotal > 0
+                ? (double)snapshot.DocUtilCollectionCacheHit / docUtilCollectionTotal
                 : 0d,
 
             RagResultCacheHitRatio = ragResultCacheTotal > 0

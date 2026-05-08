@@ -29,6 +29,12 @@ public sealed class RagMetrics : IRagMetrics
     private long _docUtilSearchFailures;
     private long _docUtilSearchLatencyMsTotal;
 
+    // 후속 트랙 2026-05-08 — DocUtilClient.ListCollectionsAsync 카운터.
+    private long _docUtilCollectionCacheHit;
+    private long _docUtilCollectionCacheMiss;
+    private long _docUtilCollectionCalls;
+    private long _docUtilCollectionFailures;
+
     private long _ragInvocations;
     private long _ragZeroResults;
     private long _ragDistinctChunksTotal;
@@ -67,6 +73,18 @@ public sealed class RagMetrics : IRagMetrics
         Interlocked.Add(ref _docUtilSearchLatencyMsTotal, milliseconds);
     }
 
+    public void IncrementDocUtilCollectionCacheHit()
+        => Interlocked.Increment(ref _docUtilCollectionCacheHit);
+
+    public void IncrementDocUtilCollectionCacheMiss()
+        => Interlocked.Increment(ref _docUtilCollectionCacheMiss);
+
+    public void IncrementDocUtilCollectionCall()
+        => Interlocked.Increment(ref _docUtilCollectionCalls);
+
+    public void IncrementDocUtilCollectionFailure()
+        => Interlocked.Increment(ref _docUtilCollectionFailures);
+
     public void IncrementRagInvocation()
         => Interlocked.Increment(ref _ragInvocations);
 
@@ -96,6 +114,10 @@ public sealed class RagMetrics : IRagMetrics
             DocUtilSearchCalls: Interlocked.Read(ref _docUtilSearchCalls),
             DocUtilSearchFailures: Interlocked.Read(ref _docUtilSearchFailures),
             DocUtilSearchLatencyMsTotal: Interlocked.Read(ref _docUtilSearchLatencyMsTotal),
+            DocUtilCollectionCacheHit: Interlocked.Read(ref _docUtilCollectionCacheHit),
+            DocUtilCollectionCacheMiss: Interlocked.Read(ref _docUtilCollectionCacheMiss),
+            DocUtilCollectionCalls: Interlocked.Read(ref _docUtilCollectionCalls),
+            DocUtilCollectionFailures: Interlocked.Read(ref _docUtilCollectionFailures),
             RagInvocations: Interlocked.Read(ref _ragInvocations),
             RagZeroResults: Interlocked.Read(ref _ragZeroResults),
             RagDistinctChunksTotal: Interlocked.Read(ref _ragDistinctChunksTotal),

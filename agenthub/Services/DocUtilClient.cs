@@ -46,6 +46,20 @@ public class DocUtilClient : IDocUtilClient
     // RagService 결과 캐시(10분) 보다 짧게 — sub-query 단계라 KB 수정의 빠른 반영 우선.
     private static readonly TimeSpan SearchCacheTtl = TimeSpan.FromMinutes(5);
 
+    // ── 후속 트랙 2026-05-08: ListCollectionsAsync 응답 캐시 ────────────────
+    // 캐시 네임스페이스 prefix `du:c:` — Search 캐시(`du:s:`) 와 격리.
+    // 캐시 키 패턴: `du:c:{page}|{size}` — page/size 조합당 단일 키.
+    //
+    // 캐시 무효화 전략 — version-key 패턴 미적용:
+    //   collection 생성/수정/삭제는 DocUtil 콘솔에서 직접 발생하므로 AgentHub BFF 가
+    //   mutation 시점을 알 수 없다. explicit IncrementVersionAsync 트리거 불가.
+    //   → 단순 TTL 10분 자연 expire 의존.
+    //
+    // 향후 트랙: DocUtil project mutation 도 AgentHub BFF 를 경유하도록 전환되면
+    //   SearchCacheVersionNamespace 와 동일 패턴 적용 가능 (별도 namespace 권장).
+    private const string CollectionCacheKeyPrefix = "du:c:";
+    private static readonly TimeSpan CollectionCacheTtl = TimeSpan.FromMinutes(10);
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
     private readonly IDocUtilTokenProvider _tokenProvider;
@@ -477,9 +491,12 @@ public class DocUtilClient : IDocUtilClient
     // created_by / timestamps / allow_original_download) 는 dropdown UX 에 불필요하고
     // DocUtil 내부 schema 변경 시 영향 면적을 늘리므로 비노출.
     //
-    // 캐시 미적용: collection 목록은 자주 호출되지 않고, 운영자가 DocUtil 콘솔에서
-    // 새 project 생성 직후 드롭다운에 즉시 반영되어야 하므로 fresh 응답 우선.
-    // 향후 트랙: version-key 패턴 도입 시 SearchAsync 와 동일 namespace 또는 별도 분리 검토.
+    // 캐시 전략(후속 트랙 2026-05-08):
+    //   prefix `du:c:`, TTL 10분. version-key 패턴 미적용 — collection 생성/삭제는
+    //   DocUtil 콘솔에서 직접 발생(AgentHub BFF 비경유) 이므로 explicit invalidate
+    //   트리거 불가. 단순 TTL 자연 expire 로 운영자 워크플로(Agent 생성/편집 시
+    //   매번 dropdown 호출) 의 DocUtil 부하를 감소시킨다.
+    //   빈 결과(0건) 도 캐싱 — 빈 응답을 반복 호출하는 부하도 줄임.
     // ══════════════════════════════════════════════════════════════════════
     public async Task<List<DocUtilCollection>> ListCollectionsAsync(
         int page = 1,
@@ -489,6 +506,22 @@ public class DocUtilClient : IDocUtilClient
         if (page < 1) page = 1;
         if (size < 1 || size > 200) size = 50;
 
+        // ── 캐시 조회 ─────────────────────────────────────────────────────
+        // 키: du:c:{page}|{size} — page/size 조합당 단일 키.
+        var cacheKey = $"{CollectionCacheKeyPrefix}{page}|{size}";
+        var cached = await _cachingService.GetAsync<CachedCollectionListDto>(cacheKey);
+        if (cached?.Items != null)
+        {
+            _ragMetrics.IncrementDocUtilCollectionCacheHit();
+            _logger.LogDebug(
+                "DocUtil 컬렉션 캐시 hit - key={Key}, count={Count}",
+                cacheKey, cached.Items.Length);
+            return cached.Items.ToList();
+        }
+        _ragMetrics.IncrementDocUtilCollectionCacheMiss();
+        _logger.LogDebug(
+            "DocUtil 컬렉션 캐시 miss - key={Key}", cacheKey);
+
         var client = _httpClientFactory.CreateClient(HttpClientName);
         var path = $"/api/v1/projects?page={page}&size={size}";
 
@@ -497,29 +530,55 @@ public class DocUtilClient : IDocUtilClient
         _logger.LogDebug(
             "DocUtil 컬렉션(projects) 목록 호출 - Page={Page}, Size={Size}", page, size);
 
-        using var response = await client.SendAsync(
-            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
-
-        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var dto = await JsonSerializer.DeserializeAsync<ProjectListDto>(stream, JsonOptions, cancellationToken);
-
-        if (dto is null)
+        // ── HTTP 호출 latency 측정 + 메트릭 기록 (try-finally 로 보장) ──
+        _ragMetrics.IncrementDocUtilCollectionCall();
+        var stopwatch = Stopwatch.StartNew();
+        List<DocUtilCollection> items;
+        try
         {
-            throw new InvalidOperationException("DocUtil 컬렉션(projects) 목록 응답을 디시리얼라이즈하지 못했습니다.");
+            using var response = await client.SendAsync(
+                httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+            await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var dto = await JsonSerializer.DeserializeAsync<ProjectListDto>(stream, JsonOptions, cancellationToken);
+
+            if (dto is null)
+            {
+                throw new InvalidOperationException("DocUtil 컬렉션(projects) 목록 응답을 디시리얼라이즈하지 못했습니다.");
+            }
+
+            items = (dto.Items ?? Array.Empty<ProjectSummaryDto>())
+                .Select(p => new DocUtilCollection(
+                    p.Id ?? string.Empty,
+                    p.Name ?? string.Empty,
+                    p.Description))
+                .Where(c => !string.IsNullOrWhiteSpace(c.Id))
+                .ToList();
+
+            _logger.LogDebug(
+                "DocUtil 컬렉션 응답 - Count={Count}, Total={Total}, Latency={LatencyMs}ms",
+                items.Count, dto.Total, stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception)
+        {
+            // 실패 메트릭 — EnsureSuccessOrThrow / DeserializeAsync / Send 모든 실패 경로 포괄.
+            _ragMetrics.IncrementDocUtilCollectionFailure();
+            throw;
+        }
+        finally
+        {
+            stopwatch.Stop();
         }
 
-        var items = (dto.Items ?? Array.Empty<ProjectSummaryDto>())
-            .Select(p => new DocUtilCollection(
-                p.Id ?? string.Empty,
-                p.Name ?? string.Empty,
-                p.Description))
-            .Where(c => !string.IsNullOrWhiteSpace(c.Id))
-            .ToList();
-
-        _logger.LogDebug(
-            "DocUtil 컬렉션 응답 - Count={Count}, Total={Total}", items.Count, dto.Total);
+        // ── 캐시 적재(성공 응답만, 빈 결과 포함) ─────────────────────────
+        // record DocUtilCollection 직렬화 안정성을 위해 클래스 wrapper 사용 — Search 와 동일 패턴.
+        var cacheValue = new CachedCollectionListDto
+        {
+            Items = items.ToArray(),
+        };
+        await _cachingService.SetAsync(cacheKey, cacheValue, CollectionCacheTtl);
 
         return items;
     }
@@ -703,5 +762,13 @@ public class DocUtilClient : IDocUtilClient
         public DocUtilSearchHit[]? Hits { get; set; }
         public double TotalTime { get; set; }
         public object? Metadata { get; set; }
+    }
+
+    // ── 후속 트랙 2026-05-08: ListCollectionsAsync 캐시용 wrapper ──────────
+    // record DocUtilCollection 직렬화 안정성을 위해 클래스 wrapper 사용 — Search 와 동일 패턴.
+    // Items 는 array 로 직렬화(List 보다 JsonSerializer 의 polymorphic round-trip 안정).
+    public sealed class CachedCollectionListDto
+    {
+        public DocUtilCollection[]? Items { get; set; }
     }
 }
