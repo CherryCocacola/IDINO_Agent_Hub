@@ -99,12 +99,12 @@
                   <div class="wf-node-name">{{ data.label || '이름 없음' }}</div>
                   <div class="wf-node-type-badge">{{ data.nodeType }}</div>
                 </div>
-                <!-- 연결 핸들 -->
-                <Handle type="target" position="left" />
-                <Handle type="source" position="right" />
+                <!-- 연결 핸들 — Position 은 enum 이므로 :position 바인딩으로 Position.Left/Right 전달 -->
+                <Handle type="target" :position="Position.Left" />
+                <Handle type="source" :position="Position.Right" />
                 <template v-if="data.nodeType === 'Condition'">
-                  <Handle id="true" type="source" position="right" style="top: 35%" />
-                  <Handle id="false" type="source" position="right" style="top: 65%" />
+                  <Handle id="true" type="source" :position="Position.Right" style="top: 35%" />
+                  <Handle id="false" type="source" :position="Position.Right" style="top: 65%" />
                 </template>
               </div>
             </template>
@@ -321,12 +321,12 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
-// Phase 3 후속 트랙 (D-1): @vue-flow/core 타입 정의 (NodeMouseEvent 시그니처,
-// Position 타입 narrowing) 가 strict 검사에서 깨짐 — 별도 업그레이드 트랙으로 분리.
+// Phase 3 후속 트랙 (D-1) 완료 — @vue-flow/core 의 NodeMouseEvent 시그니처 + Position enum
+// 을 정확한 타입으로 import 하여 strict 게이트 통과. (@ts-nocheck 해제, 트랙 #9)
 import { ref, watch, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VueFlow, useVueFlow, Handle, Position } from '@vue-flow/core'
+import type { NodeMouseEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import '@vue-flow/core/dist/style.css'
@@ -419,7 +419,9 @@ const onConnect = (params: any) => {
 }
 
 // ── 노드 클릭 ──────────────────────────────────────────────────────────────────
-const onNodeClick = (_: any, node: any) => {
+// @vue-flow/core 의 nodeClick emit 시그니처: (event: NodeMouseEvent) => void
+// NodeMouseEvent shape = { event: MouseTouchEvent, node: GraphNode }
+const onNodeClick = ({ node }: NodeMouseEvent) => {
   selectedNode.value = node
 }
 

@@ -158,6 +158,42 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-08 (후속 트랙 #9 — WorkflowBuilder.vue vue-flow 타입 정렬 + `@ts-nocheck` 해제, D-1 완료)
+- **목적**: 직전 commit `0f0fc89` 까지 KnowledgeBase.vue 자체 + B-1/C-1 부채는 청산되었으나 D-1 (`agenthub/ClientApp/src/views/workflow/WorkflowBuilder.vue` 의 `@ts-nocheck`) 만 남아 있던 상태. `@vue-flow/core@1.48.2` 가 이미 최신 stable 이라 패키지 업그레이드는 불필요했고, **타입 사용 패턴 정정** 만으로 해소 가능함이 라이브러리 d.ts 분석에서 확인됨 (`NodeMouseEvent` interface `{ event: MouseTouchEvent, node: GraphNode }` + `Position` enum `{ Left, Top, Right, Bottom }`). 본 트랙으로 vue-tsc 2.x strict 게이트가 monorepo 전 파일에 적용되는 클린 상태 회복.
+- **WorkflowBuilder.vue 진단**:
+  - `node_modules/@vue-flow/core/dist/types/hooks.d.ts:12-15` `NodeMouseEvent { event: MouseTouchEvent; node: GraphNode }` interface, `flow.d.ts:301-303` `nodeClick` emit 시그니처 = `(nodeMouseEvent: NodeMouseEvent) => void` (1 인자) — 기존 `(_: any, node: any) => void` (2 인자) 와 mismatch (TS Target signature provides too few arguments).
+  - `node_modules/@vue-flow/core/dist/types/flow.d.ts:77-82` `Position` 은 string enum (Left='left', Right='right'). template attr 의 `position="left"` 는 string literal 로 narrow 되어 `Position | undefined` 와 mismatch.
+  - `@vue-flow/core` index.d.ts 가 `export * from './types'` + `types/index.d.ts` 가 `hooks` 를 re-export → `NodeMouseEvent` 는 `@vue-flow/core` 최상위에서 import 가능 PASS.
+- **수정 1 파일 (commit 대상)** — `agenthub/ClientApp/src/views/workflow/WorkflowBuilder.vue`:
+  - **상단 주석 + import (line 323-336)**: `// @ts-nocheck` + 한국어 사유 주석 2 라인 **제거**, "Phase 3 후속 트랙 (D-1) 완료" 마킹 한국어 주석 1 라인으로 교체. `import type { NodeMouseEvent } from '@vue-flow/core'` 신규 추가 (`Position` 은 기존 import 유지, value + type 양쪽 사용).
+  - **template `<Handle>` (line 103-107)**: `position="left"` / `position="right"` (string literal) → `:position="Position.Left"` / `:position="Position.Right"` (enum bind). Condition 노드의 true/false handle 2개도 동일. `<script setup>` 에서 import 한 binding 은 template 에서 자동 사용 가능 (Vite + Vue 3 표준).
+  - **`onNodeClick` 핸들러 (line 421-426)**: `(_: any, node: any) => void` → `({ node }: NodeMouseEvent) => void` 로 정정. emit payload 가 `{ event, node }` shape 이므로 destructuring 으로 `node` 만 추출 — 콜백 본문(`selectedNode.value = node`) 동작 보존. 한국어 사유 주석 추가.
+  - **런타임 동작 변경 0** — 타입 시그니처 + enum bind 정정만, 콜백 본문/상태/이벤트 흐름/외부 API 호출 100% 보존. 다른 식별자/함수 시그니처 변경 0.
+- **빌드 PASS**:
+  - `cd ClientApp && node node_modules/vue-tsc/bin/vue-tsc.js --noEmit` → **exit=0 errors=0** (게이트 유지, **monorepo 전 파일에서 `@ts-nocheck` 부착 0 달성**, Phase 3 부채 카탈로그 B-1/C-1/D-1 + KnowledgeBase.vue 자체까지 모두 청산).
+  - `npm run build:check` (= vue-tsc + vite build) → **PASS, 3.73s, 263 modules transformed, build errors 0**.
+  - 청크 카탈로그: 로컬 dist 의 `WorkflowBuilder-CVbyJqzY.js` 182.71 kB / gzip 59.19 kB (이전 트랙 `WorkflowBuilder-CnxxxxxK.js` 와 비교 시 ±1% 이내 — 코드 변경량 미미). 다른 청크(vue-vendor/chart-vendor/marked.esm/AgentBuilder/AgentChat/AgentSelect/AgentMarketplace) 변경 0.
+  - **`@ts-expect-error` 부착 0** — 모두 정확한 타입(`NodeMouseEvent` interface + `Position` enum) 으로 해결, 부득이한 라인 단위 expect-error 회피 정책 준수.
+- **wwwroot 동기화**: `agenthub/wwwroot/assets/` rm + `ClientApp/dist/assets/` 복사 + `index.html` 갱신. `agenthub/.gitignore` 가 `wwwroot/assets/` + `wwwroot/index.html` 제외 → commit 미포함 (정상).
+- **호스트 192.168.10.39 배포 PASS**: `tmp/deploy_track9_workflowbuilder_typenarrow.py` (paramiko + 단일 파일 SFTP) —
+  - SFTP 1 파일 소스 31,467 bytes 업로드 (`WorkflowBuilder.vue`)
+  - `docker compose build agenthub` → BuildKit cache 풀 hit + publish layer ~3s, `agenthub-agenthub:latest` 신규 manifest sha256:e57e6ec0... config sha256:a46db89c... attestation sha256:2c7d63a2... manifest list sha256:39e7205b...
+  - `docker compose up -d --force-recreate agenthub` → Container Recreated/Started
+  - 7초 만에 healthy (iter 3)
+  - 컨테이너 내 wwwroot 청크 fingerprint: `WorkflowBuilder-Cz2gS_3Y.js` (BuildKit deterministic 해시는 로컬 dist `CVbyJqzY` 와 다르나 코드 동등성 PASS — 컨테이너 내부 npm 미세 환경 차이로 인한 정상 변동).
+- **회귀 검증 PASS** (`tmp/verify_track9_workflowbuilder.py` + `tmp/rag_check.py`):
+  - `admin@example.com / Admin123!` 로그인 → JWT 555 chars 정상 발급.
+  - `GET /api/agents/1` Bearer JWT → 200 + `llmRouting/routingPolicyJson` 등 신규 필드 노출 (b3a2d85 백엔드 회귀 + 845382c UI 회귀 PASS 유지).
+  - **한국어 RAG 쿼리 회귀**: `POST /api/chat/conversations/2/messages {"message":"안녕하세요? RAG 동작 상태 확인 요청.","role":"user"}` → **200**, messageId 발급, role=assistant, content+contents+attachments+tokensUsed+model 키 정상, gpt-4o 모델 응답 — 채팅/RAG 회로 회귀 0 PASS.
+  - **dist 청크 fingerprint 검증**: `curl -sI /assets/WorkflowBuilder-Cz2gS_3Y.js` → **200 OK, Content-Length=183,445 bytes** (= 약 179 KB, 로컬 dist 182.71 kB 와 거의 동일). 이전 fingerprint `WorkflowBuilder-v1mNOsDf.js` → **404** (정상, 컨테이너 재빌드로 stale 청크 제거).
+  - **WorkflowBuilder 라우트 정적 검증**: SPA fallback `/` → 200 (index.html 638 bytes, vite manifest 정상 노출). 컴포넌트 마운트는 사용자 인터랙션 + 라이브 브라우저 필요라 별도 검증 skip (정책 정렬).
+- **외부 API 라우트 변경 0** — 컨트롤러/엔드포인트/응답 schema 변경 0. 다른 페이지(AgentBuilder/AgentChat/AgentSelect/AgentMultiChat/Marketplace/AdminKnowledgeBase) 동작 회귀 0.
+- **anti-patterns.md 준수**: §4(Frontend 하드코딩 API URL — `import api from '@/services/api'` 그대로 사용) + §11(컴포넌트에서 axios 직접 사용 금지) 모두 위반 0. Vue 3 `<script setup lang="ts">` + Composition API + ref/onMounted 패턴 보존, React 관용구 부재.
+- **Phase 3 부채 카탈로그 청산 (전체 회복)**: B-1 (AgentBuilder/AgentMultiChat enableRag 등 DTO 갭) ✅ 완료 + C-1 (KnowledgeBase.vue 자체 deprecate) ✅ 완료 + D-1 (WorkflowBuilder.vue vue-flow 타입 정렬) ✅ 완료. **monorepo 전 파일에서 `@ts-nocheck`/`@ts-expect-error` 부착 0**, vue-tsc 2.x strict 게이트가 모든 view/composable/service 파일에 적용되는 클린 상태 달성.
+- **변경 파일 목록 (commit 대상)**:
+  - `agenthub/ClientApp/src/views/workflow/WorkflowBuilder.vue`
+- **다음 트랙 후보**: Nexus 실제 부팅 (LAN GPU 호스트 192.168.22.28, `nexus/docker-compose.yml` 자산 활용) / 시연 종료 후 secret leak history sanitize + 키 회전 (SSH/DB/LLM API) / AgentSelect 빠른 빌더 모달 deprecate 또는 AgentBuilder 흡수 / DocUtil collection 카탈로그 캐시 (`/api/admin/knowledge-base/collections` 5분 TTL + version-key 무효화) / DocUtil 의 Document/Chunk 등 다른 entity BFF 일괄 노출 (운영자가 KB 메뉴에서 문서 단위 통계/삭제 가능하도록).
+
 ### 2026-05-08 (후속 트랙 #8 — AgentChat / AgentSelect 의 deprecated `/api/knowledgebase` GET dead code 완전 청산)
 - **목적**: Phase 2 (`7f1a9ae`) 에서 백엔드 자체 KB 컨트롤러 `/api/knowledgebase` 가 완전 제거된 후, AgentChat.vue (사용자 채팅) 와 AgentSelect.vue (Agent 카탈로그 + 빠른 생성/수정 모달) 에 잔존하던 `api.get<KnowledgeBaseDocument[]>('/knowledgebase')` 호출 + 문서 선택 UI 가 SPA fallback HTML 200 → JSON parse 실패 → catch 분기 빈 배열 처리되어 사용자 화면에 "노 문서" 알림만 노출하는 dead code 였음. ADR-2 단일 권위 = DocUtil + 사용자가 채팅 화면에서 문서를 직접 선택하는 패러다임 자체가 폐기되었으므로 (운영자가 Agent 단위로 KnowledgeBaseSource/Ref 화이트리스트 결정) 본 트랙으로 청산.
 - **AgentSelect.vue 라우트 + 빌더 중복 진단**: 라우트 `/agents` 는 Agent 카탈로그 + 빠른 생성/수정 모달 (router/index.ts:80). 정식 빌더는 `/agents/builder/:id?` AgentBuilder.vue 5단계 (Phase 5 admin 메뉴 그룹화). AgentSelect 의 수정 모달은 `router.push('/agents/builder/${editingAgent.agentId}')` 로 빌더 deep link 제공 — 즉 AgentSelect 의 생성/수정 모달은 "빠른 진입용 보조 폼" 으로 활용 중. **사장 페이지 아님** → 빌더 영역 통째 제거는 별도 트랙으로 격리, 본 작업은 dead code 핀포인트만 청산.
