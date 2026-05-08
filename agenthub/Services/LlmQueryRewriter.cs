@@ -24,6 +24,7 @@ public sealed class LlmQueryRewriter : IQueryRewriter
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMemoryCache _cache;
     private readonly IConfiguration _configuration;
+    private readonly IRagMetrics _ragMetrics;
     private readonly ILogger<LlmQueryRewriter> _logger;
 
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(60);
@@ -41,11 +42,13 @@ public sealed class LlmQueryRewriter : IQueryRewriter
         IServiceScopeFactory scopeFactory,
         IMemoryCache cache,
         IConfiguration configuration,
+        IRagMetrics ragMetrics,
         ILogger<LlmQueryRewriter> logger)
     {
         _scopeFactory = scopeFactory;
         _cache = cache;
         _configuration = configuration;
+        _ragMetrics = ragMetrics;
         _logger = logger;
     }
 
@@ -61,8 +64,10 @@ public sealed class LlmQueryRewriter : IQueryRewriter
         var cacheKey = $"qr:{Sha256Short(trimmed)}";
         if (_cache.TryGetValue<List<string>>(cacheKey, out var cached) && cached != null)
         {
+            _ragMetrics.IncrementQueryRewriteCacheHit();
             return cached;
         }
+        _ragMetrics.IncrementQueryRewriteCacheMiss();
 
         var result = new List<string> { trimmed };
         try
@@ -105,6 +110,8 @@ public sealed class LlmQueryRewriter : IQueryRewriter
             };
 
             var aiProxy = sp.GetRequiredService<IAiProxyService>();
+            // LLM 호출 시도 카운터 — 실패 catch 분기에서 별도 IncrementQueryRewriteFailure() 호출.
+            _ragMetrics.IncrementQueryRewriteCall();
             var aiResponse = await aiProxy.SendChatMessageAsync(
                 service.ServiceId, model, aiRequest, cancellationToken);
 
@@ -126,6 +133,7 @@ public sealed class LlmQueryRewriter : IQueryRewriter
         catch (Exception ex)
         {
             // RAG 검색 자체는 계속 진행하도록 graceful 폴백
+            _ragMetrics.IncrementQueryRewriteFailure();
             _logger.LogWarning(ex, "QueryRewriter 실패 — 원본 query 만 사용");
         }
 

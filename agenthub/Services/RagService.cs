@@ -12,6 +12,7 @@ public class RagService : IRagService
     private readonly CachingService _cachingService;
     private readonly IDocUtilClient _docUtilClient;
     private readonly IQueryRewriter _queryRewriter;
+    private readonly IRagMetrics _ragMetrics;
     private readonly ILogger<RagService> _logger;
 
     // RRF (Reciprocal Rank Fusion) 상수 — Cormack et al. 2009 표준값
@@ -22,12 +23,14 @@ public class RagService : IRagService
         CachingService cachingService,
         IDocUtilClient docUtilClient,
         IQueryRewriter queryRewriter,
+        IRagMetrics ragMetrics,
         ILogger<RagService> logger)
     {
         _context = context;
         _cachingService = cachingService;
         _docUtilClient = docUtilClient;
         _queryRewriter = queryRewriter;
+        _ragMetrics = ragMetrics;
         _logger = logger;
     }
 
@@ -100,6 +103,11 @@ public class RagService : IRagService
                 userId.Value);
         }
 
+        // ── Phase 4: RAG 위임 진입 카운터 ─────────────────────────────────
+        // 빈 query / KB 비활성 분기에서는 IncrementRagInvocation() 호출하지 않음 —
+        // 실제 DocUtil 위임 흐름만 invocation 으로 집계(평균 distinct chunks 분모 정합).
+        _ragMetrics.IncrementRagInvocation();
+
         try
         {
             // ── 다국어 query rewrite + RRF (Reciprocal Rank Fusion) ─────
@@ -148,6 +156,13 @@ public class RagService : IRagService
             _logger.LogInformation(
                 "RAG 결과 - DistinctChunks={Distinct}, TopK 반환={Count}",
                 rrfScores.Count, docutilResults.Count);
+
+            // ── Phase 4: RAG 결과 메트릭 ─────────────────────────────────
+            _ragMetrics.RecordRagDistinctChunks(rrfScores.Count);
+            if (docutilResults.Count == 0)
+            {
+                _ragMetrics.IncrementRagZeroResult();
+            }
 
             // RAG 결과 캐싱(10분) — 문서 갱신 가능성을 고려하여 짧은 TTL 유지.
             await _cachingService.SetAsync(ragCacheKey, docutilResults, TimeSpan.FromMinutes(10));

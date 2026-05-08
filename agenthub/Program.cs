@@ -283,6 +283,9 @@ builder.Services.AddScoped<IDocUtilClient, DocUtilClient>(); // Phase 6.1 — Do
 // RAG 응답 품질 개선 — query 다국어 정규화 (한국어↔영문) + RRF 결합.
 // IServiceScopeFactory 로 IAiProxyService 를 lazy 해결(순환 의존 차단)하므로 Singleton 안전.
 builder.Services.AddSingleton<IQueryRewriter, LlmQueryRewriter>();
+// Phase 4 — RAG 운영 관측성. in-memory atomic 카운터(Interlocked) — captive 안전.
+//   QueryRewriter(Singleton) / DocUtilClient(Scoped) / RagService(Scoped) 모두 동일 인스턴스 공유.
+builder.Services.AddSingleton<IRagMetrics, RagMetrics>();
 builder.Services.AddScoped<IHybridRouter, HybridRouter>(); // Phase 5.2 — Hybrid 라우팅 결정 엔진(PII/라벨/capability/cost)
 builder.Services.AddScoped<IAiProxyService, AiProxyService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();

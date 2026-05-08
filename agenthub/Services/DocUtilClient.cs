@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -30,9 +32,18 @@ public class DocUtilClient : IDocUtilClient
 {
     private const string HttpClientName = "docutil";
 
+    // ── Phase 4: SearchAsync 응답 캐시 ─────────────────────────────────────
+    // 캐시 네임스페이스 prefix — RagService 의 결과 캐시(`rag:`) 와 분리하여
+    // 운영자 KB 수정 후 prefix-base 무효화(별도 트랙)에 대비.
+    private const string SearchCacheKeyPrefix = "du:s:";
+    // RagService 결과 캐시(10분) 보다 짧게 — sub-query 단계라 KB 수정의 빠른 반영 우선.
+    private static readonly TimeSpan SearchCacheTtl = TimeSpan.FromMinutes(5);
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
     private readonly IDocUtilTokenProvider _tokenProvider;
+    private readonly CachingService _cachingService;
+    private readonly IRagMetrics _ragMetrics;
     private readonly ILogger<DocUtilClient> _logger;
 
     // DocUtil FastAPI 는 snake_case(SQLAlchemy 2 / Pydantic) — JsonNamingPolicy.SnakeCaseLower 일관 적용.
@@ -48,11 +59,15 @@ public class DocUtilClient : IDocUtilClient
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         IDocUtilTokenProvider tokenProvider,
+        CachingService cachingService,
+        IRagMetrics ragMetrics,
         ILogger<DocUtilClient> logger)
     {
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
         _tokenProvider = tokenProvider;
+        _cachingService = cachingService;
+        _ragMetrics = ragMetrics;
         _logger = logger;
     }
 
@@ -68,8 +83,31 @@ public class DocUtilClient : IDocUtilClient
         if (string.IsNullOrWhiteSpace(query))
         {
             // 빈 쿼리는 빈 결과 — DocUtil 호출 비용 절감 + 422 회피.
+            // 캐시/메트릭 기록 없이 단순 폴백(상위 분기에서 이미 처리되어야 정상).
             return new DocUtilSearchResult(Array.Empty<DocUtilSearchHit>(), 0d, null);
         }
+
+        // ── Phase 4: SearchAsync 응답 캐시 ─────────────────────────────────
+        // 캐시 키: `du:s:{SHA256(query|collectionRef|maxResults)[..16]}` — RAG sub-query
+        //   레벨 dedup. 다른 Agent 가 동일 KB 컬렉션으로 동일 sub-query 호출 시 hit.
+        // 빈 결과(Hits=0)도 캐싱 — 부하 절감 우선(KB 수정 시 5분 후 자동 반영).
+        var cacheKey = BuildSearchCacheKey(query, collectionRef, maxResults);
+
+        var cached = await _cachingService.GetAsync<CachedSearchResultDto>(cacheKey);
+        if (cached != null)
+        {
+            _ragMetrics.IncrementDocUtilSearchCacheHit();
+            _logger.LogDebug(
+                "DocUtil 검색 캐시 hit - key={Key}, query={QueryPreview}, hits={HitCount}",
+                cacheKey,
+                query.Length > 40 ? query[..40] + "..." : query,
+                cached.Hits?.Length ?? 0);
+            return new DocUtilSearchResult(
+                cached.Hits ?? Array.Empty<DocUtilSearchHit>(),
+                cached.TotalTime,
+                cached.Metadata);
+        }
+        _ragMetrics.IncrementDocUtilSearchCacheMiss();
 
         var client = _httpClientFactory.CreateClient(HttpClientName);
 
@@ -93,32 +131,74 @@ public class DocUtilClient : IDocUtilClient
             "DocUtil 하이브리드 검색 호출 - CollectionRef={CollectionRef}, MaxResults={MaxResults}, QueryLen={QueryLen}",
             collectionRef ?? "(global)", maxResults, query.Length);
 
-        using var response = await client.SendAsync(
-            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
-
-        await EnsureSuccessOrThrowKoreanAsync(response, "/api/v1/search", cancellationToken);
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var dto = await JsonSerializer.DeserializeAsync<SearchResponseDto>(stream, JsonOptions, cancellationToken);
-
-        if (dto is null)
+        // ── HTTP 호출 latency 측정 + 메트릭 기록 (try-finally 로 보장) ──
+        _ragMetrics.IncrementDocUtilSearchCall();
+        var stopwatch = Stopwatch.StartNew();
+        DocUtilSearchResult resultToReturn;
+        try
         {
-            throw new InvalidOperationException("DocUtil 검색 응답을 디시리얼라이즈하지 못했습니다.");
+            using var response = await client.SendAsync(
+                httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+            await EnsureSuccessOrThrowKoreanAsync(response, "/api/v1/search", cancellationToken);
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var dto = await JsonSerializer.DeserializeAsync<SearchResponseDto>(stream, JsonOptions, cancellationToken);
+
+            if (dto is null)
+            {
+                throw new InvalidOperationException("DocUtil 검색 응답을 디시리얼라이즈하지 못했습니다.");
+            }
+
+            var hits = (dto.Results ?? Array.Empty<SearchHitDto>())
+                .Select(r => new DocUtilSearchHit(
+                    r.Id ?? string.Empty,
+                    r.Content ?? string.Empty,
+                    r.Score,
+                    r.Metadata))
+                .ToArray();
+
+            _logger.LogDebug(
+                "DocUtil 검색 응답 - Hits={HitCount}, TotalTime={TotalTime}s, Latency={LatencyMs}ms",
+                hits.Length, dto.TotalTime, stopwatch.ElapsedMilliseconds);
+
+            resultToReturn = new DocUtilSearchResult(hits, dto.TotalTime, dto.Metadata);
+        }
+        catch (Exception)
+        {
+            // 실패 메트릭 — EnsureSuccessOrThrow / DeserializeAsync / Send 모든 실패 경로 포괄.
+            _ragMetrics.IncrementDocUtilSearchFailure();
+            throw;
+        }
+        finally
+        {
+            stopwatch.Stop();
+            _ragMetrics.RecordDocUtilSearchLatency(stopwatch.ElapsedMilliseconds);
         }
 
-        var hits = (dto.Results ?? Array.Empty<SearchHitDto>())
-            .Select(r => new DocUtilSearchHit(
-                r.Id ?? string.Empty,
-                r.Content ?? string.Empty,
-                r.Score,
-                r.Metadata))
-            .ToArray();
+        // ── 캐시 적재(성공 응답만) ─────────────────────────────────────────
+        // CachedSearchResultDto 는 DocUtilSearchResult 의 record 가 직렬화에 약하므로
+        // 클래스 wrapper 사용. metadata 는 object? 로 그대로 직렬화/역직렬화.
+        var cacheValue = new CachedSearchResultDto
+        {
+            Hits = resultToReturn.Results,
+            TotalTime = resultToReturn.TotalTime,
+            Metadata = resultToReturn.Metadata,
+        };
+        await _cachingService.SetAsync(cacheKey, cacheValue, SearchCacheTtl);
 
-        _logger.LogDebug(
-            "DocUtil 검색 응답 - Hits={HitCount}, TotalTime={TotalTime}s",
-            hits.Length, dto.TotalTime);
+        return resultToReturn;
+    }
 
-        return new DocUtilSearchResult(hits, dto.TotalTime, dto.Metadata);
+    /// <summary>
+    /// SearchAsync 캐시 키 생성기 — query+collectionRef+maxResults 의 SHA256 short hash.
+    /// query 는 trim + lower 정규화하여 다른 공백/대소문자 표기를 동일 키로 융합.
+    /// </summary>
+    private static string BuildSearchCacheKey(string query, string? collectionRef, int maxResults)
+    {
+        var input = $"{query.Trim().ToLowerInvariant()}|{collectionRef ?? string.Empty}|{maxResults}";
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        return $"{SearchCacheKeyPrefix}{Convert.ToHexString(hash, 0, 8)}";
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -512,5 +592,15 @@ public class DocUtilClient : IDocUtilClient
         [JsonPropertyName("content")] public string? Content { get; set; }
         [JsonPropertyName("chunk_index")] public int ChunkIndex { get; set; }
         [JsonPropertyName("metadata")] public object? Metadata { get; set; }
+    }
+
+    // ── Phase 4: SearchAsync 캐시용 wrapper(record 가 직렬화 시 비결정성 방지) ──
+    // CachingService 는 generic GetAsync<T>/SetAsync<T> 시 `where T : class` 제약이므로
+    // record 는 사용 가능하지만 명시적 클래스 wrapper 가 직렬화/역직렬화 안정성 우수.
+    public sealed class CachedSearchResultDto
+    {
+        public DocUtilSearchHit[]? Hits { get; set; }
+        public double TotalTime { get; set; }
+        public object? Metadata { get; set; }
     }
 }
