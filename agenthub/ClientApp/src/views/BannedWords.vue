@@ -243,9 +243,11 @@ const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value))
 // 날짜 포맷팅 캐시 (성능 최적화)
 const formattedDates = ref(new Map<number, string>())
 
-const newBannedWord = ref<CreateBannedWordRequestDto & { agentId?: number | null }>({
+// Phase 3 vue-tsc 2.x 부채 정리 — null 사용을 undefined 로 좁힘
+// (DTO 의 agentId?: number 와 정렬, intersection 결과 null 이 거부되는 문제 해소)
+const newBannedWord = ref<CreateBannedWordRequestDto>({
   word: '',
-  agentId: null,
+  agentId: undefined,
   description: ''
 })
 
@@ -341,7 +343,7 @@ const changePage = (page: number) => {
 const openAddModal = () => {
   newBannedWord.value = {
     word: '',
-    agentId: activeTab.value === 'agent' ? (selectedAgentId.value ?? null) : null,
+    agentId: activeTab.value === 'agent' ? (selectedAgentId.value ?? undefined) : undefined,
     description: ''
   }
   showAddModal.value = true
@@ -349,7 +351,7 @@ const openAddModal = () => {
 
 const closeAddModal = () => {
   showAddModal.value = false
-  newBannedWord.value = { word: '', agentId: null, description: '' }
+  newBannedWord.value = { word: '', agentId: undefined, description: '' }
 }
 
 const createBannedWord = async () => {

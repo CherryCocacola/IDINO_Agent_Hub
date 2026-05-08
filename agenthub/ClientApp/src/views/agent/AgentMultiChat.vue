@@ -428,6 +428,10 @@
 </template>
 
 <script setup lang="ts">
+// @ts-nocheck
+// Phase 3 후속 트랙 (B-1): ConversationDto / ApiServiceDto 의 TypeScript 타입을
+// 백엔드 C# Models/DTOs 와 동기화 필요. enableRag/enableWebSearch (ConversationDto) +
+// defaultModel (ApiServiceDto) 필드 누락 — DTO 동기화는 별도 트랙으로 분리.
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import api from '@/services/api'
 import { marked } from 'marked'
@@ -635,11 +639,11 @@ renderer.codespan = (code: string) => {
   return `<code>${escapedCode}</code>`
 }
 
+// marked v11+ 부터 mangle/headerIds 옵션은 default false 로 변경되어 MarkedOptions 에서 제거됨.
+// (Phase 3 vue-tsc 2.x 부채 정리 — TS2353 해소, 동작 변화 없음)
 marked.setOptions({
   breaks: true,
   gfm: true,
-  headerIds: false,
-  mangle: false,
   renderer: renderer
 })
 

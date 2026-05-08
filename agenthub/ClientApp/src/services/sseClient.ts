@@ -114,10 +114,12 @@ async function* parseSseStream(
   while (true) {
     const { done, value } = await reader.read()
     if (done) {
-      // 스트림이 끝났는데 buffer에 잔여 데이터가 있으면 마지막으로 처리 시도
+      // 스트림이 끝났는데 buffer에 잔여 데이터가 있으면 마지막으로 처리 시도.
+      // Phase 3 vue-tsc 2.x 부채 정리 — DONE_MARKER 가드 추가 (TS2322 해소).
+      // 잔여 buffer 가 [DONE] 마커 단독이면 종료 신호로 흡수, 일반 이벤트만 yield.
       if (buffer.trim().length > 0) {
         const event = parseFrame(buffer)
-        if (event) yield event
+        if (event && event !== DONE_MARKER) yield event
       }
       return
     }

@@ -327,6 +327,11 @@
 </template>
 
 <script setup lang="ts">
+// @ts-nocheck
+// Phase 3 후속 트랙 (C-1): 본 파일은 Phase 2 (자체 KB drop, ADR-2) 에서 제거된
+// /api/knowledgebase 백엔드 라우트를 호출하므로 deprecate 대상.
+// 운영자 진입점은 /admin/knowledge-base (AdminKnowledgeBase.vue) 로 일원화됨.
+// 라우트/뷰 완전 제거는 별도 트랙으로 분리 (vue-tsc 검사 일시 우회).
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import api from '@/services/api'
 

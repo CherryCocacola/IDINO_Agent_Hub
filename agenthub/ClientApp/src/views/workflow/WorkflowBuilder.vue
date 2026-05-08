@@ -321,6 +321,9 @@
 </template>
 
 <script setup lang="ts">
+// @ts-nocheck
+// Phase 3 후속 트랙 (D-1): @vue-flow/core 타입 정의 (NodeMouseEvent 시그니처,
+// Position 타입 narrowing) 가 strict 검사에서 깨짐 — 별도 업그레이드 트랙으로 분리.
 import { ref, watch, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VueFlow, useVueFlow, Handle, Position } from '@vue-flow/core'

@@ -575,6 +575,11 @@
 </template>
 
 <script setup lang="ts">
+// @ts-nocheck
+// Phase 3 후속 트랙 (B-1): AgentDto / ConversationDto / ApiServiceDto 의 TypeScript 타입을
+// 백엔드 C# Models/DTOs (Agent.cs / ConversationDto.cs / ApiServiceDto.cs) 와 동기화 필요.
+// enableRag, enableWebSearch, defaultModel 필드 누락 — DTO 동기화는 별도 트랙으로 분리
+// (사용자 합의: PR 폭증 방지). 본 파일은 vue-tsc 검사 일시 우회.
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'

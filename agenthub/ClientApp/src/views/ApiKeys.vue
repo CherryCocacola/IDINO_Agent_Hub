@@ -107,7 +107,7 @@
                     <button class="btn btn-outline-secondary" @click="toggleReveal(key.apiKeyId)" :title="revealedKeys[key.apiKeyId] ? '숨기기' : '보기'">
                       <i class="bi" :class="revealedKeys[key.apiKeyId] ? 'bi-eye-slash' : 'bi-eye'"></i>
                     </button>
-                    <button class="btn btn-outline-primary" @click="copyToClipboard(key.apiKeyId, revealedKeys[key.apiKeyId] || key.maskedKey)" title="복사">
+                    <button class="btn btn-outline-primary" @click="copyToClipboard(key.apiKeyId, revealedKeys[key.apiKeyId] || key.maskedKey || '')" title="복사">
                       <i class="bi" :class="copiedKeyId === key.apiKeyId ? 'bi-check2' : 'bi-clipboard'"></i>
                     </button>
                   </div>
@@ -652,15 +652,17 @@ const showAgentKeyModal = ref(false)
 const creatingAgentKey = ref(false)
 const createdAgentKey = ref<CreateAgentApiKeyResponseDto | null>(null)
 const createdKeyCopied = ref(false)
+// Phase 3 vue-tsc 2.x 부채 정리 — null 사용을 undefined 로 좁혀서 DTO 와 정렬
+// (CreateAgentApiKeyRequestDto 의 rateLimit* 가 number | undefined 이므로 null 이 거부됨)
 const agentKeyForm = ref<CreateAgentApiKeyRequestDto & {
   expiresAt?: string
   allowedIps?: string
   selectedScopes: string[]
-  rateLimitPerMinute?: number | null
-  rateLimitPerDay?: number | null
+  rateLimitPerMinute?: number
+  rateLimitPerDay?: number
 }>({
   keyName: '', description: '', expiresAt: undefined,
-  allowedIps: '', selectedScopes: [], rateLimitPerMinute: null, rateLimitPerDay: null
+  allowedIps: '', selectedScopes: [], rateLimitPerMinute: undefined, rateLimitPerDay: undefined
 })
 
 // 고급 보안 설정 패널 토글
@@ -831,7 +833,11 @@ const openAgentKeyModal = () => {
     toast('먼저 Agent를 선택해주세요.', 'info')
     return
   }
-  agentKeyForm.value = { keyName: '', description: '', expiresAt: undefined }
+  // Phase 3 vue-tsc 2.x 부채 정리 — selectedScopes 빈 배열 default 추가 (TS2322 해소)
+  agentKeyForm.value = {
+    keyName: '', description: '', expiresAt: undefined,
+    allowedIps: '', selectedScopes: [], rateLimitPerMinute: undefined, rateLimitPerDay: undefined
+  }
   showAgentKeyModal.value = true
 }
 
@@ -840,7 +846,7 @@ const closeAgentKeyModal = () => {
   showAdvanced.value = false
   agentKeyForm.value = {
     keyName: '', description: '', expiresAt: undefined,
-    allowedIps: '', selectedScopes: [], rateLimitPerMinute: null, rateLimitPerDay: null
+    allowedIps: '', selectedScopes: [], rateLimitPerMinute: undefined, rateLimitPerDay: undefined
   }
 }
 

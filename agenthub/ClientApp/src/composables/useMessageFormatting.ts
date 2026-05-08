@@ -139,10 +139,11 @@ renderer.codespan = (code: string) => {
   return `<code>${escapedCode}</code>`
 }
 
+// marked v11+ 부터 mangle/headerIds 옵션은 default false 로 변경되어 MarkedOptions 에서 제거됨.
+// (Phase 3 vue-tsc 2.x 부채 정리 — TS2353 해소, 동작 변화 없음)
 marked.setOptions({
   breaks: true, // 줄바꿈을 <br>로 변환
   gfm: true, // GitHub Flavored Markdown 지원
-  mangle: false, // 이메일 주소 난독화 비활성화
   renderer: renderer
 })
 
