@@ -428,10 +428,8 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
-// Phase 3 후속 트랙 (B-1): ConversationDto / ApiServiceDto 의 TypeScript 타입을
-// 백엔드 C# Models/DTOs 와 동기화 필요. enableRag/enableWebSearch (ConversationDto) +
-// defaultModel (ApiServiceDto) 필드 누락 — DTO 동기화는 별도 트랙으로 분리.
+// 후속 트랙 B-1 (2026-05-08) 완료: 인라인 ConversationDto / ApiService 인터페이스를
+// 백엔드 C# Models/DTOs (ConversationDto.cs / ApiServiceDto.cs) 와 정렬 후 `@ts-nocheck` 해제.
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import api from '@/services/api'
 import { marked } from 'marked'
@@ -448,6 +446,7 @@ import 'prismjs/components/prism-css'
 import 'prismjs/components/prism-markup'
 import './AgentMultiChat.css'
 
+// 후속 트랙 B-1: ApiServiceDto 의 defaultModel 필드를 인라인 인터페이스에도 미러링.
 interface ApiService {
   serviceId: number
   serviceCode: string
@@ -455,9 +454,11 @@ interface ApiService {
   description?: string
   iconClass?: string
   colorCode?: string
+  defaultModel?: string
   serviceType?: 'Chat' | 'ImageGeneration' | 'VideoGeneration' | 'Both'
 }
 
+// 후속 트랙 B-1: ConversationDto 의 EnableRag / EnableWebSearch (백엔드 [Required] non-nullable bool) 미러링.
 interface ConversationDto {
   conversationId: number
   userId: number
@@ -476,6 +477,8 @@ interface ConversationDto {
   isArchived: boolean
   isPinned: boolean
   language?: string // 'ko', 'en', 'auto'
+  enableRag: boolean
+  enableWebSearch: boolean
   createdAt: string
   updatedAt: string
 }

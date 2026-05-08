@@ -575,11 +575,8 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
-// Phase 3 후속 트랙 (B-1): AgentDto / ConversationDto / ApiServiceDto 의 TypeScript 타입을
-// 백엔드 C# Models/DTOs (Agent.cs / ConversationDto.cs / ApiServiceDto.cs) 와 동기화 필요.
-// enableRag, enableWebSearch, defaultModel 필드 누락 — DTO 동기화는 별도 트랙으로 분리
-// (사용자 합의: PR 폭증 방지). 본 파일은 vue-tsc 검사 일시 우회.
+// 후속 트랙 B-1 (2026-05-08) 완료: AgentDto / ConversationDto / ApiServiceDto 의 TypeScript 타입을
+// 백엔드 C# Models/DTOs (Agent.cs / ConversationDto.cs / ApiServiceDto.cs) 와 정렬 후 `@ts-nocheck` 해제.
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'
@@ -628,6 +625,10 @@ const agentForm = ref({
   temperature: 0.7,
   maxTokens: 4096,
   isPublic: false,
+  // 후속 트랙 B-1 (2026-05-08): template 의 RAG 미리보기 (line 547-548) 가 참조하는 필드.
+  // 백엔드 Agent.cs 의 EnableRag (Required bool) 와 정렬. Phase 6.5 부터 DocUtil 위임 흐름이 활성화될 때
+  // 사용자 토글 UI 가 추가될 예정 — 현재는 template 미리보기에서 RAG 활성/비활성 상태만 표시.
+  enableRag: false,
   piiProtectionEnabled: true,
   piiProtectionMode: null as string | null,
   // 공유 / 임베드
@@ -932,6 +933,8 @@ const loadAgentForEdit = async (agentId: number) => {
       temperature: agent.temperature ?? 0.7,
       maxTokens: agent.maxTokens || 4096,
       isPublic: agent.isPublic || false,
+      // 후속 트랙 B-1 (2026-05-08): 백엔드 AgentDto.enableRag 가 optional (?)이므로 ?? false 폴백 — 기존 동작 보존.
+      enableRag: agent.enableRag ?? false,
       piiProtectionEnabled: agent.piiProtectionEnabled ?? true,
       piiProtectionMode: agent.piiProtectionMode || null,
       welcomeMessage: agent.welcomeMessage || '',
@@ -965,6 +968,8 @@ const resetBuilder = () => {
       temperature: 0.7,
       maxTokens: 4096,
       isPublic: false,
+      // 후속 트랙 B-1 (2026-05-08): reset 시에도 동일 shape 유지.
+      enableRag: false,
       piiProtectionEnabled: true,
       piiProtectionMode: null,
       welcomeMessage: '',

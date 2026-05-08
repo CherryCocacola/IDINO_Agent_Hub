@@ -74,6 +74,10 @@ export interface ConversationDto {
   isArchived: boolean
   isPinned: boolean
   language?: string // 'ko', 'en', 'auto'
+  // 후속 트랙 B-1 (2026-05-08): 백엔드 ChatConversation.cs / ConversationDto.cs 의
+  // EnableRag / EnableWebSearch 와 정렬. 두 필드 모두 [Required] non-nullable bool 이므로 TS 도 boolean 으로 둔다.
+  enableRag: boolean
+  enableWebSearch: boolean
   createdAt: string
   updatedAt: string
 }
