@@ -465,6 +465,66 @@ public class DocUtilClient : IDocUtilClient
     }
 
     // ══════════════════════════════════════════════════════════════════════
+    // 7. ListCollectionsAsync — GET /api/v1/projects (운영자 dropdown UX)
+    //
+    // DocUtil schema 매핑(2026-05-08 운영 확인):
+    //   GET /api/v1/projects?page={page}&size={size}
+    //   응답: { items: [{ id, name, description, allow_original_download,
+    //                     organization_id, created_by, created_at, updated_at }],
+    //          total, page, size }
+    //
+    // BFF 표면 단순화: id/name/description 3 필드만 노출. 나머지(organization_id /
+    // created_by / timestamps / allow_original_download) 는 dropdown UX 에 불필요하고
+    // DocUtil 내부 schema 변경 시 영향 면적을 늘리므로 비노출.
+    //
+    // 캐시 미적용: collection 목록은 자주 호출되지 않고, 운영자가 DocUtil 콘솔에서
+    // 새 project 생성 직후 드롭다운에 즉시 반영되어야 하므로 fresh 응답 우선.
+    // 향후 트랙: version-key 패턴 도입 시 SearchAsync 와 동일 namespace 또는 별도 분리 검토.
+    // ══════════════════════════════════════════════════════════════════════
+    public async Task<List<DocUtilCollection>> ListCollectionsAsync(
+        int page = 1,
+        int size = 50,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 200) size = 50;
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        var path = $"/api/v1/projects?page={page}&size={size}";
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        _logger.LogDebug(
+            "DocUtil 컬렉션(projects) 목록 호출 - Page={Page}, Size={Size}", page, size);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ProjectListDto>(stream, JsonOptions, cancellationToken);
+
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 컬렉션(projects) 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var items = (dto.Items ?? Array.Empty<ProjectSummaryDto>())
+            .Select(p => new DocUtilCollection(
+                p.Id ?? string.Empty,
+                p.Name ?? string.Empty,
+                p.Description))
+            .Where(c => !string.IsNullOrWhiteSpace(c.Id))
+            .ToList();
+
+        _logger.LogDebug(
+            "DocUtil 컬렉션 응답 - Count={Count}, Total={Total}", items.Count, dto.Total);
+
+        return items;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
     // 헬퍼
     // ══════════════════════════════════════════════════════════════════════
 
@@ -615,6 +675,24 @@ public class DocUtilClient : IDocUtilClient
         [JsonPropertyName("content")] public string? Content { get; set; }
         [JsonPropertyName("chunk_index")] public int ChunkIndex { get; set; }
         [JsonPropertyName("metadata")] public object? Metadata { get; set; }
+    }
+
+    // DocUtil GET /api/v1/projects 응답 매핑 — 후속 트랙 KB collection dropdown(2026-05-08).
+    // BFF 표면 단순화 원칙: items[].id/name/description 3 필드만 사용. 그 외 필드(organization_id,
+    // created_by, created_at, updated_at, allow_original_download) 는 deserialize 비대상.
+    private sealed class ProjectListDto
+    {
+        [JsonPropertyName("items")] public ProjectSummaryDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    private sealed class ProjectSummaryDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
     }
 
     // ── Phase 4: SearchAsync 캐시용 wrapper(record 가 직렬화 시 비결정성 방지) ──

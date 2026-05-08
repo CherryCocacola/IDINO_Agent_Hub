@@ -77,6 +77,22 @@ export interface SearchResult {
   metadata: unknown
 }
 
+/**
+ * DocUtil 컬렉션(projects) 카탈로그 한 행.
+ *
+ * 후속 트랙(2026-05-08): AgentBuilder.vue 의 KnowledgeBaseRef dropdown UX 용.
+ * BFF 단순화 원칙으로 id/name/description 3 필드만 표면화 — DocUtil 의 organization_id /
+ * created_by / created_at / updated_at / allow_original_download 등 내부 메타는 비노출.
+ */
+export interface DocUtilCollection {
+  /** DocUtil project UUID — Agent.KnowledgeBaseRef 에 그대로 저장됨. */
+  id: string
+  /** 사용자 표기명 — dropdown option 라벨로 사용. */
+  name: string
+  /** 선택 설명 — dropdown option 의 hover hint(:title) 로 사용. 없을 수 있음. */
+  description: string | null
+}
+
 // ─── API 호출 ────────────────────────────────────────────────────────────────
 
 const BASE = '/admin/knowledge-base'
@@ -167,11 +183,32 @@ export async function search(
   return data
 }
 
+/**
+ * DocUtil 컬렉션(projects) 카탈로그 조회 — 후속 트랙 KB collection dropdown UX(2026-05-08).
+ *
+ * AgentBuilder.vue 가 KnowledgeBaseSource = "DocUtil" 일 때 호출하여 dropdown 옵션을 채움.
+ * 운영자는 ID(UUID) 를 수동 입력하지 않고 사람이 읽을 수 있는 collection name 을 선택할 수 있음.
+ *
+ * @param page 1-based 페이지 번호(기본 1).
+ * @param size 페이지 크기(기본 50, 최대 200 — DocUtil 측 한도).
+ * @returns BFF 단순화된 collection 배열(id/name/description). 404/5xx 는 axios 인터셉터를 거쳐 throw.
+ */
+export async function listCollections(
+  page: number = 1,
+  size: number = 50
+): Promise<DocUtilCollection[]> {
+  const { data } = await api.get<DocUtilCollection[]>(`${BASE}/collections`, {
+    params: { page, size }
+  })
+  return data
+}
+
 export default {
   listDocuments,
   uploadDocument,
   getDocument,
   deleteDocument,
   getChunks,
-  search
+  search,
+  listCollections
 }

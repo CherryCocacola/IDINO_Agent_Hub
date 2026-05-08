@@ -666,6 +666,8 @@
       "knowledgeBaseSourceHelp": "ADR-2: DocUtil 이 단일 권위입니다. AgentHub 내부 KB 는 deprecated 이며 신규 Agent 는 DocUtil 사용을 권장합니다.",
       "knowledgeBaseRef": "DocUtil Collection ID",
       "knowledgeBaseRefHelp": "DocUtil 의 collection ID 를 입력합니다. 비어두면 글로벌(전체 corpus) 검색을 사용합니다. 향후 운영자 콘솔의 Collection 목록에서 선택하는 dropdown 으로 전환될 예정입니다.",
+      "knowledgeBaseRefDropdown": "DocUtil Collection 선택",
+      "knowledgeBaseRefDropdownHelp": "DocUtil 콘솔에 등록된 컬렉션을 dropdown 에서 선택합니다. 비어두면 글로벌(전체 corpus) 검색을 사용합니다.",
       "consumerSystems": "호출 화이트리스트",
       "consumerSystemsHelp": "이 Agent 를 호출 가능한 End-User App ID 의 JSON 배열입니다. 비어두면 모든 시스템에서 호출 가능합니다.",
       "sortOrder": "정렬 순서",
@@ -680,6 +682,10 @@
       "docutil": "DocUtil (권장)",
       "agentHub": "AgentHub (deprecated)"
     },
+    "knowledgeBaseRefGlobal": "글로벌 (전체 corpus 검색)",
+    "knowledgeBaseRefLoading": "컬렉션 목록을 불러오는 중...",
+    "knowledgeBaseRefLoadFailed": "DocUtil collection 목록을 가져오지 못했습니다. ID 를 직접 입력하세요.",
+    "knowledgeBaseRefEmpty": "등록된 컬렉션이 없습니다. DocUtil 콘솔에서 먼저 컬렉션을 생성하세요.",
     "errors": {
       "routingPolicyJsonInvalid": "유효한 JSON 객체가 아닙니다.",
       "consumerSystemsInvalid": "유효한 문자열 JSON 배열이 아닙니다."

@@ -343,15 +343,55 @@
                 <small class="text-muted">{{ t('agentBuilder.fields.knowledgeBaseSourceHelp') }}</small>
               </div>
 
+              <!--
+                후속 트랙 (2026-05-08): KnowledgeBaseRef 텍스트 입력 → DocUtil collection dropdown 으로 전환.
+                정상 경로: docutilService.listCollections() 응답 기반 <select>.
+                폴백 경로: collectionsError 가 set 되면 텍스트 input 으로 회귀(운영자 UX 안전망).
+              -->
               <div v-if="agentForm.knowledgeBaseSource === 'DocUtil'" class="mb-4">
-                <label class="form-label">{{ t('agentBuilder.fields.knowledgeBaseRef') }}</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  v-model="agentForm.knowledgeBaseRef"
-                  placeholder="예: 부산대-2024-사업계획"
-                />
-                <small class="text-muted">{{ t('agentBuilder.fields.knowledgeBaseRefHelp') }}</small>
+                <!-- 정상 경로 — dropdown -->
+                <template v-if="!collectionsError">
+                  <label class="form-label">{{ t('agentBuilder.fields.knowledgeBaseRefDropdown') }}</label>
+                  <select
+                    class="form-select"
+                    v-model="agentForm.knowledgeBaseRef"
+                    :disabled="loadingCollections"
+                  >
+                    <option value="">{{ t('agentBuilder.knowledgeBaseRefGlobal') }}</option>
+                    <option
+                      v-for="c in availableCollections"
+                      :key="c.id"
+                      :value="c.id"
+                      :title="c.description ?? ''"
+                    >
+                      {{ c.name }}
+                    </option>
+                  </select>
+                  <small v-if="loadingCollections" class="text-muted">
+                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    {{ t('agentBuilder.knowledgeBaseRefLoading') }}
+                  </small>
+                  <small v-else-if="availableCollections.length === 0" class="text-muted">
+                    {{ t('agentBuilder.knowledgeBaseRefEmpty') }}
+                  </small>
+                  <small v-else class="text-muted">{{ t('agentBuilder.fields.knowledgeBaseRefDropdownHelp') }}</small>
+                </template>
+
+                <!-- 에러 폴백 경로 — 텍스트 입력 (운영자가 ID 수동 입력) -->
+                <template v-else>
+                  <label class="form-label">{{ t('agentBuilder.fields.knowledgeBaseRef') }}</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    v-model="agentForm.knowledgeBaseRef"
+                    placeholder="예: c6955ce6-..."
+                  />
+                  <div class="text-danger small mt-1">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    {{ collectionsError }}
+                  </div>
+                  <small class="text-muted">{{ t('agentBuilder.fields.knowledgeBaseRefHelp') }}</small>
+                </template>
               </div>
 
               <hr class="my-4">
@@ -681,6 +721,9 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import type { AgentDto } from '@/types'
+// 후속 트랙 (2026-05-08): KnowledgeBaseRef 텍스트 입력을 DocUtil collection dropdown 으로 전환.
+// docutilService 의 listCollections() 가 BFF (/api/admin/knowledge-base/collections) 를 호출.
+import { listCollections, type DocUtilCollection } from '@/services/docutilService'
 
 // 후속 트랙 (2026-05-08): 신규 운영자 고급 설정 카드(LlmRouting/KB/ConsumerSystems/SortOrder) 의 라벨/help 텍스트는 i18n locale 에서 로드.
 const { t } = useI18n()
@@ -753,6 +796,46 @@ const agentForm = ref({
 // 빈 문자열은 valid 로 취급하고, 비어있지 않을 때만 JSON 파싱 시도. 실패 시 한국어 에러 메시지 표시 (제출은 막지 않음 — 백엔드가 최종 검증).
 const routingPolicyJsonError = ref<string>('')
 const consumerSystemsError = ref<string>('')
+
+// ── 후속 트랙 (2026-05-08): KnowledgeBaseRef 를 DocUtil collection dropdown 으로 전환 ──
+// AgentBuilder.vue 에서 운영자가 DocUtil 의 collection 을 GUI dropdown 으로 직접 선택할 수 있도록
+// docutilService.listCollections() 의 응답을 보관. KnowledgeBaseSource = "DocUtil" 일 때만 fetch.
+//
+// 에러 시 fallback 정책: collectionsError 가 truthy 이면 dropdown 대신 기존 텍스트 input 으로 회귀 →
+// 운영자가 ID 를 수동 입력하여 작업을 중단 없이 진행할 수 있게 한다(UX 안전망).
+const availableCollections = ref<DocUtilCollection[]>([])
+const loadingCollections = ref(false)
+const collectionsError = ref<string | null>(null)
+let collectionsLoaded = false // 같은 화면에서 KnowledgeBaseSource 토글 시 중복 fetch 방지
+
+const loadAvailableCollections = async () => {
+  if (loadingCollections.value) return
+  loadingCollections.value = true
+  collectionsError.value = null
+  try {
+    availableCollections.value = await listCollections()
+    collectionsLoaded = true
+  } catch (err: any) {
+    console.error('Error loading DocUtil collections:', err)
+    // 한국어 에러는 i18n 에서 가져와 표시 — 텍스트 입력 fallback 표시 트리거.
+    collectionsError.value = t('agentBuilder.knowledgeBaseRefLoadFailed')
+    availableCollections.value = []
+  } finally {
+    loadingCollections.value = false
+  }
+}
+
+// KnowledgeBaseSource 가 "DocUtil" 로 (재)설정되는 모든 진입점에서 collections fetch.
+// 단순 immediate watch — onMounted 에서 loadAgentForEdit / draft 로드가 끝나면 자연스럽게 trigger.
+watch(
+  () => agentForm.value.knowledgeBaseSource,
+  (next) => {
+    if (next === 'DocUtil' && !collectionsLoaded && !loadingCollections.value) {
+      void loadAvailableCollections()
+    }
+  },
+  { immediate: true }
+)
 
 const validateRoutingPolicyJson = () => {
   const raw = agentForm.value.routingPolicyJson?.trim() ?? ''

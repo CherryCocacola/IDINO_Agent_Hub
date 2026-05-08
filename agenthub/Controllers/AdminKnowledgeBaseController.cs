@@ -230,6 +230,50 @@ public class AdminKnowledgeBaseController : ControllerBase
     }
 
     /// <summary>
+    /// DocUtil 컬렉션(projects) 카탈로그 — DocUtil `/api/v1/projects` 위임.
+    ///
+    /// 호출 컨텍스트(2026-05-08 후속 트랙):
+    ///   AgentBuilder.vue 의 KnowledgeBaseRef 입력을 텍스트 → dropdown 으로 전환.
+    ///   운영자가 DocUtil 콘솔에서 만든 collection 을 GUI 에서 직접 선택할 수 있도록
+    ///   카탈로그를 BFF 표면화한다. id/name/description 3 필드만 노출(BFF 단순화).
+    ///
+    /// 응답 형식: List&lt;DocUtilCollection&gt; (camelCase 직렬화 — Program.cs JsonNamingPolicy 적용).
+    /// 예시:
+    ///   [
+    ///     { "id": "c6955ce6-...", "name": "부산대", "description": "...." },
+    ///     { "id": "...",          "name": "...",   "description": null }
+    ///   ]
+    ///
+    /// 권한: Admin / SuperAdmin (컨트롤러 레벨 [Authorize] 상속). Bearer JWT 미부착 시 401.
+    /// 502: DocUtil 접근 실패(JWT 만료/네트워크/서비스 다운) — 한국어 ErrorResponseDto 응답.
+    /// </summary>
+    /// <param name="page">페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 50, 최대 200).</param>
+    [HttpGet("collections")]
+    public async Task<ActionResult<List<DocUtilCollection>>> ListCollections(
+        [FromQuery] int page = 1,
+        [FromQuery] int size = 50,
+        CancellationToken ct = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 200) size = 50;
+
+        try
+        {
+            var collections = await _docUtilClient.ListCollectionsAsync(page, size, ct);
+            return Ok(collections);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "DocUtil 컬렉션 목록 조회 실패 (page={Page}, size={Size})", page, size);
+            return StatusCode(502, new ErrorResponseDto(
+                "지식베이스 컬렉션 목록을 불러오지 못했습니다. DocUtil 서비스 상태를 확인하세요.",
+                "DOCUTIL_UPSTREAM_ERROR",
+                new { upstream = ex.Message }));
+        }
+    }
+
+    /// <summary>
     /// 운영자 KB 검색 — DocUtil `/api/v1/search` 위임.
     /// </summary>
     [HttpPost("search")]

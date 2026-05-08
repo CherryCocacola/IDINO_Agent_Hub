@@ -666,6 +666,8 @@
       "knowledgeBaseSourceHelp": "ADR-2: DocUtil is the single source of truth. AgentHub built-in KB is deprecated; new agents should use DocUtil.",
       "knowledgeBaseRef": "DocUtil Collection ID",
       "knowledgeBaseRefHelp": "DocUtil collection identifier. Leave blank for global (full-corpus) search. Future iteration will replace this with a dropdown sourced from the operator console.",
+      "knowledgeBaseRefDropdown": "Select DocUtil Collection",
+      "knowledgeBaseRefDropdownHelp": "Choose a DocUtil collection from the dropdown. Leave blank for global (full-corpus) search.",
       "consumerSystems": "Consumer Systems",
       "consumerSystemsHelp": "JSON array of End-User App IDs allowed to invoke this agent. Leave blank to allow any system.",
       "sortOrder": "Sort Order",
@@ -680,6 +682,10 @@
       "docutil": "DocUtil (recommended)",
       "agentHub": "AgentHub (deprecated)"
     },
+    "knowledgeBaseRefGlobal": "Global (search entire corpus)",
+    "knowledgeBaseRefLoading": "Loading collections...",
+    "knowledgeBaseRefLoadFailed": "Could not load DocUtil collections. Enter the ID manually.",
+    "knowledgeBaseRefEmpty": "No collections registered. Create one in the DocUtil console first.",
     "errors": {
       "routingPolicyJsonInvalid": "Not a valid JSON object.",
       "consumerSystemsInvalid": "Not a valid JSON array of strings."

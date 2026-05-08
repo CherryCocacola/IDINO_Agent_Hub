@@ -27,7 +27,8 @@ namespace AIAgentManagement.Services;
 /// <summary>
 /// DocUtil(RAG/문서 운영) FastAPI 클라이언트 인터페이스.
 /// AgentHub 가 운영자 콘솔 BFF + RAG 라우팅 분기에서 합성한다.
-/// 메서드는 6개로 한정 — Phase 6.1 ~ 6.4 의 운영자 시나리오 + Phase 6.2 의 RAG 검색 위임에 필요한 최소 집합이다.
+/// 메서드는 7개로 한정 — Phase 6.1 ~ 6.4 의 운영자 시나리오 + Phase 6.2 의 RAG 검색 위임 +
+/// 후속 트랙 KB collection dropdown(2026-05-08, AgentBuilder.vue 운영자 폼 UX 개선)에 필요한 최소 집합이다.
 /// </summary>
 public interface IDocUtilClient
 {
@@ -90,6 +91,33 @@ public interface IDocUtilClient
     Task<List<DocUtilChunk>> GetChunksAsync(
         string documentId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// DocUtil 컬렉션(=projects) 카탈로그 — GET /api/v1/projects.
+    ///
+    /// 통합 비전 매핑(ADR-2):
+    ///   DocUtil 의 `projects` 엔티티 = AgentHub 의 `KnowledgeBase collection` 추상.
+    ///   AgentHub 운영자 콘솔(AgentBuilder.vue) 의 `Agent.KnowledgeBaseRef` 필드는
+    ///   DocUtil 의 project id(UUID) 를 그대로 저장한다. 본 메서드는 운영자가 ID 를
+    ///   수동 입력하지 않고 dropdown 에서 선택할 수 있도록 카탈로그를 제공한다.
+    ///
+    /// BFF 표면 단순화:
+    ///   DocUtil 응답의 organization_id / created_by / created_at / updated_at /
+    ///   allow_original_download 등 내부 메타는 의도적으로 비노출. 운영자 dropdown
+    ///   UX 에 필요한 3 필드(id/name/description) 만 표면화하여 향후 DocUtil schema
+    ///   변경 시 AgentHub 측 영향 면적을 최소화한다.
+    ///
+    /// 캐시 전략:
+    ///   본 트랙에서는 캐시 미적용 — collection 카탈로그는 자주 변경되지 않으나
+    ///   운영자가 DocUtil 콘솔에서 새 project 를 생성한 직후 드롭다운에 즉시 반영되어야
+    ///   하므로 매 호출 fresh 응답을 우선한다(향후 트랙: version-key 패턴 도입 검토).
+    /// </summary>
+    /// <param name="page">DocUtil 페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 50, DocUtil 측 자체 한도 적용 — 200 이하 권장).</param>
+    Task<List<DocUtilCollection>> ListCollectionsAsync(
+        int page = 1,
+        int size = 50,
+        CancellationToken cancellationToken = default);
 }
 
 // ── DocUtil DTO (FastAPI 응답 1:1 매핑, snake_case 직렬화는 DocUtilClient 에서 처리) ──
@@ -150,3 +178,17 @@ public sealed record DocUtilChunk(
     string Content,
     int ChunkIndex,
     object? Metadata);
+
+/// <summary>
+/// DocUtil 컬렉션(projects) 카탈로그 한 행 — AgentBuilder dropdown UX 용.
+/// 운영자가 ID(UUID) 를 수동 입력하지 않고 collection 을 선택할 수 있도록 BFF 표면화.
+/// DocUtil 내부 메타(organization_id / created_by / timestamps / allow_original_download 등)는
+/// 의도적으로 비노출하여 schema 변경 시 영향 면적 최소화.
+/// </summary>
+/// <param name="Id">DocUtil project UUID. AgentHub 의 Agent.KnowledgeBaseRef 에 그대로 저장.</param>
+/// <param name="Name">사용자 표기명(예: "부산대"). dropdown option 라벨로 사용.</param>
+/// <param name="Description">선택 설명(없으면 null). dropdown option 의 hover hint(:title) 로 사용.</param>
+public sealed record DocUtilCollection(
+    string Id,
+    string Name,
+    string? Description);
