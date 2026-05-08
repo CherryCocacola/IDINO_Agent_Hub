@@ -1,6 +1,5 @@
 using AIAgentManagement.Data;
 using AIAgentManagement.DTOs;
-using AIAgentManagement.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
@@ -10,7 +9,6 @@ namespace AIAgentManagement.Services;
 public class RagService : IRagService
 {
     private readonly AIAgentManagementDbContext _context;
-    private readonly IEmbeddingService _embeddingService;
     private readonly CachingService _cachingService;
     private readonly IDocUtilClient _docUtilClient;
     private readonly IQueryRewriter _queryRewriter;
@@ -21,14 +19,12 @@ public class RagService : IRagService
 
     public RagService(
         AIAgentManagementDbContext context,
-        IEmbeddingService embeddingService,
         CachingService cachingService,
         IDocUtilClient docUtilClient,
         IQueryRewriter queryRewriter,
         ILogger<RagService> logger)
     {
         _context = context;
-        _embeddingService = embeddingService;
         _cachingService = cachingService;
         _docUtilClient = docUtilClient;
         _queryRewriter = queryRewriter;
@@ -58,219 +54,116 @@ public class RagService : IRagService
             return cachedResult;
         }
 
-        // ── Phase 6.2 (ADR-2): KnowledgeBaseSource 권위 시스템 분기 ─────────
-        // Agent.KnowledgeBaseSource="DocUtil" 인 경우 자체 임베딩/유사도 계산을
-        // 건너뛰고 DocUtil 의 하이브리드 검색(/api/v1/search) 으로 위임한다.
-        // 자체 KB(AgentHub) 폴백은 본 분기 이후 기존 흐름 그대로 유지.
+        // ── Phase 8 (ADR-2): KnowledgeBaseSource 단일 분기 ──────────────────
+        // 자체 KB(KnowledgeBaseDocuments / DocumentChunks / AgentDocuments) 코드/스키마는
+        // 본 Phase 에서 완전 제거되었다. 이제 Agent.KnowledgeBaseSource="DocUtil" 만
+        // 실제 RAG 를 수행하며, 그 외(NULL / "AgentHub" 등) 는 RAG 비활성으로 처리한다.
+        // 운영자가 KnowledgeBaseSource 를 바꾸지 않은 채로 EnableRag=true 인 Agent 는
+        // 정보 로그를 남기고 빈 결과를 반환 — ChatService 는 그대로 LLM 호출을 진행한다.
         // ----------------------------------------------------------------
-        if (agentId.HasValue)
+        if (!agentId.HasValue)
         {
-            var agentRouting = await _context.Agents
-                .AsNoTracking()
-                .Where(a => a.AgentId == agentId.Value)
-                .Select(a => new { a.KnowledgeBaseSource, a.KnowledgeBaseRef })
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (agentRouting != null
-                && string.Equals(agentRouting.KnowledgeBaseSource, "DocUtil", StringComparison.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    // ── 다국어 query rewrite + RRF (Reciprocal Rank Fusion) ─────
-                    // 한국어 query 가 DocUtil 검색에서 results=0 으로 나오는 케이스를
-                    // 보강하기 위해 LLM 으로 영문 변환 후 양쪽 검색 → 순위 결합.
-                    // 실패 시 원본 query 만 사용(graceful).
-                    var queries = await _queryRewriter.RewriteAsync(query, cancellationToken);
-
-                    _logger.LogInformation(
-                        "RAG 위임 - AgentId={AgentId}, KnowledgeBaseSource=DocUtil, CollectionRef={Ref}, TopK={TopK}, QueryCount={Count}",
-                        agentId.Value, agentRouting.KnowledgeBaseRef ?? "(global)", topK, queries.Count);
-
-                    // hit 식별 키: ChunkId 우선, 없으면 Content 해시 — 동일 청크의 RRF 누적
-                    var rrfScores = new Dictionary<string, (DocUtilSearchHit hit, double score)>();
-
-                    foreach (var q in queries)
-                    {
-                        var search = await _docUtilClient.SearchAsync(
-                            q, agentRouting.KnowledgeBaseRef, topK, cancellationToken);
-
-                        for (int rank = 0; rank < search.Results.Length; rank++)
-                        {
-                            var hit = search.Results[rank];
-                            var key = !string.IsNullOrEmpty(hit.Id)
-                                ? hit.Id
-                                : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(hit.Content ?? string.Empty)), 0, 16);
-                            var rrf = 1.0 / (RrfK + rank);
-
-                            if (rrfScores.TryGetValue(key, out var existing))
-                            {
-                                rrfScores[key] = (existing.hit, existing.score + rrf);
-                            }
-                            else
-                            {
-                                rrfScores[key] = (hit, rrf);
-                            }
-                        }
-                    }
-
-                    var docutilResults = rrfScores.Values
-                        .OrderByDescending(x => x.score)
-                        .Take(topK)
-                        .Select(x => MapDocUtilHitToDto(x.hit))
-                        .ToList();
-
-                    _logger.LogInformation(
-                        "RAG 결과 - DistinctChunks={Distinct}, TopK 반환={Count}",
-                        rrfScores.Count, docutilResults.Count);
-
-                    // RAG 결과 캐싱(10분) — AgentHub 자체 KB 분기와 TTL 동일.
-                    await _cachingService.SetAsync(ragCacheKey, docutilResults, TimeSpan.FromMinutes(10));
-                    return docutilResults;
-                }
-                catch (Exception ex)
-                {
-                    // DocUtil 응답 실패는 사용자 화면에 의미 있는 메시지로 노출되어야 한다.
-                    // RagService 의 외부 시그니처는 빈 리스트 반환이지만, 운영자가 원인을
-                    // 파악할 수 있도록 ERROR 레벨로 기록한 뒤 빈 결과를 반환한다.
-                    _logger.LogError(
-                        ex,
-                        "DocUtil RAG 위임 실패 - AgentId={AgentId}, CollectionRef={Ref}. 빈 결과로 폴백.",
-                        agentId.Value, agentRouting.KnowledgeBaseRef ?? "(global)");
-                    return new List<RagSearchResultDto>();
-                }
-            }
+            _logger.LogInformation(
+                "RAG 비활성 - AgentId 미지정. ADR-2 단일 권위 정책에 따라 RAG 결과 없이 진행합니다.");
+            return new List<RagSearchResultDto>();
         }
 
-        // ── 자체 KB 폴백 흐름 (KnowledgeBaseSource != "DocUtil") ─────────
-        // ADR-2 (Phase 6.4) 에 따라 자체 KB(KnowledgeBaseDocument/DocumentChunk)
-        // 는 deprecate 진행 중이며 Phase 8+ 에서 drop 예정이다. 본 흐름은
-        //   - Phase 5+ 호환 (KnowledgeBaseSource 미설정 또는 "AgentHub" Agent)
-        //   - Phase 6.5 e2e 검증 전 안전망
-        // 으로 유지된다. 신규 Agent 는 KnowledgeBaseSource="DocUtil" + KnowledgeBaseRef
-        // 를 설정하여 위 분기로 라우팅되도록 권장. 본 영역의 KnowledgeBaseDocuments /
-        // DocumentChunks 호출은 [Obsolete] 클래스를 사용하므로 빌드 시 CS0618 경고가
-        // 발생하나, 의도적 deprecation 표시이므로 #pragma 로 차단하지 않는다.
-        // ----------------------------------------------------------------
-        // [A] 쿼리 임베딩 캐싱 - 같은 질문이면 OpenAI API 호출 스킵
-        float[] queryEmbedding;
-        var embeddingCacheKey = _cachingService.GetEmbeddingKey(queryHash);
-        var cachedEmbedding = await _cachingService.GetAsync<float[]>(embeddingCacheKey);
-        if (cachedEmbedding != null)
-        {
-            _logger.LogDebug("Embedding cache hit for query hash {Hash}", queryHash);
-            queryEmbedding = cachedEmbedding;
-        }
-        else
-        {
-            try
-            {
-                queryEmbedding = await _embeddingService.GetEmbeddingAsync(query, cancellationToken);
-                if (queryEmbedding.Length == 0)
-                {
-                    _logger.LogWarning("Query embedding is empty for query: {Query}", query);
-                    return new List<RagSearchResultDto>();
-                }
-                // 임베딩은 질문이 같으면 결과도 같으므로 1시간 캐시
-                await _cachingService.SetAsync(embeddingCacheKey, queryEmbedding, TimeSpan.FromHours(1));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to generate embedding for query: {Query}", query);
-                return new List<RagSearchResultDto>();
-            }
-        }
-
-        // [C] 필요한 컬럼만 SELECT - Document 전체 로드 제거
-        var queryDb = _context.DocumentChunks
+        var agentRouting = await _context.Agents
             .AsNoTracking()
-            .Where(dc => dc.Embedding != null && dc.Embedding != "");
+            .Where(a => a.AgentId == agentId.Value)
+            .Select(a => new { a.KnowledgeBaseSource, a.KnowledgeBaseRef })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        // documentIds가 명시적으로 지정된 경우: 지정된 문서만 검색 (최우선)
+        if (agentRouting == null
+            || !string.Equals(agentRouting.KnowledgeBaseSource, "DocUtil", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation(
+                "RAG 비활성 - AgentId={AgentId}, KnowledgeBaseSource={Source}. ADR-2 에 따라 자체 KB 폴백은 제거되었습니다 (DocUtil 만 권위).",
+                agentId.Value, agentRouting?.KnowledgeBaseSource ?? "(null)");
+            return new List<RagSearchResultDto>();
+        }
+
+        // documentIds 파라미터는 자체 KB 시점의 호출 규약이었으므로, DocUtil 위임에서는
+        // 사용하지 않음을 디버그 로그로 남긴다 (외부 시그니처 호환 보존).
         if (documentIds != null && documentIds.Count > 0)
         {
-            _logger.LogInformation("RAG search with explicit documentIds: {DocumentIds}", string.Join(", ", documentIds));
-            queryDb = queryDb.Where(dc => documentIds.Contains(dc.DocumentId));
+            _logger.LogDebug(
+                "RAG documentIds 파라미터는 DocUtil 위임 흐름에서 무시됩니다 (Count={Count}).",
+                documentIds.Count);
         }
-        // AgentId가 있는 경우: Agent에 연결된 문서만 검색
-        else if (agentId.HasValue)
+
+        // userId 는 DocUtil 위임 흐름에서 컬렉션 권한 검사가 별도로 수행되므로 선택값.
+        if (userId.HasValue)
         {
-            var agentDocumentIds = await _context.Agents
-                .AsNoTracking()
-                .Where(a => a.AgentId == agentId.Value && a.EnableRag)
-                .SelectMany(a => a.AgentDocuments.Select(ad => ad.DocumentId))
-                .ToListAsync(cancellationToken);
-
-            if (agentDocumentIds.Count == 0)
-                return new List<RagSearchResultDto>();
-
-            queryDb = queryDb.Where(dc => agentDocumentIds.Contains(dc.DocumentId));
+            _logger.LogDebug(
+                "RAG userId 필터는 DocUtil 위임 흐름에서 적용되지 않습니다 (UserId={UserId}).",
+                userId.Value);
         }
-        else if (userId.HasValue)
+
+        try
         {
-            queryDb = queryDb.Where(dc => dc.Document != null && dc.Document.UserId == userId);
-        }
+            // ── 다국어 query rewrite + RRF (Reciprocal Rank Fusion) ─────
+            // 한국어 query 가 DocUtil 검색에서 results=0 으로 나오는 케이스를
+            // 보강하기 위해 LLM 으로 영문 변환 후 양쪽 검색 → 순위 결합.
+            // 실패 시 원본 query 만 사용(graceful).
+            var queries = await _queryRewriter.RewriteAsync(query, cancellationToken);
 
-        // [C] 임베딩·컨텐츠·메타만 SELECT (Document 전체 Include 제거)
-        var chunkProjections = await queryDb
-            .Select(dc => new
+            _logger.LogInformation(
+                "RAG 위임 - AgentId={AgentId}, KnowledgeBaseSource=DocUtil, CollectionRef={Ref}, TopK={TopK}, QueryCount={Count}",
+                agentId.Value, agentRouting.KnowledgeBaseRef ?? "(global)", topK, queries.Count);
+
+            // hit 식별 키: ChunkId 우선, 없으면 Content 해시 — 동일 청크의 RRF 누적
+            var rrfScores = new Dictionary<string, (DocUtilSearchHit hit, double score)>();
+
+            foreach (var q in queries)
             {
-                dc.ChunkId,
-                dc.DocumentId,
-                dc.Content,
-                dc.Embedding,
-                dc.Metadata,
-                DocumentTitle = dc.Document != null ? dc.Document.Title : "Untitled Document",
-                DocumentSourceId = dc.Document != null ? dc.Document.SourceId : null
-            })
-            .ToListAsync(cancellationToken);
+                var search = await _docUtilClient.SearchAsync(
+                    q, agentRouting.KnowledgeBaseRef, topK, cancellationToken);
 
-        // 유사도 계산 (SIMD는 D 단계에서 EmbeddingService에 적용)
-        var scored = new List<(long chunkId, int documentId, string content, string? metadata, string title, string source, float similarity)>(chunkProjections.Count);
+                for (int rank = 0; rank < search.Results.Length; rank++)
+                {
+                    var hit = search.Results[rank];
+                    var key = !string.IsNullOrEmpty(hit.Id)
+                        ? hit.Id
+                        : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(hit.Content ?? string.Empty)), 0, 16);
+                    var rrf = 1.0 / (RrfK + rank);
 
-        foreach (var chunk in chunkProjections)
-        {
-            try
-            {
-                var chunkEmbedding = _embeddingService.DeserializeEmbedding(chunk.Embedding);
-                if (chunkEmbedding == null || chunkEmbedding.Length == 0) continue;
-
-                var similarity = _embeddingService.CalculateCosineSimilarity(queryEmbedding, chunkEmbedding);
-                scored.Add((
-                    chunk.ChunkId,
-                    chunk.DocumentId,
-                    chunk.Content,
-                    chunk.Metadata,
-                    chunk.DocumentTitle ?? "Untitled Document",
-                    chunk.DocumentTitle ?? chunk.DocumentSourceId ?? "Unknown Source",
-                    similarity
-                ));
+                    if (rrfScores.TryGetValue(key, out var existing))
+                    {
+                        rrfScores[key] = (existing.hit, existing.score + rrf);
+                    }
+                    else
+                    {
+                        rrfScores[key] = (hit, rrf);
+                    }
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to calculate similarity for chunk {ChunkId}", chunk.ChunkId);
-            }
+
+            var docutilResults = rrfScores.Values
+                .OrderByDescending(x => x.score)
+                .Take(topK)
+                .Select(x => MapDocUtilHitToDto(x.hit))
+                .ToList();
+
+            _logger.LogInformation(
+                "RAG 결과 - DistinctChunks={Distinct}, TopK 반환={Count}",
+                rrfScores.Count, docutilResults.Count);
+
+            // RAG 결과 캐싱(10분) — 문서 갱신 가능성을 고려하여 짧은 TTL 유지.
+            await _cachingService.SetAsync(ragCacheKey, docutilResults, TimeSpan.FromMinutes(10));
+            return docutilResults;
         }
-
-        // Top-K 결과
-        var results = scored
-            .OrderByDescending(x => x.similarity)
-            .Take(topK)
-            .Select(x => new RagSearchResultDto
-            {
-                DocumentId = x.documentId,
-                ChunkId = x.chunkId,
-                Title = x.title,
-                Content = x.content,
-                Similarity = x.similarity,
-                Source = x.source,
-                Metadata = x.metadata
-            })
-            .ToList();
-
-        // [B] RAG 결과 캐싱 (10분 - 문서가 변경될 수 있으므로 짧게)
-        await _cachingService.SetAsync(ragCacheKey, results, TimeSpan.FromMinutes(10));
-
-        return results;
+        catch (Exception ex)
+        {
+            // DocUtil 응답 실패는 사용자 화면에 의미 있는 메시지로 노출되어야 한다.
+            // RagService 의 외부 시그니처는 빈 리스트 반환이지만, 운영자가 원인을
+            // 파악할 수 있도록 ERROR 레벨로 기록한 뒤 빈 결과를 반환한다.
+            _logger.LogError(
+                ex,
+                "DocUtil RAG 위임 실패 - AgentId={AgentId}, CollectionRef={Ref}. 빈 결과로 폴백.",
+                agentId.Value, agentRouting.KnowledgeBaseRef ?? "(global)");
+            return new List<RagSearchResultDto>();
+        }
     }
 
     private static string ComputeQueryHash(string query)

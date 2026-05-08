@@ -22,13 +22,12 @@ public class AIAgentManagementDbContext : DbContext
     public DbSet<ActivityLog> ActivityLogs { get; set; }
     public DbSet<UserSession> UserSessions { get; set; }
     public DbSet<UserPreference> UserPreferences { get; set; }
-    public DbSet<KnowledgeBaseDocument> KnowledgeBaseDocuments { get; set; }
-    public DbSet<DocumentChunk> DocumentChunks { get; set; }
+    // ── Phase 8 (ADR-2): KnowledgeBaseDocuments / DocumentChunks / AgentDocuments
+    // DbSet 은 자체 KB 코드/스키마 제거와 함께 삭제됨. RAG 단일 권위는 DocUtil.
     public DbSet<SystemSetting> SystemSettings { get; set; }
     public DbSet<ApiKey> ApiKeys { get; set; }
     public DbSet<Team> Teams { get; set; }
     public DbSet<TeamMember> TeamMembers { get; set; }
-    public DbSet<AgentDocument> AgentDocuments { get; set; }
     public DbSet<Faq> Faqs { get; set; }
     public DbSet<Tutorial> Tutorials { get; set; }
     public DbSet<ExamplePrompt> ExamplePrompts { get; set; }
@@ -146,10 +145,8 @@ public class AIAgentManagementDbContext : DbContext
             .IsUnique()
             .HasFilter("\"IsActive\" = true");
 
-        // AgentDocument unique constraint
-        modelBuilder.Entity<AgentDocument>()
-            .HasIndex(ad => new { ad.AgentId, ad.DocumentId })
-            .IsUnique();
+        // ── Phase 8 (ADR-2): AgentDocument 의 (AgentId, DocumentId) UNIQUE 인덱스는
+        // 자체 KB 제거와 함께 삭제됨.
 
         // ExamplePrompt Prompt 컬럼을 text(PG)로 명시 — 길이 제한 없음 (Phase 3.2: 이전 nvarchar(max) → text)
         modelBuilder.Entity<ExamplePrompt>()
@@ -268,15 +265,8 @@ public class AIAgentManagementDbContext : DbContext
             .Property(u => u.Prompt)
             .HasMaxLength(500);
 
-        // KnowledgeBaseDocument.UserId: 사용자별 문서 목록 조회
-        modelBuilder.Entity<KnowledgeBaseDocument>()
-            .HasIndex(d => d.UserId)
-            .HasDatabaseName("IX_KnowledgeBaseDocuments_UserId");
-
-        // DocumentChunk.DocumentId: RAG 검색 시 청크 조회
-        modelBuilder.Entity<DocumentChunk>()
-            .HasIndex(c => c.DocumentId)
-            .HasDatabaseName("IX_DocumentChunks_DocumentId");
+        // ── Phase 8 (ADR-2): KnowledgeBaseDocuments / DocumentChunks 인덱스는
+        // 자체 KB 코드/스키마 제거와 함께 삭제됨. RAG 단일 권위는 DocUtil.
 
         // ── Phase 4.3 — Tenants + Departments (ADR-8 / Q1 옵션 B) ───────────
         // Tenant.TenantCode UNIQUE — 외부 노출 식별자의 단일성 보장

@@ -29,5 +29,6 @@ public class AgentDto
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    public List<KnowledgeBaseDocumentListDto>? Documents { get; set; }
+    // ── Phase 8 (ADR-2): Documents 필드는 자체 KB 제거와 함께 폐기. RAG Agent 는
+    // Agent.KnowledgeBaseSource="DocUtil" + Agent.KnowledgeBaseRef 로 식별한다.
 }

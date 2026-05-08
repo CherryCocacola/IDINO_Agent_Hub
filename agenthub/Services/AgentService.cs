@@ -130,23 +130,9 @@ public class AgentService : IAgentService
                 CreatedByName = a.Creator.FullName,
                 IsActive = a.IsActive,
                 CreatedAt = a.CreatedAt,
-                UpdatedAt = a.UpdatedAt,
-                Documents = a.AgentDocuments
-                    .Select(ad => new KnowledgeBaseDocumentListDto
-                    {
-                        DocumentId = ad.Document.DocumentId,
-                        UserId = ad.Document.UserId,
-                        UserName = ad.Document.User != null ? ad.Document.User.FullName ?? "Unknown" : "Unknown",
-                        Title = ad.Document.Title,
-                        SourceType = ad.Document.SourceType,
-                        SourceId = ad.Document.SourceId,
-                        IsIndexed = ad.Document.IsIndexed,
-                        IndexedAt = ad.Document.IndexedAt,
-                        ChunkCount = ad.Document.Chunks.Count,
-                        CreatedAt = ad.Document.CreatedAt,
-                        UpdatedAt = ad.Document.UpdatedAt
-                    })
-                    .ToList()
+                UpdatedAt = a.UpdatedAt
+                // ── Phase 8 (ADR-2): AgentDto.Documents 는 자체 KB 제거와 함께 폐기.
+                // RAG 사용 Agent 는 KnowledgeBaseSource="DocUtil" + KnowledgeBaseRef 만 보유한다.
             })
             .FirstOrDefaultAsync();
 
@@ -195,26 +181,15 @@ public class AgentService : IAgentService
         _context.Agents.Add(agent);
         await _context.SaveChangesAsync();
 
-        // RAG 문서 연결
+        // ── Phase 8 (ADR-2): RAG 문서 연결은 자체 KB 제거와 함께 폐기 ─────────
+        // 신규 RAG Agent 는 Agent.KnowledgeBaseSource="DocUtil" + Agent.KnowledgeBaseRef
+        // (DocUtil collection ID) 로 정의한다. SelectedDocumentIds 파라미터는
+        // CreateAgentRequestDto 에 한동안 남겨두지만 본 서비스에서는 무시한다.
+        // ----------------------------------------------------------------
         if (request.EnableRag && request.SelectedDocumentIds != null && request.SelectedDocumentIds.Count > 0)
         {
-            // 문서가 해당 사용자의 것인지 확인
-            var validDocuments = await _context.KnowledgeBaseDocuments
-                .Where(d => request.SelectedDocumentIds.Contains(d.DocumentId) && d.UserId == createdBy && d.IsIndexed)
-                .Select(d => d.DocumentId)
-                .ToListAsync();
-
-            foreach (var documentId in validDocuments)
-            {
-                _context.AgentDocuments.Add(new Models.AgentDocument
-                {
-                    AgentId = agent.AgentId,
-                    DocumentId = documentId,
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
-
-            await _context.SaveChangesAsync();
+            // 자체 KB 가 사라졌으므로 DocumentId 화이트리스트는 적용하지 않는다.
+            // 향후 DocUtil collection 화이트리스트 도입 시 본 위치에 클라이언트 호출 추가.
         }
 
         return await GetAgentByIdAsync(agent.AgentId) ?? throw new InvalidOperationException("Failed to create agent");

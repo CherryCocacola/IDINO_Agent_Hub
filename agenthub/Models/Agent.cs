@@ -151,5 +151,7 @@ public class Agent
 
     public virtual ICollection<ChatConversation> ChatConversations { get; set; } = new List<ChatConversation>();
 
-    public virtual ICollection<AgentDocument> AgentDocuments { get; set; } = new List<AgentDocument>();
+    // ── Phase 8 (ADR-2): AgentDocuments navigation 은 자체 KB 제거와 함께 삭제됨.
+    // RAG 문서 연결은 Agent.KnowledgeBaseSource="DocUtil" + Agent.KnowledgeBaseRef
+    // (DocUtil collection ID) 로 대체된다.
 }

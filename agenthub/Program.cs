@@ -271,9 +271,9 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAgentService, AgentService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
-builder.Services.AddScoped<IDocumentIndexingService, DocumentIndexingService>();
+// ── Phase 8 (ADR-2): IDocumentIndexingService / IKnowledgeBaseService 는 자체 KB
+// 제거와 함께 DI 등록을 삭제. RAG 단일 권위는 DocUtil 이며 RagService 가 위임한다.
 builder.Services.AddScoped<IRagService, RagService>();
-builder.Services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
 builder.Services.AddScoped<IQuotaService, QuotaService>();
 builder.Services.AddScoped<INexusClient, NexusClient>(); // Phase 5.1 — Nexus 옵션 B 클라이언트
 // DocUtil 토큰 자동 갱신 — 만료 5분 전 refresh / re-login. Singleton(인스턴스 캐시) 으로 등록

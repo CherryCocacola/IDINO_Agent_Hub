@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using AIAgentManagement.Services;
 using AIAgentManagement.DTOs;
 
@@ -12,16 +11,13 @@ namespace AIAgentManagement.Controllers;
 public class FilesController : ControllerBase
 {
     private readonly IFileService _fileService;
-    private readonly IKnowledgeBaseService _knowledgeBaseService;
     private readonly ILogger<FilesController> _logger;
 
     public FilesController(
         IFileService fileService,
-        IKnowledgeBaseService knowledgeBaseService,
         ILogger<FilesController> logger)
     {
         _fileService = fileService;
-        _knowledgeBaseService = knowledgeBaseService;
         _logger = logger;
     }
 
@@ -176,67 +172,23 @@ public class FilesController : ControllerBase
         }
     }
 
+    // ── Phase 8 (ADR-2): 자체 KB 업로드 엔드포인트 제거 ──────────────────
+    // /api/files/upload/knowledgebase 라우트는 자체 KB 테이블(KnowledgeBaseDocuments
+    // / DocumentChunks) 에 직접 INSERT 하던 흐름이었다. ADR-2 의 단일 권위 정책에
+    // 따라 자체 KB 코드/스키마가 모두 제거되었으므로 본 라우트는 410 Gone 으로
+    // 응답한다. 운영자는 AgentHub Vue UI 의 `/admin/knowledge-base/upload` (Phase
+    // 6.3) 또는 BFF 라우트 `/api/admin/knowledge-base/documents/upload` 를 사용해
+    // DocUtil 로 위임 업로드한다.
+    // ----------------------------------------------------------------------
     [HttpPost("upload/knowledgebase")]
     [DisableRequestSizeLimit]
-    public async Task<ActionResult> UploadFileToKnowledgeBase(
-        IFormFile file,
-        [FromQuery] string? title = null,
-        [FromQuery] bool indexImmediately = true)
+    public ActionResult UploadFileToKnowledgeBase()
     {
-        try
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
-            {
-                return Unauthorized(ErrorResponseDto.Unauthorized());
-            }
-
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest(ErrorResponseDto.BadRequest("No file uploaded"));
-            }
-
-            // 파일 파싱
-            var fileInfo = await _fileService.UploadAndParseFileAsync(file, "knowledgebase");
-            
-            if (!fileInfo.IsParsed || string.IsNullOrEmpty(fileInfo.ParsedContent))
-            {
-                return BadRequest(ErrorResponseDto.BadRequest("Failed to parse file or file content is empty"));
-            }
-
-            // KnowledgeBaseDocument 생성
-            var createRequest = new CreateKnowledgeBaseDocumentRequestDto
-            {
-                Title = title ?? file.FileName,
-                Content = fileInfo.ParsedContent,
-                SourceType = "UploadedFile",
-                SourceId = fileInfo.FilePath,
-                IndexImmediately = indexImmediately
-            };
-
-            var document = await _knowledgeBaseService.CreateDocumentAsync(createRequest, userId);
-
-            return Ok(new
-            {
-                documentId = document.DocumentId,
-                title = document.Title,
-                filePath = fileInfo.FilePath,
-                fileName = file.FileName,
-                isIndexed = document.IsIndexed,
-                chunkCount = document.ChunkCount,
-                message = indexImmediately && document.IsIndexed 
-                    ? "File uploaded and indexed successfully" 
-                    : "File uploaded successfully. Indexing may be in progress."
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ErrorResponseDto.BadRequest(ex.Message));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error uploading file to knowledge base");
-            return StatusCode(500, ErrorResponseDto.InternalError("An error occurred while uploading file to knowledge base"));
-        }
+        _logger.LogWarning(
+            "Deprecated route /api/files/upload/knowledgebase 호출됨 — ADR-2 에 따라 410 Gone 으로 응답");
+        return StatusCode(StatusCodes.Status410Gone, new ErrorResponseDto(
+            "자체 지식베이스 업로드 엔드포인트는 제거되었습니다. AgentHub 운영자 콘솔(/admin/knowledge-base/upload) 을 사용해 DocUtil 로 업로드하세요.",
+            "ENDPOINT_REMOVED",
+            null));
     }
 }
