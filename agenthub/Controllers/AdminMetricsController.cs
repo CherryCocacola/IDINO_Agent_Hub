@@ -59,6 +59,7 @@ public class AdminMetricsController : ControllerBase
         // calls=0 분모 보호 — 0 으로 나누기 회피.
         var queryRewriteTotal = snapshot.QueryRewriteCacheHit + snapshot.QueryRewriteCacheMiss;
         var docUtilSearchTotal = snapshot.DocUtilSearchCacheHit + snapshot.DocUtilSearchCacheMiss;
+        var ragResultCacheTotal = snapshot.RagResultCacheHit + snapshot.RagResultCacheMiss;
 
         var dto = new RagMetricsSnapshotDto
         {
@@ -77,6 +78,9 @@ public class AdminMetricsController : ControllerBase
             RagZeroResults = snapshot.RagZeroResults,
             RagDistinctChunksTotal = snapshot.RagDistinctChunksTotal,
 
+            RagResultCacheHit = snapshot.RagResultCacheHit,
+            RagResultCacheMiss = snapshot.RagResultCacheMiss,
+
             // 평균 latency = latency_total / max(1, calls) — 0 분모 방지
             AvgDocUtilSearchLatencyMs = snapshot.DocUtilSearchCalls > 0
                 ? (double)snapshot.DocUtilSearchLatencyMsTotal / snapshot.DocUtilSearchCalls
@@ -89,6 +93,10 @@ public class AdminMetricsController : ControllerBase
 
             DocUtilSearchCacheHitRatio = docUtilSearchTotal > 0
                 ? (double)snapshot.DocUtilSearchCacheHit / docUtilSearchTotal
+                : 0d,
+
+            RagResultCacheHitRatio = ragResultCacheTotal > 0
+                ? (double)snapshot.RagResultCacheHit / ragResultCacheTotal
                 : 0d,
 
             // 평균 distinct chunks = total / invocations

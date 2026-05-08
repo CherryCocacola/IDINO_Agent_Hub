@@ -31,6 +31,10 @@ public sealed class RagMetricsSnapshotDto
     public long RagZeroResults { get; set; }
     public long RagDistinctChunksTotal { get; set; }
 
+    // ── RagService 결과 캐시(version-key prefix `v{N}:rag:...`) ──────────
+    public long RagResultCacheHit { get; set; }
+    public long RagResultCacheMiss { get; set; }
+
     // ── 파생 지표(서버에서 계산하여 클라이언트 단순화) ────────────────────
     /// <summary>DocUtil 검색 평균 latency (ms). calls=0 이면 0.</summary>
     public double AvgDocUtilSearchLatencyMs { get; set; }
@@ -40,6 +44,9 @@ public sealed class RagMetricsSnapshotDto
 
     /// <summary>DocUtil 검색 캐시 hit 비율 (0.0~1.0). hit+miss=0 이면 0.</summary>
     public double DocUtilSearchCacheHitRatio { get; set; }
+
+    /// <summary>RagService 결과 캐시 hit 비율 (0.0~1.0). hit+miss=0 이면 0.</summary>
+    public double RagResultCacheHitRatio { get; set; }
 
     /// <summary>RAG 호출당 평균 distinct chunks. invocations=0 이면 0.</summary>
     public double AvgRagDistinctChunks { get; set; }

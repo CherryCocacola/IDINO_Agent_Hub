@@ -32,6 +32,8 @@ public sealed class RagMetrics : IRagMetrics
     private long _ragInvocations;
     private long _ragZeroResults;
     private long _ragDistinctChunksTotal;
+    private long _ragResultCacheHit;
+    private long _ragResultCacheMiss;
 
     public void IncrementQueryRewriteCacheHit()
         => Interlocked.Increment(ref _queryRewriteCacheHit);
@@ -77,6 +79,12 @@ public sealed class RagMetrics : IRagMetrics
         Interlocked.Add(ref _ragDistinctChunksTotal, count);
     }
 
+    public void IncrementRagResultCacheHit()
+        => Interlocked.Increment(ref _ragResultCacheHit);
+
+    public void IncrementRagResultCacheMiss()
+        => Interlocked.Increment(ref _ragResultCacheMiss);
+
     public RagMetricsSnapshot GetSnapshot()
         => new(
             QueryRewriteCacheHit: Interlocked.Read(ref _queryRewriteCacheHit),
@@ -90,5 +98,7 @@ public sealed class RagMetrics : IRagMetrics
             DocUtilSearchLatencyMsTotal: Interlocked.Read(ref _docUtilSearchLatencyMsTotal),
             RagInvocations: Interlocked.Read(ref _ragInvocations),
             RagZeroResults: Interlocked.Read(ref _ragZeroResults),
-            RagDistinctChunksTotal: Interlocked.Read(ref _ragDistinctChunksTotal));
+            RagDistinctChunksTotal: Interlocked.Read(ref _ragDistinctChunksTotal),
+            RagResultCacheHit: Interlocked.Read(ref _ragResultCacheHit),
+            RagResultCacheMiss: Interlocked.Read(ref _ragResultCacheMiss));
 }

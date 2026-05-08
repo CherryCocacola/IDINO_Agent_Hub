@@ -48,14 +48,31 @@ public class RagService : IRagService
         // 쿼리 해시 (캐시 키 공통 사용)
         var queryHash = ComputeQueryHash(query);
 
-        // [B] RAG 결과 캐싱 - 동일 조건이면 DB/API 호출 없이 반환
-        var ragCacheKey = _cachingService.GetRagResultKey(queryHash, agentId, userId);
+        // ── 후속 트랙: RAG 결과 캐시 version-key 통합 ────────────────────────
+        // 캐시 키: `v{N}:rag:{agentId}:{userId}:{queryHash}` —
+        //   N = CachingService.GetVersionAsync(DocUtilClient.SearchCacheVersionNamespace)
+        // 의도: DocUtilClient.SearchAsync 와 동일 lineage("docutil-search") 의 version
+        // namespace 를 공유 → 운영자 KB 변경(IncrementVersionAsync) 한 번에 양 레이어
+        // (DocUtil 검색 응답 캐시 + RagService 결과 캐시) 모두 즉시 stale 처리.
+        // 별도 namespace 를 만들지 않는 이유: KB 변경은 결국 RagService 결과 정확성에도
+        // 동일하게 영향 → 단일 source of truth 로 묶는 것이 일관.
+        // 버전 fetch 실패 시 0 폴백 — 본 호출 흐름은 차단되지 않음.
+        var ragCacheVersion = await _cachingService.GetVersionAsync(
+            DocUtilClient.SearchCacheVersionNamespace);
+        var ragCacheKey = $"v{ragCacheVersion}:{_cachingService.GetRagResultKey(queryHash, agentId, userId)}";
         var cachedResult = await _cachingService.GetAsync<List<RagSearchResultDto>>(ragCacheKey);
         if (cachedResult != null)
         {
-            _logger.LogDebug("RAG cache hit for query hash {Hash}", queryHash);
+            _ragMetrics.IncrementRagResultCacheHit();
+            _logger.LogDebug(
+                "RAG cache hit for query hash {Hash}, version={Version}, key={Key}",
+                queryHash, ragCacheVersion, ragCacheKey);
             return cachedResult;
         }
+        _ragMetrics.IncrementRagResultCacheMiss();
+        _logger.LogDebug(
+            "RAG cache miss for query hash {Hash}, version={Version}, key={Key}",
+            queryHash, ragCacheVersion, ragCacheKey);
 
         // ── Phase 8 (ADR-2): KnowledgeBaseSource 단일 분기 ──────────────────
         // 자체 KB(KnowledgeBaseDocuments / DocumentChunks / AgentDocuments) 코드/스키마는

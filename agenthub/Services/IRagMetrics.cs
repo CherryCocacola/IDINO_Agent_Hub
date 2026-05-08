@@ -54,6 +54,10 @@ public interface IRagMetrics
     void IncrementRagZeroResult();
     /// <summary>RAG 결과 distinct chunks 누적. 평균은 RagInvocation 으로 나눠서 계산.</summary>
     void RecordRagDistinctChunks(int count);
+    /// <summary>RagService 결과 캐시 hit (version-key prefix 적용된 10분 TTL `rag:` 키).</summary>
+    void IncrementRagResultCacheHit();
+    /// <summary>RagService 결과 캐시 miss (DocUtil 위임 흐름 진입 직전).</summary>
+    void IncrementRagResultCacheMiss();
 
     /// <summary>한 시점 카운터 스냅샷 — AdminMetricsController 직렬화용.</summary>
     RagMetricsSnapshot GetSnapshot();
@@ -76,4 +80,6 @@ public sealed record RagMetricsSnapshot(
     long DocUtilSearchLatencyMsTotal,
     long RagInvocations,
     long RagZeroResults,
-    long RagDistinctChunksTotal);
+    long RagDistinctChunksTotal,
+    long RagResultCacheHit,
+    long RagResultCacheMiss);
