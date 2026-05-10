@@ -167,6 +167,14 @@ const routes = [
         component: () => import('@/views/admin/AdminRagMetrics.vue'),
         meta: { requiresAuth: true, role: 'Admin' }
       },
+      // Phase 10.1a (2026-05-10): DocUtil 사용자 운영자 콘솔 (BFF 패턴)
+      // 향후 10.1b(부서) / 10.1c(프로젝트) 트랙에서 추가 라우트 연결 예정.
+      {
+        path: 'admin/docutil-users',
+        name: 'AdminDocUtilUsers',
+        component: () => import('@/views/admin/AdminDocUtilUsers.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
       {
         path: 'reports',
         name: 'Reports',

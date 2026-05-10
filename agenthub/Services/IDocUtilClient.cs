@@ -118,6 +118,80 @@ public interface IDocUtilClient
         int page = 1,
         int size = 50,
         CancellationToken cancellationToken = default);
+
+    // ── Phase 10.1a (2026-05-10): DocUtil 사용자 운영자 BFF — 4 메서드 ────
+    //
+    // 통합 비전 매핑(P1 Control Plane / P5 인증):
+    //   AgentHub 운영자 콘솔이 DocUtil 사용자 카탈로그를 단일 진입점에서 관리한다.
+    //   DocUtil 의 사용자 라이프사이클(목록/상세/상태 토글/삭제) 을 BFF 표면화하여
+    //   운영자가 DocUtil 콘솔에 별도 로그인하지 않아도 된다.
+    //
+    // 인증/권한:
+    //   - AgentHub 측: [Authorize(Roles="Admin,SuperAdmin")] 게이트 (Controller 레벨)
+    //   - DocUtil 측: IDocUtilTokenProvider 의 4단계 폴백으로 운영자 JWT 자동 부착
+    //   - org_id 는 GetOrganizationIdAsync() 가 자동 추출 — 호출자 무관여
+    //
+    // 데이터 소스: DocUtil schema 캡처(2026-05-10) 결과:
+    //   GET /api/v1/users?org_id={uuid}&page&size&role&status&search → UserListResponse
+    //   GET /api/v1/users/{user_id} → UserResponse
+    //   PUT /api/v1/users/{user_id}/status body {status: "active|inactive|locked"} → UserResponse
+    //   DELETE /api/v1/users/{user_id} → 204
+    //
+    // BFF 표면 단순화:
+    //   UserResponse 의 organization_id / language / last_login_at 은 운영자 콘솔 UX 에
+    //   필요하므로 모두 노출. UserResponse 의 모든 필드를 record DocUtilUserSummary /
+    //   DocUtilUserDetail 에 1:1 매핑 (department_id 도 보존 — 향후 10.1b Departments 트랙
+    //   에서 부서명 조인할 예정).
+
+    /// <summary>
+    /// 사용자 목록 — GET /api/v1/users (운영자 콘솔용).
+    /// <para>
+    /// org_id 는 IDocUtilTokenProvider.GetOrganizationIdAsync 로 자동 추출되어
+    /// 호출자(Controller) 가 직접 다루지 않는다.
+    /// </para>
+    /// </summary>
+    /// <param name="page">DocUtil 페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 20, DocUtil 한도 1~100).</param>
+    /// <param name="role">role 필터(선택, 예: "admin", "member").</param>
+    /// <param name="status">status 필터(선택, 예: "active", "inactive", "locked").</param>
+    /// <param name="search">username/email LIKE 검색(선택).</param>
+    Task<DocUtilUserList> ListUsersAsync(
+        int page = 1,
+        int size = 20,
+        string? role = null,
+        string? status = null,
+        string? search = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 사용자 상세 — GET /api/v1/users/{user_id}.
+    /// 404 응답은 null 로 정규화한다(NotFoundException 미사용 — 호출자 분기 단순화).
+    /// </summary>
+    Task<DocUtilUserDetail?> GetUserAsync(
+        string userId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 사용자 상태 변경 — PUT /api/v1/users/{user_id}/status.
+    /// <para>
+    /// status 값은 DocUtil 측이 검증("active" | "inactive" | "locked"). 그 외 값은 422.
+    /// </para>
+    /// 응답은 변경 후의 UserResponse — 호출자가 변경 결과를 즉시 표시할 수 있다.
+    /// </summary>
+    Task<DocUtilUserDetail> UpdateUserStatusAsync(
+        string userId,
+        string status,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 사용자 삭제 — DELETE /api/v1/users/{user_id}.
+    /// <para>
+    /// DocUtil 측이 영구 삭제(204). 본 메서드는 성공 시 반환값 없음, 실패 시 InvalidOperationException.
+    /// </para>
+    /// </summary>
+    Task DeleteUserAsync(
+        string userId,
+        CancellationToken cancellationToken = default);
 }
 
 // ── DocUtil DTO (FastAPI 응답 1:1 매핑, snake_case 직렬화는 DocUtilClient 에서 처리) ──
@@ -192,3 +266,61 @@ public sealed record DocUtilCollection(
     string Id,
     string Name,
     string? Description);
+
+// ── Phase 10.1a (2026-05-10): DocUtil 사용자 BFF DTO ────────────────────────
+//
+// DocUtil OpenAPI(2026-05-10 캡처) UserResponse / UserListResponse 에 1:1 매핑.
+// PascalCase 외부 표면(camelCase JSON), snake_case ↔ JsonNamingPolicy.SnakeCaseLower
+// 직렬화는 DocUtilClient 내부에서 처리한다.
+
+/// <summary>
+/// 사용자 목록 응답 — DocUtil UserListResponse 매핑.
+/// items 는 record array, total/page/size 는 DocUtil 측이 보장하는 페이징 메타.
+/// </summary>
+public sealed record DocUtilUserList(
+    DocUtilUserSummary[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// 사용자 목록 한 행 — DocUtil UserResponse 매핑(요약 표시).
+/// 운영자 콘솔의 표 컬럼에 직접 사용된다.
+/// </summary>
+/// <param name="Id">DocUtil user UUID.</param>
+/// <param name="Username">사용자 표기명(한글 이름 또는 ID 형식).</param>
+/// <param name="Email">사용자 이메일.</param>
+/// <param name="Role">사용자 역할(예: "admin", "member").</param>
+/// <param name="Status">사용자 상태(예: "active", "inactive", "locked").</param>
+/// <param name="OrganizationId">소속 organization UUID.</param>
+/// <param name="DepartmentId">소속 부서 UUID(선택). 향후 10.1b 트랙에서 부서명 조인 예정.</param>
+/// <param name="Language">선호 언어 코드(선택, 예: "ko", "en").</param>
+/// <param name="LastLoginAt">최근 로그인 시각(선택).</param>
+/// <param name="CreatedAt">생성 시각(DocUtil 측은 ins_dt 컬럼을 created_at 으로 alias).</param>
+public sealed record DocUtilUserSummary(
+    string Id,
+    string Username,
+    string Email,
+    string Role,
+    string Status,
+    string OrganizationId,
+    string? DepartmentId,
+    string? Language,
+    DateTime? LastLoginAt,
+    DateTime CreatedAt);
+
+/// <summary>
+/// 사용자 상세 — DocUtil UserResponse 매핑. 본 트랙에서는 Summary 와 동일 필드 셋(전체 노출).
+/// 향후 트랙(10.1b/10.1c)에서 부서명 / 프로젝트 멤버십 등 합성 필드가 추가될 수 있다.
+/// </summary>
+public sealed record DocUtilUserDetail(
+    string Id,
+    string Username,
+    string Email,
+    string Role,
+    string Status,
+    string OrganizationId,
+    string? DepartmentId,
+    string? Language,
+    DateTime? LastLoginAt,
+    DateTime CreatedAt);

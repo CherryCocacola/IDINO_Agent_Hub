@@ -180,6 +180,59 @@ public sealed class DocUtilTokenProvider : IDocUtilTokenProvider
         }
     }
 
+    /// <summary>
+    /// Phase 10.1a — 캐시된 운영자 토큰의 <c>org</c> claim 추출.
+    /// <para>
+    /// 호출 흐름: 매 BFF API 호출마다 GetTokenAsync (fast path: cache hit) 후
+    /// 본 메서드가 캐시 토큰을 디코드하여 organization UUID 반환. JWT 만료/refresh 가
+    /// 발생해도 _cachedAccessToken 이 항상 최신 상태라 일관 동작.
+    /// </para>
+    /// <para>
+    /// ApiKey 모드(영구 키, JWT 가 아님) 또는 디코드 실패 시 null 반환 — 호출자는
+    /// 502 ErrorResponseDto 로 매핑하여 "DocUtil 운영자 자격 확인 필요" 안내.
+    /// </para>
+    /// </summary>
+    public async Task<string?> GetOrganizationIdAsync(CancellationToken cancellationToken = default)
+    {
+        // 토큰이 캐시 적재되도록 먼저 GetTokenAsync 트리거 — fast path 는 캐시 hit.
+        await GetTokenAsync(cancellationToken);
+
+        var token = _cachedAccessToken;
+        if (string.IsNullOrEmpty(token))
+        {
+            return null;
+        }
+
+        return TryDecodeJwtClaim(token, "org");
+    }
+
+    /// <summary>
+    /// JWT payload 에서 단일 string claim 추출. 디코드/파싱 실패 시 null.
+    /// 본 메서드는 ApiKey(JWT 가 아닌 영구 키) 입력 시에도 안전하게 null 을 반환한다(parts.Length &lt; 2).
+    /// </summary>
+    private static string? TryDecodeJwtClaim(string jwt, string claimName)
+    {
+        try
+        {
+            var parts = jwt.Split('.');
+            if (parts.Length < 2) return null;
+            var payload = parts[1].Replace('-', '+').Replace('_', '/');
+            payload += new string('=', (4 - payload.Length % 4) % 4);
+            var bytes = Convert.FromBase64String(payload);
+            using var doc = JsonDocument.Parse(bytes);
+            if (doc.RootElement.TryGetProperty(claimName, out var el)
+                && el.ValueKind == JsonValueKind.String)
+            {
+                return el.GetString();
+            }
+        }
+        catch
+        {
+            // JWT decode 실패 시 null — 호출자가 502 매핑.
+        }
+        return null;
+    }
+
     private static DateTimeOffset TryDecodeJwtExp(string jwt)
     {
         try

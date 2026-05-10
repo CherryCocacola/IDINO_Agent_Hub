@@ -584,6 +584,224 @@ public class DocUtilClient : IDocUtilClient
     }
 
     // ══════════════════════════════════════════════════════════════════════
+    // 8. ListUsersAsync — GET /api/v1/users (Phase 10.1a, 2026-05-10)
+    //
+    // org_id 자동 부착:
+    //   IDocUtilTokenProvider.GetOrganizationIdAsync 가 운영자 토큰의 `org` claim
+    //   을 추출하여 반환. 추출 실패(ApiKey 모드 / decode 실패) 시 502 매핑(InvalidOperationException).
+    //
+    // 추가 query 파라미터(role/status/search) 는 호출자(Controller) 가 외부에서 받아 전달.
+    // ══════════════════════════════════════════════════════════════════════
+    public async Task<DocUtilUserList> ListUsersAsync(
+        int page = 1,
+        int size = 20,
+        string? role = null,
+        string? status = null,
+        string? search = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 100) size = 20;
+
+        var orgId = await _tokenProvider.GetOrganizationIdAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(orgId))
+        {
+            // 운영자 자격이 JWT 가 아닌 영구 ApiKey 만 등록된 경우 또는 토큰 디코드 실패.
+            // 한국어 메시지 — Controller 가 502 ErrorResponseDto 로 매핑.
+            throw new InvalidOperationException(
+                "DocUtil 운영자 토큰에서 organization_id 를 추출할 수 없습니다. " +
+                "ServiceUsername/ServicePassword 또는 JwtToken 설정을 확인하세요.");
+        }
+
+        var queryParts = new List<string>
+        {
+            $"org_id={Uri.EscapeDataString(orgId)}",
+            $"page={page}",
+            $"size={size}",
+        };
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            queryParts.Add($"role={Uri.EscapeDataString(role)}");
+        }
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            queryParts.Add($"status={Uri.EscapeDataString(status)}");
+        }
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            queryParts.Add($"search={Uri.EscapeDataString(search)}");
+        }
+        var path = $"/api/v1/users?{string.Join("&", queryParts)}";
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        _logger.LogDebug(
+            "DocUtil 사용자 목록 호출 - OrgId={OrgId}, Page={Page}, Size={Size}, Role={Role}, Status={Status}, SearchLen={SearchLen}",
+            orgId, page, size, role ?? "(none)", status ?? "(none)", search?.Length ?? 0);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<UserListResponseDto>(stream, JsonOptions, cancellationToken);
+
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 사용자 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var items = (dto.Items ?? Array.Empty<UserResponseDto>())
+            .Select(MapUserSummary)
+            .ToArray();
+
+        return new DocUtilUserList(items, dto.Total, dto.Page, dto.Size);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // 9. GetUserAsync — GET /api/v1/users/{user_id} (404 → null)
+    // ══════════════════════════════════════════════════════════════════════
+    public async Task<DocUtilUserDetail?> GetUserAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new ArgumentException("userId 가 비어있습니다.", nameof(userId));
+        }
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        var path = $"/api/v1/users/{Uri.EscapeDataString(userId)}";
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            _logger.LogDebug("DocUtil 사용자 미존재 - UserId={UserId}", userId);
+            return null;
+        }
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<UserResponseDto>(stream, JsonOptions, cancellationToken);
+
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 사용자 상세 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapUserDetail(dto);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // 10. UpdateUserStatusAsync — PUT /api/v1/users/{user_id}/status
+    //
+    // body: { "status": "active" | "inactive" | "locked" }
+    // 응답: 변경된 UserResponse — 호출자가 UI 즉시 반영.
+    // ══════════════════════════════════════════════════════════════════════
+    public async Task<DocUtilUserDetail> UpdateUserStatusAsync(
+        string userId,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new ArgumentException("userId 가 비어있습니다.", nameof(userId));
+        }
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            throw new ArgumentException("status 가 비어있습니다.", nameof(status));
+        }
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        var path = $"/api/v1/users/{Uri.EscapeDataString(userId)}/status";
+
+        var body = new Dictionary<string, object?>
+        {
+            ["status"] = status,
+        };
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 사용자 상태 변경 호출 - UserId={UserId}, Status={Status}", userId, status);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<UserResponseDto>(stream, JsonOptions, cancellationToken);
+
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 사용자 상태 변경 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapUserDetail(dto);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // 11. DeleteUserAsync — DELETE /api/v1/users/{user_id}
+    // ══════════════════════════════════════════════════════════════════════
+    public async Task DeleteUserAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new ArgumentException("userId 가 비어있습니다.", nameof(userId));
+        }
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        var path = $"/api/v1/users/{Uri.EscapeDataString(userId)}";
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
+
+        _logger.LogInformation("DocUtil 사용자 삭제 호출 - UserId={UserId}", userId);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        // 204 NoContent / 200 OK 모두 성공으로 인정. 그 외는 한국어 예외.
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    // ── Phase 10.1a UserResponse → record 매핑 헬퍼 ────────────────────────
+    private static DocUtilUserSummary MapUserSummary(UserResponseDto dto)
+        => new(
+            dto.Id ?? string.Empty,
+            dto.Username ?? string.Empty,
+            dto.Email ?? string.Empty,
+            dto.Role ?? string.Empty,
+            dto.Status ?? string.Empty,
+            dto.OrganizationId ?? string.Empty,
+            dto.DepartmentId,
+            dto.Language,
+            dto.LastLoginAt,
+            dto.CreatedAt);
+
+    private static DocUtilUserDetail MapUserDetail(UserResponseDto dto)
+        => new(
+            dto.Id ?? string.Empty,
+            dto.Username ?? string.Empty,
+            dto.Email ?? string.Empty,
+            dto.Role ?? string.Empty,
+            dto.Status ?? string.Empty,
+            dto.OrganizationId ?? string.Empty,
+            dto.DepartmentId,
+            dto.Language,
+            dto.LastLoginAt,
+            dto.CreatedAt);
+
+    // ══════════════════════════════════════════════════════════════════════
     // 헬퍼
     // ══════════════════════════════════════════════════════════════════════
 
@@ -770,5 +988,31 @@ public class DocUtilClient : IDocUtilClient
     public sealed class CachedCollectionListDto
     {
         public DocUtilCollection[]? Items { get; set; }
+    }
+
+    // ── Phase 10.1a (2026-05-10): DocUtil Users API 응답 매핑 DTO ───────────
+    // OpenAPI 캡처 결과 UserResponse / UserListResponse schema 에 1:1 매핑.
+    // ins_dt → created_at alias 는 DocUtil 측이 처리(2026-05-10 schema 검증 완료).
+
+    private sealed class UserListResponseDto
+    {
+        [JsonPropertyName("items")] public UserResponseDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    private sealed class UserResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("username")] public string? Username { get; set; }
+        [JsonPropertyName("email")] public string? Email { get; set; }
+        [JsonPropertyName("role")] public string? Role { get; set; }
+        [JsonPropertyName("status")] public string? Status { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("department_id")] public string? DepartmentId { get; set; }
+        [JsonPropertyName("language")] public string? Language { get; set; }
+        [JsonPropertyName("last_login_at")] public DateTime? LastLoginAt { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
     }
 }

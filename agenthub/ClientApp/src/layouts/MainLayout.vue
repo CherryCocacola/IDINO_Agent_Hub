@@ -235,6 +235,7 @@ const expandedCategories = ref<Record<string, boolean>>({
   management: false,
   analytics: false,
   system: false,
+  docutil: false,
   admin: false,
   settings: false
 })
@@ -310,6 +311,23 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
   // Phase 5: analytics 카테고리는 모든 항목이 Admin 전용이므로 admin 으로 통합 이동 → 카테고리 자체 제거
   // Phase 5: system 카테고리는 모든 항목이 admin 으로 이동 + Phase 2 자체 KB drop 잔재(/knowledge-base) 메뉴 제거 → 카테고리 자체 제거
   //         (라우트는 후속 트랙 C-1 에서 일괄 제거. SPA fallback 유지로 북마크 호환)
+  // Phase 10.1a (2026-05-10): DocUtil 운영 카테고리 신설 — Admin/SuperAdmin 전용.
+  //   본 트랙(10.1a)에서 사용자 1개 항목만 추가. 후속 10.1b(부서) / 10.1c(프로젝트)
+  //   트랙에서 같은 카테고리에 항목이 추가됨.
+  {
+    id: 'docutil',
+    name: t('nav.categories.docutil'),
+    icon: 'bi bi-database',
+    roles: ['Admin', 'SuperAdmin'],
+    items: [
+      {
+        name: t('nav.docutilUsers'),
+        path: '/admin/docutil-users',
+        icon: 'bi bi-people',
+        roles: ['Admin', 'SuperAdmin']
+      }
+    ]
+  },
   {
     id: 'admin',
     name: t('nav.categories.admin'),

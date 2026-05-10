@@ -203,6 +203,126 @@ export async function listCollections(
   return data
 }
 
+// ─── Phase 10.1a (2026-05-10): DocUtil 사용자 운영자 BFF ────────────────────
+//
+// 진입점: AgentHub `/api/admin/docutil/users[/{id}[/status]]` (Phase 10.1a 신설 컨트롤러)
+//
+// 인증/권한:
+//   - 컨트롤러 레벨 [Authorize(Roles="Admin,SuperAdmin")] — Bearer 미부착/비-Admin → 401/403
+//   - DocUtil 측 운영자 토큰은 IDocUtilTokenProvider 4단계 폴백으로 자동 부착(BFF 내부)
+//
+// 데이터 소스: DocUtil OpenAPI(2026-05-10 캡처) UserResponse / UserListResponse 매핑.
+//   GET /api/v1/users → AgentHub /api/admin/docutil/users
+//   GET /api/v1/users/{id} → AgentHub /api/admin/docutil/users/{id}
+//   PUT /api/v1/users/{id}/status → AgentHub /api/admin/docutil/users/{id}/status
+//   DELETE /api/v1/users/{id} → AgentHub /api/admin/docutil/users/{id}
+
+/** DocUtil 사용자 한 행 — 목록/상세 공통(camelCase 직렬화). */
+export interface DocUtilUserSummary {
+  /** DocUtil user UUID. */
+  id: string
+  /** 사용자 표기명(한글 이름 또는 ID 형식). */
+  username: string
+  /** 사용자 이메일. */
+  email: string
+  /** 사용자 역할(예: "admin", "member"). */
+  role: string
+  /** 사용자 상태(예: "active", "inactive", "locked"). */
+  status: string
+  /** 소속 organization UUID. */
+  organizationId: string
+  /** 소속 부서 UUID(선택). 향후 10.1b 트랙에서 부서명 조인 예정. */
+  departmentId: string | null
+  /** 선호 언어 코드(선택). */
+  language: string | null
+  /** 최근 로그인 시각(선택, ISO 8601). */
+  lastLoginAt: string | null
+  /** 생성 시각(ISO 8601). */
+  createdAt: string
+}
+
+/** DocUtil 사용자 상세(현재 트랙은 Summary 와 동일 셋). */
+export type DocUtilUserDetail = DocUtilUserSummary
+
+/** 사용자 목록 응답. */
+export interface DocUtilUserList {
+  items: DocUtilUserSummary[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 상태 변경 시 허용되는 값 — 백엔드 화이트리스트와 일치. */
+export type DocUtilUserStatus = 'active' | 'inactive' | 'locked'
+
+const USERS_BASE = '/admin/docutil'
+
+/**
+ * DocUtil 사용자 목록 조회 — 페이지/검색/필터.
+ * @param page   1-based 페이지 번호(기본 1).
+ * @param size   페이지 크기(1~100, 기본 20).
+ * @param search username/email LIKE 검색(선택).
+ * @param role   role 필터(선택, 예: "admin", "member").
+ * @param status status 필터(선택, 예: "active", "inactive", "locked").
+ */
+export async function listUsers(
+  page: number = 1,
+  size: number = 20,
+  search?: string,
+  role?: string,
+  status?: string
+): Promise<DocUtilUserList> {
+  const params: Record<string, string | number> = { page, size }
+  if (search) params.search = search
+  if (role) params.role = role
+  if (status) params.status = status
+  const { data } = await api.get<DocUtilUserList>(`${USERS_BASE}/users`, { params })
+  return data
+}
+
+/**
+ * DocUtil 사용자 상세 조회. 404 응답은 null 로 정규화한다.
+ */
+export async function getUser(id: string): Promise<DocUtilUserDetail | null> {
+  try {
+    const { data } = await api.get<DocUtilUserDetail>(
+      `${USERS_BASE}/users/${encodeURIComponent(id)}`
+    )
+    return data
+  } catch (err: unknown) {
+    if (typeof err === 'object' && err !== null && 'response' in err) {
+      const resp = (err as { response?: { status?: number } }).response
+      if (resp?.status === 404) {
+        return null
+      }
+    }
+    throw err
+  }
+}
+
+/**
+ * DocUtil 사용자 상태 변경(active ↔ inactive ↔ locked).
+ * 백엔드가 화이트리스트 검증 + 캐시 일괄 무효화(version-key bump) 수행.
+ */
+export async function updateUserStatus(
+  id: string,
+  status: DocUtilUserStatus
+): Promise<DocUtilUserDetail> {
+  const { data } = await api.put<DocUtilUserDetail>(
+    `${USERS_BASE}/users/${encodeURIComponent(id)}/status`,
+    { status }
+  )
+  return data
+}
+
+/**
+ * DocUtil 사용자 삭제. 백엔드 204 NoContent — 반환값 없음.
+ * 성공 시 백엔드가 캐시 일괄 무효화.
+ */
+export async function deleteUser(id: string): Promise<void> {
+  await api.delete(`${USERS_BASE}/users/${encodeURIComponent(id)}`)
+}
+
 export default {
   listDocuments,
   uploadDocument,
@@ -210,5 +330,9 @@ export default {
   deleteDocument,
   getChunks,
   search,
-  listCollections
+  listCollections,
+  listUsers,
+  getUser,
+  updateUserStatus,
+  deleteUser
 }
