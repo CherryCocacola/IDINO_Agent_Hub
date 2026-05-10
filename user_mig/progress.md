@@ -218,7 +218,7 @@
     - **D 권한 게이트 3/3 PASS**: D1 GET search-scopes (Bearer 미부착) 401 / D1b GET evaluation/config (Bearer 미부착) 401 / D2 GET search-scopes (bogus JWT) 401.
     - **E 직전 회귀 9/9 PASS**: E1 GET /api/agents/1 200 103ms (b3a2d85 6 신규 필드) / E2 /admin/metrics/rag 200 23ms / E3 /admin/knowledge-base/documents 200 99ms (Phase 6.3) / E4 /admin/knowledge-base/collections 200 44ms (294e8a6) / E5 /admin/docutil/users 200 68ms (10.1a) / E6 /admin/docutil/departments 200 55ms (10.1b) / E7 /admin/docutil/projects 200 55ms (10.1c) / E8 /admin/docutil/dashboard/metrics 200 73ms (10.2a) / E9 /admin/docutil/audit-logs 200 82ms (10.2a).
 - **외부 동작 변경 0** — 기존 `IDocUtilClient` 시그니처 보존(신규 15 추가만) + `<script setup lang="ts">` + `@ts-nocheck` 미부착 / vue-tsc 2.x errors=0 / DI 수명주기 보존(DocUtilClient Scoped / IDocUtilTokenProvider Singleton / CachingService Singleton) / 기존 라우트 변경 0 / Phase 10.1a~c + 10.2a 회귀 모두 PASS / 시연 안정성 100%.
-- **마지막 commit**: 본 작업 후 추가 예정.
+- **마지막 commit**: `ffcf106` (`[agenthub/docutil-admin] Phase 10.2b — DocUtil 검색범위/평가 운영자 BFF + Vue (15 endpoint)`).
 - **다음 트랙**: 사용자 결정 대기 — 후보: Phase 10.2c(FAQ + Reports + Templates BFF 통합 — DocUtil OpenAPI 의 잔여 운영자 endpoint) / 또는 Phase 6 잔여 작업 / DocUtil evaluation/logs Pydantic 버그는 DocUtil 측 별도 트랙으로 격리 처리 권장.
 
 ### 2026-05-10 (Phase 10.2a — DocUtil 대시보드 + 감사 로그 운영자 BFF + Vue 콘솔 완료)
