@@ -773,6 +773,186 @@ public interface IDocUtilClient
     Task<DocUtilEvaluationTrend> GetEvaluationTrendAsync(
         int days = 30,
         CancellationToken cancellationToken = default);
+
+    // ── Phase 10.2c (2026-05-11): DocUtil FAQ + Reports + Templates 운영자 BFF — 14 메서드 ──
+    //
+    // 통합 비전 매핑(P1 Control Plane / P5 인증 / R2 단일 진입점):
+    //   AgentHub 운영자 콘솔이 DocUtil 의 FAQ(질문/답변 카탈로그) + Reports(보고서 생성/이력) +
+    //   Report Templates(보고서 템플릿 카탈로그) 까지 단일 진입점에서 운영. Phase 10.1/10.2a/10.2b
+    //   와 동일 BFF 패턴.
+    //
+    // DocUtil OpenAPI 캡처(2026-05-11) 매핑:
+    //   FAQ (5):
+    //     GET    /api/v1/faq?page&size&scope_id?&category?&q?               → FAQListResponse
+    //     POST   /api/v1/faq               (FAQCreate)                       → FAQResponse 201
+    //     GET    /api/v1/faq/{faq_id}                                        → FAQResponse
+    //     PUT    /api/v1/faq/{faq_id}      (FAQUpdate)                       → FAQResponse
+    //     DELETE /api/v1/faq/{faq_id}                                        → 204
+    //   Reports (5):
+    //     GET    /api/v1/reports?page&size                                   → GeneratedReportListResponse
+    //     POST   /api/v1/reports/generate  (ReportGenerateRequest)           → free-form 응답(202/410 가능)
+    //     GET    /api/v1/reports/{report_id}                                 → GeneratedReportResponse
+    //     DELETE /api/v1/reports/{report_id}                                 → 204
+    //     GET    /api/v1/reports/{report_id}/download                        → binary stream
+    //   Report Templates (4):
+    //     GET    /api/v1/reports/templates?page&size                         → ReportTemplateListResponse
+    //     GET    /api/v1/reports/templates/{template_id}                     → ReportTemplateResponse
+    //     POST   /api/v1/reports/templates (multipart/form-data — name/format/description?/file?) → ReportTemplateResponse
+    //     PUT    /api/v1/reports/templates/{template_id} (ReportTemplateUpdate — name?/description?) → ReportTemplateResponse
+    //     DELETE /api/v1/reports/templates/{template_id}                     → 204
+    //
+    // 주의(추정 금지 — OpenAPI 캡처 결과):
+    //   - POST /reports/generate / POST PUT DELETE /templates 의 OpenAPI 응답 코드가 "410" 으로
+    //     명시되어 있음(deprecate 표식일 가능성). 본 클라이언트는 4xx/5xx 를 InvalidOperationException
+    //     으로 변환하므로 호출자가 502 한국어로 인식. 라이브 호출 결과를 e2e 검증 단계에서 확인.
+    //   - POST /reports/templates 는 multipart/form-data — JSON 이 아님. 호출자가 fileStream 제공 가능.
+    //   - GET /api/v1/reports 에 status 필터 query param 없음(page/size 만). status 별 분류는 클라이언트 측 처리.
+    //   - GET /api/v1/faq 에 scope_id/category/q 필터 query param 존재.
+
+    // ── FAQ (5) ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// FAQ 목록 — GET /api/v1/faq (페이징 + 검색/카테고리/스코프 필터).
+    /// </summary>
+    /// <param name="page">DocUtil 페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 20, DocUtil 한도 1~100).</param>
+    /// <param name="scopeId">검색 범위 필터(UUID, 선택).</param>
+    /// <param name="category">카테고리 필터(선택).</param>
+    /// <param name="q">질문/답변 텍스트 LIKE 검색(선택).</param>
+    Task<DocUtilFaqList> ListFaqsAsync(
+        int page = 1,
+        int size = 20,
+        string? scopeId = null,
+        string? category = null,
+        string? q = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// FAQ 상세 — GET /api/v1/faq/{faq_id}.
+    /// 404 응답은 null 로 정규화.
+    /// </summary>
+    Task<DocUtilFaqDetail?> GetFaqAsync(
+        string faqId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// FAQ 생성 — POST /api/v1/faq (FAQCreate).
+    /// </summary>
+    Task<DocUtilFaqDetail> CreateFaqAsync(
+        DocUtilCreateFaqRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// FAQ 수정 — PUT /api/v1/faq/{faq_id} (FAQUpdate, partial).
+    /// </summary>
+    Task<DocUtilFaqDetail> UpdateFaqAsync(
+        string faqId,
+        DocUtilUpdateFaqRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// FAQ 삭제 — DELETE /api/v1/faq/{faq_id} (204).
+    /// </summary>
+    Task DeleteFaqAsync(
+        string faqId,
+        CancellationToken cancellationToken = default);
+
+    // ── Reports (5) ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 보고서 목록 — GET /api/v1/reports (페이징).
+    /// <para>OpenAPI 에 status 필터 없음 — 클라이언트 측에서 GeneratedReportResponse.Status 로 필터.</para>
+    /// </summary>
+    /// <param name="page">DocUtil 페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 20, DocUtil 한도 1~100).</param>
+    Task<DocUtilReportList> ListReportsAsync(
+        int page = 1,
+        int size = 20,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보고서 상세 — GET /api/v1/reports/{report_id}.
+    /// 404 응답은 null 로 정규화.
+    /// </summary>
+    Task<DocUtilReportDetail?> GetReportAsync(
+        string reportId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보고서 생성 — POST /api/v1/reports/generate (ReportGenerateRequest).
+    /// <para>
+    /// 응답은 schema 미정의(free-form). 비동기 job 가능성 — 본 메서드는 raw dict 로 노출.
+    /// 호출자(Controller) 가 status/id 등을 그대로 운영자 콘솔에 전달.
+    /// </para>
+    /// </summary>
+    Task<DocUtilReportGenerationResponse> GenerateReportAsync(
+        DocUtilGenerateReportRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보고서 삭제 — DELETE /api/v1/reports/{report_id} (204).
+    /// </summary>
+    Task DeleteReportAsync(
+        string reportId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보고서 다운로드 — GET /api/v1/reports/{report_id}/download (binary stream).
+    /// <para>
+    /// 응답은 stream(파일 본문). Content-Type / Content-Disposition 헤더 메타가 함께 캡처되어
+    /// DocUtilReportDownload 안에 전달된다. 호출자(Controller)가 FileStreamResult 로 그대로 흘려보낸다.
+    /// Stream 은 호출자가 Dispose 책임을 갖는다 — HttpResponseOwnedStream 으로 wrap.
+    /// </para>
+    /// </summary>
+    Task<DocUtilReportDownload> DownloadReportAsync(
+        string reportId,
+        CancellationToken cancellationToken = default);
+
+    // ── Report Templates (4) ───────────────────────────────────────────────
+
+    /// <summary>
+    /// 보고서 템플릿 목록 — GET /api/v1/reports/templates (페이징).
+    /// </summary>
+    Task<DocUtilReportTemplateList> ListReportTemplatesAsync(
+        int page = 1,
+        int size = 20,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보고서 템플릿 상세 — GET /api/v1/reports/templates/{template_id}.
+    /// 404 응답은 null 로 정규화.
+    /// </summary>
+    Task<DocUtilReportTemplateDetail?> GetReportTemplateAsync(
+        string templateId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보고서 템플릿 생성 — POST /api/v1/reports/templates (multipart/form-data).
+    /// <para>
+    /// fileStream 이 null 이면 이름/설명/format 만 등록(파일 미첨부). non-null 이면 multipart 의 file 필드에 부착.
+    /// fileStream 은 호출자(Controller) 가 소유 — 본 클라이언트는 Read 만 한다(자동 Dispose 금지).
+    /// </para>
+    /// </summary>
+    Task<DocUtilReportTemplateDetail> CreateReportTemplateAsync(
+        DocUtilCreateReportTemplateRequest request,
+        Stream? fileStream,
+        string? fileName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보고서 템플릿 수정 — PUT /api/v1/reports/templates/{template_id} (ReportTemplateUpdate — name?/description? partial).
+    /// </summary>
+    Task<DocUtilReportTemplateDetail> UpdateReportTemplateAsync(
+        string templateId,
+        DocUtilUpdateReportTemplateRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보고서 템플릿 삭제 — DELETE /api/v1/reports/templates/{template_id} (204).
+    /// </summary>
+    Task DeleteReportTemplateAsync(
+        string templateId,
+        CancellationToken cancellationToken = default);
 }
 
 // ── DocUtil DTO (FastAPI 응답 1:1 매핑, snake_case 직렬화는 DocUtilClient 에서 처리) ──
@@ -1563,3 +1743,255 @@ public sealed record DocUtilEvaluationTrendDataPoint(
 /// </summary>
 public sealed record DocUtilEvaluationTrend(
     DocUtilEvaluationTrendDataPoint[] Data);
+
+// ── Phase 10.2c (2026-05-11): DocUtil FAQ + Reports + Templates BFF DTO ───
+//
+// DocUtil OpenAPI(2026-05-11 캡처) FAQResponse / FAQListResponse / FAQCreate / FAQUpdate /
+// GeneratedReportResponse / GeneratedReportListResponse / ReportGenerateRequest /
+// ReportTemplateResponse / ReportTemplateListResponse / ReportTemplateUpdate /
+// Body_create_template_api_v1_reports_templates_post 에 1:1 매핑.
+// PascalCase 외부 표면(camelCase JSON), snake_case ↔ JsonNamingPolicy.SnakeCaseLower
+// 직렬화는 DocUtilClient 내부에서 처리한다.
+
+// ── FAQ (5) ────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// FAQ 한 행(목록 표시용 요약) — DocUtil FAQResponse 와 1:1 (10 필드).
+/// </summary>
+/// <param name="Id">FAQ UUID.</param>
+/// <param name="SearchScopeId">바인딩된 검색 범위 UUID(없으면 null).</param>
+/// <param name="OrganizationId">조직 UUID.</param>
+/// <param name="Question">질문 텍스트.</param>
+/// <param name="Answer">답변 텍스트.</param>
+/// <param name="Category">카테고리(없으면 null).</param>
+/// <param name="DisplayOrder">표시 순서(0~).</param>
+/// <param name="IsActive">활성 여부.</param>
+/// <param name="CreatedAt">생성 시각.</param>
+/// <param name="UpdatedAt">수정 시각.</param>
+public sealed record DocUtilFaq(
+    string Id,
+    string? SearchScopeId,
+    string OrganizationId,
+    string Question,
+    string Answer,
+    string? Category,
+    int DisplayOrder,
+    bool IsActive,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+/// <summary>
+/// FAQ 상세(요약과 동일 셋 — 의미적 분리를 위해 별도 record 정의).
+/// </summary>
+public sealed record DocUtilFaqDetail(
+    string Id,
+    string? SearchScopeId,
+    string OrganizationId,
+    string Question,
+    string Answer,
+    string? Category,
+    int DisplayOrder,
+    bool IsActive,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+/// <summary>
+/// FAQ 목록 응답 — DocUtil FAQListResponse 매핑.
+/// </summary>
+public sealed record DocUtilFaqList(
+    DocUtilFaq[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// FAQ 생성 요청 — DocUtil FAQCreate 매핑.
+/// <para>question/answer 필수. category/display_order/search_scope_id 는 선택.</para>
+/// </summary>
+public sealed record DocUtilCreateFaqRequest(
+    string Question,
+    string Answer,
+    string? Category = null,
+    int? DisplayOrder = null,
+    string? SearchScopeId = null);
+
+/// <summary>
+/// FAQ 수정 요청 — DocUtil FAQUpdate 매핑(모두 nullable, partial).
+/// </summary>
+public sealed record DocUtilUpdateFaqRequest(
+    string? Question = null,
+    string? Answer = null,
+    string? Category = null,
+    int? DisplayOrder = null,
+    bool? IsActive = null);
+
+// ── Reports (5) ────────────────────────────────────────────────────────────
+
+/// <summary>
+/// 보고서 한 행(목록 표시용) — DocUtil GeneratedReportResponse 매핑(15 필드).
+/// </summary>
+/// <param name="Id">보고서 UUID.</param>
+/// <param name="TemplateId">사용된 템플릿 UUID(없으면 null — free-form 생성).</param>
+/// <param name="OrganizationId">조직 UUID.</param>
+/// <param name="Title">보고서 제목.</param>
+/// <param name="Status">생성 상태(pending/generating/completed/failed 등 — DocUtil 측 free-form).</param>
+/// <param name="OutputFormat">출력 포맷(docx/pdf/html/hwp/hwpx).</param>
+/// <param name="OutputStoragePath">생성된 파일 저장 경로(없으면 null).</param>
+/// <param name="SourceDocumentIds">근거 문서 ID 배열(없으면 null).</param>
+/// <param name="SourceChatSessionId">근거 채팅 세션 UUID(없으면 null).</param>
+/// <param name="GenerationParams">생성 파라미터 free-form dict(없으면 null).</param>
+/// <param name="RenderingMode">렌더링 모드(없으면 null).</param>
+/// <param name="Jinja2Context">Jinja2 컨텍스트 free-form dict(없으면 null).</param>
+/// <param name="ErrorMessage">실패 시 에러 메시지(없으면 null).</param>
+/// <param name="GeneratedBy">생성자 UUID.</param>
+/// <param name="CreatedAt">생성 시각.</param>
+/// <param name="CompletedAt">완료 시각(없으면 null — 생성 중).</param>
+public sealed record DocUtilReport(
+    string Id,
+    string? TemplateId,
+    string OrganizationId,
+    string Title,
+    string Status,
+    string OutputFormat,
+    string? OutputStoragePath,
+    string[]? SourceDocumentIds,
+    string? SourceChatSessionId,
+    IDictionary<string, object?>? GenerationParams,
+    string? RenderingMode,
+    IDictionary<string, object?>? Jinja2Context,
+    string? ErrorMessage,
+    string GeneratedBy,
+    DateTime CreatedAt,
+    DateTime? CompletedAt);
+
+/// <summary>
+/// 보고서 상세 — 요약과 동일 셋(의미적 분리).
+/// </summary>
+public sealed record DocUtilReportDetail(
+    string Id,
+    string? TemplateId,
+    string OrganizationId,
+    string Title,
+    string Status,
+    string OutputFormat,
+    string? OutputStoragePath,
+    string[]? SourceDocumentIds,
+    string? SourceChatSessionId,
+    IDictionary<string, object?>? GenerationParams,
+    string? RenderingMode,
+    IDictionary<string, object?>? Jinja2Context,
+    string? ErrorMessage,
+    string GeneratedBy,
+    DateTime CreatedAt,
+    DateTime? CompletedAt);
+
+/// <summary>
+/// 보고서 목록 응답 — DocUtil GeneratedReportListResponse 매핑.
+/// </summary>
+public sealed record DocUtilReportList(
+    DocUtilReport[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// 보고서 생성 요청 — DocUtil ReportGenerateRequest 매핑.
+/// <para>title 필수(1~500자). 그 외 모두 선택.</para>
+/// </summary>
+public sealed record DocUtilGenerateReportRequest(
+    string Title,
+    string? TemplateId = null,
+    string? OutputFormat = null,
+    string[]? SourceDocumentIds = null,
+    string? SourceChatSessionId = null,
+    IDictionary<string, object?>? GenerationParams = null);
+
+/// <summary>
+/// 보고서 생성 응답 — DocUtil 측 schema 미정의(free-form, 비동기 job 가능성).
+/// dict 로 보존하여 호출자가 status/id 등 그대로 전달.
+/// </summary>
+public sealed record DocUtilReportGenerationResponse(
+    IDictionary<string, object?> Data);
+
+/// <summary>
+/// 보고서 다운로드 응답 — binary stream + 헤더 메타.
+/// <para>
+/// 호출자(Controller) 가 FileStreamResult 로 그대로 흘려보낸다.
+/// Stream 은 호출자가 Dispose 책임을 갖는다(using 으로 감싸면 됨).
+/// </para>
+/// </summary>
+/// <param name="Stream">DocUtil 응답 본문 stream.</param>
+/// <param name="ContentType">Content-Type 헤더(application/pdf, application/vnd.openxmlformats-officedocument.* 등).</param>
+/// <param name="FileName">Content-Disposition 의 filename(없으면 fallback "report-{id}").</param>
+public sealed record DocUtilReportDownload(
+    Stream Stream,
+    string ContentType,
+    string FileName);
+
+// ── Report Templates (6) ───────────────────────────────────────────────────
+
+/// <summary>
+/// 보고서 템플릿 한 행(목록 표시용 요약) — DocUtil ReportTemplateResponse 매핑(10 필드).
+/// </summary>
+/// <param name="Id">템플릿 UUID.</param>
+/// <param name="OrganizationId">조직 UUID.</param>
+/// <param name="Name">템플릿 이름.</param>
+/// <param name="Description">설명(없으면 null).</param>
+/// <param name="Format">템플릿 포맷(docx/pdf/html/hwp/hwpx 등).</param>
+/// <param name="TemplateStoragePath">템플릿 파일 저장 경로(없으면 null).</param>
+/// <param name="Schema">템플릿 스키마 free-form dict(없으면 null).</param>
+/// <param name="CreatedBy">생성자 UUID.</param>
+/// <param name="CreatedAt">생성 시각.</param>
+/// <param name="UpdatedAt">수정 시각.</param>
+public sealed record DocUtilReportTemplate(
+    string Id,
+    string OrganizationId,
+    string Name,
+    string? Description,
+    string Format,
+    string? TemplateStoragePath,
+    IDictionary<string, object?>? Schema,
+    string CreatedBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+/// <summary>
+/// 보고서 템플릿 상세 — 요약과 동일 셋(의미적 분리).
+/// </summary>
+public sealed record DocUtilReportTemplateDetail(
+    string Id,
+    string OrganizationId,
+    string Name,
+    string? Description,
+    string Format,
+    string? TemplateStoragePath,
+    IDictionary<string, object?>? Schema,
+    string CreatedBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+/// <summary>
+/// 보고서 템플릿 목록 응답 — DocUtil ReportTemplateListResponse 매핑.
+/// </summary>
+public sealed record DocUtilReportTemplateList(
+    DocUtilReportTemplate[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// 보고서 템플릿 생성 요청 — DocUtil Body_create_template_api_v1_reports_templates_post 매핑.
+/// <para>multipart/form-data — name/format/description/file 4 필드. file 은 별도 Stream 으로 전달.</para>
+/// </summary>
+public sealed record DocUtilCreateReportTemplateRequest(
+    string Name,
+    string Format,
+    string? Description = null);
+
+/// <summary>
+/// 보고서 템플릿 수정 요청 — DocUtil ReportTemplateUpdate 매핑(name? + description? partial).
+/// <para>OpenAPI 에 따르면 format / file 은 PUT 으로 변경 불가 — 메타만 갱신.</para>
+/// </summary>
+public sealed record DocUtilUpdateReportTemplateRequest(
+    string? Name = null,
+    string? Description = null);

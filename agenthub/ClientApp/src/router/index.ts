@@ -217,6 +217,20 @@ const routes = [
         component: () => import('@/views/admin/AdminDocUtilEvaluation.vue'),
         meta: { requiresAuth: true, role: 'Admin' }
       },
+      // Phase 10.2c (2026-05-11): DocUtil FAQ 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-faq',
+        name: 'AdminDocUtilFaq',
+        component: () => import('@/views/admin/AdminDocUtilFaq.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
+      // Phase 10.2c (2026-05-11): DocUtil 보고서/템플릿 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-reports',
+        name: 'AdminDocUtilReports',
+        component: () => import('@/views/admin/AdminDocUtilReports.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
       {
         path: 'reports',
         name: 'Reports',

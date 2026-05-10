@@ -363,6 +363,19 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         path: '/admin/docutil-evaluation',
         icon: 'bi bi-clipboard-check',
         roles: ['Admin', 'SuperAdmin']
+      },
+      // Phase 10.2c (2026-05-11): DocUtil FAQ + 보고서 — 콘텐츠/산출물 운영.
+      {
+        name: t('nav.docutilFaq'),
+        path: '/admin/docutil-faq',
+        icon: 'bi bi-question-circle',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      {
+        name: t('nav.docutilReports'),
+        path: '/admin/docutil-reports',
+        icon: 'bi bi-file-earmark-text',
+        roles: ['Admin', 'SuperAdmin']
       }
     ]
   },

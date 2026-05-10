@@ -1322,6 +1322,322 @@ export async function getEvaluationTrend(days: number = 30): Promise<DocUtilEval
   return data
 }
 
+// ─── Phase 10.2c — DocUtil FAQ + Reports + Templates BFF ────────────────────
+//
+// AgentHub `/api/admin/docutil/faq` + `/api/admin/docutil/reports` 진입점.
+// 모두 axios `services/api.ts` 인스턴스 사용 — JWT 자동 부착 + 401 갱신.
+// 백엔드 record DTO 와 1:1 정렬 (camelCase JSON, Program.cs JsonNamingPolicy).
+//
+// 추정 금지 — DocUtil OpenAPI 캡처(2026-05-11) + 백엔드 IDocUtilClient.cs 시그니처 일치.
+
+const FAQ_BASE = '/admin/docutil/faq'
+const REPORTS_BASE = '/admin/docutil/reports'
+
+// ─── FAQ 인터페이스 ──────────────────────────────────────────────────────────
+
+/** FAQ 한 행(목록 표시용 — DocUtilFaq record 매핑). */
+export interface DocUtilFaq {
+  id: string
+  searchScopeId: string | null
+  organizationId: string
+  question: string
+  answer: string
+  category: string | null
+  displayOrder: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** FAQ 상세 — Faq 요약과 동일 셋. */
+export type DocUtilFaqDetail = DocUtilFaq
+
+/** FAQ 목록 응답. */
+export interface DocUtilFaqList {
+  items: DocUtilFaq[]
+  total: number
+  page: number
+  size: number
+}
+
+/** FAQ 생성 요청. */
+export interface CreateFaqRequest {
+  question: string
+  answer: string
+  category?: string | null
+  displayOrder?: number | null
+  searchScopeId?: string | null
+}
+
+/** FAQ 수정 요청(모두 nullable, partial). */
+export interface UpdateFaqRequest {
+  question?: string | null
+  answer?: string | null
+  category?: string | null
+  displayOrder?: number | null
+  isActive?: boolean | null
+}
+
+// ─── Reports 인터페이스 ──────────────────────────────────────────────────────
+
+/** 보고서 한 행 — DocUtilReport record 매핑(15 필드). */
+export interface DocUtilReport {
+  id: string
+  templateId: string | null
+  organizationId: string
+  title: string
+  status: string
+  outputFormat: string
+  outputStoragePath: string | null
+  sourceDocumentIds: string[] | null
+  sourceChatSessionId: string | null
+  generationParams: Record<string, unknown> | null
+  renderingMode: string | null
+  jinja2Context: Record<string, unknown> | null
+  errorMessage: string | null
+  generatedBy: string
+  createdAt: string
+  completedAt: string | null
+}
+
+/** 보고서 상세. */
+export type DocUtilReportDetail = DocUtilReport
+
+/** 보고서 목록 응답. */
+export interface DocUtilReportList {
+  items: DocUtilReport[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 보고서 생성 요청. */
+export interface GenerateReportRequest {
+  title: string
+  templateId?: string | null
+  outputFormat?: string | null
+  sourceDocumentIds?: string[] | null
+  sourceChatSessionId?: string | null
+  generationParams?: Record<string, unknown> | null
+}
+
+// ─── Report Templates 인터페이스 ────────────────────────────────────────────
+
+/** 보고서 템플릿 한 행. */
+export interface DocUtilReportTemplate {
+  id: string
+  organizationId: string
+  name: string
+  description: string | null
+  format: string
+  templateStoragePath: string | null
+  schema: Record<string, unknown> | null
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** 보고서 템플릿 상세. */
+export type DocUtilReportTemplateDetail = DocUtilReportTemplate
+
+/** 보고서 템플릿 목록 응답. */
+export interface DocUtilReportTemplateList {
+  items: DocUtilReportTemplate[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 보고서 템플릿 수정 요청(name?/description? partial). */
+export interface UpdateReportTemplateRequest {
+  name?: string | null
+  description?: string | null
+}
+
+// ─── FAQ 함수 (5) ────────────────────────────────────────────────────────────
+
+/** FAQ 목록 조회. */
+export async function listFaqs(
+  page: number = 1,
+  size: number = 20,
+  filters: { scopeId?: string; category?: string; q?: string } = {}
+): Promise<DocUtilFaqList> {
+  const params: Record<string, string | number> = { page, size }
+  if (filters.scopeId && filters.scopeId.trim()) params.scopeId = filters.scopeId.trim()
+  if (filters.category && filters.category.trim()) params.category = filters.category.trim()
+  if (filters.q && filters.q.trim()) params.q = filters.q.trim()
+  const { data } = await api.get<DocUtilFaqList>(`${FAQ_BASE}`, { params })
+  return data
+}
+
+/** FAQ 상세 조회. 404 는 axios 가 throw — 호출자가 try/catch. */
+export async function getFaq(faqId: string): Promise<DocUtilFaqDetail> {
+  const { data } = await api.get<DocUtilFaqDetail>(`${FAQ_BASE}/${faqId}`)
+  return data
+}
+
+/** FAQ 생성. */
+export async function createFaq(request: CreateFaqRequest): Promise<DocUtilFaqDetail> {
+  const { data } = await api.post<DocUtilFaqDetail>(`${FAQ_BASE}`, request)
+  return data
+}
+
+/** FAQ 수정. */
+export async function updateFaq(
+  faqId: string,
+  request: UpdateFaqRequest
+): Promise<DocUtilFaqDetail> {
+  const { data } = await api.put<DocUtilFaqDetail>(`${FAQ_BASE}/${faqId}`, request)
+  return data
+}
+
+/** FAQ 삭제. */
+export async function deleteFaq(faqId: string): Promise<void> {
+  await api.delete(`${FAQ_BASE}/${faqId}`)
+}
+
+// ─── Reports 함수 (5) ────────────────────────────────────────────────────────
+
+/** 보고서 목록 조회. */
+export async function listReports(
+  page: number = 1,
+  size: number = 20,
+  status?: string
+): Promise<DocUtilReportList> {
+  const params: Record<string, string | number> = { page, size }
+  if (status && status.trim()) params.status = status.trim()
+  const { data } = await api.get<DocUtilReportList>(`${REPORTS_BASE}`, { params })
+  return data
+}
+
+/** 보고서 상세 조회. */
+export async function getReport(reportId: string): Promise<DocUtilReportDetail> {
+  const { data } = await api.get<DocUtilReportDetail>(`${REPORTS_BASE}/${reportId}`)
+  return data
+}
+
+/** 보고서 생성(비동기 job 가능성 — 응답은 free-form dict). */
+export async function generateReport(
+  request: GenerateReportRequest
+): Promise<Record<string, unknown>> {
+  const { data } = await api.post<Record<string, unknown>>(
+    `${REPORTS_BASE}/generate`,
+    request
+  )
+  return data
+}
+
+/** 보고서 삭제. */
+export async function deleteReport(reportId: string): Promise<void> {
+  await api.delete(`${REPORTS_BASE}/${reportId}`)
+}
+
+/**
+ * 보고서 다운로드(Blob).
+ * 응답 헤더(Content-Disposition) 의 한국어 파일명도 함께 추출하여 반환.
+ */
+export async function downloadReport(
+  reportId: string
+): Promise<{ blob: Blob; fileName: string; contentType: string }> {
+  const response = await api.get(`${REPORTS_BASE}/${reportId}/download`, {
+    responseType: 'blob'
+  })
+  const contentType =
+    (response.headers?.['content-type'] as string | undefined) ?? 'application/octet-stream'
+  const fileName = parseReportFileName(
+    response.headers?.['content-disposition'] as string | undefined,
+    reportId
+  )
+  return { blob: response.data as Blob, fileName, contentType }
+}
+
+/**
+ * Content-Disposition 헤더에서 filename 추출.
+ * RFC 5987(`filename*=UTF-8''...`) 우선, 없으면 ASCII fallback.
+ */
+function parseReportFileName(disposition: string | undefined, reportId: string): string {
+  const fallback = `report-${reportId}`
+  if (!disposition) return fallback
+
+  const star = /filename\*=(?:UTF-8|utf-8)''([^;]+)/i.exec(disposition)
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''))
+    } catch {
+      // fallthrough
+    }
+  }
+
+  const ascii = /filename="?([^";]+)"?/i.exec(disposition)
+  if (ascii) return ascii[1].trim()
+
+  return fallback
+}
+
+// ─── Report Templates 함수 (5) ───────────────────────────────────────────────
+
+/** 보고서 템플릿 목록 조회. */
+export async function listReportTemplates(
+  page: number = 1,
+  size: number = 20
+): Promise<DocUtilReportTemplateList> {
+  const { data } = await api.get<DocUtilReportTemplateList>(`${REPORTS_BASE}/templates`, {
+    params: { page, size }
+  })
+  return data
+}
+
+/** 보고서 템플릿 상세 조회. */
+export async function getReportTemplate(templateId: string): Promise<DocUtilReportTemplateDetail> {
+  const { data } = await api.get<DocUtilReportTemplateDetail>(
+    `${REPORTS_BASE}/templates/${templateId}`
+  )
+  return data
+}
+
+/**
+ * 보고서 템플릿 생성 — multipart/form-data.
+ * file 은 선택(없으면 이름/설명/format 만 등록).
+ */
+export async function createReportTemplate(
+  name: string,
+  format: string,
+  description?: string,
+  file?: File
+): Promise<DocUtilReportTemplateDetail> {
+  const form = new FormData()
+  form.append('name', name)
+  form.append('format', format)
+  if (description) form.append('description', description)
+  if (file) form.append('file', file, file.name)
+
+  const { data } = await api.post<DocUtilReportTemplateDetail>(
+    `${REPORTS_BASE}/templates`,
+    form,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }
+  )
+  return data
+}
+
+/** 보고서 템플릿 수정(name?/description? partial). */
+export async function updateReportTemplate(
+  templateId: string,
+  request: UpdateReportTemplateRequest
+): Promise<DocUtilReportTemplateDetail> {
+  const { data } = await api.put<DocUtilReportTemplateDetail>(
+    `${REPORTS_BASE}/templates/${templateId}`,
+    request
+  )
+  return data
+}
+
+/** 보고서 템플릿 삭제. */
+export async function deleteReportTemplate(templateId: string): Promise<void> {
+  await api.delete(`${REPORTS_BASE}/templates/${templateId}`)
+}
+
 export default {
   listDocuments,
   uploadDocument,
@@ -1382,5 +1698,21 @@ export default {
   getEvaluationQuestions,
   runEvaluation,
   listEvaluationRuns,
-  getEvaluationTrend
+  getEvaluationTrend,
+  // Phase 10.2c — FAQ + Reports + Templates
+  listFaqs,
+  getFaq,
+  createFaq,
+  updateFaq,
+  deleteFaq,
+  listReports,
+  getReport,
+  generateReport,
+  deleteReport,
+  downloadReport,
+  listReportTemplates,
+  getReportTemplate,
+  createReportTemplate,
+  updateReportTemplate,
+  deleteReportTemplate
 }

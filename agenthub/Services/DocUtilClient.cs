@@ -2722,6 +2722,616 @@ public class DocUtilClient : IDocUtilClient
             dto.CreatedAt);
 
     // ══════════════════════════════════════════════════════════════════════
+    // Phase 10.2c (2026-05-11) — DocUtil FAQ + Reports + Templates BFF 14 메서드
+    //
+    // org_id 자동 부착:
+    //   DocUtil 의 faq / reports / templates 는 token 의 org claim 으로 자동 scope.
+    //   본 클라이언트는 path 에 orgId 명시 X (추정 금지 — OpenAPI 검증 결과 일치).
+    //
+    // 한국어 502 매핑:
+    //   EnsureSuccessOrThrowKoreanAsync 가 4xx/5xx 를 InvalidOperationException 으로
+    //   변환 → Controller 가 502 ErrorResponseDto 한국어 본문으로 응답.
+    //
+    // POST /reports/generate, POST/PUT/DELETE /reports/templates 의 OpenAPI 응답 코드가
+    // "410" 으로 표기되어 있음 — DocUtil 측이 deprecate 표식했을 가능성.
+    // 라이브 호출에서 200/201/202 가 돌아오면 정상 처리, 4xx/5xx 면 502 한국어 매핑.
+    // ══════════════════════════════════════════════════════════════════════
+
+    // ── FAQ (5) ────────────────────────────────────────────────────────────
+
+    public async Task<DocUtilFaqList> ListFaqsAsync(
+        int page = 1,
+        int size = 20,
+        string? scopeId = null,
+        string? category = null,
+        string? q = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 100) size = 20;
+
+        var qb = new List<string> { $"page={page}", $"size={size}" };
+        if (!string.IsNullOrWhiteSpace(scopeId)) qb.Add($"scope_id={Uri.EscapeDataString(scopeId)}");
+        if (!string.IsNullOrWhiteSpace(category)) qb.Add($"category={Uri.EscapeDataString(category)}");
+        if (!string.IsNullOrWhiteSpace(q)) qb.Add($"q={Uri.EscapeDataString(q)}");
+        var path = $"/api/v1/faq?{string.Join("&", qb)}";
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<FaqListResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil FAQ 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        var items = (dto.Items ?? Array.Empty<FaqResponseDto>()).Select(MapFaq).ToArray();
+        return new DocUtilFaqList(items, dto.Total, dto.Page, dto.Size);
+    }
+
+    public async Task<DocUtilFaqDetail?> GetFaqAsync(
+        string faqId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(faqId))
+        {
+            throw new ArgumentException("faqId 가 비어 있습니다.", nameof(faqId));
+        }
+
+        var path = $"/api/v1/faq/{Uri.EscapeDataString(faqId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<FaqResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil FAQ 상세 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapFaqDetail(dto);
+    }
+
+    public async Task<DocUtilFaqDetail> CreateFaqAsync(
+        DocUtilCreateFaqRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Question))
+        {
+            throw new ArgumentException("question 이 비어 있습니다.", nameof(request));
+        }
+        if (string.IsNullOrWhiteSpace(request.Answer))
+        {
+            throw new ArgumentException("answer 가 비어 있습니다.", nameof(request));
+        }
+
+        var body = new FaqCreateRequestDto
+        {
+            Question = request.Question,
+            Answer = request.Answer,
+            Category = request.Category,
+            DisplayOrder = request.DisplayOrder ?? 0,
+            SearchScopeId = request.SearchScopeId,
+        };
+
+        const string path = "/api/v1/faq";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<FaqResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil FAQ 생성 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapFaqDetail(dto);
+    }
+
+    public async Task<DocUtilFaqDetail> UpdateFaqAsync(
+        string faqId,
+        DocUtilUpdateFaqRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(faqId))
+        {
+            throw new ArgumentException("faqId 가 비어 있습니다.", nameof(faqId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+
+        var body = new FaqUpdateRequestDto
+        {
+            Question = request.Question,
+            Answer = request.Answer,
+            Category = request.Category,
+            DisplayOrder = request.DisplayOrder,
+            IsActive = request.IsActive,
+        };
+
+        var path = $"/api/v1/faq/{Uri.EscapeDataString(faqId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<FaqResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil FAQ 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapFaqDetail(dto);
+    }
+
+    public async Task DeleteFaqAsync(
+        string faqId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(faqId))
+        {
+            throw new ArgumentException("faqId 가 비어 있습니다.", nameof(faqId));
+        }
+
+        var path = $"/api/v1/faq/{Uri.EscapeDataString(faqId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    // ── Reports (5) ────────────────────────────────────────────────────────
+
+    public async Task<DocUtilReportList> ListReportsAsync(
+        int page = 1,
+        int size = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 100) size = 20;
+
+        var path = $"/api/v1/reports?page={page}&size={size}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ReportListResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 보고서 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        var items = (dto.Items ?? Array.Empty<ReportResponseDto>()).Select(MapReport).ToArray();
+        return new DocUtilReportList(items, dto.Total, dto.Page, dto.Size);
+    }
+
+    public async Task<DocUtilReportDetail?> GetReportAsync(
+        string reportId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(reportId))
+        {
+            throw new ArgumentException("reportId 가 비어 있습니다.", nameof(reportId));
+        }
+
+        var path = $"/api/v1/reports/{Uri.EscapeDataString(reportId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ReportResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 보고서 상세 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapReportDetail(dto);
+    }
+
+    public async Task<DocUtilReportGenerationResponse> GenerateReportAsync(
+        DocUtilGenerateReportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            throw new ArgumentException("title 이 비어 있습니다.", nameof(request));
+        }
+
+        var body = new ReportGenerateRequestDto
+        {
+            Title = request.Title,
+            TemplateId = request.TemplateId,
+            OutputFormat = string.IsNullOrWhiteSpace(request.OutputFormat) ? "docx" : request.OutputFormat,
+            SourceDocumentIds = request.SourceDocumentIds,
+            SourceChatSessionId = request.SourceChatSessionId,
+            GenerationParams = request.GenerationParams,
+        };
+
+        const string path = "/api/v1/reports/generate";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        // 응답 schema 미정의 — JsonElement 로 받아서 free-form dict 로 변환.
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var element = await JsonSerializer.DeserializeAsync<JsonElement>(stream, JsonOptions, cancellationToken);
+        var dict = ConvertJsonElementToDict(element);
+        return new DocUtilReportGenerationResponse(dict);
+    }
+
+    public async Task DeleteReportAsync(
+        string reportId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(reportId))
+        {
+            throw new ArgumentException("reportId 가 비어 있습니다.", nameof(reportId));
+        }
+
+        var path = $"/api/v1/reports/{Uri.EscapeDataString(reportId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    public async Task<DocUtilReportDownload> DownloadReportAsync(
+        string reportId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(reportId))
+        {
+            throw new ArgumentException("reportId 가 비어 있습니다.", nameof(reportId));
+        }
+
+        var path = $"/api/v1/reports/{Uri.EscapeDataString(reportId)}/download";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        // 본 메서드는 stream 반환 — using 으로 감싸지 않음(호출자 소유, HttpResponseOwnedStream 으로 lifetime 결합).
+
+        _logger.LogInformation("DocUtil 보고서 다운로드 호출 - ReportId={ReportId}", reportId);
+
+        var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            try
+            {
+                await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+            }
+            finally
+            {
+                response.Dispose();
+                httpRequest.Dispose();
+            }
+        }
+
+        var contentType = response.Content.Headers.ContentType?.ToString()
+            ?? "application/octet-stream";
+
+        var disposition = response.Content.Headers.ContentDisposition;
+        var fileName = disposition?.FileNameStar
+            ?? disposition?.FileName?.Trim('"')
+            ?? $"report-{reportId}";
+
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var owned = new HttpResponseOwnedStream(stream, response, httpRequest);
+        return new DocUtilReportDownload(owned, contentType, fileName);
+    }
+
+    // ── Report Templates (5) ───────────────────────────────────────────────
+
+    public async Task<DocUtilReportTemplateList> ListReportTemplatesAsync(
+        int page = 1,
+        int size = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 100) size = 20;
+
+        var path = $"/api/v1/reports/templates?page={page}&size={size}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ReportTemplateListResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 보고서 템플릿 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        var items = (dto.Items ?? Array.Empty<ReportTemplateResponseDto>()).Select(MapReportTemplate).ToArray();
+        return new DocUtilReportTemplateList(items, dto.Total, dto.Page, dto.Size);
+    }
+
+    public async Task<DocUtilReportTemplateDetail?> GetReportTemplateAsync(
+        string templateId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+
+        var path = $"/api/v1/reports/templates/{Uri.EscapeDataString(templateId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ReportTemplateResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 보고서 템플릿 상세 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapReportTemplateDetail(dto);
+    }
+
+    public async Task<DocUtilReportTemplateDetail> CreateReportTemplateAsync(
+        DocUtilCreateReportTemplateRequest request,
+        Stream? fileStream,
+        string? fileName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException("name 이 비어 있습니다.", nameof(request));
+        }
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var multipart = new MultipartFormDataContent();
+        multipart.Add(new StringContent(request.Name, Encoding.UTF8), "name");
+        multipart.Add(new StringContent(request.Format ?? string.Empty, Encoding.UTF8), "format");
+        if (!string.IsNullOrEmpty(request.Description))
+        {
+            multipart.Add(new StringContent(request.Description, Encoding.UTF8), "description");
+        }
+        if (fileStream != null && !string.IsNullOrWhiteSpace(fileName))
+        {
+            var streamContent = new StreamContent(fileStream);
+            streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            multipart.Add(streamContent, "file", fileName);
+        }
+
+        const string path = "/api/v1/reports/templates";
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = multipart,
+        };
+        var token = await _tokenProvider.GetTokenAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+        else
+        {
+            _logger.LogWarning("DocUtil 토큰 미설정 — 템플릿 생성 multipart 호출이 401 로 실패할 수 있음.");
+        }
+
+        _logger.LogDebug(
+            "DocUtil 보고서 템플릿 생성 호출 - Name={Name}, Format={Format}, HasFile={HasFile}",
+            request.Name, request.Format, fileStream != null);
+
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ReportTemplateResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 보고서 템플릿 생성 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapReportTemplateDetail(dto);
+    }
+
+    public async Task<DocUtilReportTemplateDetail> UpdateReportTemplateAsync(
+        string templateId,
+        DocUtilUpdateReportTemplateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+
+        var body = new ReportTemplateUpdateRequestDto
+        {
+            Name = request.Name,
+            Description = request.Description,
+        };
+
+        var path = $"/api/v1/reports/templates/{Uri.EscapeDataString(templateId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ReportTemplateResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 보고서 템플릿 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapReportTemplateDetail(dto);
+    }
+
+    public async Task DeleteReportTemplateAsync(
+        string templateId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+
+        var path = $"/api/v1/reports/templates/{Uri.EscapeDataString(templateId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    // ── Phase 10.2c 매핑 헬퍼 ──────────────────────────────────────────────
+
+    private static DocUtilFaq MapFaq(FaqResponseDto dto) => new(
+        dto.Id ?? string.Empty,
+        dto.SearchScopeId,
+        dto.OrganizationId ?? string.Empty,
+        dto.Question ?? string.Empty,
+        dto.Answer ?? string.Empty,
+        dto.Category,
+        dto.DisplayOrder,
+        dto.IsActive,
+        dto.CreatedAt,
+        dto.UpdatedAt);
+
+    private static DocUtilFaqDetail MapFaqDetail(FaqResponseDto dto) => new(
+        dto.Id ?? string.Empty,
+        dto.SearchScopeId,
+        dto.OrganizationId ?? string.Empty,
+        dto.Question ?? string.Empty,
+        dto.Answer ?? string.Empty,
+        dto.Category,
+        dto.DisplayOrder,
+        dto.IsActive,
+        dto.CreatedAt,
+        dto.UpdatedAt);
+
+    private static DocUtilReport MapReport(ReportResponseDto dto)
+    {
+        IDictionary<string, object?>? generationParams = null;
+        if (dto.GenerationParams is JsonElement gp && gp.ValueKind == JsonValueKind.Object)
+        {
+            generationParams = ConvertJsonElementToDict(gp);
+        }
+        IDictionary<string, object?>? jinjaCtx = null;
+        if (dto.Jinja2Context is JsonElement jc && jc.ValueKind == JsonValueKind.Object)
+        {
+            jinjaCtx = ConvertJsonElementToDict(jc);
+        }
+
+        return new DocUtilReport(
+            dto.Id ?? string.Empty,
+            dto.TemplateId,
+            dto.OrganizationId ?? string.Empty,
+            dto.Title ?? string.Empty,
+            dto.Status ?? string.Empty,
+            dto.OutputFormat ?? "docx",
+            dto.OutputStoragePath,
+            dto.SourceDocumentIds,
+            dto.SourceChatSessionId,
+            generationParams,
+            dto.RenderingMode,
+            jinjaCtx,
+            dto.ErrorMessage,
+            dto.GeneratedBy ?? string.Empty,
+            dto.CreatedAt,
+            dto.CompletedAt);
+    }
+
+    private static DocUtilReportDetail MapReportDetail(ReportResponseDto dto)
+    {
+        IDictionary<string, object?>? generationParams = null;
+        if (dto.GenerationParams is JsonElement gp && gp.ValueKind == JsonValueKind.Object)
+        {
+            generationParams = ConvertJsonElementToDict(gp);
+        }
+        IDictionary<string, object?>? jinjaCtx = null;
+        if (dto.Jinja2Context is JsonElement jc && jc.ValueKind == JsonValueKind.Object)
+        {
+            jinjaCtx = ConvertJsonElementToDict(jc);
+        }
+
+        return new DocUtilReportDetail(
+            dto.Id ?? string.Empty,
+            dto.TemplateId,
+            dto.OrganizationId ?? string.Empty,
+            dto.Title ?? string.Empty,
+            dto.Status ?? string.Empty,
+            dto.OutputFormat ?? "docx",
+            dto.OutputStoragePath,
+            dto.SourceDocumentIds,
+            dto.SourceChatSessionId,
+            generationParams,
+            dto.RenderingMode,
+            jinjaCtx,
+            dto.ErrorMessage,
+            dto.GeneratedBy ?? string.Empty,
+            dto.CreatedAt,
+            dto.CompletedAt);
+    }
+
+    private static DocUtilReportTemplate MapReportTemplate(ReportTemplateResponseDto dto)
+    {
+        IDictionary<string, object?>? schema = null;
+        if (dto.Schema is JsonElement se && se.ValueKind == JsonValueKind.Object)
+        {
+            schema = ConvertJsonElementToDict(se);
+        }
+
+        return new DocUtilReportTemplate(
+            dto.Id ?? string.Empty,
+            dto.OrganizationId ?? string.Empty,
+            dto.Name ?? string.Empty,
+            dto.Description,
+            dto.Format ?? string.Empty,
+            dto.TemplateStoragePath,
+            schema,
+            dto.CreatedBy ?? string.Empty,
+            dto.CreatedAt,
+            dto.UpdatedAt);
+    }
+
+    private static DocUtilReportTemplateDetail MapReportTemplateDetail(ReportTemplateResponseDto dto)
+    {
+        IDictionary<string, object?>? schema = null;
+        if (dto.Schema is JsonElement se && se.ValueKind == JsonValueKind.Object)
+        {
+            schema = ConvertJsonElementToDict(se);
+        }
+
+        return new DocUtilReportTemplateDetail(
+            dto.Id ?? string.Empty,
+            dto.OrganizationId ?? string.Empty,
+            dto.Name ?? string.Empty,
+            dto.Description,
+            dto.Format ?? string.Empty,
+            dto.TemplateStoragePath,
+            schema,
+            dto.CreatedBy ?? string.Empty,
+            dto.CreatedAt,
+            dto.UpdatedAt);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
     // 헬퍼
     // ══════════════════════════════════════════════════════════════════════
 
@@ -3333,6 +3943,114 @@ public class DocUtilClient : IDocUtilClient
     /// 객체의 lifetime 도 stream 과 동일하게 묶어주는 패턴(누수 방지).
     /// </para>
     /// </summary>
+    // ── Phase 10.2c FAQ + Reports + Templates DTOs ────────────────────────
+
+    private sealed class FaqResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("search_scope_id")] public string? SearchScopeId { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("question")] public string? Question { get; set; }
+        [JsonPropertyName("answer")] public string? Answer { get; set; }
+        [JsonPropertyName("category")] public string? Category { get; set; }
+        [JsonPropertyName("display_order")] public int DisplayOrder { get; set; }
+        [JsonPropertyName("is_active")] public bool IsActive { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+        [JsonPropertyName("updated_at")] public DateTime UpdatedAt { get; set; }
+    }
+
+    private sealed class FaqListResponseDto
+    {
+        [JsonPropertyName("items")] public FaqResponseDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    private sealed class FaqCreateRequestDto
+    {
+        [JsonPropertyName("question")] public string? Question { get; set; }
+        [JsonPropertyName("answer")] public string? Answer { get; set; }
+        [JsonPropertyName("category")] public string? Category { get; set; }
+        [JsonPropertyName("display_order")] public int DisplayOrder { get; set; }
+        [JsonPropertyName("search_scope_id")] public string? SearchScopeId { get; set; }
+    }
+
+    private sealed class FaqUpdateRequestDto
+    {
+        [JsonPropertyName("question")] public string? Question { get; set; }
+        [JsonPropertyName("answer")] public string? Answer { get; set; }
+        [JsonPropertyName("category")] public string? Category { get; set; }
+        [JsonPropertyName("display_order")] public int? DisplayOrder { get; set; }
+        [JsonPropertyName("is_active")] public bool? IsActive { get; set; }
+    }
+
+    private sealed class ReportResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("template_id")] public string? TemplateId { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("title")] public string? Title { get; set; }
+        [JsonPropertyName("status")] public string? Status { get; set; }
+        [JsonPropertyName("output_format")] public string? OutputFormat { get; set; }
+        [JsonPropertyName("output_storage_path")] public string? OutputStoragePath { get; set; }
+        [JsonPropertyName("source_document_ids")] public string[]? SourceDocumentIds { get; set; }
+        [JsonPropertyName("source_chat_session_id")] public string? SourceChatSessionId { get; set; }
+        [JsonPropertyName("generation_params")] public object? GenerationParams { get; set; }
+        [JsonPropertyName("rendering_mode")] public string? RenderingMode { get; set; }
+        [JsonPropertyName("jinja2_context")] public object? Jinja2Context { get; set; }
+        [JsonPropertyName("error_message")] public string? ErrorMessage { get; set; }
+        [JsonPropertyName("generated_by")] public string? GeneratedBy { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+        [JsonPropertyName("completed_at")] public DateTime? CompletedAt { get; set; }
+    }
+
+    private sealed class ReportListResponseDto
+    {
+        [JsonPropertyName("items")] public ReportResponseDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    private sealed class ReportGenerateRequestDto
+    {
+        [JsonPropertyName("template_id")] public string? TemplateId { get; set; }
+        [JsonPropertyName("title")] public string? Title { get; set; }
+        [JsonPropertyName("output_format")] public string? OutputFormat { get; set; }
+        [JsonPropertyName("source_document_ids")] public string[]? SourceDocumentIds { get; set; }
+        [JsonPropertyName("source_chat_session_id")] public string? SourceChatSessionId { get; set; }
+        [JsonPropertyName("generation_params")] public IDictionary<string, object?>? GenerationParams { get; set; }
+    }
+
+    private sealed class ReportTemplateResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("format")] public string? Format { get; set; }
+        [JsonPropertyName("template_storage_path")] public string? TemplateStoragePath { get; set; }
+        [JsonPropertyName("schema")] public object? Schema { get; set; }
+        [JsonPropertyName("created_by")] public string? CreatedBy { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+        [JsonPropertyName("updated_at")] public DateTime UpdatedAt { get; set; }
+    }
+
+    private sealed class ReportTemplateListResponseDto
+    {
+        [JsonPropertyName("items")] public ReportTemplateResponseDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    private sealed class ReportTemplateUpdateRequestDto
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+    }
+
     private sealed class HttpResponseOwnedStream : Stream
     {
         private readonly Stream _inner;
