@@ -774,6 +774,375 @@ public class DocUtilClient : IDocUtilClient
         await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // Phase 10.1b (2026-05-10): DocUtil 조직/부서/할당량 운영자 BFF — 9 메서드
+    //
+    // org_id 자동 부착:
+    //   IDocUtilTokenProvider.GetOrganizationIdAsync 가 운영자 토큰의 `org` claim
+    //   을 추출. 추출 실패 시 InvalidOperationException(한국어) → Controller 가 502 매핑.
+    //
+    // 캐시 전략:
+    //   본 클라이언트는 캐시 미적용 — Controller 레이어(AdminDocUtilDepartmentsController)
+    //   가 version-key + TTL 패턴으로 처리하여 mutation invalidate 를 정확히 트리거.
+    // ══════════════════════════════════════════════════════════════════════
+
+    // 1) GetOrganizationAsync — GET /api/v1/organizations/{org_id}
+    public async Task<DocUtilOrganization?> GetOrganizationAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var orgId = await ResolveOrganizationIdAsync(cancellationToken);
+        var path = $"/api/v1/organizations/{Uri.EscapeDataString(orgId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            _logger.LogWarning("DocUtil 조직 미존재 - OrgId={OrgId}", orgId);
+            return null;
+        }
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<OrganizationResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 조직 조회 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapOrganization(dto);
+    }
+
+    // 2) UpdateOrganizationAsync — PUT /api/v1/organizations/{org_id}
+    public async Task<DocUtilOrganization> UpdateOrganizationAsync(
+        DocUtilUpdateOrganizationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var orgId = await ResolveOrganizationIdAsync(cancellationToken);
+        var path = $"/api/v1/organizations/{Uri.EscapeDataString(orgId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        // partial update — null 필드는 직렬화 제외(JsonOptions.DefaultIgnoreCondition.WhenWritingNull).
+        var body = new Dictionary<string, object?>();
+        if (request.Name is not null) body["name"] = request.Name;
+        if (request.Description is not null) body["description"] = request.Description;
+        if (request.Settings is not null) body["settings"] = request.Settings;
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 조직 수정 호출 - OrgId={OrgId}, FieldCount={FieldCount}", orgId, body.Count);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<OrganizationResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 조직 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapOrganization(dto);
+    }
+
+    // 3) ListDepartmentsAsync — GET /api/v1/organizations/{org_id}/departments
+    public async Task<List<DocUtilDepartment>> ListDepartmentsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var orgId = await ResolveOrganizationIdAsync(cancellationToken);
+        var path = $"/api/v1/organizations/{Uri.EscapeDataString(orgId)}/departments";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dtos = await JsonSerializer.DeserializeAsync<List<DepartmentResponseDto>>(stream, JsonOptions, cancellationToken);
+        if (dtos is null)
+        {
+            return new List<DocUtilDepartment>();
+        }
+
+        return dtos.Select(MapDepartment).ToList();
+    }
+
+    // 4) CreateDepartmentAsync — POST /api/v1/organizations/{org_id}/departments
+    public async Task<DocUtilDepartment> CreateDepartmentAsync(
+        DocUtilCreateDepartmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException("부서 이름이 비어있습니다.", nameof(request));
+        }
+
+        var orgId = await ResolveOrganizationIdAsync(cancellationToken);
+        var path = $"/api/v1/organizations/{Uri.EscapeDataString(orgId)}/departments";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        var body = new Dictionary<string, object?>
+        {
+            ["name"] = request.Name,
+        };
+        if (!string.IsNullOrWhiteSpace(request.ParentId))
+        {
+            body["parent_id"] = request.ParentId;
+        }
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 부서 생성 호출 - OrgId={OrgId}, Name={Name}, ParentId={ParentId}",
+            orgId, request.Name, request.ParentId ?? "(root)");
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DepartmentResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 부서 생성 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapDepartment(dto);
+    }
+
+    // 5) UpdateDepartmentAsync — PUT /api/v1/organizations/{org_id}/departments/{dept_id}
+    public async Task<DocUtilDepartment> UpdateDepartmentAsync(
+        string departmentId,
+        DocUtilUpdateDepartmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(departmentId))
+        {
+            throw new ArgumentException("departmentId 가 비어있습니다.", nameof(departmentId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+
+        var orgId = await ResolveOrganizationIdAsync(cancellationToken);
+        var path = $"/api/v1/organizations/{Uri.EscapeDataString(orgId)}/departments/{Uri.EscapeDataString(departmentId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        var body = new Dictionary<string, object?>();
+        if (request.Name is not null) body["name"] = request.Name;
+        if (request.ParentId is not null) body["parent_id"] = request.ParentId;
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 부서 수정 호출 - OrgId={OrgId}, DeptId={DeptId}, FieldCount={FieldCount}",
+            orgId, departmentId, body.Count);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DepartmentResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 부서 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapDepartment(dto);
+    }
+
+    // 6) DeleteDepartmentAsync — DELETE /api/v1/organizations/{org_id}/departments/{dept_id}
+    public async Task DeleteDepartmentAsync(
+        string departmentId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(departmentId))
+        {
+            throw new ArgumentException("departmentId 가 비어있습니다.", nameof(departmentId));
+        }
+
+        var orgId = await ResolveOrganizationIdAsync(cancellationToken);
+        var path = $"/api/v1/organizations/{Uri.EscapeDataString(orgId)}/departments/{Uri.EscapeDataString(departmentId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
+
+        _logger.LogInformation("DocUtil 부서 삭제 호출 - OrgId={OrgId}, DeptId={DeptId}", orgId, departmentId);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    // 7) GetDepartmentMembersAsync — GET /api/v1/organizations/{org_id}/departments/{dept_id}/members
+    public async Task<List<DocUtilDepartmentMember>> GetDepartmentMembersAsync(
+        string departmentId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(departmentId))
+        {
+            throw new ArgumentException("departmentId 가 비어있습니다.", nameof(departmentId));
+        }
+
+        var orgId = await ResolveOrganizationIdAsync(cancellationToken);
+        var path = $"/api/v1/organizations/{Uri.EscapeDataString(orgId)}/departments/{Uri.EscapeDataString(departmentId)}/members";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dtos = await JsonSerializer.DeserializeAsync<List<DepartmentMemberResponseDto>>(stream, JsonOptions, cancellationToken);
+        if (dtos is null)
+        {
+            return new List<DocUtilDepartmentMember>();
+        }
+
+        return dtos
+            .Select(m => new DocUtilDepartmentMember(
+                m.Id ?? string.Empty,
+                m.Username ?? string.Empty,
+                m.Email ?? string.Empty,
+                m.Role ?? string.Empty))
+            .ToList();
+    }
+
+    // 8) GetOrganizationQuotaAsync — GET /api/v1/organizations/{org_id}/quotas/current
+    public async Task<DocUtilOrganizationQuotaCurrent> GetOrganizationQuotaAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var orgId = await ResolveOrganizationIdAsync(cancellationToken);
+        var path = $"/api/v1/organizations/{Uri.EscapeDataString(orgId)}/quotas/current";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<OrganizationQuotasCurrentResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 조직 할당량 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        // quotas map → 평탄 List 로 변환(quota_type 별 1행, key 정렬 — 운영자 UI 의 결정성 보장).
+        var quotaList = (dto.Quotas ?? new Dictionary<string, QuotaStatusResponseDto>())
+            .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+            .Select(kv => new DocUtilOrganizationQuotaStatus(
+                kv.Value?.QuotaType ?? kv.Key,
+                kv.Value?.MonthlyLimit ?? 0,
+                kv.Value?.UsedCount ?? 0,
+                kv.Value?.Remaining ?? 0,
+                kv.Value?.YearMonth ?? dto.YearMonth ?? string.Empty))
+            .ToArray();
+
+        return new DocUtilOrganizationQuotaCurrent(
+            dto.OrganizationId ?? orgId,
+            dto.YearMonth ?? string.Empty,
+            quotaList);
+    }
+
+    // 9) UpdateOrganizationQuotaAsync — PUT /api/v1/organizations/{org_id}/quotas/{quota_type}
+    public async Task<DocUtilOrganizationQuotaStatus> UpdateOrganizationQuotaAsync(
+        string quotaType,
+        DocUtilUpdateQuotaRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(quotaType))
+        {
+            throw new ArgumentException("quotaType 이 비어있습니다.", nameof(quotaType));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+
+        var orgId = await ResolveOrganizationIdAsync(cancellationToken);
+        var path = $"/api/v1/organizations/{Uri.EscapeDataString(orgId)}/quotas/{Uri.EscapeDataString(quotaType)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        var body = new Dictionary<string, object?>
+        {
+            ["monthly_limit"] = request.MonthlyLimit,
+        };
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 조직 할당량 수정 호출 - OrgId={OrgId}, QuotaType={QuotaType}, MonthlyLimit={Limit}",
+            orgId, quotaType, request.MonthlyLimit);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<QuotaStatusResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 조직 할당량 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return new DocUtilOrganizationQuotaStatus(
+            dto.QuotaType ?? quotaType,
+            dto.MonthlyLimit,
+            dto.UsedCount,
+            dto.Remaining,
+            dto.YearMonth ?? string.Empty);
+    }
+
+    // ── Phase 10.1b 매핑 헬퍼 ──────────────────────────────────────────────
+    private static DocUtilOrganization MapOrganization(OrganizationResponseDto dto)
+        => new(
+            dto.Id ?? string.Empty,
+            dto.Name ?? string.Empty,
+            dto.Slug ?? string.Empty,
+            dto.Description,
+            dto.Settings,
+            dto.CreatedAt);
+
+    private static DocUtilDepartment MapDepartment(DepartmentResponseDto dto)
+        => new(
+            dto.Id ?? string.Empty,
+            dto.OrganizationId ?? string.Empty,
+            dto.ParentId,
+            dto.Name ?? string.Empty,
+            dto.Depth,
+            dto.Path ?? string.Empty,
+            dto.CreatedAt);
+
+    /// <summary>
+    /// IDocUtilTokenProvider 의 GetOrganizationIdAsync 결과를 검증하고 반환.
+    /// 실패 시 한국어 InvalidOperationException — Controller 가 502 매핑.
+    /// </summary>
+    private async Task<string> ResolveOrganizationIdAsync(CancellationToken cancellationToken)
+    {
+        var orgId = await _tokenProvider.GetOrganizationIdAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(orgId))
+        {
+            throw new InvalidOperationException(
+                "DocUtil 운영자 토큰에서 organization_id 를 추출할 수 없습니다. " +
+                "ServiceUsername/ServicePassword 또는 JwtToken 설정을 확인하세요.");
+        }
+        return orgId;
+    }
+
     // ── Phase 10.1a UserResponse → record 매핑 헬퍼 ────────────────────────
     private static DocUtilUserSummary MapUserSummary(UserResponseDto dto)
         => new(
@@ -1014,5 +1383,55 @@ public class DocUtilClient : IDocUtilClient
         [JsonPropertyName("language")] public string? Language { get; set; }
         [JsonPropertyName("last_login_at")] public DateTime? LastLoginAt { get; set; }
         [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+    }
+
+    // ── Phase 10.1b (2026-05-10): DocUtil 조직/부서/할당량 응답 매핑 DTO ──
+    // OpenAPI 캡처(2026-05-10) 결과 OrganizationResponse / DepartmentResponse /
+    // OrganizationQuotasCurrentResponse / QuotaStatusResponse schema 에 1:1 매핑.
+    // 부서 멤버는 free-form 응답으로, 실제 캡처 응답에서 4 필드(id/username/email/role) 확인.
+
+    private sealed class OrganizationResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("slug")] public string? Slug { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("settings")] public object? Settings { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+    }
+
+    private sealed class DepartmentResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("parent_id")] public string? ParentId { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("depth")] public int Depth { get; set; }
+        [JsonPropertyName("path")] public string? Path { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+    }
+
+    private sealed class DepartmentMemberResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("username")] public string? Username { get; set; }
+        [JsonPropertyName("email")] public string? Email { get; set; }
+        [JsonPropertyName("role")] public string? Role { get; set; }
+    }
+
+    private sealed class OrganizationQuotasCurrentResponseDto
+    {
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("year_month")] public string? YearMonth { get; set; }
+        [JsonPropertyName("quotas")] public Dictionary<string, QuotaStatusResponseDto>? Quotas { get; set; }
+    }
+
+    private sealed class QuotaStatusResponseDto
+    {
+        [JsonPropertyName("quota_type")] public string? QuotaType { get; set; }
+        [JsonPropertyName("monthly_limit")] public int MonthlyLimit { get; set; }
+        [JsonPropertyName("used_count")] public int UsedCount { get; set; }
+        [JsonPropertyName("remaining")] public int Remaining { get; set; }
+        [JsonPropertyName("year_month")] public string? YearMonth { get; set; }
     }
 }

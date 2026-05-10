@@ -192,6 +192,122 @@ public interface IDocUtilClient
     Task DeleteUserAsync(
         string userId,
         CancellationToken cancellationToken = default);
+
+    // ── Phase 10.1b (2026-05-10): DocUtil 조직/부서/할당량 운영자 BFF — 9 메서드 ──
+    //
+    // 통합 비전 매핑(P1 Control Plane / P5 인증):
+    //   AgentHub 운영자 콘솔이 DocUtil 의 조직 메타 / 부서 트리 / 월 할당량까지
+    //   단일 진입점에서 관리한다. 10.1a 의 사용자 트랙과 같은 BFF 패턴을 그대로
+    //   적용 — 운영자가 DocUtil 콘솔에 별도 로그인하지 않아도 됨.
+    //
+    // 인증/권한 / org_id 자동 부착:
+    //   - AgentHub 측: [Authorize(Roles="Admin,SuperAdmin")] 게이트 (Controller 레벨)
+    //   - DocUtil 측: IDocUtilTokenProvider 4단계 폴백 + GetOrganizationIdAsync()
+    //   - 따라서 본 인터페이스의 메서드는 orgId 를 파라미터로 받지 않는다(자동 추출).
+    //
+    // 데이터 소스: DocUtil OpenAPI 캡처(2026-05-10) + 직접 호출 응답 검증:
+    //   GET    /api/v1/organizations/{org_id}                                   → OrganizationResponse
+    //   PUT    /api/v1/organizations/{org_id}                                   → OrganizationResponse
+    //   GET    /api/v1/organizations/{org_id}/departments                       → List<DepartmentResponse>
+    //   POST   /api/v1/organizations/{org_id}/departments                       → DepartmentResponse(201)
+    //   PUT    /api/v1/organizations/{org_id}/departments/{dept_id}             → DepartmentResponse
+    //   DELETE /api/v1/organizations/{org_id}/departments/{dept_id}             → 204
+    //   GET    /api/v1/organizations/{org_id}/departments/{dept_id}/members     → List(free-form: id/username/email/role)
+    //   GET    /api/v1/organizations/{org_id}/quotas/current                    → OrganizationQuotasCurrentResponse
+    //   PUT    /api/v1/organizations/{org_id}/quotas/{quota_type}               → QuotaStatusResponse
+    //
+    // BFF 표면 단순화 / 표면 매핑:
+    //   - DepartmentResponse 는 path / depth 까지 보존(트리 들여쓰기 UX 용).
+    //   - DepartmentCreate 는 name + parent_id (DocUtil schema 가 description 필드 미보유 — 추정 금지).
+    //   - QuotaStatusResponse 는 4 정수 필드 + quota_type/year_month 를 모두 보존.
+    //   - OrganizationQuotasCurrentResponse.quotas 는 map(quota_type → QuotaStatusResponse).
+    //     운영자 UI 가 dropdown 형태로 dalle_monthly / unsplash_monthly 를 분리 표시할 수 있도록
+    //     Dictionary 가 아닌 List<DocUtilOrganizationQuotaStatus> 로 평탄화한다.
+
+    /// <summary>
+    /// 조직 정보 조회 — GET /api/v1/organizations/{org_id}.
+    /// <para>org_id 는 IDocUtilTokenProvider.GetOrganizationIdAsync 로 자동 추출.</para>
+    /// 404 응답은 null 로 정규화한다(빈 organization 토큰 폴백 시나리오 대비).
+    /// </summary>
+    Task<DocUtilOrganization?> GetOrganizationAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 조직 정보 수정 — PUT /api/v1/organizations/{org_id}.
+    /// <para>요청 body: {name?, description?, settings?} (모두 nullable, partial update).</para>
+    /// 응답은 변경 후의 OrganizationResponse — 호출자가 즉시 반영.
+    /// </summary>
+    Task<DocUtilOrganization> UpdateOrganizationAsync(
+        DocUtilUpdateOrganizationRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 부서 목록 조회 — GET /api/v1/organizations/{org_id}/departments.
+    /// <para>
+    /// DocUtil 응답은 평탄한 List 이며 path/depth 컬럼으로 트리 위치를 표현한다.
+    /// children 필드는 본 endpoint 에 없음(DepartmentTreeResponse 별도) — 현재 트랙에선
+    /// 평탄 List 응답을 그대로 반환하고 클라이언트에서 path 기반으로 정렬/들여쓰기.
+    /// </para>
+    /// </summary>
+    Task<List<DocUtilDepartment>> ListDepartmentsAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 부서 생성 — POST /api/v1/organizations/{org_id}/departments.
+    /// <para>요청 body: {name, parent_id?} — DocUtil schema 가 description 필드 미보유.</para>
+    /// 응답은 생성된 DepartmentResponse(201).
+    /// </summary>
+    Task<DocUtilDepartment> CreateDepartmentAsync(
+        DocUtilCreateDepartmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 부서 수정 — PUT /api/v1/organizations/{org_id}/departments/{dept_id}.
+    /// <para>요청 body: {name?, parent_id?} (partial update — DocUtil schema 보존).</para>
+    /// </summary>
+    Task<DocUtilDepartment> UpdateDepartmentAsync(
+        string departmentId,
+        DocUtilUpdateDepartmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 부서 삭제 — DELETE /api/v1/organizations/{org_id}/departments/{dept_id}.
+    /// <para>DocUtil 측이 영구 삭제(204). 본 메서드는 성공 시 반환값 없음.</para>
+    /// </summary>
+    Task DeleteDepartmentAsync(
+        string departmentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 부서 멤버 조회 — GET /api/v1/organizations/{org_id}/departments/{dept_id}/members.
+    /// <para>
+    /// DocUtil 응답은 free-form list — 캡처한 실제 응답에서 id/username/email/role 4 필드 확인.
+    /// 본 인터페이스는 안정성 우선으로 4 필드만 노출(추가 필드는 DocUtil 측 변경 시에 대응).
+    /// </para>
+    /// </summary>
+    Task<List<DocUtilDepartmentMember>> GetDepartmentMembersAsync(
+        string departmentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 조직 월 할당량 현황 — GET /api/v1/organizations/{org_id}/quotas/current.
+    /// <para>
+    /// DocUtil 응답: { organization_id, year_month, quotas: {quota_type → QuotaStatusResponse} }.
+    /// 본 메서드는 quotas map 을 List 로 평탄화하여 운영자 UI 의 표 표시를 단순화.
+    /// </para>
+    /// </summary>
+    Task<DocUtilOrganizationQuotaCurrent> GetOrganizationQuotaAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 조직 월 할당량 한도 조정 — PUT /api/v1/organizations/{org_id}/quotas/{quota_type}.
+    /// <para>요청 body: {monthly_limit: int (>=0)} — 음수 = DB CHECK 위반(422).</para>
+    /// 응답은 변경된 QuotaStatusResponse — 호출자가 UI 즉시 반영.
+    /// </summary>
+    Task<DocUtilOrganizationQuotaStatus> UpdateOrganizationQuotaAsync(
+        string quotaType,
+        DocUtilUpdateQuotaRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 // ── DocUtil DTO (FastAPI 응답 1:1 매핑, snake_case 직렬화는 DocUtilClient 에서 처리) ──
@@ -324,3 +440,120 @@ public sealed record DocUtilUserDetail(
     string? Language,
     DateTime? LastLoginAt,
     DateTime CreatedAt);
+
+// ── Phase 10.1b (2026-05-10): DocUtil 조직/부서/할당량 BFF DTO ─────────────
+//
+// DocUtil OpenAPI(2026-05-10 캡처) 의 OrganizationResponse / DepartmentResponse /
+// OrganizationQuotasCurrentResponse / QuotaStatusResponse 에 1:1 매핑.
+// PascalCase 외부 표면(camelCase JSON), snake_case ↔ JsonNamingPolicy.SnakeCaseLower
+// 직렬화는 DocUtilClient 내부에서 처리한다.
+
+/// <summary>
+/// 조직 응답 — DocUtil OrganizationResponse 매핑.
+/// settings 는 free-form object (DocUtil 측 향후 확장 대비 pass-through).
+/// </summary>
+/// <param name="Id">조직 UUID.</param>
+/// <param name="Name">조직 이름.</param>
+/// <param name="Slug">조직 slug(URL/식별자).</param>
+/// <param name="Description">조직 설명(선택).</param>
+/// <param name="Settings">조직 설정 free-form 객체(선택).</param>
+/// <param name="CreatedAt">생성 시각(DocUtil 의 ins_dt 를 created_at 으로 alias).</param>
+public sealed record DocUtilOrganization(
+    string Id,
+    string Name,
+    string Slug,
+    string? Description,
+    object? Settings,
+    DateTime CreatedAt);
+
+/// <summary>
+/// 조직 수정 요청 — DocUtil OrganizationUpdate 매핑.
+/// 모든 필드 nullable (partial update).
+/// </summary>
+public sealed record DocUtilUpdateOrganizationRequest(
+    string? Name = null,
+    string? Description = null,
+    object? Settings = null);
+
+/// <summary>
+/// 부서 응답 — DocUtil DepartmentResponse 매핑.
+/// path/depth 가 트리 위치를 표현(materialized path 패턴).
+/// </summary>
+/// <param name="Id">부서 UUID.</param>
+/// <param name="OrganizationId">소속 조직 UUID.</param>
+/// <param name="ParentId">상위 부서 UUID(루트는 null).</param>
+/// <param name="Name">부서 이름.</param>
+/// <param name="Depth">트리 깊이(루트 = 0).</param>
+/// <param name="Path">materialized path (예: /uuid1/uuid2/).</param>
+/// <param name="CreatedAt">생성 시각.</param>
+public sealed record DocUtilDepartment(
+    string Id,
+    string OrganizationId,
+    string? ParentId,
+    string Name,
+    int Depth,
+    string Path,
+    DateTime CreatedAt);
+
+/// <summary>
+/// 부서 생성 요청 — DocUtil DepartmentCreate 매핑.
+/// description 은 DocUtil schema 에 미존재 — 추가하지 않는다(추정 금지).
+/// </summary>
+public sealed record DocUtilCreateDepartmentRequest(
+    string Name,
+    string? ParentId = null);
+
+/// <summary>
+/// 부서 수정 요청 — DocUtil DepartmentUpdate 매핑(partial update).
+/// </summary>
+public sealed record DocUtilUpdateDepartmentRequest(
+    string? Name = null,
+    string? ParentId = null);
+
+/// <summary>
+/// 부서 멤버 한 행 — DocUtil 응답이 free-form 이지만 실제 캡처 응답에서
+/// id/username/email/role 4 필드 확인 후 매핑.
+/// </summary>
+/// <param name="Id">멤버(사용자) UUID.</param>
+/// <param name="Username">사용자 표기명.</param>
+/// <param name="Email">사용자 이메일.</param>
+/// <param name="Role">사용자 역할(admin / member 등).</param>
+public sealed record DocUtilDepartmentMember(
+    string Id,
+    string Username,
+    string Email,
+    string Role);
+
+/// <summary>
+/// 조직 월 할당량 현황 — DocUtil OrganizationQuotasCurrentResponse 매핑.
+/// quotas map 을 List 로 평탄화(quota_type 별 1행).
+/// </summary>
+/// <param name="OrganizationId">조직 UUID.</param>
+/// <param name="YearMonth">대상 연-월(YYYY-MM).</param>
+/// <param name="Quotas">할당량 항목 배열(quota_type 별).</param>
+public sealed record DocUtilOrganizationQuotaCurrent(
+    string OrganizationId,
+    string YearMonth,
+    DocUtilOrganizationQuotaStatus[] Quotas);
+
+/// <summary>
+/// 단일 할당량 항목 — DocUtil QuotaStatusResponse 매핑.
+/// </summary>
+/// <param name="QuotaType">쿼터 유형(예: dalle_monthly, unsplash_monthly).</param>
+/// <param name="MonthlyLimit">월 허용 한도(0 이상 정수).</param>
+/// <param name="UsedCount">이번 달 누적 사용량.</param>
+/// <param name="Remaining">잔여 가능량(limit - used).</param>
+/// <param name="YearMonth">대상 연-월(YYYY-MM).</param>
+public sealed record DocUtilOrganizationQuotaStatus(
+    string QuotaType,
+    int MonthlyLimit,
+    int UsedCount,
+    int Remaining,
+    string YearMonth);
+
+/// <summary>
+/// 할당량 한도 조정 요청 — DocUtil QuotaUpdateRequest 매핑.
+/// monthly_limit 만 변경 가능(used_count 는 차감 로직에서만 갱신).
+/// </summary>
+public sealed record DocUtilUpdateQuotaRequest(
+    int MonthlyLimit);

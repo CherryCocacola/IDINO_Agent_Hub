@@ -175,6 +175,13 @@ const routes = [
         component: () => import('@/views/admin/AdminDocUtilUsers.vue'),
         meta: { requiresAuth: true, role: 'Admin' }
       },
+      // Phase 10.1b (2026-05-10): DocUtil 조직/부서/할당량 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-departments',
+        name: 'AdminDocUtilDepartments',
+        component: () => import('@/views/admin/AdminDocUtilDepartments.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
       {
         path: 'reports',
         name: 'Reports',

@@ -323,6 +323,174 @@ export async function deleteUser(id: string): Promise<void> {
   await api.delete(`${USERS_BASE}/users/${encodeURIComponent(id)}`)
 }
 
+// ─── Phase 10.1b (2026-05-10): DocUtil 조직/부서/할당량 운영자 BFF ──────────
+//
+// 진입점: AgentHub `/api/admin/docutil/{organization,departments,...}` (Phase 10.1b 신설 컨트롤러)
+//
+// 인증/권한:
+//   - 컨트롤러 레벨 [Authorize(Roles="Admin,SuperAdmin")] — Bearer 미부착/비-Admin → 401/403
+//   - DocUtil 측 운영자 토큰은 IDocUtilTokenProvider 4단계 폴백으로 자동 부착(BFF 내부)
+//   - org_id 자동 추출(GetOrganizationIdAsync) — 클라이언트 무관여
+//
+// 데이터 소스: DocUtil OpenAPI(2026-05-10 캡처) — OrganizationResponse / DepartmentResponse /
+//   OrganizationQuotasCurrentResponse / QuotaStatusResponse 매핑.
+
+/** DocUtil 조직 응답. */
+export interface DocUtilOrganization {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  /** 조직 free-form 설정(향후 확장 대비 pass-through). */
+  settings: unknown
+  /** 생성 시각(ISO 8601, DocUtil 측은 ins_dt 를 created_at 으로 alias). */
+  createdAt: string
+}
+
+/** DocUtil 조직 수정 요청(partial). */
+export interface UpdateOrganizationRequest {
+  name?: string | null
+  description?: string | null
+  settings?: unknown
+}
+
+/** DocUtil 부서 응답 — path/depth 가 트리 위치를 표현(materialized path). */
+export interface DocUtilDepartment {
+  id: string
+  organizationId: string
+  parentId: string | null
+  name: string
+  /** 트리 깊이(루트 = 0). */
+  depth: number
+  /** materialized path (예: /uuid1/uuid2/). */
+  path: string
+  createdAt: string
+}
+
+/** DocUtil 부서 생성 요청. */
+export interface CreateDepartmentRequest {
+  name: string
+  parentId?: string | null
+}
+
+/** DocUtil 부서 수정 요청(partial). */
+export interface UpdateDepartmentRequest {
+  name?: string | null
+  parentId?: string | null
+}
+
+/** DocUtil 부서 멤버 한 행(free-form 응답에서 4 필드만 안정적으로 노출). */
+export interface DocUtilDepartmentMember {
+  id: string
+  username: string
+  email: string
+  role: string
+}
+
+/** DocUtil 단일 할당량 항목. */
+export interface DocUtilOrganizationQuotaStatus {
+  /** 쿼터 유형(예: "dalle_monthly", "unsplash_monthly"). */
+  quotaType: string
+  monthlyLimit: number
+  usedCount: number
+  remaining: number
+  /** 대상 연-월(YYYY-MM). */
+  yearMonth: string
+}
+
+/** DocUtil 조직 월 할당량 현황 — quotas 가 List 로 평탄화됨(BFF 변환). */
+export interface DocUtilOrganizationQuotaCurrent {
+  organizationId: string
+  yearMonth: string
+  quotas: DocUtilOrganizationQuotaStatus[]
+}
+
+/** DocUtil 할당량 한도 수정 요청. */
+export interface UpdateQuotaRequest {
+  monthlyLimit: number
+}
+
+const DEPTS_BASE = '/admin/docutil'
+
+/** 조직 정보 조회. */
+export async function getOrganization(): Promise<DocUtilOrganization> {
+  const { data } = await api.get<DocUtilOrganization>(`${DEPTS_BASE}/organization`)
+  return data
+}
+
+/** 조직 정보 수정(partial — 적어도 한 필드 지정). */
+export async function updateOrganization(
+  request: UpdateOrganizationRequest
+): Promise<DocUtilOrganization> {
+  const { data } = await api.put<DocUtilOrganization>(
+    `${DEPTS_BASE}/organization`,
+    request
+  )
+  return data
+}
+
+/** 부서 목록 조회(평탄 List, path 기반 트리 표현). */
+export async function listDepartments(): Promise<DocUtilDepartment[]> {
+  const { data } = await api.get<DocUtilDepartment[]>(`${DEPTS_BASE}/departments`)
+  return data
+}
+
+/** 부서 생성. */
+export async function createDepartment(
+  request: CreateDepartmentRequest
+): Promise<DocUtilDepartment> {
+  const { data } = await api.post<DocUtilDepartment>(
+    `${DEPTS_BASE}/departments`,
+    request
+  )
+  return data
+}
+
+/** 부서 수정(partial — 적어도 한 필드 지정). */
+export async function updateDepartment(
+  deptId: string,
+  request: UpdateDepartmentRequest
+): Promise<DocUtilDepartment> {
+  const { data } = await api.put<DocUtilDepartment>(
+    `${DEPTS_BASE}/departments/${encodeURIComponent(deptId)}`,
+    request
+  )
+  return data
+}
+
+/** 부서 삭제. 백엔드 204 NoContent — 반환값 없음. */
+export async function deleteDepartment(deptId: string): Promise<void> {
+  await api.delete(`${DEPTS_BASE}/departments/${encodeURIComponent(deptId)}`)
+}
+
+/** 부서 멤버 조회. */
+export async function getDepartmentMembers(deptId: string): Promise<DocUtilDepartmentMember[]> {
+  const { data } = await api.get<DocUtilDepartmentMember[]>(
+    `${DEPTS_BASE}/departments/${encodeURIComponent(deptId)}/members`
+  )
+  return data
+}
+
+/** 조직 월 할당량 현황 조회. */
+export async function getOrganizationQuota(): Promise<DocUtilOrganizationQuotaCurrent> {
+  const { data } = await api.get<DocUtilOrganizationQuotaCurrent>(
+    `${DEPTS_BASE}/organization/quota`
+  )
+  return data
+}
+
+/** 조직 월 할당량 한도 수정. */
+export async function updateOrganizationQuota(
+  quotaType: string,
+  request: UpdateQuotaRequest
+): Promise<DocUtilOrganizationQuotaStatus> {
+  const { data } = await api.put<DocUtilOrganizationQuotaStatus>(
+    `${DEPTS_BASE}/organization/quota/${encodeURIComponent(quotaType)}`,
+    request
+  )
+  return data
+}
+
 export default {
   listDocuments,
   uploadDocument,
@@ -334,5 +502,15 @@ export default {
   listUsers,
   getUser,
   updateUserStatus,
-  deleteUser
+  deleteUser,
+  // Phase 10.1b — 조직/부서/할당량
+  getOrganization,
+  updateOrganization,
+  listDepartments,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+  getDepartmentMembers,
+  getOrganizationQuota,
+  updateOrganizationQuota
 }
