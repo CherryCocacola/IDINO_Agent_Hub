@@ -464,6 +464,108 @@ public interface IDocUtilClient
         string projectId,
         string boardId,
         CancellationToken cancellationToken = default);
+
+    // ── Phase 10.2a (2026-05-10): DocUtil Dashboard + Audit BFF — 7 메서드 ──
+    //
+    // 통합 비전 매핑(P1 Control Plane):
+    //   AgentHub 운영자가 DocUtil 의 운영 모니터링(대시보드 5종) + 감사 로그(2종) 까지
+    //   단일 진입점에서 확인. Phase 10.1 의 사용자/조직/부서/할당량/프로젝트 트랙과
+    //   같은 BFF 패턴(IDocUtilTokenProvider 4단계 폴백 + 한국어 502 매핑) 그대로 적용.
+    //
+    // 인증/권한:
+    //   - AgentHub 측: [Authorize(Roles="Admin,SuperAdmin")] 게이트(Controller 레벨)
+    //   - DocUtil 측: IDocUtilTokenProvider 가 운영자 JWT 자동 부착(token 의 org claim 으로 응답 자동 scope)
+    //
+    // 데이터 소스: DocUtil OpenAPI 캡처(2026-05-10) 결과:
+    //   GET /api/v1/dashboard/metrics → DashboardMetrics
+    //   GET /api/v1/dashboard/response-times?period={...} → ResponseTimeData
+    //   GET /api/v1/dashboard/search-errors?period={...} → SearchErrorData
+    //   GET /api/v1/dashboard/search-usage?period={...} → SearchUsageStats
+    //   GET /api/v1/dashboard/upload-status → UploadStatusChart
+    //   GET /api/v1/audit-logs?page=&size=&action=&resource_type=&user_id=&start_date=&end_date= → AuditLogListResponse
+    //   GET /api/v1/audit-logs/export?action=&resource_type=&user_id=&start_date=&end_date= → text/csv binary stream
+    //
+    // BFF 표면 매핑 정확도(추정 금지 — OpenAPI 캡처 + 실 호출 응답 일치):
+    //   - DocUtilDashboardMetrics: total_users/active_users/total_documents/total_searches + feature_usage(dict)
+    //   - DocUtilResponseTimes: timestamps[] + values[] 평행 배열(시계열) — period 미지정 시 빈 배열, "7d" 등 가능
+    //   - DocUtilSearchErrors: dates[] + error_counts[] 평행 배열(일별)
+    //   - DocUtilSearchUsage: total_requests/total_responses/total_failures + period(label)
+    //   - DocUtilUploadStatus: completed/processing/waiting/error 4 필드(default 0)
+    //   - DocUtilAuditLogList: items + total + page + size
+    //   - DocUtilAuditLogEntry: id/organization_id/user_id?/action/resource_type/resource_id?/details(dict)?/ip_address?/created_at
+    //     (DocUtil 의 user_agent 필드는 schema 미존재 — 추정 금지 원칙 따라 미포함)
+    //   - 감사 로그 export: text/csv 응답 — Stream + content-type/filename 메타 동반 record 반환
+
+    /// <summary>
+    /// 대시보드 요약 메트릭 — GET /api/v1/dashboard/metrics.
+    /// <para>운영자 콘솔의 KPI 카드(총 사용자/활성 사용자/총 문서/총 검색)에 바로 사용.</para>
+    /// </summary>
+    Task<DocUtilDashboardMetrics> GetDashboardMetricsAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 시간별 평균 응답시간 시계열 — GET /api/v1/dashboard/response-times.
+    /// <para>period 가 null/빈 문자열이면 DocUtil 기본(빈 배열). "7d" / "24h" 등.</para>
+    /// </summary>
+    Task<DocUtilResponseTimes> GetDashboardResponseTimesAsync(
+        string? period = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 일별 검색 오류 카운트 — GET /api/v1/dashboard/search-errors.
+    /// </summary>
+    Task<DocUtilSearchErrors> GetDashboardSearchErrorsAsync(
+        string? period = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 검색 사용량 통계 — GET /api/v1/dashboard/search-usage.
+    /// <para>period 라벨(예: "7d")로 집계 기간을 명시. 응답에는 그 라벨이 포함됨.</para>
+    /// </summary>
+    Task<DocUtilSearchUsage> GetDashboardSearchUsageAsync(
+        string? period = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 문서 업로드 상태 분포 — GET /api/v1/dashboard/upload-status.
+    /// </summary>
+    Task<DocUtilUploadStatus> GetDashboardUploadStatusAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 감사 로그 목록(페이징 + 필터) — GET /api/v1/audit-logs.
+    /// </summary>
+    /// <param name="page">DocUtil 페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 50, DocUtil 한도 1~200).</param>
+    /// <param name="action">action 정확 일치 필터(예: "auth.login").</param>
+    /// <param name="resourceType">resource_type 정확 일치 필터(예: "auth").</param>
+    /// <param name="userId">user_id(UUID) 정확 일치 필터.</param>
+    /// <param name="startDate">시작 시각(ISO-8601 UTC, 포함).</param>
+    /// <param name="endDate">종료 시각(ISO-8601 UTC, 포함).</param>
+    Task<DocUtilAuditLogList> ListAuditLogsAsync(
+        int page = 1,
+        int size = 50,
+        string? action = null,
+        string? resourceType = null,
+        string? userId = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 감사 로그 CSV 내보내기 — GET /api/v1/audit-logs/export.
+    /// <para>
+    /// 응답은 text/csv binary stream. 호출자는 받은 Stream 을 그대로 클라이언트로 흘려보내야 한다.
+    /// (Content-Type / Content-Disposition 헤더는 DocUtilAuditExport 안에 캡처되어 같이 전달).
+    /// </para>
+    /// </summary>
+    Task<DocUtilAuditExport> ExportAuditLogsAsync(
+        string? action = null,
+        string? resourceType = null,
+        string? userId = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        CancellationToken cancellationToken = default);
 }
 
 // ── DocUtil DTO (FastAPI 응답 1:1 매핑, snake_case 직렬화는 DocUtilClient 에서 처리) ──
@@ -847,3 +949,116 @@ public sealed record DocUtilCreateBoardRequest(
 public sealed record DocUtilUpdateBoardRequest(
     string? Name = null,
     string? Description = null);
+
+// ── Phase 10.2a (2026-05-10): DocUtil Dashboard + Audit BFF DTO ──────────────
+//
+// DocUtil OpenAPI(2026-05-10 캡처):
+//   - DashboardMetrics: total_users/active_users/total_documents/total_searches + feature_usage(dict, additionalProperties=true)
+//   - ResponseTimeData: timestamps[] + values[]
+//   - SearchErrorData: dates[] + error_counts[]
+//   - SearchUsageStats: total_requests + total_responses + total_failures + period
+//   - UploadStatusChart: completed + processing + waiting + error (default 0 each)
+//   - AuditLogResponse: id/organization_id/user_id?/action/resource_type/resource_id?/details?/ip_address?/created_at
+//   - AuditLogListResponse: items + total + page + size
+//   - export: text/csv (binary stream + filename header)
+//
+// 1:1 매핑 — 추정 금지 원칙 적용. user_agent 등 schema 에 없는 필드는 추가하지 않음.
+// PascalCase 외부 표면(camelCase JSON), snake_case ↔ JsonNamingPolicy.SnakeCaseLower
+// 직렬화는 DocUtilClient 내부에서 처리한다.
+
+/// <summary>
+/// 대시보드 요약 메트릭 — DocUtil DashboardMetrics 매핑.
+/// </summary>
+/// <param name="TotalUsers">조직 전체 등록 사용자 수.</param>
+/// <param name="ActiveUsers">status='active' 사용자 수.</param>
+/// <param name="TotalDocuments">업로드된 총 문서 수.</param>
+/// <param name="TotalSearches">누적 검색 요청 수.</param>
+/// <param name="FeatureUsage">자유 형식 기능별 카운터(예: chat/qa/keyword). DocUtil additionalProperties=true.</param>
+public sealed record DocUtilDashboardMetrics(
+    int TotalUsers,
+    int ActiveUsers,
+    int TotalDocuments,
+    int TotalSearches,
+    IDictionary<string, int> FeatureUsage);
+
+/// <summary>
+/// 시간별 평균 응답시간 시계열 — DocUtil ResponseTimeData 매핑.
+/// timestamps 와 values 는 동일 길이 평행 배열(같은 인덱스가 한 데이터 포인트).
+/// </summary>
+/// <param name="Timestamps">ISO 시각(시간 단위 버킷).</param>
+/// <param name="Values">버킷별 평균 응답시간(ms, double).</param>
+public sealed record DocUtilResponseTimes(
+    string[] Timestamps,
+    double[] Values);
+
+/// <summary>
+/// 일별 검색 오류 카운트 — DocUtil SearchErrorData 매핑.
+/// dates 와 error_counts 는 동일 길이 평행 배열.
+/// </summary>
+public sealed record DocUtilSearchErrors(
+    string[] Dates,
+    int[] ErrorCounts);
+
+/// <summary>
+/// 검색 사용량 집계 — DocUtil SearchUsageStats 매핑.
+/// </summary>
+/// <param name="TotalRequests">기간 내 검색 요청 수.</param>
+/// <param name="TotalResponses">성공 응답 수.</param>
+/// <param name="TotalFailures">실패 수.</param>
+/// <param name="Period">집계 기간 라벨(예: "7d").</param>
+public sealed record DocUtilSearchUsage(
+    int TotalRequests,
+    int TotalResponses,
+    int TotalFailures,
+    string Period);
+
+/// <summary>
+/// 문서 업로드 상태 분포 — DocUtil UploadStatusChart 매핑.
+/// </summary>
+public sealed record DocUtilUploadStatus(
+    int Completed,
+    int Processing,
+    int Waiting,
+    int Error);
+
+/// <summary>
+/// 감사 로그 한 항목 — DocUtil AuditLogResponse 매핑.
+/// <para>
+/// user_id / resource_id / details / ip_address 는 nullable.
+/// details 는 DocUtil 의 free-form dict — IDictionary&lt;string, object?&gt; 로 노출.
+/// </para>
+/// </summary>
+public sealed record DocUtilAuditLogEntry(
+    string Id,
+    string OrganizationId,
+    string? UserId,
+    string Action,
+    string ResourceType,
+    string? ResourceId,
+    IDictionary<string, object?>? Details,
+    string? IpAddress,
+    DateTime CreatedAt);
+
+/// <summary>
+/// 감사 로그 페이지 응답 — DocUtil AuditLogListResponse 매핑.
+/// </summary>
+public sealed record DocUtilAuditLogList(
+    DocUtilAuditLogEntry[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// 감사 로그 CSV 내보내기 응답 — text/csv binary stream + 헤더 메타.
+/// <para>
+/// 호출자(Controller) 는 Stream 을 FileStreamResult 로 그대로 흘려보낸다.
+/// Stream 은 호출자가 Dispose 책임을 갖는다(using 으로 감싸면 됨).
+/// </para>
+/// </summary>
+/// <param name="Stream">DocUtil 응답 본문 stream(text/csv).</param>
+/// <param name="ContentType">DocUtil 응답의 Content-Type 헤더(보통 "text/csv; charset=utf-8").</param>
+/// <param name="FileName">DocUtil Content-Disposition 의 filename(없으면 fallback "audit_logs.csv").</param>
+public sealed record DocUtilAuditExport(
+    Stream Stream,
+    string ContentType,
+    string FileName);

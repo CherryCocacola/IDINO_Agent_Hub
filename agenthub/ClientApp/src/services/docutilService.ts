@@ -744,6 +744,216 @@ export async function deleteProjectBoard(projectId: string, boardId: string): Pr
   )
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// Phase 10.2a (2026-05-10) — DocUtil Dashboard + Audit BFF 운영자 콘솔
+//
+// 진입점: AgentHub `/api/admin/docutil/{dashboard,audit-logs}/*`
+//   (AdminDocUtilOperationsController, [Authorize(Roles="Admin,SuperAdmin")])
+//
+// 백엔드 record 와 1:1 매핑(camelCase 직렬화 자동 변환). 추정 금지 — DocUtil
+// OpenAPI(2026-05-10 캡처) schema 그대로.
+// ════════════════════════════════════════════════════════════════════════════
+
+const OPS_BASE = '/admin/docutil'
+
+/** 대시보드 KPI 메트릭 (DashboardMetrics → camelCase). */
+export interface DocUtilDashboardMetrics {
+  totalUsers: number
+  activeUsers: number
+  totalDocuments: number
+  totalSearches: number
+  /** 자유 형식 카운터(예: chat / qa / keyword). DocUtil additionalProperties=true. */
+  featureUsage: Record<string, number>
+}
+
+/** 시간별 평균 응답시간 시계열 — timestamps/values 동일 길이 평행 배열. */
+export interface DocUtilResponseTimes {
+  timestamps: string[]
+  values: number[]
+}
+
+/** 일별 검색 오류 카운트 — dates/errorCounts 동일 길이 평행 배열. */
+export interface DocUtilSearchErrors {
+  dates: string[]
+  errorCounts: number[]
+}
+
+/** 검색 사용량 통계. */
+export interface DocUtilSearchUsage {
+  totalRequests: number
+  totalResponses: number
+  totalFailures: number
+  /** 집계 기간 라벨(예: "7d"). */
+  period: string
+}
+
+/** 문서 업로드 상태 분포. */
+export interface DocUtilUploadStatus {
+  completed: number
+  processing: number
+  waiting: number
+  error: number
+}
+
+/** 감사 로그 한 행. user_agent 등 schema 미존재 필드는 추가하지 않음. */
+export interface DocUtilAuditLogEntry {
+  id: string
+  organizationId: string
+  /** 시스템 액션 등에서 null 가능. */
+  userId: string | null
+  /** 예: "auth.login", "user.update". */
+  action: string
+  /** 예: "auth", "user". */
+  resourceType: string
+  resourceId: string | null
+  /** 자유 형식 dict (DocUtil 측 additionalProperties=true). */
+  details: Record<string, unknown> | null
+  ipAddress: string | null
+  /** ISO-8601 UTC. */
+  createdAt: string
+}
+
+/** 감사 로그 페이지 응답. */
+export interface DocUtilAuditLogList {
+  items: DocUtilAuditLogEntry[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 감사 로그 목록 필터 — 모든 필드 선택. */
+export interface AuditLogFilters {
+  page?: number
+  size?: number
+  action?: string
+  resourceType?: string
+  userId?: string
+  /** ISO-8601 UTC. */
+  startDate?: string
+  /** ISO-8601 UTC. */
+  endDate?: string
+}
+
+/** 대시보드 KPI 메트릭 조회. */
+export async function getDashboardMetrics(): Promise<DocUtilDashboardMetrics> {
+  const { data } = await api.get<DocUtilDashboardMetrics>(`${OPS_BASE}/dashboard/metrics`)
+  return data
+}
+
+/** 시간별 응답시간 시계열 조회. period 미지정 시 DocUtil 기본(빈 배열일 가능성). */
+export async function getDashboardResponseTimes(
+  period?: string
+): Promise<DocUtilResponseTimes> {
+  const params: Record<string, string> = {}
+  if (period && period.trim()) params.period = period.trim()
+  const { data } = await api.get<DocUtilResponseTimes>(`${OPS_BASE}/dashboard/response-times`, {
+    params
+  })
+  return data
+}
+
+/** 일별 검색 오류 카운트 조회. */
+export async function getDashboardSearchErrors(
+  period?: string
+): Promise<DocUtilSearchErrors> {
+  const params: Record<string, string> = {}
+  if (period && period.trim()) params.period = period.trim()
+  const { data } = await api.get<DocUtilSearchErrors>(`${OPS_BASE}/dashboard/search-errors`, {
+    params
+  })
+  return data
+}
+
+/** 검색 사용량 통계 조회. */
+export async function getDashboardSearchUsage(
+  period?: string
+): Promise<DocUtilSearchUsage> {
+  const params: Record<string, string> = {}
+  if (period && period.trim()) params.period = period.trim()
+  const { data } = await api.get<DocUtilSearchUsage>(`${OPS_BASE}/dashboard/search-usage`, {
+    params
+  })
+  return data
+}
+
+/** 문서 업로드 상태 분포 조회. */
+export async function getDashboardUploadStatus(): Promise<DocUtilUploadStatus> {
+  const { data } = await api.get<DocUtilUploadStatus>(`${OPS_BASE}/dashboard/upload-status`)
+  return data
+}
+
+/** 감사 로그 목록(페이징 + 필터) 조회. */
+export async function listAuditLogs(
+  filters: AuditLogFilters = {}
+): Promise<DocUtilAuditLogList> {
+  const params: Record<string, string | number> = {}
+  params.page = filters.page ?? 1
+  params.size = filters.size ?? 50
+  if (filters.action && filters.action.trim()) params.action = filters.action.trim()
+  if (filters.resourceType && filters.resourceType.trim())
+    params.resourceType = filters.resourceType.trim()
+  if (filters.userId && filters.userId.trim()) params.userId = filters.userId.trim()
+  if (filters.startDate && filters.startDate.trim()) params.startDate = filters.startDate.trim()
+  if (filters.endDate && filters.endDate.trim()) params.endDate = filters.endDate.trim()
+  const { data } = await api.get<DocUtilAuditLogList>(`${OPS_BASE}/audit-logs`, { params })
+  return data
+}
+
+/**
+ * 감사 로그 CSV 내보내기(Blob 다운로드).
+ * 호출자는 반환된 Blob 을 file-saver / a[download] 등으로 저장한다.
+ *
+ * 응답 헤더(Content-Disposition) 의 한국어 파일명도 함께 추출하여 반환.
+ */
+export async function exportAuditLogs(
+  filters: Omit<AuditLogFilters, 'page' | 'size'> = {}
+): Promise<{ blob: Blob; fileName: string; contentType: string }> {
+  const params: Record<string, string> = {}
+  if (filters.action && filters.action.trim()) params.action = filters.action.trim()
+  if (filters.resourceType && filters.resourceType.trim())
+    params.resourceType = filters.resourceType.trim()
+  if (filters.userId && filters.userId.trim()) params.userId = filters.userId.trim()
+  if (filters.startDate && filters.startDate.trim()) params.startDate = filters.startDate.trim()
+  if (filters.endDate && filters.endDate.trim()) params.endDate = filters.endDate.trim()
+
+  const response = await api.get(`${OPS_BASE}/audit-logs/export`, {
+    params,
+    responseType: 'blob'
+  })
+
+  const contentType =
+    (response.headers?.['content-type'] as string | undefined) ?? 'text/csv; charset=utf-8'
+  const fileName = parseFileNameFromDisposition(
+    response.headers?.['content-disposition'] as string | undefined
+  )
+
+  return { blob: response.data as Blob, fileName, contentType }
+}
+
+/**
+ * Content-Disposition 헤더에서 filename 추출.
+ * RFC 5987(`filename*=UTF-8''...`) 우선, 없으면 ASCII fallback.
+ */
+function parseFileNameFromDisposition(disposition: string | undefined): string {
+  if (!disposition) return 'audit_logs.csv'
+
+  // filename*=UTF-8''<encoded> 우선
+  const star = /filename\*=(?:UTF-8|utf-8)''([^;]+)/i.exec(disposition)
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''))
+    } catch {
+      // fallthrough
+    }
+  }
+
+  // filename="..." fallback
+  const ascii = /filename="?([^";]+)"?/i.exec(disposition)
+  if (ascii) return ascii[1].trim()
+
+  return 'audit_logs.csv'
+}
+
 export default {
   listDocuments,
   uploadDocument,
@@ -779,5 +989,13 @@ export default {
   createProjectBoard,
   getProjectBoard,
   updateProjectBoard,
-  deleteProjectBoard
+  deleteProjectBoard,
+  // Phase 10.2a — 대시보드/감사 로그
+  getDashboardMetrics,
+  getDashboardResponseTimes,
+  getDashboardSearchErrors,
+  getDashboardSearchUsage,
+  getDashboardUploadStatus,
+  listAuditLogs,
+  exportAuditLogs
 }

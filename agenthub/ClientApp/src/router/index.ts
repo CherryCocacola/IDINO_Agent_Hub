@@ -189,6 +189,20 @@ const routes = [
         component: () => import('@/views/admin/AdminDocUtilProjects.vue'),
         meta: { requiresAuth: true, role: 'Admin' }
       },
+      // Phase 10.2a (2026-05-10): DocUtil 대시보드 운영자 모니터링 (BFF 패턴)
+      {
+        path: 'admin/docutil-dashboard',
+        name: 'AdminDocUtilDashboard',
+        component: () => import('@/views/admin/AdminDocUtilDashboard.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
+      // Phase 10.2a (2026-05-10): DocUtil 감사 로그 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-audit',
+        name: 'AdminDocUtilAudit',
+        component: () => import('@/views/admin/AdminDocUtilAudit.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
       {
         path: 'reports',
         name: 'Reports',

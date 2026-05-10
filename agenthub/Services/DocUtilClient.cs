@@ -1561,6 +1561,357 @@ public class DocUtilClient : IDocUtilClient
         await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // Phase 10.2a (2026-05-10) — DocUtil Dashboard + Audit BFF 7 메서드
+    //
+    // org_id 자동 부착:
+    //   DocUtil 의 dashboard / audit-logs 는 token 의 org claim 으로 자동 scope.
+    //   본 클라이언트는 path 에 orgId 를 명시하지 않는다(추정 금지 — OpenAPI 검증 결과).
+    //
+    // 한국어 502 매핑:
+    //   EnsureSuccessOrThrowKoreanAsync 가 4xx/5xx 를 InvalidOperationException 으로
+    //   변환 → Controller 가 502 ErrorResponseDto 한국어 본문으로 응답.
+    // ══════════════════════════════════════════════════════════════════════
+
+    // 1) GetDashboardMetricsAsync — GET /api/v1/dashboard/metrics
+    public async Task<DocUtilDashboardMetrics> GetDashboardMetricsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        const string path = "/api/v1/dashboard/metrics";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DashboardMetricsDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 대시보드 메트릭 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        // feature_usage 는 free-form (additionalProperties=true). 정수 캐스팅 안전 변환.
+        var featureUsage = new Dictionary<string, int>(StringComparer.Ordinal);
+        if (dto.FeatureUsage is JsonElement el && el.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in el.EnumerateObject())
+            {
+                if (prop.Value.ValueKind == JsonValueKind.Number && prop.Value.TryGetInt32(out var n))
+                {
+                    featureUsage[prop.Name] = n;
+                }
+            }
+        }
+
+        return new DocUtilDashboardMetrics(
+            dto.TotalUsers,
+            dto.ActiveUsers,
+            dto.TotalDocuments,
+            dto.TotalSearches,
+            featureUsage);
+    }
+
+    // 2) GetDashboardResponseTimesAsync — GET /api/v1/dashboard/response-times
+    public async Task<DocUtilResponseTimes> GetDashboardResponseTimesAsync(
+        string? period = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = string.IsNullOrWhiteSpace(period)
+            ? "/api/v1/dashboard/response-times"
+            : $"/api/v1/dashboard/response-times?period={Uri.EscapeDataString(period)}";
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ResponseTimeDataDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 응답시간 데이터 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return new DocUtilResponseTimes(
+            dto.Timestamps ?? Array.Empty<string>(),
+            dto.Values ?? Array.Empty<double>());
+    }
+
+    // 3) GetDashboardSearchErrorsAsync — GET /api/v1/dashboard/search-errors
+    public async Task<DocUtilSearchErrors> GetDashboardSearchErrorsAsync(
+        string? period = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = string.IsNullOrWhiteSpace(period)
+            ? "/api/v1/dashboard/search-errors"
+            : $"/api/v1/dashboard/search-errors?period={Uri.EscapeDataString(period)}";
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SearchErrorDataDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 검색 오류 데이터 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return new DocUtilSearchErrors(
+            dto.Dates ?? Array.Empty<string>(),
+            dto.ErrorCounts ?? Array.Empty<int>());
+    }
+
+    // 4) GetDashboardSearchUsageAsync — GET /api/v1/dashboard/search-usage
+    public async Task<DocUtilSearchUsage> GetDashboardSearchUsageAsync(
+        string? period = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = string.IsNullOrWhiteSpace(period)
+            ? "/api/v1/dashboard/search-usage"
+            : $"/api/v1/dashboard/search-usage?period={Uri.EscapeDataString(period)}";
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SearchUsageStatsDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 검색 사용량 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return new DocUtilSearchUsage(
+            dto.TotalRequests,
+            dto.TotalResponses,
+            dto.TotalFailures,
+            dto.Period ?? string.Empty);
+    }
+
+    // 5) GetDashboardUploadStatusAsync — GET /api/v1/dashboard/upload-status
+    public async Task<DocUtilUploadStatus> GetDashboardUploadStatusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        const string path = "/api/v1/dashboard/upload-status";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<UploadStatusChartDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 업로드 상태 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return new DocUtilUploadStatus(
+            dto.Completed,
+            dto.Processing,
+            dto.Waiting,
+            dto.Error);
+    }
+
+    // 6) ListAuditLogsAsync — GET /api/v1/audit-logs
+    public async Task<DocUtilAuditLogList> ListAuditLogsAsync(
+        int page = 1,
+        int size = 50,
+        string? action = null,
+        string? resourceType = null,
+        string? userId = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 200) size = 50;
+
+        var queryParts = new List<string>
+        {
+            $"page={page}",
+            $"size={size}",
+        };
+        if (!string.IsNullOrWhiteSpace(action))
+        {
+            queryParts.Add($"action={Uri.EscapeDataString(action)}");
+        }
+        if (!string.IsNullOrWhiteSpace(resourceType))
+        {
+            queryParts.Add($"resource_type={Uri.EscapeDataString(resourceType)}");
+        }
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            queryParts.Add($"user_id={Uri.EscapeDataString(userId)}");
+        }
+        if (startDate.HasValue)
+        {
+            queryParts.Add($"start_date={Uri.EscapeDataString(startDate.Value.ToUniversalTime().ToString("o"))}");
+        }
+        if (endDate.HasValue)
+        {
+            queryParts.Add($"end_date={Uri.EscapeDataString(endDate.Value.ToUniversalTime().ToString("o"))}");
+        }
+        var path = $"/api/v1/audit-logs?{string.Join("&", queryParts)}";
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        _logger.LogDebug(
+            "DocUtil 감사 로그 호출 - Page={Page}, Size={Size}, Action={Action}, ResourceType={ResourceType}, UserId={UserId}",
+            page, size, action ?? "(any)", resourceType ?? "(any)", userId ?? "(any)");
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<AuditLogListResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 감사 로그 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var items = (dto.Items ?? Array.Empty<AuditLogResponseDto>())
+            .Select(MapAuditLog)
+            .ToArray();
+        return new DocUtilAuditLogList(items, dto.Total, dto.Page, dto.Size);
+    }
+
+    // 7) ExportAuditLogsAsync — GET /api/v1/audit-logs/export (text/csv binary stream)
+    public async Task<DocUtilAuditExport> ExportAuditLogsAsync(
+        string? action = null,
+        string? resourceType = null,
+        string? userId = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var queryParts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(action))
+        {
+            queryParts.Add($"action={Uri.EscapeDataString(action)}");
+        }
+        if (!string.IsNullOrWhiteSpace(resourceType))
+        {
+            queryParts.Add($"resource_type={Uri.EscapeDataString(resourceType)}");
+        }
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            queryParts.Add($"user_id={Uri.EscapeDataString(userId)}");
+        }
+        if (startDate.HasValue)
+        {
+            queryParts.Add($"start_date={Uri.EscapeDataString(startDate.Value.ToUniversalTime().ToString("o"))}");
+        }
+        if (endDate.HasValue)
+        {
+            queryParts.Add($"end_date={Uri.EscapeDataString(endDate.Value.ToUniversalTime().ToString("o"))}");
+        }
+        var path = queryParts.Count == 0
+            ? "/api/v1/audit-logs/export"
+            : $"/api/v1/audit-logs/export?{string.Join("&", queryParts)}";
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        // 본 메서드는 stream 반환 — using 으로 감싸지 않음(호출자 소유).
+
+        _logger.LogInformation(
+            "DocUtil 감사 로그 export 호출 - Action={Action}, ResourceType={ResourceType}, UserId={UserId}",
+            action ?? "(any)", resourceType ?? "(any)", userId ?? "(any)");
+
+        // ResponseHeadersRead — 큰 CSV 도 헤더 파싱 후 stream 반환(메모리 buffering 회피).
+        var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            try
+            {
+                await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+            }
+            finally
+            {
+                response.Dispose();
+                httpRequest.Dispose();
+            }
+            // EnsureSuccessOrThrow 가 throw 하므로 여기 도달하지 않음.
+        }
+
+        var contentType = response.Content.Headers.ContentType?.ToString()
+            ?? "text/csv; charset=utf-8";
+
+        // Content-Disposition 의 filename 추출(없으면 fallback).
+        var disposition = response.Content.Headers.ContentDisposition;
+        var fileName = disposition?.FileNameStar
+            ?? disposition?.FileName?.Trim('"')
+            ?? "audit_logs.csv";
+
+        // Stream 은 호출자(Controller) 가 Dispose 책임. response 객체는 stream 의 lifetime
+        // 까지 살아 있어야 하므로 response Dispose 는 stream Dispose 시점에 함께 호출되도록
+        // CompositeStream 으로 wrap 한다.
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var owned = new HttpResponseOwnedStream(stream, response, httpRequest);
+        return new DocUtilAuditExport(owned, contentType, fileName);
+    }
+
+    // ── Phase 10.2a 매핑 헬퍼 ──────────────────────────────────────────────
+    private static DocUtilAuditLogEntry MapAuditLog(AuditLogResponseDto dto)
+    {
+        // details 는 free-form dict (additionalProperties=true) 또는 null.
+        IDictionary<string, object?>? details = null;
+        if (dto.Details is JsonElement el && el.ValueKind == JsonValueKind.Object)
+        {
+            details = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var prop in el.EnumerateObject())
+            {
+                details[prop.Name] = JsonElementToObject(prop.Value);
+            }
+        }
+
+        return new DocUtilAuditLogEntry(
+            dto.Id ?? string.Empty,
+            dto.OrganizationId ?? string.Empty,
+            dto.UserId,
+            dto.Action ?? string.Empty,
+            dto.ResourceType ?? string.Empty,
+            dto.ResourceId,
+            details,
+            dto.IpAddress,
+            dto.CreatedAt);
+    }
+
+    private static object? JsonElementToObject(JsonElement el)
+    {
+        return el.ValueKind switch
+        {
+            JsonValueKind.String => el.GetString(),
+            JsonValueKind.Number => el.TryGetInt64(out var l) ? l : el.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            _ => el.GetRawText(),  // object/array 는 raw JSON 보존
+        };
+    }
+
     // ── Phase 10.1c 매핑 헬퍼 ──────────────────────────────────────────────
     private static DocUtilProject MapProject(ProjectResponseDto dto)
         => new(
@@ -2024,5 +2375,135 @@ public class DocUtilClient : IDocUtilClient
         [JsonPropertyName("total")] public long Total { get; set; }
         [JsonPropertyName("page")] public int Page { get; set; }
         [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    // ── Phase 10.2a (2026-05-10): DocUtil Dashboard + Audit API 응답 매핑 DTO ─
+    // OpenAPI 캡처(2026-05-10):
+    //   - DashboardMetrics: total_users/active_users/total_documents/total_searches + feature_usage(dict)
+    //   - ResponseTimeData: timestamps[] + values[] (period 미지정 시 빈 배열)
+    //   - SearchErrorData: dates[] + error_counts[]
+    //   - SearchUsageStats: total_requests/total_responses/total_failures + period
+    //   - UploadStatusChart: completed/processing/waiting/error
+    //   - AuditLogResponse: id/organization_id/user_id?/action/resource_type/resource_id?/details(dict)?/ip_address?/created_at
+    //   - AuditLogListResponse: items + total + page + size
+
+    private sealed class DashboardMetricsDto
+    {
+        [JsonPropertyName("total_users")] public int TotalUsers { get; set; }
+        [JsonPropertyName("active_users")] public int ActiveUsers { get; set; }
+        [JsonPropertyName("total_documents")] public int TotalDocuments { get; set; }
+        [JsonPropertyName("total_searches")] public int TotalSearches { get; set; }
+        // free-form dict — JsonElement 로 받아 안전 enumerate.
+        [JsonPropertyName("feature_usage")] public JsonElement? FeatureUsage { get; set; }
+    }
+
+    private sealed class ResponseTimeDataDto
+    {
+        [JsonPropertyName("timestamps")] public string[]? Timestamps { get; set; }
+        [JsonPropertyName("values")] public double[]? Values { get; set; }
+    }
+
+    private sealed class SearchErrorDataDto
+    {
+        [JsonPropertyName("dates")] public string[]? Dates { get; set; }
+        [JsonPropertyName("error_counts")] public int[]? ErrorCounts { get; set; }
+    }
+
+    private sealed class SearchUsageStatsDto
+    {
+        [JsonPropertyName("total_requests")] public int TotalRequests { get; set; }
+        [JsonPropertyName("total_responses")] public int TotalResponses { get; set; }
+        [JsonPropertyName("total_failures")] public int TotalFailures { get; set; }
+        [JsonPropertyName("period")] public string? Period { get; set; }
+    }
+
+    private sealed class UploadStatusChartDto
+    {
+        [JsonPropertyName("completed")] public int Completed { get; set; }
+        [JsonPropertyName("processing")] public int Processing { get; set; }
+        [JsonPropertyName("waiting")] public int Waiting { get; set; }
+        [JsonPropertyName("error")] public int Error { get; set; }
+    }
+
+    private sealed class AuditLogResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("user_id")] public string? UserId { get; set; }
+        [JsonPropertyName("action")] public string? Action { get; set; }
+        [JsonPropertyName("resource_type")] public string? ResourceType { get; set; }
+        [JsonPropertyName("resource_id")] public string? ResourceId { get; set; }
+        [JsonPropertyName("details")] public JsonElement? Details { get; set; }
+        [JsonPropertyName("ip_address")] public string? IpAddress { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+    }
+
+    private sealed class AuditLogListResponseDto
+    {
+        [JsonPropertyName("items")] public AuditLogResponseDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    /// <summary>
+    /// HttpResponseMessage 의 본문 stream 을 wrap — Dispose 시 응답/요청까지 함께 정리.
+    /// <para>
+    /// ExportAuditLogsAsync 가 stream 을 호출자(Controller) 에게 반환하면서 response/request
+    /// 객체의 lifetime 도 stream 과 동일하게 묶어주는 패턴(누수 방지).
+    /// </para>
+    /// </summary>
+    private sealed class HttpResponseOwnedStream : Stream
+    {
+        private readonly Stream _inner;
+        private readonly HttpResponseMessage _response;
+        private readonly HttpRequestMessage _request;
+        private bool _disposed;
+
+        public HttpResponseOwnedStream(Stream inner, HttpResponseMessage response, HttpRequestMessage request)
+        {
+            _inner = inner;
+            _response = response;
+            _request = request;
+        }
+
+        public override bool CanRead => _inner.CanRead;
+        public override bool CanSeek => _inner.CanSeek;
+        public override bool CanWrite => _inner.CanWrite;
+        public override long Length => _inner.Length;
+        public override long Position { get => _inner.Position; set => _inner.Position = value; }
+        public override void Flush() => _inner.Flush();
+        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => _inner.ReadAsync(buffer, offset, count, cancellationToken);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => _inner.ReadAsync(buffer, cancellationToken);
+        public override long Seek(long offset, SeekOrigin origin) => _inner.Seek(offset, origin);
+        public override void SetLength(long value) => _inner.SetLength(value);
+        public override void Write(byte[] buffer, int offset, int count) => _inner.Write(buffer, offset, count);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!_disposed && disposing)
+            {
+                _inner.Dispose();
+                _response.Dispose();
+                _request.Dispose();
+                _disposed = true;
+            }
+            base.Dispose(disposing);
+        }
+
+        public override async ValueTask DisposeAsync()
+        {
+            if (!_disposed)
+            {
+                await _inner.DisposeAsync().ConfigureAwait(false);
+                _response.Dispose();
+                _request.Dispose();
+                _disposed = true;
+            }
+            await base.DisposeAsync().ConfigureAwait(false);
+        }
     }
 }

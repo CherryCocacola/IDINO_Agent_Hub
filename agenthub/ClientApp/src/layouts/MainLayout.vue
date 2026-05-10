@@ -337,6 +337,19 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         path: '/admin/docutil-projects',
         icon: 'bi bi-folder2-open',
         roles: ['Admin', 'SuperAdmin']
+      },
+      // Phase 10.2a (2026-05-10): DocUtil 대시보드 + 감사 로그 — 운영 모니터링.
+      {
+        name: t('nav.docutilDashboard'),
+        path: '/admin/docutil-dashboard',
+        icon: 'bi bi-speedometer2',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      {
+        name: t('nav.docutilAudit'),
+        path: '/admin/docutil-audit',
+        icon: 'bi bi-journal-text',
+        roles: ['Admin', 'SuperAdmin']
       }
     ]
   },
