@@ -1873,6 +1873,681 @@ public class DocUtilClient : IDocUtilClient
         return new DocUtilAuditExport(owned, contentType, fileName);
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // Phase 10.2b (2026-05-10) — DocUtil Search Scopes + Evaluation BFF 15 메서드
+    //
+    // org_id 자동 부착:
+    //   DocUtil 의 search-scopes / evaluation 은 token 의 org claim 으로 자동 scope.
+    //   본 클라이언트는 path 에 orgId 를 명시하지 않는다(추정 금지 — OpenAPI 검증 결과).
+    //
+    // 한국어 502 매핑:
+    //   EnsureSuccessOrThrowKoreanAsync 가 4xx/5xx 를 InvalidOperationException 으로
+    //   변환 → Controller 가 502 ErrorResponseDto 한국어 본문으로 응답.
+    // ══════════════════════════════════════════════════════════════════════
+
+    // ── Search Scopes (9) ─────────────────────────────────────────────────
+
+    public async Task<DocUtilSearchScopeList> ListSearchScopesAsync(
+        int page = 1,
+        int size = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 100) size = 20;
+
+        var path = $"/api/v1/search-scopes?page={page}&size={size}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SearchScopeListResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 검색범위 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var items = (dto.Items ?? Array.Empty<SearchScopeResponseDto>())
+            .Select(MapSearchScopeSummary)
+            .ToArray();
+        return new DocUtilSearchScopeList(items, dto.Total, dto.Page, dto.Size);
+    }
+
+    public async Task<List<DocUtilSearchScopeOption>> ListSearchScopeOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        const string path = "/api/v1/search-scopes/options";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var arr = await JsonSerializer.DeserializeAsync<SearchScopeOptionDto[]>(stream, JsonOptions, cancellationToken);
+        if (arr is null)
+        {
+            return new List<DocUtilSearchScopeOption>();
+        }
+        return arr.Select(d => new DocUtilSearchScopeOption(
+            d.Id ?? string.Empty,
+            d.Name ?? string.Empty,
+            d.LocationPath)).ToList();
+    }
+
+    public async Task<List<DocUtilLocationOption>> ListSearchScopeLocationsAsync(
+        string locationType,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(locationType))
+        {
+            throw new InvalidOperationException("location_type 파라미터가 비어 있습니다(project/board/folder 중 하나).");
+        }
+
+        var path = $"/api/v1/search-scopes/locations?location_type={Uri.EscapeDataString(locationType)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var arr = await JsonSerializer.DeserializeAsync<LocationOptionDto[]>(stream, JsonOptions, cancellationToken);
+        if (arr is null)
+        {
+            return new List<DocUtilLocationOption>();
+        }
+        return arr.Select(d => new DocUtilLocationOption(
+            d.Id ?? string.Empty,
+            d.Name ?? string.Empty,
+            d.Type ?? string.Empty,
+            d.Path)).ToList();
+    }
+
+    public async Task<DocUtilSearchScopeDetail?> GetSearchScopeAsync(
+        string scopeId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(scopeId))
+        {
+            throw new InvalidOperationException("scope_id 가 비어 있습니다.");
+        }
+
+        var path = $"/api/v1/search-scopes/{Uri.EscapeDataString(scopeId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SearchScopeResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 검색범위 상세 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapSearchScopeDetail(dto);
+    }
+
+    public async Task<DocUtilSearchScopeDetail> CreateSearchScopeAsync(
+        DocUtilCreateScopeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new InvalidOperationException("검색범위 이름이 비어 있습니다.");
+        }
+
+        const string path = "/api/v1/search-scopes";
+        var body = new SearchScopeCreateRequestDto
+        {
+            Name = request.Name,
+            Description = request.Description,
+            ProjectId = request.ProjectId,
+            BoardId = request.BoardId,
+            FolderId = request.FolderId,
+            ChatbotEnabled = request.ChatbotEnabled,
+            QaEnabled = request.QaEnabled,
+            KeywordSearchEnabled = request.KeywordSearchEnabled,
+            AgentEnabled = request.AgentEnabled,
+            ChunkSize = request.ChunkSize,
+            ChunkOverlap = request.ChunkOverlap,
+            TitleWeight = request.TitleWeight,
+            KeywordWeight = request.KeywordWeight,
+            ContentWeight = request.ContentWeight,
+            MaxResults = request.MaxResults,
+            SimilarityThreshold = request.SimilarityThreshold,
+        };
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SearchScopeResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 검색범위 생성 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapSearchScopeDetail(dto);
+    }
+
+    public async Task<DocUtilSearchScopeDetail> UpdateSearchScopeAsync(
+        string scopeId,
+        DocUtilUpdateScopeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(scopeId))
+        {
+            throw new InvalidOperationException("scope_id 가 비어 있습니다.");
+        }
+        if (request is null)
+        {
+            throw new InvalidOperationException("수정 요청 본문이 비어 있습니다.");
+        }
+
+        var path = $"/api/v1/search-scopes/{Uri.EscapeDataString(scopeId)}";
+        var body = new SearchScopeUpdateRequestDto
+        {
+            Name = request.Name,
+            Description = request.Description,
+            ProjectId = request.ProjectId,
+            BoardId = request.BoardId,
+            FolderId = request.FolderId,
+            ChatbotEnabled = request.ChatbotEnabled,
+            QaEnabled = request.QaEnabled,
+            KeywordSearchEnabled = request.KeywordSearchEnabled,
+            AgentEnabled = request.AgentEnabled,
+            ChunkSize = request.ChunkSize,
+            ChunkOverlap = request.ChunkOverlap,
+            TitleWeight = request.TitleWeight,
+            KeywordWeight = request.KeywordWeight,
+            ContentWeight = request.ContentWeight,
+            MaxResults = request.MaxResults,
+            SimilarityThreshold = request.SimilarityThreshold,
+        };
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SearchScopeResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 검색범위 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapSearchScopeDetail(dto);
+    }
+
+    public async Task DeleteSearchScopeAsync(
+        string scopeId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(scopeId))
+        {
+            throw new InvalidOperationException("scope_id 가 비어 있습니다.");
+        }
+
+        var path = $"/api/v1/search-scopes/{Uri.EscapeDataString(scopeId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    public async Task<DocUtilSearchScopeDetail> UpdateSearchScopeEnvironmentAsync(
+        string scopeId,
+        DocUtilUpdateScopeEnvironmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(scopeId))
+        {
+            throw new InvalidOperationException("scope_id 가 비어 있습니다.");
+        }
+        if (request is null)
+        {
+            throw new InvalidOperationException("환경 설정 요청 본문이 비어 있습니다.");
+        }
+
+        var path = $"/api/v1/search-scopes/{Uri.EscapeDataString(scopeId)}/environment";
+        // SearchScopeEnvironment schema 는 모든 필드 default 가 있어 nullable 로 보내면 default 적용.
+        var body = new SearchScopeEnvironmentRequestDto
+        {
+            ChatbotEnabled = request.ChatbotEnabled,
+            ChatbotFaqTemplate = request.ChatbotFaqTemplate,
+            QaEnabled = request.QaEnabled,
+            QaPromptTemplate = request.QaPromptTemplate,
+            QaLlmModel = request.QaLlmModel,
+            KeywordSearchEnabled = request.KeywordSearchEnabled,
+            AgentEnabled = request.AgentEnabled,
+            ChunkSize = request.ChunkSize,
+            ChunkOverlap = request.ChunkOverlap,
+            TitleWeight = request.TitleWeight,
+            KeywordWeight = request.KeywordWeight,
+            ContentWeight = request.ContentWeight,
+            MaxResults = request.MaxResults,
+            SimilarityThreshold = request.SimilarityThreshold,
+        };
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SearchScopeResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 검색범위 환경 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapSearchScopeDetail(dto);
+    }
+
+    public async Task<DocUtilSearchScopeValidIdResponse> GetSearchScopeValidIdAsync(
+        string scopeId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(scopeId))
+        {
+            throw new InvalidOperationException("scope_id 가 비어 있습니다.");
+        }
+
+        var path = $"/api/v1/search-scopes/{Uri.EscapeDataString(scopeId)}/valid-id";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        // 응답 schema 미정의 — JsonElement 로 받아 dict 변환.
+        var element = await JsonSerializer.DeserializeAsync<JsonElement>(stream, JsonOptions, cancellationToken);
+        var data = ConvertJsonElementToDict(element);
+        return new DocUtilSearchScopeValidIdResponse(data);
+    }
+
+    // ── Evaluation (7) ────────────────────────────────────────────────────
+
+    public async Task<DocUtilEvaluationConfig> GetEvaluationConfigAsync(
+        CancellationToken cancellationToken = default)
+    {
+        const string path = "/api/v1/evaluation/config";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<EvaluationConfigResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 평가 설정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapEvaluationConfig(dto);
+    }
+
+    public async Task<DocUtilEvaluationConfig> UpdateEvaluationConfigAsync(
+        DocUtilUpdateEvaluationConfigRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+        {
+            throw new InvalidOperationException("평가 설정 요청 본문이 비어 있습니다.");
+        }
+
+        const string path = "/api/v1/evaluation/config";
+        var body = new EvaluationConfigUpdateRequestDto
+        {
+            ContextRelevancyWeight = request.ContextRelevancyWeight,
+            AnswerFaithfulnessWeight = request.AnswerFaithfulnessWeight,
+            AnswerRelevancyWeight = request.AnswerRelevancyWeight,
+            HallucinationWeight = request.HallucinationWeight,
+        };
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<EvaluationConfigResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 평가 설정 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapEvaluationConfig(dto);
+    }
+
+    public async Task<DocUtilEvaluationLogList> ListEvaluationLogsAsync(
+        int page = 1,
+        int size = 20,
+        string? runId = null,
+        string? runType = null,
+        bool? hasHallucination = null,
+        double? minScore = null,
+        double? maxScore = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 100) size = 20;
+
+        var queryParts = new List<string>
+        {
+            $"page={page}",
+            $"size={size}",
+        };
+        if (!string.IsNullOrWhiteSpace(runId))
+        {
+            queryParts.Add($"run_id={Uri.EscapeDataString(runId)}");
+        }
+        if (!string.IsNullOrWhiteSpace(runType))
+        {
+            queryParts.Add($"run_type={Uri.EscapeDataString(runType)}");
+        }
+        if (hasHallucination.HasValue)
+        {
+            queryParts.Add($"has_hallucination={(hasHallucination.Value ? "true" : "false")}");
+        }
+        if (minScore.HasValue)
+        {
+            queryParts.Add($"min_score={minScore.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+        if (maxScore.HasValue)
+        {
+            queryParts.Add($"max_score={maxScore.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+        var path = $"/api/v1/evaluation/logs?{string.Join("&", queryParts)}";
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<EvaluationLogListResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 평가 로그 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var items = (dto.Items ?? Array.Empty<EvaluationLogResponseDto>())
+            .Select(MapEvaluationLog)
+            .ToArray();
+        return new DocUtilEvaluationLogList(items, dto.Total, dto.Page, dto.Size);
+    }
+
+    public async Task<DocUtilEvaluationQuestions> GetEvaluationQuestionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        const string path = "/api/v1/evaluation/questions";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var element = await JsonSerializer.DeserializeAsync<JsonElement>(stream, JsonOptions, cancellationToken);
+        var data = ConvertJsonElementToDict(element);
+        return new DocUtilEvaluationQuestions(data);
+    }
+
+    public async Task<DocUtilEvaluationRunResponse> RunEvaluationAsync(
+        DocUtilRunEvaluationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+        {
+            throw new InvalidOperationException("평가 실행 요청 본문이 비어 있습니다.");
+        }
+
+        const string path = "/api/v1/evaluation/run";
+        // body 가 빈 questions 면 null 로 직렬화 → DocUtil 측 default 질문 셋 사용.
+        var body = new EvaluationRunRequestDto
+        {
+            Questions = (request.Questions != null && request.Questions.Length > 0) ? request.Questions : null,
+        };
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var element = await JsonSerializer.DeserializeAsync<JsonElement>(stream, JsonOptions, cancellationToken);
+        var data = ConvertJsonElementToDict(element);
+        _logger.LogInformation("DocUtil 평가 실행 트리거 - Status={Status}, BodyKeys=[{Keys}]",
+            (int)response.StatusCode, string.Join(",", data.Keys));
+        return new DocUtilEvaluationRunResponse(data);
+    }
+
+    public async Task<DocUtilEvaluationRunList> ListEvaluationRunsAsync(
+        int limit = 30,
+        CancellationToken cancellationToken = default)
+    {
+        if (limit < 1 || limit > 100) limit = 30;
+
+        var path = $"/api/v1/evaluation/runs?limit={limit}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<EvaluationRunListResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 평가 실행 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var items = (dto.Items ?? Array.Empty<EvaluationRunSummaryDto>())
+            .Select(MapEvaluationRunSummary)
+            .ToArray();
+        return new DocUtilEvaluationRunList(items, dto.Total);
+    }
+
+    public async Task<DocUtilEvaluationTrend> GetEvaluationTrendAsync(
+        int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        if (days < 1 || days > 365) days = 30;
+
+        var path = $"/api/v1/evaluation/trend?days={days}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<EvaluationTrendResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 평가 추이 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var data = (dto.Data ?? Array.Empty<EvaluationTrendPointDto>())
+            .Select(p => new DocUtilEvaluationTrendDataPoint(
+                p.Date ?? string.Empty,
+                p.AvgContextRelevancy,
+                p.AvgAnswerFaithfulness,
+                p.AvgAnswerRelevancy,
+                p.AvgHallucinationScore,
+                p.AvgCompositeScore))
+            .ToArray();
+        return new DocUtilEvaluationTrend(data);
+    }
+
+    // ── Phase 10.2b 매핑 헬퍼 ──────────────────────────────────────────────
+
+    private static DocUtilSearchScopeSummary MapSearchScopeSummary(SearchScopeResponseDto dto) => new(
+        dto.Id ?? string.Empty,
+        dto.Name ?? string.Empty,
+        dto.Description,
+        dto.OrganizationId ?? string.Empty,
+        dto.CreatedBy ?? string.Empty,
+        dto.ProjectId,
+        dto.BoardId,
+        dto.FolderId,
+        dto.LocationPath,
+        dto.ChatbotEnabled,
+        dto.ChatbotFaqTemplate,
+        dto.QaEnabled,
+        dto.QaPromptTemplate,
+        dto.QaLlmModel,
+        dto.KeywordSearchEnabled,
+        dto.AgentEnabled,
+        dto.ChunkSize,
+        dto.ChunkOverlap,
+        dto.TitleWeight,
+        dto.KeywordWeight,
+        dto.ContentWeight,
+        dto.MaxResults,
+        dto.SimilarityThreshold,
+        dto.CreatedAt,
+        dto.UpdatedAt);
+
+    private static DocUtilSearchScopeDetail MapSearchScopeDetail(SearchScopeResponseDto dto) => new(
+        dto.Id ?? string.Empty,
+        dto.Name ?? string.Empty,
+        dto.Description,
+        dto.OrganizationId ?? string.Empty,
+        dto.CreatedBy ?? string.Empty,
+        dto.ProjectId,
+        dto.BoardId,
+        dto.FolderId,
+        dto.LocationPath,
+        dto.ChatbotEnabled,
+        dto.ChatbotFaqTemplate,
+        dto.QaEnabled,
+        dto.QaPromptTemplate,
+        dto.QaLlmModel,
+        dto.KeywordSearchEnabled,
+        dto.AgentEnabled,
+        dto.ChunkSize,
+        dto.ChunkOverlap,
+        dto.TitleWeight,
+        dto.KeywordWeight,
+        dto.ContentWeight,
+        dto.MaxResults,
+        dto.SimilarityThreshold,
+        dto.CreatedAt,
+        dto.UpdatedAt);
+
+    private static DocUtilEvaluationConfig MapEvaluationConfig(EvaluationConfigResponseDto dto) => new(
+        dto.Id ?? string.Empty,
+        dto.OrganizationId ?? string.Empty,
+        dto.ContextRelevancyWeight,
+        dto.AnswerFaithfulnessWeight,
+        dto.AnswerRelevancyWeight,
+        dto.HallucinationWeight);
+
+    private static DocUtilEvaluationLogEntry MapEvaluationLog(EvaluationLogResponseDto dto)
+    {
+        IDictionary<string, object?>? contexts = null;
+        if (dto.Contexts is JsonElement ce && ce.ValueKind == JsonValueKind.Object)
+        {
+            contexts = ConvertJsonElementToDict(ce);
+        }
+        IDictionary<string, object?>? evidence = null;
+        if (dto.HallucinationEvidence is JsonElement he && he.ValueKind == JsonValueKind.Object)
+        {
+            evidence = ConvertJsonElementToDict(he);
+        }
+        IDictionary<string, object?>? judge = null;
+        if (dto.JudgeDetails is JsonElement je && je.ValueKind == JsonValueKind.Object)
+        {
+            judge = ConvertJsonElementToDict(je);
+        }
+
+        return new DocUtilEvaluationLogEntry(
+            dto.Id ?? string.Empty,
+            dto.OrganizationId ?? string.Empty,
+            dto.RunId ?? string.Empty,
+            dto.Question ?? string.Empty,
+            dto.Answer ?? string.Empty,
+            contexts,
+            dto.ContextRelevancy,
+            dto.AnswerFaithfulness,
+            dto.AnswerRelevancy,
+            dto.HallucinationScore,
+            dto.HasHallucination,
+            evidence,
+            dto.CompositeScore,
+            judge,
+            dto.RunType ?? string.Empty,
+            dto.QuestionIndex,
+            dto.CreatedAt);
+    }
+
+    private static DocUtilEvaluationRunSummary MapEvaluationRunSummary(EvaluationRunSummaryDto dto) => new(
+        dto.RunId ?? string.Empty,
+        dto.RunType ?? string.Empty,
+        dto.CreatedAt,
+        dto.QuestionCount,
+        dto.AvgContextRelevancy,
+        dto.AvgAnswerFaithfulness,
+        dto.AvgAnswerRelevancy,
+        dto.AvgHallucinationScore,
+        dto.AvgCompositeScore,
+        dto.HallucinationCount);
+
+    /// <summary>
+    /// JsonElement 를 IDictionary&lt;string, object?&gt; 로 변환(free-form 응답용).
+    /// 객체가 아닌 값(null/array/scalar) 이면 단일 키 "_value" 로 wrap 하여 빈 dict 회피.
+    /// </summary>
+    private static IDictionary<string, object?> ConvertJsonElementToDict(JsonElement element)
+    {
+        var dict = new Dictionary<string, object?>(StringComparer.Ordinal);
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in element.EnumerateObject())
+            {
+                dict[prop.Name] = JsonElementToObject(prop.Value);
+            }
+        }
+        else if (element.ValueKind != JsonValueKind.Undefined && element.ValueKind != JsonValueKind.Null)
+        {
+            dict["_value"] = JsonElementToObject(element);
+        }
+        return dict;
+    }
+
     // ── Phase 10.2a 매핑 헬퍼 ──────────────────────────────────────────────
     private static DocUtilAuditLogEntry MapAuditLog(AuditLogResponseDto dto)
     {
@@ -2444,6 +3119,211 @@ public class DocUtilClient : IDocUtilClient
         [JsonPropertyName("total")] public long Total { get; set; }
         [JsonPropertyName("page")] public int Page { get; set; }
         [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    // ── Phase 10.2b (2026-05-10): DocUtil Search Scopes + Evaluation API DTO ──
+    // OpenAPI 캡처(2026-05-10) SearchScopeResponse / SearchScopeListResponse / SearchScopeOption /
+    // LocationOption / SearchScopeCreate / SearchScopeUpdate / SearchScopeEnvironment /
+    // EvaluationConfigResponse / EvaluationConfigUpdate / EvaluationLogResponse /
+    // EvaluationLogListResponse / EvaluationRunSummary / EvaluationRunListResponse /
+    // EvaluationRunRequest / EvaluationTrendPoint / EvaluationTrendResponse 에 1:1 매핑.
+    // 추정 금지 — schema 에 없는 필드는 추가하지 않음.
+
+    private sealed class SearchScopeResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("created_by")] public string? CreatedBy { get; set; }
+        [JsonPropertyName("project_id")] public string? ProjectId { get; set; }
+        [JsonPropertyName("board_id")] public string? BoardId { get; set; }
+        [JsonPropertyName("folder_id")] public string? FolderId { get; set; }
+        [JsonPropertyName("location_path")] public string? LocationPath { get; set; }
+        [JsonPropertyName("chatbot_enabled")] public bool ChatbotEnabled { get; set; }
+        [JsonPropertyName("chatbot_faq_template")] public string? ChatbotFaqTemplate { get; set; }
+        [JsonPropertyName("qa_enabled")] public bool QaEnabled { get; set; }
+        [JsonPropertyName("qa_prompt_template")] public string? QaPromptTemplate { get; set; }
+        [JsonPropertyName("qa_llm_model")] public string? QaLlmModel { get; set; }
+        [JsonPropertyName("keyword_search_enabled")] public bool KeywordSearchEnabled { get; set; }
+        [JsonPropertyName("agent_enabled")] public bool AgentEnabled { get; set; }
+        [JsonPropertyName("chunk_size")] public int ChunkSize { get; set; }
+        [JsonPropertyName("chunk_overlap")] public int ChunkOverlap { get; set; }
+        [JsonPropertyName("title_weight")] public double TitleWeight { get; set; }
+        [JsonPropertyName("keyword_weight")] public double KeywordWeight { get; set; }
+        [JsonPropertyName("content_weight")] public double ContentWeight { get; set; }
+        [JsonPropertyName("max_results")] public int MaxResults { get; set; }
+        [JsonPropertyName("similarity_threshold")] public double SimilarityThreshold { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+        [JsonPropertyName("updated_at")] public DateTime UpdatedAt { get; set; }
+    }
+
+    private sealed class SearchScopeListResponseDto
+    {
+        [JsonPropertyName("items")] public SearchScopeResponseDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    private sealed class SearchScopeOptionDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("location_path")] public string? LocationPath { get; set; }
+    }
+
+    private sealed class LocationOptionDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("type")] public string? Type { get; set; }
+        [JsonPropertyName("path")] public string? Path { get; set; }
+    }
+
+    private sealed class SearchScopeCreateRequestDto
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("project_id")] public string? ProjectId { get; set; }
+        [JsonPropertyName("board_id")] public string? BoardId { get; set; }
+        [JsonPropertyName("folder_id")] public string? FolderId { get; set; }
+        [JsonPropertyName("chatbot_enabled")] public bool? ChatbotEnabled { get; set; }
+        [JsonPropertyName("qa_enabled")] public bool? QaEnabled { get; set; }
+        [JsonPropertyName("keyword_search_enabled")] public bool? KeywordSearchEnabled { get; set; }
+        [JsonPropertyName("agent_enabled")] public bool? AgentEnabled { get; set; }
+        [JsonPropertyName("chunk_size")] public int? ChunkSize { get; set; }
+        [JsonPropertyName("chunk_overlap")] public int? ChunkOverlap { get; set; }
+        [JsonPropertyName("title_weight")] public double? TitleWeight { get; set; }
+        [JsonPropertyName("keyword_weight")] public double? KeywordWeight { get; set; }
+        [JsonPropertyName("content_weight")] public double? ContentWeight { get; set; }
+        [JsonPropertyName("max_results")] public int? MaxResults { get; set; }
+        [JsonPropertyName("similarity_threshold")] public double? SimilarityThreshold { get; set; }
+    }
+
+    private sealed class SearchScopeUpdateRequestDto
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("project_id")] public string? ProjectId { get; set; }
+        [JsonPropertyName("board_id")] public string? BoardId { get; set; }
+        [JsonPropertyName("folder_id")] public string? FolderId { get; set; }
+        [JsonPropertyName("chatbot_enabled")] public bool? ChatbotEnabled { get; set; }
+        [JsonPropertyName("qa_enabled")] public bool? QaEnabled { get; set; }
+        [JsonPropertyName("keyword_search_enabled")] public bool? KeywordSearchEnabled { get; set; }
+        [JsonPropertyName("agent_enabled")] public bool? AgentEnabled { get; set; }
+        [JsonPropertyName("chunk_size")] public int? ChunkSize { get; set; }
+        [JsonPropertyName("chunk_overlap")] public int? ChunkOverlap { get; set; }
+        [JsonPropertyName("title_weight")] public double? TitleWeight { get; set; }
+        [JsonPropertyName("keyword_weight")] public double? KeywordWeight { get; set; }
+        [JsonPropertyName("content_weight")] public double? ContentWeight { get; set; }
+        [JsonPropertyName("max_results")] public int? MaxResults { get; set; }
+        [JsonPropertyName("similarity_threshold")] public double? SimilarityThreshold { get; set; }
+    }
+
+    private sealed class SearchScopeEnvironmentRequestDto
+    {
+        [JsonPropertyName("chatbot_enabled")] public bool? ChatbotEnabled { get; set; }
+        [JsonPropertyName("chatbot_faq_template")] public string? ChatbotFaqTemplate { get; set; }
+        [JsonPropertyName("qa_enabled")] public bool? QaEnabled { get; set; }
+        [JsonPropertyName("qa_prompt_template")] public string? QaPromptTemplate { get; set; }
+        [JsonPropertyName("qa_llm_model")] public string? QaLlmModel { get; set; }
+        [JsonPropertyName("keyword_search_enabled")] public bool? KeywordSearchEnabled { get; set; }
+        [JsonPropertyName("agent_enabled")] public bool? AgentEnabled { get; set; }
+        [JsonPropertyName("chunk_size")] public int? ChunkSize { get; set; }
+        [JsonPropertyName("chunk_overlap")] public int? ChunkOverlap { get; set; }
+        [JsonPropertyName("title_weight")] public double? TitleWeight { get; set; }
+        [JsonPropertyName("keyword_weight")] public double? KeywordWeight { get; set; }
+        [JsonPropertyName("content_weight")] public double? ContentWeight { get; set; }
+        [JsonPropertyName("max_results")] public int? MaxResults { get; set; }
+        [JsonPropertyName("similarity_threshold")] public double? SimilarityThreshold { get; set; }
+    }
+
+    private sealed class EvaluationConfigResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("context_relevancy_weight")] public double ContextRelevancyWeight { get; set; }
+        [JsonPropertyName("answer_faithfulness_weight")] public double AnswerFaithfulnessWeight { get; set; }
+        [JsonPropertyName("answer_relevancy_weight")] public double AnswerRelevancyWeight { get; set; }
+        [JsonPropertyName("hallucination_weight")] public double HallucinationWeight { get; set; }
+    }
+
+    private sealed class EvaluationConfigUpdateRequestDto
+    {
+        [JsonPropertyName("context_relevancy_weight")] public double ContextRelevancyWeight { get; set; }
+        [JsonPropertyName("answer_faithfulness_weight")] public double AnswerFaithfulnessWeight { get; set; }
+        [JsonPropertyName("answer_relevancy_weight")] public double AnswerRelevancyWeight { get; set; }
+        [JsonPropertyName("hallucination_weight")] public double HallucinationWeight { get; set; }
+    }
+
+    private sealed class EvaluationLogResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("run_id")] public string? RunId { get; set; }
+        [JsonPropertyName("question")] public string? Question { get; set; }
+        [JsonPropertyName("answer")] public string? Answer { get; set; }
+        [JsonPropertyName("contexts")] public JsonElement? Contexts { get; set; }
+        [JsonPropertyName("context_relevancy")] public double ContextRelevancy { get; set; }
+        [JsonPropertyName("answer_faithfulness")] public double AnswerFaithfulness { get; set; }
+        [JsonPropertyName("answer_relevancy")] public double AnswerRelevancy { get; set; }
+        [JsonPropertyName("hallucination_score")] public double HallucinationScore { get; set; }
+        [JsonPropertyName("has_hallucination")] public bool HasHallucination { get; set; }
+        [JsonPropertyName("hallucination_evidence")] public JsonElement? HallucinationEvidence { get; set; }
+        [JsonPropertyName("composite_score")] public double CompositeScore { get; set; }
+        [JsonPropertyName("judge_details")] public JsonElement? JudgeDetails { get; set; }
+        [JsonPropertyName("run_type")] public string? RunType { get; set; }
+        [JsonPropertyName("question_index")] public int QuestionIndex { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+    }
+
+    private sealed class EvaluationLogListResponseDto
+    {
+        [JsonPropertyName("items")] public EvaluationLogResponseDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    private sealed class EvaluationRunRequestDto
+    {
+        [JsonPropertyName("questions")] public string[]? Questions { get; set; }
+    }
+
+    private sealed class EvaluationRunSummaryDto
+    {
+        [JsonPropertyName("run_id")] public string? RunId { get; set; }
+        [JsonPropertyName("run_type")] public string? RunType { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+        [JsonPropertyName("question_count")] public int QuestionCount { get; set; }
+        [JsonPropertyName("avg_context_relevancy")] public double AvgContextRelevancy { get; set; }
+        [JsonPropertyName("avg_answer_faithfulness")] public double AvgAnswerFaithfulness { get; set; }
+        [JsonPropertyName("avg_answer_relevancy")] public double AvgAnswerRelevancy { get; set; }
+        [JsonPropertyName("avg_hallucination_score")] public double AvgHallucinationScore { get; set; }
+        [JsonPropertyName("avg_composite_score")] public double AvgCompositeScore { get; set; }
+        [JsonPropertyName("hallucination_count")] public int HallucinationCount { get; set; }
+    }
+
+    private sealed class EvaluationRunListResponseDto
+    {
+        [JsonPropertyName("items")] public EvaluationRunSummaryDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+    }
+
+    private sealed class EvaluationTrendPointDto
+    {
+        [JsonPropertyName("date")] public string? Date { get; set; }
+        [JsonPropertyName("avg_context_relevancy")] public double AvgContextRelevancy { get; set; }
+        [JsonPropertyName("avg_answer_faithfulness")] public double AvgAnswerFaithfulness { get; set; }
+        [JsonPropertyName("avg_answer_relevancy")] public double AvgAnswerRelevancy { get; set; }
+        [JsonPropertyName("avg_hallucination_score")] public double AvgHallucinationScore { get; set; }
+        [JsonPropertyName("avg_composite_score")] public double AvgCompositeScore { get; set; }
+    }
+
+    private sealed class EvaluationTrendResponseDto
+    {
+        [JsonPropertyName("data")] public EvaluationTrendPointDto[]? Data { get; set; }
     }
 
     /// <summary>

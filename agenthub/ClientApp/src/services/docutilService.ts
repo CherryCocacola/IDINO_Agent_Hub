@@ -954,6 +954,374 @@ function parseFileNameFromDisposition(disposition: string | undefined): string {
   return 'audit_logs.csv'
 }
 
+// ─── Phase 10.2b — DocUtil Search Scopes + Evaluation BFF ───────────────────
+//
+// AgentHub `/api/admin/docutil/search-scopes` + `/api/admin/docutil/evaluation` 진입점.
+// 모두 axios `services/api.ts` 인스턴스 사용 — JWT 자동 부착 + 401 갱신.
+// 백엔드 record DTO 와 1:1 정렬 (camelCase JSON, Program.cs JsonNamingPolicy).
+//
+// 추정 금지 — DocUtil OpenAPI 캡처(2026-05-10) + 백엔드 IDocUtilClient.cs 시그니처 일치.
+
+const SEARCH_SCOPES_BASE = '/admin/docutil/search-scopes'
+const EVALUATION_BASE = '/admin/docutil/evaluation'
+
+// ─── Search Scopes 인터페이스 ────────────────────────────────────────────────
+
+/** 검색 범위 한 행(목록 표시용 요약 — Detail 과 동일 24 필드 셋). */
+export interface DocUtilSearchScopeSummary {
+  id: string
+  name: string
+  description: string | null
+  organizationId: string
+  createdBy: string
+  projectId: string | null
+  boardId: string | null
+  folderId: string | null
+  locationPath: string | null
+  chatbotEnabled: boolean
+  chatbotFaqTemplate: string | null
+  qaEnabled: boolean
+  qaPromptTemplate: string | null
+  qaLlmModel: string | null
+  keywordSearchEnabled: boolean
+  agentEnabled: boolean
+  chunkSize: number
+  chunkOverlap: number
+  titleWeight: number
+  keywordWeight: number
+  contentWeight: number
+  maxResults: number
+  similarityThreshold: number
+  createdAt: string
+  updatedAt: string
+}
+
+/** 검색 범위 상세 — Summary 와 동일 셋. */
+export type DocUtilSearchScopeDetail = DocUtilSearchScopeSummary
+
+/** 검색 범위 목록 응답. */
+export interface DocUtilSearchScopeList {
+  items: DocUtilSearchScopeSummary[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 검색 범위 옵션(드롭다운용). */
+export interface DocUtilSearchScopeOption {
+  id: string
+  name: string
+  locationPath: string | null
+}
+
+/** 위치 옵션(프로젝트/보드/폴더). */
+export interface DocUtilLocationOption {
+  id: string
+  name: string
+  type: string
+  path: string | null
+}
+
+/** 검색 범위 생성 요청. */
+export interface DocUtilCreateScopeRequest {
+  name: string
+  description?: string | null
+  projectId?: string | null
+  boardId?: string | null
+  folderId?: string | null
+  chatbotEnabled?: boolean | null
+  qaEnabled?: boolean | null
+  keywordSearchEnabled?: boolean | null
+  agentEnabled?: boolean | null
+  chunkSize?: number | null
+  chunkOverlap?: number | null
+  titleWeight?: number | null
+  keywordWeight?: number | null
+  contentWeight?: number | null
+  maxResults?: number | null
+  similarityThreshold?: number | null
+}
+
+/** 검색 범위 수정 요청 (partial update). */
+export type DocUtilUpdateScopeRequest = Partial<Omit<DocUtilCreateScopeRequest, 'name'>> & {
+  name?: string | null
+}
+
+/** 검색 범위 환경 설정 요청 (모든 필드 nullable, default 적용). */
+export interface DocUtilUpdateScopeEnvironmentRequest {
+  chatbotEnabled?: boolean | null
+  chatbotFaqTemplate?: string | null
+  qaEnabled?: boolean | null
+  qaPromptTemplate?: string | null
+  qaLlmModel?: string | null
+  keywordSearchEnabled?: boolean | null
+  agentEnabled?: boolean | null
+  chunkSize?: number | null
+  chunkOverlap?: number | null
+  titleWeight?: number | null
+  keywordWeight?: number | null
+  contentWeight?: number | null
+  maxResults?: number | null
+  similarityThreshold?: number | null
+}
+
+// ─── Evaluation 인터페이스 ───────────────────────────────────────────────────
+
+/** 평가 가중치 설정. */
+export interface DocUtilEvaluationConfig {
+  id: string
+  organizationId: string
+  contextRelevancyWeight: number
+  answerFaithfulnessWeight: number
+  answerRelevancyWeight: number
+  hallucinationWeight: number
+}
+
+/** 평가 가중치 수정 요청. */
+export interface DocUtilUpdateEvaluationConfigRequest {
+  contextRelevancyWeight: number
+  answerFaithfulnessWeight: number
+  answerRelevancyWeight: number
+  hallucinationWeight: number
+}
+
+/** 평가 로그 한 항목. */
+export interface DocUtilEvaluationLogEntry {
+  id: string
+  organizationId: string
+  runId: string
+  question: string
+  answer: string
+  contexts: Record<string, unknown> | null
+  contextRelevancy: number
+  answerFaithfulness: number
+  answerRelevancy: number
+  hallucinationScore: number
+  hasHallucination: boolean
+  hallucinationEvidence: Record<string, unknown> | null
+  compositeScore: number
+  judgeDetails: Record<string, unknown> | null
+  runType: string
+  questionIndex: number
+  createdAt: string
+}
+
+/** 평가 로그 목록 응답. */
+export interface DocUtilEvaluationLogList {
+  items: DocUtilEvaluationLogEntry[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 평가 실행 요청 (questions 미지정 시 default 셋 사용). */
+export interface DocUtilRunEvaluationRequest {
+  questions?: string[] | null
+}
+
+/** 평가 실행 요약. */
+export interface DocUtilEvaluationRunSummary {
+  runId: string
+  runType: string
+  createdAt: string
+  questionCount: number
+  avgContextRelevancy: number
+  avgAnswerFaithfulness: number
+  avgAnswerRelevancy: number
+  avgHallucinationScore: number
+  avgCompositeScore: number
+  hallucinationCount: number
+}
+
+/** 평가 실행 목록 응답 (page/size 없음 — items + total 만). */
+export interface DocUtilEvaluationRunList {
+  items: DocUtilEvaluationRunSummary[]
+  total: number
+}
+
+/** 평가 트렌드 데이터 포인트. */
+export interface DocUtilEvaluationTrendDataPoint {
+  date: string
+  avgContextRelevancy: number
+  avgAnswerFaithfulness: number
+  avgAnswerRelevancy: number
+  avgHallucinationScore: number
+  avgCompositeScore: number
+}
+
+/** 평가 트렌드 응답. */
+export interface DocUtilEvaluationTrend {
+  data: DocUtilEvaluationTrendDataPoint[]
+}
+
+/** 평가 로그 필터 (UI 폼 통합용). */
+export interface EvaluationLogFilters {
+  page?: number
+  size?: number
+  runId?: string
+  runType?: string
+  hasHallucination?: boolean
+  minScore?: number
+  maxScore?: number
+}
+
+// ─── Search Scopes API 호출 ─────────────────────────────────────────────────
+
+/** 검색 범위 목록 조회. */
+export async function listSearchScopes(
+  page: number = 1,
+  size: number = 20
+): Promise<DocUtilSearchScopeList> {
+  const { data } = await api.get<DocUtilSearchScopeList>(`${SEARCH_SCOPES_BASE}`, {
+    params: { page, size }
+  })
+  return data
+}
+
+/** 검색 범위 옵션 목록(드롭다운) 조회. */
+export async function listSearchScopeOptions(): Promise<DocUtilSearchScopeOption[]> {
+  const { data } = await api.get<DocUtilSearchScopeOption[]>(`${SEARCH_SCOPES_BASE}/options`)
+  return data
+}
+
+/**
+ * 위치 카탈로그 조회.
+ * @param locationType "project" | "board" | "folder" 중 하나(필수).
+ */
+export async function listSearchScopeLocations(
+  locationType: 'project' | 'board' | 'folder'
+): Promise<DocUtilLocationOption[]> {
+  const { data } = await api.get<DocUtilLocationOption[]>(`${SEARCH_SCOPES_BASE}/locations`, {
+    params: { locationType }
+  })
+  return data
+}
+
+/** 검색 범위 상세 조회. */
+export async function getSearchScope(scopeId: string): Promise<DocUtilSearchScopeDetail> {
+  const { data } = await api.get<DocUtilSearchScopeDetail>(
+    `${SEARCH_SCOPES_BASE}/${encodeURIComponent(scopeId)}`
+  )
+  return data
+}
+
+/** 검색 범위 생성. */
+export async function createSearchScope(
+  request: DocUtilCreateScopeRequest
+): Promise<DocUtilSearchScopeDetail> {
+  const { data } = await api.post<DocUtilSearchScopeDetail>(`${SEARCH_SCOPES_BASE}`, request)
+  return data
+}
+
+/** 검색 범위 수정. */
+export async function updateSearchScope(
+  scopeId: string,
+  request: DocUtilUpdateScopeRequest
+): Promise<DocUtilSearchScopeDetail> {
+  const { data } = await api.put<DocUtilSearchScopeDetail>(
+    `${SEARCH_SCOPES_BASE}/${encodeURIComponent(scopeId)}`,
+    request
+  )
+  return data
+}
+
+/** 검색 범위 삭제. */
+export async function deleteSearchScope(scopeId: string): Promise<void> {
+  await api.delete<void>(`${SEARCH_SCOPES_BASE}/${encodeURIComponent(scopeId)}`)
+}
+
+/** 검색 범위 환경 설정 변경. */
+export async function updateSearchScopeEnvironment(
+  scopeId: string,
+  request: DocUtilUpdateScopeEnvironmentRequest
+): Promise<DocUtilSearchScopeDetail> {
+  const { data } = await api.put<DocUtilSearchScopeDetail>(
+    `${SEARCH_SCOPES_BASE}/${encodeURIComponent(scopeId)}/environment`,
+    request
+  )
+  return data
+}
+
+/** 검색 범위 valid-id 조회 (free-form dict 응답). */
+export async function getSearchScopeValidId(
+  scopeId: string
+): Promise<Record<string, unknown>> {
+  const { data } = await api.get<Record<string, unknown>>(
+    `${SEARCH_SCOPES_BASE}/${encodeURIComponent(scopeId)}/valid-id`
+  )
+  return data
+}
+
+// ─── Evaluation API 호출 ────────────────────────────────────────────────────
+
+/** 평가 가중치 설정 조회. */
+export async function getEvaluationConfig(): Promise<DocUtilEvaluationConfig> {
+  const { data } = await api.get<DocUtilEvaluationConfig>(`${EVALUATION_BASE}/config`)
+  return data
+}
+
+/** 평가 가중치 설정 수정. */
+export async function updateEvaluationConfig(
+  request: DocUtilUpdateEvaluationConfigRequest
+): Promise<DocUtilEvaluationConfig> {
+  const { data } = await api.put<DocUtilEvaluationConfig>(`${EVALUATION_BASE}/config`, request)
+  return data
+}
+
+/** 평가 로그 목록 조회. */
+export async function listEvaluationLogs(
+  filters: EvaluationLogFilters = {}
+): Promise<DocUtilEvaluationLogList> {
+  const params: Record<string, string | number | boolean> = {}
+  params.page = filters.page ?? 1
+  params.size = filters.size ?? 20
+  if (filters.runId && filters.runId.trim()) params.runId = filters.runId.trim()
+  if (filters.runType && filters.runType.trim()) params.runType = filters.runType.trim()
+  if (typeof filters.hasHallucination === 'boolean')
+    params.hasHallucination = filters.hasHallucination
+  if (typeof filters.minScore === 'number') params.minScore = filters.minScore
+  if (typeof filters.maxScore === 'number') params.maxScore = filters.maxScore
+  const { data } = await api.get<DocUtilEvaluationLogList>(`${EVALUATION_BASE}/logs`, {
+    params
+  })
+  return data
+}
+
+/** 기본 평가 질문 목록 조회 (free-form dict). */
+export async function getEvaluationQuestions(): Promise<Record<string, unknown>> {
+  const { data } = await api.get<Record<string, unknown>>(`${EVALUATION_BASE}/questions`)
+  return data
+}
+
+/**
+ * 수동 평가 실행 트리거.
+ *
+ * 주의: 실제 LLM 호출(judge LLM) 트리거 — 비용/시간 영향 가능.
+ * questions 가 null/빈 배열이면 DocUtil 의 default 질문 셋 사용.
+ */
+export async function runEvaluation(
+  request: DocUtilRunEvaluationRequest = {}
+): Promise<Record<string, unknown>> {
+  const { data } = await api.post<Record<string, unknown>>(`${EVALUATION_BASE}/run`, request)
+  return data
+}
+
+/** 최근 평가 실행 목록 조회. */
+export async function listEvaluationRuns(limit: number = 30): Promise<DocUtilEvaluationRunList> {
+  const { data } = await api.get<DocUtilEvaluationRunList>(`${EVALUATION_BASE}/runs`, {
+    params: { limit }
+  })
+  return data
+}
+
+/** 평가 점수 추이 조회 (최근 N일). */
+export async function getEvaluationTrend(days: number = 30): Promise<DocUtilEvaluationTrend> {
+  const { data } = await api.get<DocUtilEvaluationTrend>(`${EVALUATION_BASE}/trend`, {
+    params: { days }
+  })
+  return data
+}
+
 export default {
   listDocuments,
   uploadDocument,
@@ -997,5 +1365,22 @@ export default {
   getDashboardSearchUsage,
   getDashboardUploadStatus,
   listAuditLogs,
-  exportAuditLogs
+  exportAuditLogs,
+  // Phase 10.2b — Search Scopes + Evaluation
+  listSearchScopes,
+  listSearchScopeOptions,
+  listSearchScopeLocations,
+  getSearchScope,
+  createSearchScope,
+  updateSearchScope,
+  deleteSearchScope,
+  updateSearchScopeEnvironment,
+  getSearchScopeValidId,
+  getEvaluationConfig,
+  updateEvaluationConfig,
+  listEvaluationLogs,
+  getEvaluationQuestions,
+  runEvaluation,
+  listEvaluationRuns,
+  getEvaluationTrend
 }

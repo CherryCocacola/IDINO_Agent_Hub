@@ -350,6 +350,19 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         path: '/admin/docutil-audit',
         icon: 'bi bi-journal-text',
         roles: ['Admin', 'SuperAdmin']
+      },
+      // Phase 10.2b (2026-05-10): DocUtil 검색범위 + 평가 — RAG 품질 운영.
+      {
+        name: t('nav.docutilSearchScopes'),
+        path: '/admin/docutil-search-scopes',
+        icon: 'bi bi-bullseye',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      {
+        name: t('nav.docutilEvaluation'),
+        path: '/admin/docutil-evaluation',
+        icon: 'bi bi-clipboard-check',
+        roles: ['Admin', 'SuperAdmin']
       }
     ]
   },

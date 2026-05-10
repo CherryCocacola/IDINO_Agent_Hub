@@ -566,6 +566,213 @@ public interface IDocUtilClient
         DateTime? startDate = null,
         DateTime? endDate = null,
         CancellationToken cancellationToken = default);
+
+    // ── Phase 10.2b (2026-05-10): DocUtil Search Scopes + Evaluation 운영자 BFF — 15 메서드 ──
+    //
+    // 통합 비전 매핑(P1 Control Plane / P5 인증 / R2 단일 진입점 / P8 RAG 단일 권위):
+    //   AgentHub 운영자 콘솔이 DocUtil 의 검색 범위(Search Scopes — 프로젝트/보드/폴더 단위
+    //   RAG 튜닝 + Chatbot/QA/Keyword/Agent 4 기능 토글) + 평가(Evaluation — 4개 가중치
+    //   설정 / 평가 실행 / 로그 / 트렌드) 까지 단일 진입점에서 관리. Phase 10.1/10.2a 와
+    //   동일 BFF 패턴(IDocUtilTokenProvider 4단계 폴백 + 한국어 502 매핑) 적용.
+    //
+    // 인증/권한:
+    //   - AgentHub 측: [Authorize(Roles="Admin,SuperAdmin")] 게이트(Controller 레벨)
+    //   - DocUtil 측: IDocUtilTokenProvider 가 운영자 JWT 자동 부착(token 의 org claim 으로
+    //     응답 자동 scope — Search Scopes 도 organization 단위로 자동 격리됨).
+    //
+    // 데이터 소스: DocUtil OpenAPI 캡처(2026-05-10) 결과:
+    //   GET    /api/v1/search-scopes?page=&size=                                → SearchScopeListResponse
+    //   POST   /api/v1/search-scopes                                            → SearchScopeResponse(201)
+    //   GET    /api/v1/search-scopes/locations?location_type=                   → List<LocationOption>  (location_type 필수)
+    //   GET    /api/v1/search-scopes/options                                    → List<SearchScopeOption>
+    //   GET    /api/v1/search-scopes/{scope_id}                                 → SearchScopeResponse
+    //   PUT    /api/v1/search-scopes/{scope_id}                                 → SearchScopeResponse
+    //   DELETE /api/v1/search-scopes/{scope_id}                                 → 204
+    //   PUT    /api/v1/search-scopes/{scope_id}/environment                     → SearchScopeResponse
+    //   GET    /api/v1/search-scopes/{scope_id}/valid-id                        → object (free-form, 응답 schema 미정의)
+    //
+    //   GET    /api/v1/evaluation/config                                        → EvaluationConfigResponse
+    //   PUT    /api/v1/evaluation/config                                        → EvaluationConfigResponse
+    //   GET    /api/v1/evaluation/logs?page=&size=&run_id=&run_type=&...        → EvaluationLogListResponse
+    //   GET    /api/v1/evaluation/questions                                     → object (free-form dict)
+    //   POST   /api/v1/evaluation/run                                           → object (202, free-form: task_id 등)
+    //   GET    /api/v1/evaluation/runs?limit=                                   → EvaluationRunListResponse
+    //   GET    /api/v1/evaluation/trend?days=                                   → EvaluationTrendResponse
+    //
+    // BFF 표면 매핑 정확도(추정 금지 — OpenAPI 캡처 + 실 호출 응답 일치):
+    //   - DocUtilSearchScopeSummary/Detail: 24 필드(SearchScopeResponse 1:1) — id/name/description/
+    //     organization_id/created_by/project_id?/board_id?/folder_id?/location_path?/chatbot_enabled/
+    //     chatbot_faq_template?/qa_enabled/qa_prompt_template?/qa_llm_model?/keyword_search_enabled/
+    //     agent_enabled/chunk_size/chunk_overlap/title_weight/keyword_weight/content_weight/
+    //     max_results/similarity_threshold/created_at/updated_at
+    //   - DocUtilCreateScopeRequest: name(필수) + description? + project_id?/board_id?/folder_id? +
+    //     모든 환경 설정 nullable (DocUtil 측 default 적용)
+    //   - DocUtilUpdateScopeRequest: 모든 필드 nullable (partial update)
+    //   - DocUtilUpdateScopeEnvironmentRequest: 13 환경 설정(default 값 OpenAPI 와 일치)
+    //   - DocUtilSearchScopeOption: 3 필드(id/name/location_path?) — 드롭다운 셀렉터용
+    //   - DocUtilLocationOption: 4 필드(id/name/type/path?)
+    //   - DocUtilSearchScopeValidIdResponse: 응답 schema 미정의 → free-form dict 로 노출
+    //
+    //   - DocUtilEvaluationConfig: 6 필드(id/organization_id + 4개 weight)
+    //   - DocUtilUpdateEvaluationConfigRequest: 4 weight (모두 0~1, default 값 OpenAPI 일치)
+    //   - DocUtilEvaluationLogEntry: 17 필드 (composite_score 포함, contexts/judge_details 는 free-form)
+    //   - DocUtilEvaluationRunSummary: 10 필드(run_id/run_type/created_at + question_count + 5 avg + hallucination_count)
+    //   - DocUtilEvaluationTrendPoint: 6 필드(date + 5 avg)
+    //   - DocUtilRunEvaluationRequest: questions[]?(optional — null/미지정 시 default 질문 셋 사용)
+    //   - DocUtilEvaluationRunResponse: free-form (DocUtil 의 202 응답이 schema 미정의 — task_id 등을 dict 로 보존)
+
+    /// <summary>
+    /// 검색 범위 목록 — GET /api/v1/search-scopes (페이징).
+    /// <para>운영자 콘솔의 검색범위 카탈로그 표시용. organization 단위 자동 scope.</para>
+    /// </summary>
+    /// <param name="page">DocUtil 페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 20, DocUtil 한도 1~100).</param>
+    Task<DocUtilSearchScopeList> ListSearchScopesAsync(
+        int page = 1,
+        int size = 20,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 검색 범위 옵션 목록(드롭다운용) — GET /api/v1/search-scopes/options.
+    /// <para>3 필드(id/name/location_path?) 만 포함된 가벼운 응답.</para>
+    /// </summary>
+    Task<List<DocUtilSearchScopeOption>> ListSearchScopeOptionsAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 위치 카탈로그(검색 범위 할당 가능한 프로젝트/보드/폴더) — GET /api/v1/search-scopes/locations.
+    /// <para>
+    /// location_type 은 DocUtil 측 필수 query parameter — "project" | "board" | "folder".
+    /// 운영자가 새 검색 범위 만들 때 어느 단위로 할당할지 선택하기 위한 카탈로그.
+    /// </para>
+    /// </summary>
+    /// <param name="locationType">"project" | "board" | "folder" (DocUtil 422 위험 — 검증 후 호출).</param>
+    Task<List<DocUtilLocationOption>> ListSearchScopeLocationsAsync(
+        string locationType,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 검색 범위 상세 — GET /api/v1/search-scopes/{scope_id}.
+    /// 404 응답은 null 로 정규화한다.
+    /// </summary>
+    Task<DocUtilSearchScopeDetail?> GetSearchScopeAsync(
+        string scopeId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 검색 범위 생성 — POST /api/v1/search-scopes.
+    /// <para>최소 필드 name(필수). 위치는 project_id / board_id / folder_id 중 하나(선택).</para>
+    /// 응답은 생성된 SearchScopeResponse(201).
+    /// </summary>
+    Task<DocUtilSearchScopeDetail> CreateSearchScopeAsync(
+        DocUtilCreateScopeRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 검색 범위 수정 — PUT /api/v1/search-scopes/{scope_id} (partial update).
+    /// </summary>
+    Task<DocUtilSearchScopeDetail> UpdateSearchScopeAsync(
+        string scopeId,
+        DocUtilUpdateScopeRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 검색 범위 삭제 — DELETE /api/v1/search-scopes/{scope_id}.
+    /// </summary>
+    Task DeleteSearchScopeAsync(
+        string scopeId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 검색 범위 환경 설정 — PUT /api/v1/search-scopes/{scope_id}/environment.
+    /// <para>chunk_size/chunk_overlap/weights/max_results/similarity_threshold + 4 기능 토글.</para>
+    /// </summary>
+    Task<DocUtilSearchScopeDetail> UpdateSearchScopeEnvironmentAsync(
+        string scopeId,
+        DocUtilUpdateScopeEnvironmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 검색 범위 valid-id 조회 — GET /api/v1/search-scopes/{scope_id}/valid-id.
+    /// <para>임베드 위젯의 scope_id 검증용. 응답 schema 가 OpenAPI 미정의 — free-form dict.</para>
+    /// </summary>
+    Task<DocUtilSearchScopeValidIdResponse> GetSearchScopeValidIdAsync(
+        string scopeId,
+        CancellationToken cancellationToken = default);
+
+    // ── Evaluation (7) ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 평가 가중치 설정 조회 — GET /api/v1/evaluation/config.
+    /// </summary>
+    Task<DocUtilEvaluationConfig> GetEvaluationConfigAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 평가 가중치 설정 수정 — PUT /api/v1/evaluation/config.
+    /// <para>4 weight 모두 0~1 범위. DocUtil 측 default: 0.25 / 0.3 / 0.25 / 0.2.</para>
+    /// </summary>
+    Task<DocUtilEvaluationConfig> UpdateEvaluationConfigAsync(
+        DocUtilUpdateEvaluationConfigRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 평가 로그 목록(페이징 + 필터) — GET /api/v1/evaluation/logs.
+    /// </summary>
+    /// <param name="page">DocUtil 페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 20, DocUtil 한도 1~100).</param>
+    /// <param name="runId">특정 run 의 로그만 조회.</param>
+    /// <param name="runType">run_type 정확 일치 필터.</param>
+    /// <param name="hasHallucination">hallucination 발생 여부 필터.</param>
+    /// <param name="minScore">composite_score 최소값(0~1).</param>
+    /// <param name="maxScore">composite_score 최대값(0~1).</param>
+    Task<DocUtilEvaluationLogList> ListEvaluationLogsAsync(
+        int page = 1,
+        int size = 20,
+        string? runId = null,
+        string? runType = null,
+        bool? hasHallucination = null,
+        double? minScore = null,
+        double? maxScore = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 기본 평가 질문 목록 — GET /api/v1/evaluation/questions.
+    /// <para>응답 schema 가 OpenAPI 에 free-form dict 로 정의 — 그대로 pass-through.</para>
+    /// </summary>
+    Task<DocUtilEvaluationQuestions> GetEvaluationQuestionsAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 수동 평가 실행 — POST /api/v1/evaluation/run.
+    /// <para>
+    /// 응답은 202 Accepted + 비동기 task. questions 가 null/빈 배열이면 DocUtil 의
+    /// default 질문 셋 사용. 응답 schema 가 OpenAPI 에 free-form dict 로 정의됨.
+    /// </para>
+    /// <para>
+    /// 주의: 본 메서드는 실제 LLM 호출(평가용 judge LLM)을 트리거할 수 있어 비용/시간
+    /// 영향 가능. 운영자는 신중히 사용해야 함.
+    /// </para>
+    /// </summary>
+    Task<DocUtilEvaluationRunResponse> RunEvaluationAsync(
+        DocUtilRunEvaluationRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 최근 평가 실행 목록 — GET /api/v1/evaluation/runs.
+    /// </summary>
+    /// <param name="limit">반환할 run 수(1~100, 기본 30). DocUtil page/size 패턴 미지원, limit 만 사용.</param>
+    Task<DocUtilEvaluationRunList> ListEvaluationRunsAsync(
+        int limit = 30,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 평가 점수 추이(최근 N일) — GET /api/v1/evaluation/trend.
+    /// </summary>
+    /// <param name="days">조회 기간(일, 1~365, 기본 30).</param>
+    Task<DocUtilEvaluationTrend> GetEvaluationTrendAsync(
+        int days = 30,
+        CancellationToken cancellationToken = default);
 }
 
 // ── DocUtil DTO (FastAPI 응답 1:1 매핑, snake_case 직렬화는 DocUtilClient 에서 처리) ──
@@ -1062,3 +1269,297 @@ public sealed record DocUtilAuditExport(
     Stream Stream,
     string ContentType,
     string FileName);
+
+// ── Phase 10.2b (2026-05-10): DocUtil Search Scopes + Evaluation BFF DTO ───
+//
+// DocUtil OpenAPI(2026-05-10 캡처) 의 SearchScopeResponse / SearchScopeListResponse /
+// SearchScopeOption / LocationOption / SearchScopeCreate / SearchScopeUpdate /
+// SearchScopeEnvironment 에 1:1 매핑 (24 필드 SearchScopeResponse 전체).
+// EvaluationConfigResponse / EvaluationLogResponse / EvaluationRunSummary /
+// EvaluationTrendPoint / EvaluationConfigUpdate / EvaluationRunRequest 도 동일 매핑.
+// PascalCase 외부 표면(camelCase JSON), snake_case ↔ JsonNamingPolicy.SnakeCaseLower
+// 직렬화는 DocUtilClient 내부에서 처리한다.
+
+// ── Search Scopes ──────────────────────────────────────────────────────────
+
+/// <summary>
+/// 검색 범위 한 행(목록 표시용 요약 — Detail 과 동일 24 필드 셋).
+/// DocUtil SearchScopeResponse 와 1:1.
+/// </summary>
+public sealed record DocUtilSearchScopeSummary(
+    string Id,
+    string Name,
+    string? Description,
+    string OrganizationId,
+    string CreatedBy,
+    string? ProjectId,
+    string? BoardId,
+    string? FolderId,
+    string? LocationPath,
+    bool ChatbotEnabled,
+    string? ChatbotFaqTemplate,
+    bool QaEnabled,
+    string? QaPromptTemplate,
+    string? QaLlmModel,
+    bool KeywordSearchEnabled,
+    bool AgentEnabled,
+    int ChunkSize,
+    int ChunkOverlap,
+    double TitleWeight,
+    double KeywordWeight,
+    double ContentWeight,
+    int MaxResults,
+    double SimilarityThreshold,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+/// <summary>
+/// 검색 범위 상세 — Summary 와 동일 셋. 의미 분리(상세 진입 시 Detail 사용)로 record 별도 정의.
+/// </summary>
+public sealed record DocUtilSearchScopeDetail(
+    string Id,
+    string Name,
+    string? Description,
+    string OrganizationId,
+    string CreatedBy,
+    string? ProjectId,
+    string? BoardId,
+    string? FolderId,
+    string? LocationPath,
+    bool ChatbotEnabled,
+    string? ChatbotFaqTemplate,
+    bool QaEnabled,
+    string? QaPromptTemplate,
+    string? QaLlmModel,
+    bool KeywordSearchEnabled,
+    bool AgentEnabled,
+    int ChunkSize,
+    int ChunkOverlap,
+    double TitleWeight,
+    double KeywordWeight,
+    double ContentWeight,
+    int MaxResults,
+    double SimilarityThreshold,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+/// <summary>
+/// 검색 범위 목록 응답 — DocUtil SearchScopeListResponse 매핑.
+/// </summary>
+public sealed record DocUtilSearchScopeList(
+    DocUtilSearchScopeSummary[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// 검색 범위 옵션(드롭다운용) — DocUtil SearchScopeOption 매핑.
+/// </summary>
+public sealed record DocUtilSearchScopeOption(
+    string Id,
+    string Name,
+    string? LocationPath);
+
+/// <summary>
+/// 위치 옵션(프로젝트/보드/폴더) — DocUtil LocationOption 매핑.
+/// </summary>
+/// <param name="Type">"project" | "board" | "folder".</param>
+public sealed record DocUtilLocationOption(
+    string Id,
+    string Name,
+    string Type,
+    string? Path);
+
+/// <summary>
+/// 검색 범위 생성 요청 — DocUtil SearchScopeCreate 매핑.
+/// <para>
+/// name 필수. project_id/board_id/folder_id 중 하나로 위치 지정(모두 선택).
+/// 환경 설정 필드는 DocUtil 측 default 적용을 위해 모두 nullable.
+/// </para>
+/// </summary>
+public sealed record DocUtilCreateScopeRequest(
+    string Name,
+    string? Description = null,
+    string? ProjectId = null,
+    string? BoardId = null,
+    string? FolderId = null,
+    bool? ChatbotEnabled = null,
+    bool? QaEnabled = null,
+    bool? KeywordSearchEnabled = null,
+    bool? AgentEnabled = null,
+    int? ChunkSize = null,
+    int? ChunkOverlap = null,
+    double? TitleWeight = null,
+    double? KeywordWeight = null,
+    double? ContentWeight = null,
+    int? MaxResults = null,
+    double? SimilarityThreshold = null);
+
+/// <summary>
+/// 검색 범위 수정 요청 — DocUtil SearchScopeUpdate 매핑(모두 nullable, partial update).
+/// </summary>
+public sealed record DocUtilUpdateScopeRequest(
+    string? Name = null,
+    string? Description = null,
+    string? ProjectId = null,
+    string? BoardId = null,
+    string? FolderId = null,
+    bool? ChatbotEnabled = null,
+    bool? QaEnabled = null,
+    bool? KeywordSearchEnabled = null,
+    bool? AgentEnabled = null,
+    int? ChunkSize = null,
+    int? ChunkOverlap = null,
+    double? TitleWeight = null,
+    double? KeywordWeight = null,
+    double? ContentWeight = null,
+    int? MaxResults = null,
+    double? SimilarityThreshold = null);
+
+/// <summary>
+/// 검색 범위 환경 설정 — DocUtil SearchScopeEnvironment 매핑.
+/// <para>모든 필드 default 가 OpenAPI 에 정의됨 — 운영자가 일부만 변경하더라도 DocUtil 측에서 나머지 default 보존.</para>
+/// </summary>
+public sealed record DocUtilUpdateScopeEnvironmentRequest(
+    bool? ChatbotEnabled = null,
+    string? ChatbotFaqTemplate = null,
+    bool? QaEnabled = null,
+    string? QaPromptTemplate = null,
+    string? QaLlmModel = null,
+    bool? KeywordSearchEnabled = null,
+    bool? AgentEnabled = null,
+    int? ChunkSize = null,
+    int? ChunkOverlap = null,
+    double? TitleWeight = null,
+    double? KeywordWeight = null,
+    double? ContentWeight = null,
+    int? MaxResults = null,
+    double? SimilarityThreshold = null);
+
+/// <summary>
+/// 검색 범위 valid-id 응답 — OpenAPI 에 schema 미정의로 free-form dict 보존.
+/// 임베드 위젯의 scope_id 검증 결과(예: { valid: true } 등) 로 짐작되나 추정 금지 — 그대로 노출.
+/// </summary>
+public sealed record DocUtilSearchScopeValidIdResponse(
+    IDictionary<string, object?> Data);
+
+// ── Evaluation ─────────────────────────────────────────────────────────────
+
+/// <summary>
+/// 평가 가중치 설정 — DocUtil EvaluationConfigResponse 매핑.
+/// </summary>
+/// <param name="Id">설정 row UUID.</param>
+/// <param name="OrganizationId">조직 UUID.</param>
+/// <param name="ContextRelevancyWeight">컨텍스트 관련성 가중치(0~1).</param>
+/// <param name="AnswerFaithfulnessWeight">답변 충실도 가중치(0~1).</param>
+/// <param name="AnswerRelevancyWeight">답변 관련성 가중치(0~1).</param>
+/// <param name="HallucinationWeight">할루시네이션 페널티 가중치(0~1).</param>
+public sealed record DocUtilEvaluationConfig(
+    string Id,
+    string OrganizationId,
+    double ContextRelevancyWeight,
+    double AnswerFaithfulnessWeight,
+    double AnswerRelevancyWeight,
+    double HallucinationWeight);
+
+/// <summary>
+/// 평가 가중치 수정 요청 — DocUtil EvaluationConfigUpdate 매핑.
+/// <para>모든 필드 0~1, default: 0.25 / 0.3 / 0.25 / 0.2 (합=1.0 권장).</para>
+/// </summary>
+public sealed record DocUtilUpdateEvaluationConfigRequest(
+    double ContextRelevancyWeight,
+    double AnswerFaithfulnessWeight,
+    double AnswerRelevancyWeight,
+    double HallucinationWeight);
+
+/// <summary>
+/// 평가 로그 한 항목 — DocUtil EvaluationLogResponse 매핑(17 필드).
+/// </summary>
+public sealed record DocUtilEvaluationLogEntry(
+    string Id,
+    string OrganizationId,
+    string RunId,
+    string Question,
+    string Answer,
+    IDictionary<string, object?>? Contexts,
+    double ContextRelevancy,
+    double AnswerFaithfulness,
+    double AnswerRelevancy,
+    double HallucinationScore,
+    bool HasHallucination,
+    IDictionary<string, object?>? HallucinationEvidence,
+    double CompositeScore,
+    IDictionary<string, object?>? JudgeDetails,
+    string RunType,
+    int QuestionIndex,
+    DateTime CreatedAt);
+
+/// <summary>
+/// 평가 로그 목록 응답 — DocUtil EvaluationLogListResponse 매핑.
+/// </summary>
+public sealed record DocUtilEvaluationLogList(
+    DocUtilEvaluationLogEntry[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// 기본 평가 질문 목록 — DocUtil 응답 schema 가 free-form dict.
+/// (그대로 pass-through — 운영자 콘솔에서 키-값 표시).
+/// </summary>
+public sealed record DocUtilEvaluationQuestions(
+    IDictionary<string, object?> Data);
+
+/// <summary>
+/// 평가 실행 요청 — DocUtil EvaluationRunRequest 매핑.
+/// <para>questions 가 null/빈 배열이면 DocUtil 측 default 질문 셋 사용.</para>
+/// </summary>
+public sealed record DocUtilRunEvaluationRequest(
+    string[]? Questions = null);
+
+/// <summary>
+/// 평가 실행 응답 — DocUtil 202 응답이 free-form (task_id 등). dict 로 보존.
+/// </summary>
+public sealed record DocUtilEvaluationRunResponse(
+    IDictionary<string, object?> Data);
+
+/// <summary>
+/// 평가 실행 요약 — DocUtil EvaluationRunSummary 매핑(10 필드).
+/// </summary>
+public sealed record DocUtilEvaluationRunSummary(
+    string RunId,
+    string RunType,
+    DateTime CreatedAt,
+    int QuestionCount,
+    double AvgContextRelevancy,
+    double AvgAnswerFaithfulness,
+    double AvgAnswerRelevancy,
+    double AvgHallucinationScore,
+    double AvgCompositeScore,
+    int HallucinationCount);
+
+/// <summary>
+/// 평가 실행 목록 응답 — DocUtil EvaluationRunListResponse 매핑.
+/// <para>page/size 없음 — items + total 만.</para>
+/// </summary>
+public sealed record DocUtilEvaluationRunList(
+    DocUtilEvaluationRunSummary[] Items,
+    long Total);
+
+/// <summary>
+/// 평가 트렌드 데이터 포인트 — DocUtil EvaluationTrendPoint 매핑.
+/// </summary>
+public sealed record DocUtilEvaluationTrendDataPoint(
+    string Date,
+    double AvgContextRelevancy,
+    double AvgAnswerFaithfulness,
+    double AvgAnswerRelevancy,
+    double AvgHallucinationScore,
+    double AvgCompositeScore);
+
+/// <summary>
+/// 평가 트렌드 응답 — DocUtil EvaluationTrendResponse 매핑.
+/// <para>data[] 시계열(일별).</para>
+/// </summary>
+public sealed record DocUtilEvaluationTrend(
+    DocUtilEvaluationTrendDataPoint[] Data);
