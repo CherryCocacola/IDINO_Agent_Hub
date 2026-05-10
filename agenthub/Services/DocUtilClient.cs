@@ -46,17 +46,19 @@ public class DocUtilClient : IDocUtilClient
     // RagService 결과 캐시(10분) 보다 짧게 — sub-query 단계라 KB 수정의 빠른 반영 우선.
     private static readonly TimeSpan SearchCacheTtl = TimeSpan.FromMinutes(5);
 
-    // ── 후속 트랙 2026-05-08: ListCollectionsAsync 응답 캐시 ────────────────
+    // ── 후속 트랙 2026-05-08 + Phase 10.1c 통합: ListCollectionsAsync 응답 캐시 ─
     // 캐시 네임스페이스 prefix `du:c:` — Search 캐시(`du:s:`) 와 격리.
-    // 캐시 키 패턴: `du:c:{page}|{size}` — page/size 조합당 단일 키.
+    // 캐시 키 패턴: `du:c:v{N}:{page}|{size}` — page/size 조합당 단일 키 + version prefix.
     //
-    // 캐시 무효화 전략 — version-key 패턴 미적용:
-    //   collection 생성/수정/삭제는 DocUtil 콘솔에서 직접 발생하므로 AgentHub BFF 가
-    //   mutation 시점을 알 수 없다. explicit IncrementVersionAsync 트리거 불가.
-    //   → 단순 TTL 10분 자연 expire 의존.
+    // 캐시 무효화 전략 (Phase 10.1c 부터):
+    //   AdminDocUtilProjectsController 가 프로젝트/보드 mutation 성공 시
+    //   IncrementVersionAsync(CollectionCacheVersionNamespace = "docutil-collections")
+    //   호출 → N+1 → 이전 버전 키 일괄 stale → AgentBuilder 의 dropdown 도
+    //   즉시 신규 프로젝트 노출(통합 namespace 효과).
     //
-    // 향후 트랙: DocUtil project mutation 도 AgentHub BFF 를 경유하도록 전환되면
-    //   SearchCacheVersionNamespace 와 동일 패턴 적용 가능 (별도 namespace 권장).
+    // Phase 10.1c 이전(after 2026-05-08, before 2026-05-10): 단순 TTL 10분 자연 expire 만 의존.
+    //   본 변경은 시그니처 미변경 — 외부 호출자 무영향(단지 캐시 일관성 향상).
+    public const string CollectionCacheVersionNamespace = "docutil-collections";
     private const string CollectionCacheKeyPrefix = "du:c:";
     private static readonly TimeSpan CollectionCacheTtl = TimeSpan.FromMinutes(10);
 
@@ -506,9 +508,11 @@ public class DocUtilClient : IDocUtilClient
         if (page < 1) page = 1;
         if (size < 1 || size > 200) size = 50;
 
-        // ── 캐시 조회 ─────────────────────────────────────────────────────
-        // 키: du:c:{page}|{size} — page/size 조합당 단일 키.
-        var cacheKey = $"{CollectionCacheKeyPrefix}{page}|{size}";
+        // ── 캐시 조회 (Phase 10.1c: version-key 통합) ──────────────────────
+        // 키: du:c:v{N}:{page}|{size} — version prefix 로 운영자 mutation 시 일괄 stale.
+        // version fetch 실패 시 0 폴백(서비스는 차단되지 않음).
+        var version = await _cachingService.GetVersionAsync(CollectionCacheVersionNamespace);
+        var cacheKey = $"{CollectionCacheKeyPrefix}v{version}:{page}|{size}";
         var cached = await _cachingService.GetAsync<CachedCollectionListDto>(cacheKey);
         if (cached?.Items != null)
         {
@@ -1060,6 +1064,527 @@ public class DocUtilClient : IDocUtilClient
             quotaList);
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // Phase 10.1c (2026-05-10): DocUtil 프로젝트/보드 운영자 BFF — 13 메서드
+    //
+    // 기존 ListCollectionsAsync 보존(294e8a6, AgentBuilder dropdown 의존):
+    //   - 시그니처/캐시 prefix `du:c:`/응답 형태(BFF 단순화 3 필드) 모두 동일.
+    //   - 본 트랙의 새 메서드들은 별도 이름 — `ListProjectsAsync` / `GetProjectAsync` 등.
+    //
+    // 캐시 전략:
+    //   본 클라이언트는 캐시 미적용 — Controller(AdminDocUtilProjectsController)가
+    //   version-key + TTL 패턴으로 처리. mutation invalidate 는 ListCollectionsAsync 와 동일
+    //   namespace `docutil-collections` 사용 → 운영자가 본 화면에서 프로젝트 mutation 시
+    //   AgentBuilder 의 dropdown 도 즉시 새 데이터로 갱신(통합 namespace 효과).
+    //
+    // org_id 자동 부착:
+    //   DocUtil 의 /projects 는 org-scoped (운영자 토큰의 org claim 으로 자동 필터). 본
+    //   클라이언트는 path 에 orgId 를 명시하지 않지만 DocUtil 측에서 token 의 org 으로
+    //   응답을 제한. 명시 호출 외 추가 검증 불필요.
+    // ══════════════════════════════════════════════════════════════════════
+
+    // 1) ListProjectsAsync — GET /api/v1/projects
+    public async Task<DocUtilProjectList> ListProjectsAsync(
+        int page = 1,
+        int size = 20,
+        string? search = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 200) size = 20;
+
+        var queryParts = new List<string>
+        {
+            $"page={page}",
+            $"size={size}",
+        };
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            queryParts.Add($"search={Uri.EscapeDataString(search)}");
+        }
+        var path = $"/api/v1/projects?{string.Join("&", queryParts)}";
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        _logger.LogDebug(
+            "DocUtil 프로젝트 목록 호출 - Page={Page}, Size={Size}, SearchLen={SearchLen}",
+            page, size, search?.Length ?? 0);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ProjectListResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 프로젝트 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var items = (dto.Items ?? Array.Empty<ProjectResponseDto>())
+            .Select(MapProject)
+            .ToArray();
+        return new DocUtilProjectList(items, dto.Total, dto.Page, dto.Size);
+    }
+
+    // 2) GetProjectTreeAsync — GET /api/v1/projects/tree
+    public async Task<List<DocUtilProjectTreeNode>> GetProjectTreeAsync(
+        CancellationToken cancellationToken = default)
+    {
+        const string path = "/api/v1/projects/tree";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dtos = await JsonSerializer.DeserializeAsync<List<ProjectTreeNodeDto>>(stream, JsonOptions, cancellationToken);
+        if (dtos is null)
+        {
+            return new List<DocUtilProjectTreeNode>();
+        }
+
+        return dtos
+            .Select(n => new DocUtilProjectTreeNode(
+                n.Id ?? string.Empty,
+                n.Name ?? string.Empty,
+                (n.Boards ?? Array.Empty<BoardResponseDto>())
+                    .Select(MapBoard)
+                    .ToArray()))
+            .ToList();
+    }
+
+    // 3) GetProjectAsync — GET /api/v1/projects/{project_id} (404 → null)
+    public async Task<DocUtilProject?> GetProjectAsync(
+        string projectId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            _logger.LogDebug("DocUtil 프로젝트 미존재 - ProjectId={ProjectId}", projectId);
+            return null;
+        }
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ProjectResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 프로젝트 상세 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapProject(dto);
+    }
+
+    // 4) CreateProjectAsync — POST /api/v1/projects
+    public async Task<DocUtilProject> CreateProjectAsync(
+        DocUtilCreateProjectRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException("프로젝트 이름이 비어있습니다.", nameof(request));
+        }
+
+        const string path = "/api/v1/projects";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        // DocUtil ProjectCreate: name + description? + allow_original_download? (default true)
+        var body = new Dictionary<string, object?>
+        {
+            ["name"] = request.Name,
+        };
+        if (request.Description is not null) body["description"] = request.Description;
+        if (request.AllowOriginalDownload is not null) body["allow_original_download"] = request.AllowOriginalDownload;
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 프로젝트 생성 호출 - Name={Name}, AllowOriginalDownload={Allow}",
+            request.Name, request.AllowOriginalDownload?.ToString() ?? "(default)");
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ProjectResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 프로젝트 생성 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapProject(dto);
+    }
+
+    // 5) UpdateProjectAsync — PUT /api/v1/projects/{project_id}
+    public async Task<DocUtilProject> UpdateProjectAsync(
+        string projectId,
+        DocUtilUpdateProjectRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        // DocUtil ProjectUpdate: name? + description? — allow_original_download 미존재(추정 금지).
+        var body = new Dictionary<string, object?>();
+        if (request.Name is not null) body["name"] = request.Name;
+        if (request.Description is not null) body["description"] = request.Description;
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 프로젝트 수정 호출 - ProjectId={ProjectId}, FieldCount={FieldCount}",
+            projectId, body.Count);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<ProjectResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 프로젝트 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapProject(dto);
+    }
+
+    // 6) DeleteProjectAsync — DELETE /api/v1/projects/{project_id}
+    public async Task DeleteProjectAsync(
+        string projectId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
+
+        _logger.LogInformation("DocUtil 프로젝트 삭제 호출 - ProjectId={ProjectId}", projectId);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    // 7) GetProjectMembersAsync — GET /api/v1/projects/{project_id}/members
+    public async Task<List<DocUtilProjectMember>> GetProjectMembersAsync(
+        string projectId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}/members";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dtos = await JsonSerializer.DeserializeAsync<List<ProjectMemberResponseDto>>(stream, JsonOptions, cancellationToken);
+        if (dtos is null) return new List<DocUtilProjectMember>();
+
+        return dtos
+            .Select(m => new DocUtilProjectMember(
+                m.Id ?? string.Empty,
+                m.Username ?? string.Empty,
+                m.Email ?? string.Empty,
+                m.Role ?? string.Empty))
+            .ToList();
+    }
+
+    // 8) GetProjectDepartmentsAsync — GET /api/v1/projects/{project_id}/departments
+    public async Task<List<DocUtilProjectDepartment>> GetProjectDepartmentsAsync(
+        string projectId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}/departments";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dtos = await JsonSerializer.DeserializeAsync<List<ProjectDepartmentResponseDto>>(stream, JsonOptions, cancellationToken);
+        if (dtos is null) return new List<DocUtilProjectDepartment>();
+
+        return dtos
+            .Select(d => new DocUtilProjectDepartment(
+                d.Id ?? string.Empty,
+                d.Name ?? string.Empty,
+                d.Path ?? string.Empty,
+                d.Depth))
+            .ToList();
+    }
+
+    // 9) ListProjectBoardsAsync — GET /api/v1/projects/{project_id}/boards
+    public async Task<DocUtilBoardList> ListProjectBoardsAsync(
+        string projectId,
+        int page = 1,
+        int size = 50,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+        if (page < 1) page = 1;
+        if (size < 1 || size > 200) size = 50;
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}/boards?page={page}&size={size}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<BoardListResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 보드 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var items = (dto.Items ?? Array.Empty<BoardResponseDto>())
+            .Select(MapBoard)
+            .ToArray();
+        return new DocUtilBoardList(items, dto.Total, dto.Page, dto.Size);
+    }
+
+    // 10) CreateProjectBoardAsync — POST /api/v1/projects/{project_id}/boards
+    public async Task<DocUtilBoard> CreateProjectBoardAsync(
+        string projectId,
+        DocUtilCreateBoardRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException("보드 이름이 비어있습니다.", nameof(request));
+        }
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}/boards";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        // DocUtil BoardCreate: name + description? — folder_id 미존재(추정 금지).
+        var body = new Dictionary<string, object?>
+        {
+            ["name"] = request.Name,
+        };
+        if (request.Description is not null) body["description"] = request.Description;
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 보드 생성 호출 - ProjectId={ProjectId}, Name={Name}",
+            projectId, request.Name);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<BoardResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 보드 생성 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapBoard(dto);
+    }
+
+    // 11) GetProjectBoardAsync — GET /api/v1/projects/{project_id}/boards/{board_id} (404 → null)
+    public async Task<DocUtilBoard?> GetProjectBoardAsync(
+        string projectId,
+        string boardId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+        if (string.IsNullOrWhiteSpace(boardId))
+        {
+            throw new ArgumentException("boardId 가 비어있습니다.", nameof(boardId));
+        }
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}/boards/{Uri.EscapeDataString(boardId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            _logger.LogDebug("DocUtil 보드 미존재 - ProjectId={ProjectId}, BoardId={BoardId}", projectId, boardId);
+            return null;
+        }
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<BoardResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 보드 상세 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapBoard(dto);
+    }
+
+    // 12) UpdateProjectBoardAsync — PUT /api/v1/projects/{project_id}/boards/{board_id}
+    public async Task<DocUtilBoard> UpdateProjectBoardAsync(
+        string projectId,
+        string boardId,
+        DocUtilUpdateBoardRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+        if (string.IsNullOrWhiteSpace(boardId))
+        {
+            throw new ArgumentException("boardId 가 비어있습니다.", nameof(boardId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}/boards/{Uri.EscapeDataString(boardId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        var body = new Dictionary<string, object?>();
+        if (request.Name is not null) body["name"] = request.Name;
+        if (request.Description is not null) body["description"] = request.Description;
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 보드 수정 호출 - ProjectId={ProjectId}, BoardId={BoardId}, FieldCount={FieldCount}",
+            projectId, boardId, body.Count);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<BoardResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 보드 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapBoard(dto);
+    }
+
+    // 13) DeleteProjectBoardAsync — DELETE /api/v1/projects/{project_id}/boards/{board_id}
+    public async Task DeleteProjectBoardAsync(
+        string projectId,
+        string boardId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+        if (string.IsNullOrWhiteSpace(boardId))
+        {
+            throw new ArgumentException("boardId 가 비어있습니다.", nameof(boardId));
+        }
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}/boards/{Uri.EscapeDataString(boardId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 보드 삭제 호출 - ProjectId={ProjectId}, BoardId={BoardId}",
+            projectId, boardId);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    // ── Phase 10.1c 매핑 헬퍼 ──────────────────────────────────────────────
+    private static DocUtilProject MapProject(ProjectResponseDto dto)
+        => new(
+            dto.Id ?? string.Empty,
+            dto.Name ?? string.Empty,
+            dto.Description,
+            dto.AllowOriginalDownload,
+            dto.OrganizationId ?? string.Empty,
+            dto.CreatedBy ?? string.Empty,
+            dto.CreatedAt,
+            dto.UpdatedAt);
+
+    private static DocUtilBoard MapBoard(BoardResponseDto dto)
+        => new(
+            dto.Id ?? string.Empty,
+            dto.ProjectId ?? string.Empty,
+            dto.Name ?? string.Empty,
+            dto.Description,
+            dto.CreatedBy ?? string.Empty,
+            dto.CreatedAt,
+            dto.UpdatedAt);
+
+    // ══════════════════════════════════════════════════════════════════════
+    // (Phase 10.1b 잔여 — UpdateOrganizationQuotaAsync 는 본 위치에 유지)
     // 9) UpdateOrganizationQuotaAsync — PUT /api/v1/organizations/{org_id}/quotas/{quota_type}
     public async Task<DocUtilOrganizationQuotaStatus> UpdateOrganizationQuotaAsync(
         string quotaType,
@@ -1433,5 +1958,71 @@ public class DocUtilClient : IDocUtilClient
         [JsonPropertyName("used_count")] public int UsedCount { get; set; }
         [JsonPropertyName("remaining")] public int Remaining { get; set; }
         [JsonPropertyName("year_month")] public string? YearMonth { get; set; }
+    }
+
+    // ── Phase 10.1c (2026-05-10): DocUtil Projects/Boards API 응답 매핑 DTO ─
+    // OpenAPI 캡처(2026-05-10) ProjectResponse / ProjectListResponse / BoardResponse /
+    // BoardListResponse 에 1:1 매핑. members/departments/tree 응답은 free-form (typed schema 없음).
+
+    private sealed class ProjectResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("allow_original_download")] public bool AllowOriginalDownload { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("created_by")] public string? CreatedBy { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+        [JsonPropertyName("updated_at")] public DateTime UpdatedAt { get; set; }
+    }
+
+    private sealed class ProjectListResponseDto
+    {
+        [JsonPropertyName("items")] public ProjectResponseDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    private sealed class ProjectTreeNodeDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("boards")] public BoardResponseDto[]? Boards { get; set; }
+    }
+
+    private sealed class ProjectMemberResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("username")] public string? Username { get; set; }
+        [JsonPropertyName("email")] public string? Email { get; set; }
+        [JsonPropertyName("role")] public string? Role { get; set; }
+    }
+
+    private sealed class ProjectDepartmentResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("path")] public string? Path { get; set; }
+        [JsonPropertyName("depth")] public int Depth { get; set; }
+    }
+
+    private sealed class BoardResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("project_id")] public string? ProjectId { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("created_by")] public string? CreatedBy { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+        [JsonPropertyName("updated_at")] public DateTime UpdatedAt { get; set; }
+    }
+
+    private sealed class BoardListResponseDto
+    {
+        [JsonPropertyName("items")] public BoardResponseDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
     }
 }

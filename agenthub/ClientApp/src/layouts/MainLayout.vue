@@ -331,6 +331,12 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         path: '/admin/docutil-departments',
         icon: 'bi bi-diagram-3',
         roles: ['Admin', 'SuperAdmin']
+      },
+      {
+        name: t('nav.docutilProjects'),
+        path: '/admin/docutil-projects',
+        icon: 'bi bi-folder2-open',
+        roles: ['Admin', 'SuperAdmin']
       }
     ]
   },

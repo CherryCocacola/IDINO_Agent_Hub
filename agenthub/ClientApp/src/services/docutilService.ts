@@ -491,6 +491,259 @@ export async function updateOrganizationQuota(
   return data
 }
 
+// ─── Phase 10.1c (2026-05-10): DocUtil 프로젝트 / 보드 운영자 BFF ───────────
+//
+// 진입점: AgentHub `/api/admin/docutil/projects[/{id}[/...]]` (Phase 10.1c 신설 컨트롤러)
+//
+// 인증/권한: 컨트롤러 [Authorize(Roles="Admin,SuperAdmin")] — 401/403 자동 매핑.
+// 기존 listCollections (294e8a6, AgentBuilder dropdown) 시그니처/동작 보존.
+// 통합 namespace `docutil-collections` 효과로 본 화면의 mutation 시 AgentBuilder dropdown 도 즉시 갱신.
+//
+// 데이터 소스: DocUtil OpenAPI(2026-05-10 캡처) — ProjectResponse / ProjectListResponse /
+//   BoardResponse / BoardListResponse 매핑. members/departments/tree 는 free-form schema.
+
+/** DocUtil 프로젝트 응답(8 필드 — 운영자 콘솔 풍부 표면). */
+export interface DocUtilProject {
+  /** 프로젝트 UUID. */
+  id: string
+  name: string
+  description: string | null
+  /** 원본 파일 다운로드 허용 여부(기본 true). */
+  allowOriginalDownload: boolean
+  /** 소속 조직 UUID. */
+  organizationId: string
+  /** 생성자 UUID. */
+  createdBy: string
+  /** 생성 시각(ISO 8601, DocUtil ins_dt → created_at alias). */
+  createdAt: string
+  /** 수정 시각(ISO 8601, DocUtil upd_dt → updated_at alias). */
+  updatedAt: string
+}
+
+/** 프로젝트 목록 응답. */
+export interface DocUtilProjectList {
+  items: DocUtilProject[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 프로젝트 트리 노드 — DocUtil `/api/v1/projects/tree` 응답(평면 + boards sub-array). */
+export interface DocUtilProjectTreeNode {
+  id: string
+  name: string
+  /** 프로젝트의 보드 목록(현재 트랙: 트리는 프로젝트 → 보드 2단계 평면). */
+  boards: DocUtilBoard[]
+}
+
+/** 프로젝트 멤버 한 행(free-form 응답에서 4 필드 안정 노출). */
+export interface DocUtilProjectMember {
+  id: string
+  username: string
+  email: string
+  role: string
+}
+
+/** 프로젝트 참여 부서 한 행(free-form 응답에서 4 필드 안정 노출). */
+export interface DocUtilProjectDepartment {
+  id: string
+  name: string
+  /** materialized path. */
+  path: string
+  /** 트리 깊이(루트 = 0). */
+  depth: number
+}
+
+/** 프로젝트 생성 요청 — DocUtil ProjectCreate 매핑. */
+export interface CreateProjectRequest {
+  name: string
+  description?: string | null
+  /** DocUtil 기본값 true. */
+  allowOriginalDownload?: boolean | null
+}
+
+/** 프로젝트 수정 요청 — DocUtil ProjectUpdate(partial). allow_original_download 미존재. */
+export interface UpdateProjectRequest {
+  name?: string | null
+  description?: string | null
+}
+
+/** DocUtil 보드 응답(7 필드 — folder_id 미존재). */
+export interface DocUtilBoard {
+  id: string
+  /** 상위 프로젝트 UUID. */
+  projectId: string
+  name: string
+  description: string | null
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** 보드 목록 응답(페이지네이션). */
+export interface DocUtilBoardList {
+  items: DocUtilBoard[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 보드 생성 요청 — DocUtil BoardCreate(folder_id 미존재). */
+export interface CreateBoardRequest {
+  name: string
+  description?: string | null
+}
+
+/** 보드 수정 요청 — DocUtil BoardUpdate(partial). */
+export interface UpdateBoardRequest {
+  name?: string | null
+  description?: string | null
+}
+
+const PROJECTS_BASE = '/admin/docutil'
+
+/**
+ * 프로젝트 목록 조회(페이징 + 검색).
+ * @param page   1-based 페이지 번호(기본 1).
+ * @param size   페이지 크기(1~200, 기본 20).
+ * @param search name/description LIKE 검색(선택).
+ */
+export async function listProjects(
+  page: number = 1,
+  size: number = 20,
+  search?: string
+): Promise<DocUtilProjectList> {
+  const params: Record<string, string | number> = { page, size }
+  if (search) params.search = search
+  const { data } = await api.get<DocUtilProjectList>(`${PROJECTS_BASE}/projects`, { params })
+  return data
+}
+
+/** 프로젝트 트리 조회. */
+export async function getProjectTree(): Promise<DocUtilProjectTreeNode[]> {
+  const { data } = await api.get<DocUtilProjectTreeNode[]>(`${PROJECTS_BASE}/projects/tree`)
+  return data
+}
+
+/** 프로젝트 상세 조회. 404 응답은 null 로 정규화. */
+export async function getProject(id: string): Promise<DocUtilProject | null> {
+  try {
+    const { data } = await api.get<DocUtilProject>(
+      `${PROJECTS_BASE}/projects/${encodeURIComponent(id)}`
+    )
+    return data
+  } catch (err: unknown) {
+    if (typeof err === 'object' && err !== null && 'response' in err) {
+      const resp = (err as { response?: { status?: number } }).response
+      if (resp?.status === 404) return null
+    }
+    throw err
+  }
+}
+
+/** 프로젝트 신규 생성. */
+export async function createProject(request: CreateProjectRequest): Promise<DocUtilProject> {
+  const { data } = await api.post<DocUtilProject>(`${PROJECTS_BASE}/projects`, request)
+  return data
+}
+
+/** 프로젝트 수정(partial — 적어도 한 필드 지정). */
+export async function updateProject(
+  id: string,
+  request: UpdateProjectRequest
+): Promise<DocUtilProject> {
+  const { data } = await api.put<DocUtilProject>(
+    `${PROJECTS_BASE}/projects/${encodeURIComponent(id)}`,
+    request
+  )
+  return data
+}
+
+/** 프로젝트 삭제. 백엔드 204 NoContent — 반환값 없음. */
+export async function deleteProject(id: string): Promise<void> {
+  await api.delete(`${PROJECTS_BASE}/projects/${encodeURIComponent(id)}`)
+}
+
+/** 프로젝트 멤버 조회. */
+export async function getProjectMembers(id: string): Promise<DocUtilProjectMember[]> {
+  const { data } = await api.get<DocUtilProjectMember[]>(
+    `${PROJECTS_BASE}/projects/${encodeURIComponent(id)}/members`
+  )
+  return data
+}
+
+/** 프로젝트 참여 부서 조회. */
+export async function getProjectDepartments(id: string): Promise<DocUtilProjectDepartment[]> {
+  const { data } = await api.get<DocUtilProjectDepartment[]>(
+    `${PROJECTS_BASE}/projects/${encodeURIComponent(id)}/departments`
+  )
+  return data
+}
+
+/** 프로젝트의 보드 목록 조회. */
+export async function listProjectBoards(
+  projectId: string,
+  page: number = 1,
+  size: number = 50
+): Promise<DocUtilBoardList> {
+  const { data } = await api.get<DocUtilBoardList>(
+    `${PROJECTS_BASE}/projects/${encodeURIComponent(projectId)}/boards`,
+    { params: { page, size } }
+  )
+  return data
+}
+
+/** 보드 신규 생성. */
+export async function createProjectBoard(
+  projectId: string,
+  request: CreateBoardRequest
+): Promise<DocUtilBoard> {
+  const { data } = await api.post<DocUtilBoard>(
+    `${PROJECTS_BASE}/projects/${encodeURIComponent(projectId)}/boards`,
+    request
+  )
+  return data
+}
+
+/** 보드 상세 조회. 404 응답은 null 로 정규화. */
+export async function getProjectBoard(
+  projectId: string,
+  boardId: string
+): Promise<DocUtilBoard | null> {
+  try {
+    const { data } = await api.get<DocUtilBoard>(
+      `${PROJECTS_BASE}/projects/${encodeURIComponent(projectId)}/boards/${encodeURIComponent(boardId)}`
+    )
+    return data
+  } catch (err: unknown) {
+    if (typeof err === 'object' && err !== null && 'response' in err) {
+      const resp = (err as { response?: { status?: number } }).response
+      if (resp?.status === 404) return null
+    }
+    throw err
+  }
+}
+
+/** 보드 수정(partial). */
+export async function updateProjectBoard(
+  projectId: string,
+  boardId: string,
+  request: UpdateBoardRequest
+): Promise<DocUtilBoard> {
+  const { data } = await api.put<DocUtilBoard>(
+    `${PROJECTS_BASE}/projects/${encodeURIComponent(projectId)}/boards/${encodeURIComponent(boardId)}`,
+    request
+  )
+  return data
+}
+
+/** 보드 삭제. 백엔드 204 NoContent. */
+export async function deleteProjectBoard(projectId: string, boardId: string): Promise<void> {
+  await api.delete(
+    `${PROJECTS_BASE}/projects/${encodeURIComponent(projectId)}/boards/${encodeURIComponent(boardId)}`
+  )
+}
+
 export default {
   listDocuments,
   uploadDocument,
@@ -512,5 +765,19 @@ export default {
   deleteDepartment,
   getDepartmentMembers,
   getOrganizationQuota,
-  updateOrganizationQuota
+  updateOrganizationQuota,
+  // Phase 10.1c — 프로젝트/보드
+  listProjects,
+  getProjectTree,
+  getProject,
+  createProject,
+  updateProject,
+  deleteProject,
+  getProjectMembers,
+  getProjectDepartments,
+  listProjectBoards,
+  createProjectBoard,
+  getProjectBoard,
+  updateProjectBoard,
+  deleteProjectBoard
 }

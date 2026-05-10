@@ -308,6 +308,162 @@ public interface IDocUtilClient
         string quotaType,
         DocUtilUpdateQuotaRequest request,
         CancellationToken cancellationToken = default);
+
+    // ── Phase 10.1c (2026-05-10): DocUtil 프로젝트/보드 운영자 BFF — 13 메서드 ──
+    //
+    // 통합 비전 매핑(P1 Control Plane / P5 인증 / R2 단일 진입점):
+    //   AgentHub 운영자 콘솔이 DocUtil 의 프로젝트(=collection) 카탈로그 + 멤버십 +
+    //   부서 매핑 + 보드(KB collection 내부 권한 단위) 를 모두 단일 진입점에서 관리.
+    //   10.1a/10.1b 와 동일 BFF 패턴으로 운영자가 DocUtil 콘솔 별도 로그인 불필요.
+    //
+    // 기존 ListCollectionsAsync 보존(294e8a6 commit, AgentBuilder.vue dropdown UX 의존):
+    //   - 시그니처 / 동작 / 캐시 prefix `du:c:` / 응답 형태(BFF 단순화 3 필드) 모두 동일 유지.
+    //   - 본 트랙의 프로젝트 운영 메서드는 별도 이름(`ListProjectsAsync` 등) 으로 추가.
+    //   - 운영자가 본 화면에서 프로젝트 mutation 시 Controller 가
+    //     IncrementVersionAsync("docutil-collections") 호출 → ListCollectionsAsync 의 캐시(`du:c:`)
+    //     도 자연 무효화(통합 namespace 효과 — AgentBuilder dropdown 즉시 신규 프로젝트 노출).
+    //
+    // 데이터 소스: DocUtil OpenAPI 캡처(2026-05-10) + 13 endpoint 직접 호출 검증:
+    //   GET    /api/v1/projects?page=&size=&search=                       → ProjectListResponse
+    //   POST   /api/v1/projects                                             → ProjectResponse(201)
+    //   GET    /api/v1/projects/tree                                        → List(free-form: id/name/boards[])
+    //   GET    /api/v1/projects/{pid}                                       → ProjectResponse
+    //   PUT    /api/v1/projects/{pid}                                       → ProjectResponse
+    //   DELETE /api/v1/projects/{pid}                                       → 204
+    //   GET    /api/v1/projects/{pid}/members                               → List(free-form: id/username/email/role)
+    //   GET    /api/v1/projects/{pid}/departments                           → List(free-form: id/name/path/depth)
+    //   GET    /api/v1/projects/{pid}/boards                                → BoardListResponse
+    //   POST   /api/v1/projects/{pid}/boards                                → BoardResponse(201)
+    //   GET    /api/v1/projects/{pid}/boards/{bid}                          → BoardResponse
+    //   PUT    /api/v1/projects/{pid}/boards/{bid}                          → BoardResponse
+    //   DELETE /api/v1/projects/{pid}/boards/{bid}                          → 204
+    //
+    // BFF 표면 매핑 정확도(추정 금지 — 실제 OpenAPI + 응답 캡처 일치):
+    //   - DocUtilProject: 8 필드(Id/Name/Description?/AllowOriginalDownload/OrganizationId/CreatedBy/CreatedAt/UpdatedAt)
+    //   - DocUtilCreateProjectRequest: Name + Description? + AllowOriginalDownload? (default true) — POST 만
+    //   - DocUtilUpdateProjectRequest: Name? + Description? — DocUtil schema 가 update 엔 allow_original_download 미보유
+    //   - DocUtilBoard: 7 필드(Id/ProjectId/Name/Description?/CreatedBy/CreatedAt/UpdatedAt) — NO folder_id
+    //   - DocUtilCreateBoardRequest / DocUtilUpdateBoardRequest: Name + Description? 만 (DocUtil schema 가 folder_id 미보유)
+    //   - DocUtilProjectTreeNode: free-form {id, name, boards: []} — depth 없음, children 없음(boards 만)
+    //   - DocUtilProjectMember: free-form {id, username, email, role} (DepartmentMember 와 동일 형태이나 record 별도 정의 — 의미 분리)
+    //   - DocUtilProjectDepartment: free-form {id, name, path, depth} (DepartmentResponse 와 다름 — 4 필드만)
+
+    /// <summary>
+    /// 프로젝트 목록 조회(페이징) — GET /api/v1/projects.
+    /// </summary>
+    /// <param name="page">DocUtil 페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 20, DocUtil 한도 1~200).</param>
+    /// <param name="search">name/description LIKE 검색(선택).</param>
+    Task<DocUtilProjectList> ListProjectsAsync(
+        int page = 1,
+        int size = 20,
+        string? search = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 프로젝트 트리 — GET /api/v1/projects/tree.
+    /// <para>
+    /// DocUtil 응답: List of {id, name, boards: BoardResponse[]}.
+    /// 프로젝트는 부모-자식 관계 없음 — 트리는 프로젝트 → 보드 의 2단계 평면.
+    /// </para>
+    /// </summary>
+    Task<List<DocUtilProjectTreeNode>> GetProjectTreeAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 프로젝트 상세 조회 — GET /api/v1/projects/{project_id}.
+    /// 404 응답은 null 로 정규화한다.
+    /// </summary>
+    Task<DocUtilProject?> GetProjectAsync(
+        string projectId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 프로젝트 생성 — POST /api/v1/projects.
+    /// <para>요청 body: {name, description?, allow_original_download?(default true)}.</para>
+    /// 응답은 생성된 ProjectResponse(201).
+    /// </summary>
+    Task<DocUtilProject> CreateProjectAsync(
+        DocUtilCreateProjectRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 프로젝트 수정 — PUT /api/v1/projects/{project_id}.
+    /// <para>요청 body: {name?, description?} — DocUtil ProjectUpdate schema 에는 allow_original_download 미존재.</para>
+    /// </summary>
+    Task<DocUtilProject> UpdateProjectAsync(
+        string projectId,
+        DocUtilUpdateProjectRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 프로젝트 삭제 — DELETE /api/v1/projects/{project_id}.
+    /// <para>DocUtil 측이 영구 삭제(204). 본 메서드는 성공 시 반환값 없음.</para>
+    /// </summary>
+    Task DeleteProjectAsync(
+        string projectId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 프로젝트 멤버 조회 — GET /api/v1/projects/{project_id}/members.
+    /// <para>DocUtil free-form 응답에서 4 필드(id/username/email/role) 안정적으로 노출.</para>
+    /// </summary>
+    Task<List<DocUtilProjectMember>> GetProjectMembersAsync(
+        string projectId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 프로젝트 참여 부서 조회 — GET /api/v1/projects/{project_id}/departments.
+    /// <para>DocUtil free-form 응답에서 4 필드(id/name/path/depth) 안정적으로 노출.</para>
+    /// </summary>
+    Task<List<DocUtilProjectDepartment>> GetProjectDepartmentsAsync(
+        string projectId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 프로젝트의 보드 목록 — GET /api/v1/projects/{project_id}/boards.
+    /// <para>BoardListResponse 페이지네이션 응답을 그대로 BFF 표면화.</para>
+    /// </summary>
+    Task<DocUtilBoardList> ListProjectBoardsAsync(
+        string projectId,
+        int page = 1,
+        int size = 50,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보드 생성 — POST /api/v1/projects/{project_id}/boards.
+    /// </summary>
+    Task<DocUtilBoard> CreateProjectBoardAsync(
+        string projectId,
+        DocUtilCreateBoardRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보드 상세 조회 — GET /api/v1/projects/{project_id}/boards/{board_id}.
+    /// <para>404 응답은 null 로 정규화한다.</para>
+    /// </summary>
+    Task<DocUtilBoard?> GetProjectBoardAsync(
+        string projectId,
+        string boardId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보드 수정 — PUT /api/v1/projects/{project_id}/boards/{board_id}.
+    /// </summary>
+    Task<DocUtilBoard> UpdateProjectBoardAsync(
+        string projectId,
+        string boardId,
+        DocUtilUpdateBoardRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보드 삭제 — DELETE /api/v1/projects/{project_id}/boards/{board_id}.
+    /// <para>DocUtil 측이 영구 삭제(204).</para>
+    /// </summary>
+    Task DeleteProjectBoardAsync(
+        string projectId,
+        string boardId,
+        CancellationToken cancellationToken = default);
 }
 
 // ── DocUtil DTO (FastAPI 응답 1:1 매핑, snake_case 직렬화는 DocUtilClient 에서 처리) ──
@@ -557,3 +713,137 @@ public sealed record DocUtilOrganizationQuotaStatus(
 /// </summary>
 public sealed record DocUtilUpdateQuotaRequest(
     int MonthlyLimit);
+
+// ── Phase 10.1c (2026-05-10): DocUtil 프로젝트/보드 BFF DTO ────────────────
+//
+// DocUtil OpenAPI(2026-05-10 캡처) ProjectResponse / ProjectListResponse /
+// BoardResponse / BoardListResponse 에 1:1 매핑. 본 트랙은 운영자 콘솔에서
+// 프로젝트의 모든 메타(allow_original_download / 생성자 / timestamps) 를 노출 —
+// 기존 ListCollectionsAsync (DocUtilCollection 3 필드) 과는 별도의 풍부 표면.
+//
+// PascalCase 외부 표면(camelCase JSON), snake_case ↔ JsonNamingPolicy.SnakeCaseLower
+// 직렬화는 DocUtilClient 내부에서 처리한다.
+
+/// <summary>
+/// DocUtil 프로젝트 응답 — ProjectResponse 매핑(8 필드).
+/// 운영자 콘솔의 프로젝트 카드/상세 패널에 직접 사용.
+/// </summary>
+/// <param name="Id">프로젝트 UUID.</param>
+/// <param name="Name">프로젝트 이름.</param>
+/// <param name="Description">프로젝트 설명(선택).</param>
+/// <param name="AllowOriginalDownload">원본 파일 다운로드 허용 여부(기본 true).</param>
+/// <param name="OrganizationId">소속 조직 UUID.</param>
+/// <param name="CreatedBy">생성자 UUID.</param>
+/// <param name="CreatedAt">생성 시각(DocUtil ins_dt → created_at alias).</param>
+/// <param name="UpdatedAt">수정 시각(DocUtil upd_dt → updated_at alias).</param>
+public sealed record DocUtilProject(
+    string Id,
+    string Name,
+    string? Description,
+    bool AllowOriginalDownload,
+    string OrganizationId,
+    string CreatedBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+/// <summary>
+/// 프로젝트 목록 응답 — ProjectListResponse 매핑.
+/// </summary>
+public sealed record DocUtilProjectList(
+    DocUtilProject[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// 프로젝트 트리 노드 — DocUtil `/api/v1/projects/tree` 응답.
+/// <para>
+/// DocUtil 트리는 프로젝트 → 보드 2단계 평면(프로젝트 부모-자식 없음).
+/// 응답은 free-form: {id, name, boards: BoardResponse[]}.
+/// </para>
+/// </summary>
+public sealed record DocUtilProjectTreeNode(
+    string Id,
+    string Name,
+    DocUtilBoard[] Boards);
+
+/// <summary>
+/// 프로젝트 멤버 한 행 — DocUtil free-form 응답에서 4 필드 안정적으로 노출.
+/// (DocUtilDepartmentMember 와 형태는 동일하나 의미 분리 — 멤버 도메인 차이).
+/// </summary>
+public sealed record DocUtilProjectMember(
+    string Id,
+    string Username,
+    string Email,
+    string Role);
+
+/// <summary>
+/// 프로젝트 참여 부서 한 행 — DocUtil free-form 응답에서 4 필드 안정적으로 노출.
+/// (DocUtilDepartment 의 풍부 응답과 다름 — 본 endpoint 는 부서 핵심 정보만 반환).
+/// </summary>
+public sealed record DocUtilProjectDepartment(
+    string Id,
+    string Name,
+    string Path,
+    int Depth);
+
+/// <summary>
+/// 프로젝트 생성 요청 — DocUtil ProjectCreate 매핑.
+/// allow_original_download 의 DocUtil 기본값은 true.
+/// </summary>
+public sealed record DocUtilCreateProjectRequest(
+    string Name,
+    string? Description = null,
+    bool? AllowOriginalDownload = null);
+
+/// <summary>
+/// 프로젝트 수정 요청 — DocUtil ProjectUpdate 매핑(partial update).
+/// <para>주의: DocUtil ProjectUpdate schema 에는 allow_original_download 가 없다.</para>
+/// </summary>
+public sealed record DocUtilUpdateProjectRequest(
+    string? Name = null,
+    string? Description = null);
+
+/// <summary>
+/// DocUtil 보드 응답 — BoardResponse 매핑(7 필드).
+/// 보드는 프로젝트 내부의 KB collection 단위.
+/// </summary>
+/// <param name="Id">보드 UUID.</param>
+/// <param name="ProjectId">상위 프로젝트 UUID.</param>
+/// <param name="Name">보드 이름.</param>
+/// <param name="Description">보드 설명(선택).</param>
+/// <param name="CreatedBy">생성자 UUID.</param>
+/// <param name="CreatedAt">생성 시각.</param>
+/// <param name="UpdatedAt">수정 시각.</param>
+public sealed record DocUtilBoard(
+    string Id,
+    string ProjectId,
+    string Name,
+    string? Description,
+    string CreatedBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+/// <summary>
+/// 보드 목록 응답 — BoardListResponse 매핑.
+/// </summary>
+public sealed record DocUtilBoardList(
+    DocUtilBoard[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// 보드 생성 요청 — DocUtil BoardCreate 매핑.
+/// <para>주의: DocUtil BoardCreate 에는 folder_id 가 없다(별도 endpoint /api/v1/boards/{board_id}/folders).</para>
+/// </summary>
+public sealed record DocUtilCreateBoardRequest(
+    string Name,
+    string? Description = null);
+
+/// <summary>
+/// 보드 수정 요청 — DocUtil BoardUpdate 매핑(partial update).
+/// </summary>
+public sealed record DocUtilUpdateBoardRequest(
+    string? Name = null,
+    string? Description = null);
