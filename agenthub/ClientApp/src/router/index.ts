@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { safeGetLocalStorage } from '@/utils/storage'
+import { useAuthStore } from '@/stores/auth'
 
 const routes = [
   {
@@ -353,7 +354,57 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach(async (to, from, next) => {
+// ════════════════════════════════════════════════════════════════════════════
+// 권한 가드 (Phase 10.x — 2026-05-11, code-analysis-specialist Critical 결함 보강)
+//
+// 배경:
+//   /admin/* (특히 DocUtil 관리 13 라우트) 들은 meta.role / meta.roles 가
+//   부착되어 있으나 종전 router.beforeEach 는 token 존재만 검증하였다.
+//   → 일반 사용자가 URL 직접 입력 시 BFF 401 차단에 의존했지만, UI 레벨에서
+//      이미 차단해야 사용자 경험·보안이 일관된다(컨트롤러 [Authorize] 는 백엔드
+//      최종 방어선이고, 라우터 가드는 1차 진입 차단).
+//
+// 동작 정책:
+//   1. token 미존재 + requiresAuth = login 으로 리다이렉트(기존 동작 유지)
+//   2. token 존재 + meta.role / meta.roles 부착 = user.roles 와 교차 검증
+//      - SuperAdmin 은 항상 통과(상위 권한 — Admin 포함 모든 페이지)
+//      - 부족 시 '/' (Dashboard) 로 리다이렉트
+//   3. user 미로드 상태(예: 새로고침 직후) 면 loadUser() 시도, 실패 시 logout 후 login
+//
+// 참고: ChatGPT/Claude 등 SPA 보호 패턴 — 백엔드 [Authorize] 가 단일 진실,
+//       라우터 가드는 사용자 UX 차원의 사전 차단이다. 이중 방어로 본다.
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 라우트 meta 의 role / roles 정의를 단일 배열로 정규화한다.
+ * - meta.role: 'Admin'         → ['Admin']
+ * - meta.roles: ['Admin', ...] → 그대로
+ * - 둘 다 없음                  → []  (권한 검사 skip)
+ */
+function getRequiredRoles(meta: Record<string, unknown>): string[] {
+  const required: string[] = []
+  if (typeof meta.role === 'string' && meta.role.length > 0) {
+    required.push(meta.role)
+  }
+  if (Array.isArray(meta.roles)) {
+    for (const r of meta.roles) {
+      if (typeof r === 'string' && r.length > 0) required.push(r)
+    }
+  }
+  return required
+}
+
+/**
+ * 사용자가 요구 role 중 하나라도 보유한지 검사.
+ * SuperAdmin 은 상위 권한이므로 항상 true.
+ */
+function hasRequiredRole(userRoles: string[], required: string[]): boolean {
+  if (required.length === 0) return true
+  if (userRoles.includes('SuperAdmin')) return true
+  return required.some((r) => userRoles.includes(r))
+}
+
+router.beforeEach(async (to, _from, next) => {
   const token = safeGetLocalStorage('token')
 
   // 루트(/) 미로그인 → 랜딩 페이지 (requiresAuth 체크보다 먼저)
@@ -372,6 +423,37 @@ router.beforeEach(async (to, from, next) => {
   if ((to.path === '/login' || to.path === '/landing') && token) {
     next('/')
     return
+  }
+
+  // ── 권한(role/roles) 검증 ─────────────────────────────────────────────
+  // requiresAuth + meta.role|roles 가 모두 부착된 라우트만 권한 검사 수행.
+  const required = getRequiredRoles(to.meta as Record<string, unknown>)
+  if (to.meta.requiresAuth && token && required.length > 0) {
+    const auth = useAuthStore()
+
+    // user 가 메모리에 없다면(새로고침 직후) 토큰으로 로드 시도.
+    if (!auth.user) {
+      try {
+        await auth.loadUser()
+      } catch {
+        // loadUser 실패는 내부적으로 logout 처리 — login 으로 보냄.
+        next({ path: '/login', query: { redirect: to.fullPath } })
+        return
+      }
+    }
+
+    const userRoles = auth.user?.roles ?? []
+    if (!hasRequiredRole(userRoles, required)) {
+      // 권한 부족 — 무한 루프 방지를 위해 root('/' = Dashboard) 로 리다이렉트.
+      // 사용자에게는 alert/toast 대신 console 경고만(UX는 진입 차단으로 충분).
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[router] 권한 부족 — 라우트 진입 차단: path=${to.fullPath}, ` +
+          `required=[${required.join(', ')}], userRoles=[${userRoles.join(', ')}]`
+      )
+      next('/')
+      return
+    }
   }
 
   next()

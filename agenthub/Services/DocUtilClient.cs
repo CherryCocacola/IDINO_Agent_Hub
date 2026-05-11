@@ -31,6 +31,15 @@ namespace AIAgentManagement.Services;
 public class DocUtilClient : IDocUtilClient
 {
     private const string HttpClientName = "docutil";
+    // Phase 10.x — Long-running endpoint 전용 named client (5분 timeout).
+    // 적용 대상:
+    //   1) DownloadReportAsync               — Report 파일(zip/csv/xlsx) 다운로드
+    //   2) PreviewDocumentTemplateAsync      — Jinja2 템플릿 렌더 미리보기(파일 합성)
+    //   3) RequestDocumentV2ExportAsync      — 비동기 export job 요청(서버 동기 큐잉 시 지연 가능)
+    //   4) DownloadDocumentV2ExportAsync     — 완료된 export 파일 다운로드(대용량 가능)
+    //   5) ExportAuditLogsAsync              — 감사 로그 CSV 스트리밍(N만건 가능)
+    // 표준 60s timeout 으로는 부족 — 사용자 체감 한계(5분)까지 허용하되 그 이상은 504 전파.
+    private const string LongRunningHttpClientName = "docutil-longrunning";
 
     // ── Phase 4: SearchAsync 응답 캐시 ─────────────────────────────────────
     // 캐시 네임스페이스 prefix — RagService 의 결과 캐시(`rag:`) 와 분리하여
@@ -1830,7 +1839,8 @@ public class DocUtilClient : IDocUtilClient
             ? "/api/v1/audit-logs/export"
             : $"/api/v1/audit-logs/export?{string.Join("&", queryParts)}";
 
-        var client = _httpClientFactory.CreateClient(HttpClientName);
+        // Long-running named client (5분 timeout) — N만 건 CSV 스트리밍은 60s 초과 가능.
+        var client = _httpClientFactory.CreateClient(LongRunningHttpClientName);
         var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
         // 본 메서드는 stream 반환 — using 으로 감싸지 않음(호출자 소유).
 
@@ -3003,7 +3013,8 @@ public class DocUtilClient : IDocUtilClient
         }
 
         var path = $"/api/v1/reports/{Uri.EscapeDataString(reportId)}/download";
-        var client = _httpClientFactory.CreateClient(HttpClientName);
+        // Long-running named client (5분 timeout) — Report 파일(zip/xlsx/csv) 다운로드는 대용량 가능.
+        var client = _httpClientFactory.CreateClient(LongRunningHttpClientName);
         var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
         // 본 메서드는 stream 반환 — using 으로 감싸지 않음(호출자 소유, HttpResponseOwnedStream 으로 lifetime 결합).
 
@@ -3654,7 +3665,8 @@ public class DocUtilClient : IDocUtilClient
         }
 
         var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}/preview";
-        var client = _httpClientFactory.CreateClient(HttpClientName);
+        // Long-running named client (5분 timeout) — Jinja2 템플릿 렌더(이미지 합성 포함) 가 60s 초과 가능.
+        var client = _httpClientFactory.CreateClient(LongRunningHttpClientName);
         var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
         // stream 반환 — using 사용 안 함(호출자 소유, HttpResponseOwnedStream 으로 lifetime 결합).
 
@@ -4009,6 +4021,11 @@ public class DocUtilClient : IDocUtilClient
     /// <summary>
     /// DocUtil 응답 상태 코드를 검사하고, 실패 시 한국어 InvalidOperationException 으로 변환.
     /// AgentHub GlobalExceptionHandlerMiddleware 가 502/503 으로 응답 합성한다.
+    /// <para>
+    /// Phase 10.x (2026-05-11) 보강 — 클라이언트 응답에 DocUtil 영문 body 를 그대로
+    /// 노출하지 않는다(정보 누출 위험 + UX 비일관). 원본 body 는 LogError 에만 기록.
+    /// 단, 422 validation error 의 경우 detail[0].msg 를 한국어 안내와 함께 추출 시도.
+    /// </para>
     /// </summary>
     private async Task EnsureSuccessOrThrowKoreanAsync(
         HttpResponseMessage response,
@@ -4041,12 +4058,30 @@ public class DocUtilClient : IDocUtilClient
                 $"DocUtil 응답 실패. 네트워크 또는 서비스 상태를 확인하세요. (HTTP {status})");
         }
 
-        // 그 외 4xx — 호출자 책임.
+        // 422 Unprocessable Entity — FastAPI/Pydantic validation 표준 응답.
+        // detail 배열의 첫 항목 메시지를 사용자 안내에 포함(나머지는 로그에만).
+        // 매핑 실패 시 일반 4xx 안내로 폴백.
+        if (status == 422)
+        {
+            var hint = TryExtractValidationHint(body);
+            _logger.LogWarning(
+                "DocUtil 입력 검증 실패 - Path={Path}, Status={Status}, Body={Body}",
+                path, status, body);
+            if (!string.IsNullOrEmpty(hint))
+            {
+                throw new InvalidOperationException(
+                    $"DocUtil 입력 검증에 실패했습니다 (HTTP 422): {hint}");
+            }
+            throw new InvalidOperationException(
+                "DocUtil 입력 검증에 실패했습니다 (HTTP 422). 운영자에게 문의하세요.");
+        }
+
+        // 그 외 4xx — 호출자 책임. 영문 body 는 로그에만 — 응답에는 status code 와 한국어 안내만.
         _logger.LogWarning(
             "DocUtil 호출 실패 - Path={Path}, Status={Status}, Body={Body}",
             path, status, body);
         throw new InvalidOperationException(
-            $"DocUtil 호출이 실패했습니다 (HTTP {status}): {Truncate(body, 200)}");
+            $"DocUtil 호출이 실패했습니다 (HTTP {status}). 입력값 또는 권한을 확인하세요.");
     }
 
     private static async Task<string> SafeReadErrorBodyAsync(
@@ -4061,6 +4096,70 @@ public class DocUtilClient : IDocUtilClient
         {
             return string.Empty;
         }
+    }
+
+    /// <summary>
+    /// FastAPI/Pydantic 422 응답 본문에서 사용자에게 보일 한국어 친화 hint 추출.
+    /// 표준 응답 형태:
+    ///   { "detail": [ { "loc": ["body","name"], "msg": "...", "type": "value_error" }, ... ] }
+    /// 또는 단순:
+    ///   { "detail": "..." }
+    /// 추출 우선순위:
+    ///   1. detail 이 string → 그대로 반환(영문일 수 있으나 422 한정 한 줄 메시지 허용)
+    ///   2. detail[0] 의 loc 마지막 component + msg → "{field}: {msg}" 형태
+    ///   3. 추출 실패 → null
+    /// 반환값은 길이 200 자로 truncate.
+    /// </summary>
+    private static string? TryExtractValidationHint(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("detail", out var detailEl)) return null;
+
+            // 단순 문자열 case.
+            if (detailEl.ValueKind == JsonValueKind.String)
+            {
+                var s = detailEl.GetString();
+                return string.IsNullOrEmpty(s) ? null : Truncate(s, 200);
+            }
+
+            // 배열 case — 첫 항목.
+            if (detailEl.ValueKind == JsonValueKind.Array && detailEl.GetArrayLength() > 0)
+            {
+                var first = detailEl[0];
+                string? field = null;
+                string? msg = null;
+                if (first.TryGetProperty("loc", out var locEl) && locEl.ValueKind == JsonValueKind.Array)
+                {
+                    // loc 의 마지막 component 가 필드명에 가까움(예: ["body","name"] → "name").
+                    var len = locEl.GetArrayLength();
+                    if (len > 0)
+                    {
+                        var last = locEl[len - 1];
+                        if (last.ValueKind == JsonValueKind.String)
+                        {
+                            field = last.GetString();
+                        }
+                    }
+                }
+                if (first.TryGetProperty("msg", out var msgEl) && msgEl.ValueKind == JsonValueKind.String)
+                {
+                    msg = msgEl.GetString();
+                }
+                if (!string.IsNullOrEmpty(msg))
+                {
+                    var combined = string.IsNullOrEmpty(field) ? msg! : $"{field}: {msg}";
+                    return Truncate(combined, 200);
+                }
+            }
+        }
+        catch
+        {
+            // 파싱 실패 — null 반환하여 호출자가 일반 안내로 폴백.
+        }
+        return null;
     }
 
     private static string Truncate(string s, int max)
@@ -5295,7 +5394,8 @@ public class DocUtilClient : IDocUtilClient
 
         var body = new DocumentV2ExportRequestDto { Format = request.Format };
         var path = $"/api/v1/v2/documents/{Uri.EscapeDataString(documentId)}/export";
-        var client = _httpClientFactory.CreateClient(HttpClientName);
+        // Long-running named client (5분 timeout) — Export job 큐잉이 동기 처리되는 경우 60s 초과 가능.
+        var client = _httpClientFactory.CreateClient(LongRunningHttpClientName);
         using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
         using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
         await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
@@ -5347,7 +5447,8 @@ public class DocUtilClient : IDocUtilClient
         }
 
         var path = $"/api/v1/v2/documents/exports/{Uri.EscapeDataString(jobId)}/download";
-        var client = _httpClientFactory.CreateClient(HttpClientName);
+        // Long-running named client (5분 timeout) — 대용량 export 파일(pptx/docx/pdf) 다운로드.
+        var client = _httpClientFactory.CreateClient(LongRunningHttpClientName);
         var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
         // stream 반환 — using 사용 안 함(호출자 소유, HttpResponseOwnedStream 으로 lifetime 결합).
 

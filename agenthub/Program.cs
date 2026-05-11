@@ -15,6 +15,8 @@ using StackExchange.Redis;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.Extensions.FileProviders;
+using Polly;
+using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -249,8 +251,74 @@ builder.Services.AddHttpClient("nexus", client =>
         builder.Configuration.GetValue<int>("Nexus:DefaultTimeoutSeconds", 60));
 });
 
-// DocUtil(RAG/문서 운영) Named HttpClient — Phase 6.1, ADR-2 RAG 단일 권위.
-// BaseUrl 기본값은 로컬 docker compose (docutil-api). JwtToken/ApiKey 는 DocUtilClient 내부에서 부착.
+// ────────────────────────────────────────────────────────────────────────────
+// DocUtil(RAG/문서 운영) Named HttpClient — Phase 6.1 도입, Phase 10.x 회복탄력성 보강.
+// ADR-2 (RAG 단일 권위) — DocUtil 은 운영자 콘솔의 모든 BFF 호출 경로.
+//
+// 회복탄력성 정책 (Phase 10.x, 2026-05-11):
+//   - 5xx / HttpRequestException 만 retry — 4xx (422 validation 등) 는 비즈니스
+//     오류이므로 즉시 전파(retry 가 의미 없고 사용자 입력 검증 응답이 지연되면 안 됨).
+//   - Retry 3회, exponential backoff: 200ms / 500ms / 1000ms.
+//     (총 최대 추가 지연 ≈ 1.7s — 사용자 체감 가능하지만 운영자 콘솔에는 허용 범위)
+//   - Circuit Breaker: 5회 연속 실패 시 30초 차단 — DocUtil 다운 시 즉시 502 전파
+//     하여 cascade 차단(현재 60s 단일 timeout 보다 fail-fast).
+//
+// Named client 두 개:
+//   1. "docutil"             — 일반 호출(60s timeout, 위 Retry/CB 동일)
+//   2. "docutil-longrunning" — 5분 timeout (Report 다운로드 / Template preview /
+//                                 Documents V2 export 등 long-running endpoint 전용)
+//
+// 참고:
+//   - HttpClient.Timeout 은 "각 시도 + 모든 retry 합" 의 절대 상한이므로 60s 이내
+//     1.7s retry budget 이 다 소진되지 않도록 retry handler 가 각 시도마다 ResetTimer
+//     없음 — 표준 동작.
+//   - PII 마스킹은 DocUtilClient 의 EnsureSuccessOrThrowKoreanAsync 가 담당.
+// ────────────────────────────────────────────────────────────────────────────
+
+// 공통 회복탄력성 정책 — Retry 3회 + Circuit Breaker(5/30s).
+// 두 named client 가 같은 정책을 공유한다(timeout 만 다름).
+static IAsyncPolicy<HttpResponseMessage> GetDocUtilRetryPolicy()
+{
+    // HandleTransientHttpError = 5xx + HttpRequestException. 4xx 는 retry 대상 외.
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(
+            retryCount: 3,
+            sleepDurationProvider: attempt => attempt switch
+            {
+                1 => TimeSpan.FromMilliseconds(200),
+                2 => TimeSpan.FromMilliseconds(500),
+                _ => TimeSpan.FromMilliseconds(1000),
+            },
+            onRetry: (outcome, delay, attempt, _) =>
+            {
+                // Polly Retry 는 ILogger 직접 주입이 어려우므로 콘솔 trace 만(LogInfo 대신).
+                // 실제 운영 진단은 DocUtilClient 측의 LogError + status code 로 충분.
+                Console.WriteLine(
+                    $"[DocUtil HTTP retry] attempt={attempt}, delay={delay.TotalMilliseconds}ms, " +
+                    $"status={(int?)outcome.Result?.StatusCode}, exception={outcome.Exception?.GetType().Name}");
+            });
+}
+
+static IAsyncPolicy<HttpResponseMessage> GetDocUtilCircuitBreakerPolicy()
+{
+    // 5회 연속 실패 → 30초 차단(BrokenCircuitException 발생).
+    // 차단 중 호출은 즉시 예외 → DocUtilClient 의 InvalidOperationException 변환 → 502.
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .CircuitBreakerAsync(
+            handledEventsAllowedBeforeBreaking: 5,
+            durationOfBreak: TimeSpan.FromSeconds(30),
+            onBreak: (outcome, breakDelay) =>
+            {
+                Console.WriteLine(
+                    $"[DocUtil HTTP circuit breaker] OPENED for {breakDelay.TotalSeconds}s — " +
+                    $"status={(int?)outcome.Result?.StatusCode}, exception={outcome.Exception?.GetType().Name}");
+            },
+            onReset: () => Console.WriteLine("[DocUtil HTTP circuit breaker] RESET"),
+            onHalfOpen: () => Console.WriteLine("[DocUtil HTTP circuit breaker] HALF-OPEN"));
+}
+
 builder.Services.AddHttpClient("docutil", client =>
 {
     var docutilBaseUrl = builder.Configuration["DocUtil:BaseUrl"]
@@ -258,7 +326,22 @@ builder.Services.AddHttpClient("docutil", client =>
     client.BaseAddress = new Uri(docutilBaseUrl);
     client.Timeout = TimeSpan.FromSeconds(
         builder.Configuration.GetValue<int>("DocUtil:DefaultTimeoutSeconds", 60));
-});
+})
+    .AddPolicyHandler(GetDocUtilRetryPolicy())
+    .AddPolicyHandler(GetDocUtilCircuitBreakerPolicy());
+
+// Long-running endpoint 전용 — Report 다운로드, Template preview, Documents V2 export 등.
+// 5분 절대 timeout. Retry/CB 정책은 동일하게 적용(서버 5xx 시 재시도 가치 있음).
+builder.Services.AddHttpClient("docutil-longrunning", client =>
+{
+    var docutilBaseUrl = builder.Configuration["DocUtil:BaseUrl"]
+                         ?? "http://localhost:8000";
+    client.BaseAddress = new Uri(docutilBaseUrl);
+    client.Timeout = TimeSpan.FromMinutes(
+        builder.Configuration.GetValue<int>("DocUtil:LongRunningTimeoutMinutes", 5));
+})
+    .AddPolicyHandler(GetDocUtilRetryPolicy())
+    .AddPolicyHandler(GetDocUtilCircuitBreakerPolicy());
 
 builder.Services.AddHttpClient(); // 기본 클라이언트 (기타 HTTP 호출용)
 

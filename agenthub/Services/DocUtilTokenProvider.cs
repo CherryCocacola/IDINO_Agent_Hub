@@ -188,8 +188,11 @@ public sealed class DocUtilTokenProvider : IDocUtilTokenProvider
     /// 발생해도 _cachedAccessToken 이 항상 최신 상태라 일관 동작.
     /// </para>
     /// <para>
-    /// ApiKey 모드(영구 키, JWT 가 아님) 또는 디코드 실패 시 null 반환 — 호출자는
-    /// 502 ErrorResponseDto 로 매핑하여 "DocUtil 운영자 자격 확인 필요" 안내.
+    /// 폴백 우선순위 (Phase 10.x 보강, 2026-05-11):
+    ///   1. JWT 의 <c>org</c> claim    — 가장 정확(운영자 컨텍스트와 정확히 일치)
+    ///   2. appsettings <c>DocUtil:DefaultOrganizationId</c> — ApiKey-only 모드(JWT 가
+    ///      아님)에서 운영자 콘솔이 동작하도록 하는 명시적 폴백.
+    ///   3. null — 호출자가 502 ErrorResponseDto 로 매핑하여 "DocUtil 운영자 자격 확인 필요" 안내.
     /// </para>
     /// </summary>
     public async Task<string?> GetOrganizationIdAsync(CancellationToken cancellationToken = default)
@@ -198,12 +201,27 @@ public sealed class DocUtilTokenProvider : IDocUtilTokenProvider
         await GetTokenAsync(cancellationToken);
 
         var token = _cachedAccessToken;
-        if (string.IsNullOrEmpty(token))
+        if (!string.IsNullOrEmpty(token))
         {
-            return null;
+            var orgFromJwt = TryDecodeJwtClaim(token, "org");
+            if (!string.IsNullOrWhiteSpace(orgFromJwt))
+            {
+                return orgFromJwt;
+            }
         }
 
-        return TryDecodeJwtClaim(token, "org");
+        // 폴백 — ApiKey-only 모드 또는 JWT 에 org claim 미부착 시:
+        // appsettings 의 DocUtil:DefaultOrganizationId 값 사용.
+        // (배포 환경마다 하나의 운영 조직만 다루는 단순 시나리오에 적합)
+        var defaultOrgId = _configuration["DocUtil:DefaultOrganizationId"];
+        if (!string.IsNullOrWhiteSpace(defaultOrgId))
+        {
+            _logger.LogDebug(
+                "DocUtil org_id — JWT claim 미부착 → DocUtil:DefaultOrganizationId 폴백 사용");
+            return defaultOrgId;
+        }
+
+        return null;
     }
 
     /// <summary>

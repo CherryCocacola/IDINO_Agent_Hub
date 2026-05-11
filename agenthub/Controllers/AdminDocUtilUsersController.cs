@@ -236,6 +236,10 @@ public class AdminDocUtilUsersController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "DocUtil 사용자 상태 변경 실패 (id={Id}, status={Status})", id, request.Status);
+            // 실패 시에도 invalidate — DocUtil 측 상태가 부분 변경되었을 수 있어(예: 5xx 중간 단절),
+            // ghost 데이터가 GET 응답에 남는 일이 없도록 안전을 위해 캐시 무효화.
+            // (10.1c+ DeleteDepartment 의 동일 패턴 일관 적용)
+            await InvalidateUsersCacheAsync();
             return StatusCode(502, new ErrorResponseDto(
                 "사용자 상태 변경에 실패했습니다.",
                 "DOCUTIL_UPSTREAM_ERROR",
@@ -268,6 +272,10 @@ public class AdminDocUtilUsersController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "DocUtil 사용자 삭제 실패 (id={Id})", id);
+            // 실패 시에도 invalidate — 404(이미 DocUtil 측 삭제됨) / 5xx(부분 단절) 상황에서
+            // ghost 사용자가 GET 응답에 남는 일이 없도록 안전 차원에서 캐시 무효화.
+            // (DeleteDepartment 와 동일 패턴 일관 적용)
+            await InvalidateUsersCacheAsync();
             return StatusCode(502, new ErrorResponseDto(
                 "사용자 삭제에 실패했습니다.",
                 "DOCUTIL_UPSTREAM_ERROR",

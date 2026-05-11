@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.SpaServices.Extensions" Version="8.0.0" />
+    <!-- Phase 10.x — DocUtil HttpClient 회복탄력성(Retry/Circuit Breaker)에 Polly 적용. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.11" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />

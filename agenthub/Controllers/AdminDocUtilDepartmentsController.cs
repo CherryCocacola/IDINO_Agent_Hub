@@ -156,6 +156,10 @@ public class AdminDocUtilDepartmentsController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "DocUtil 조직 수정 실패");
+            // 실패 시에도 invalidate — 5xx 중간 단절 시 부분 변경이 발생했을 수 있어,
+            // 캐시가 DocUtil 실제 상태와 어긋나지 않도록 안전 차원에서 무효화.
+            // (DeleteDepartment 와 동일 일관 패턴)
+            await InvalidateDepartmentsCacheAsync();
             return StatusCode(502, new ErrorResponseDto(
                 "DocUtil 조직 정보 수정에 실패했습니다.",
                 "DOCUTIL_UPSTREAM_ERROR",
@@ -228,6 +232,10 @@ public class AdminDocUtilDepartmentsController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "DocUtil 부서 생성 실패 (name={Name})", request.Name);
+            // 실패 시에도 invalidate — 5xx 중간 단절 시 부분 생성된 부서가 DocUtil 측에
+            // 남아있을 수 있어(예: 트랜잭션 실패 전 row 생성), 다음 GET 에서 그것이 즉시
+            // 반영되도록 캐시 무효화.
+            await InvalidateDepartmentsCacheAsync();
             return StatusCode(502, new ErrorResponseDto(
                 "부서 생성에 실패했습니다.",
                 "DOCUTIL_UPSTREAM_ERROR",
@@ -269,6 +277,9 @@ public class AdminDocUtilDepartmentsController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "DocUtil 부서 수정 실패 (id={Id})", deptId);
+            // 실패 시에도 invalidate — 5xx 중간 단절 시 부분 변경이 발생했을 수 있어,
+            // 캐시가 DocUtil 실제 상태와 어긋나지 않도록 안전 차원에서 무효화.
+            await InvalidateDepartmentsCacheAsync();
             return StatusCode(502, new ErrorResponseDto(
                 "부서 수정에 실패했습니다.",
                 "DOCUTIL_UPSTREAM_ERROR",
