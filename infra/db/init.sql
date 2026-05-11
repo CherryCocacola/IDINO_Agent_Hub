@@ -204,6 +204,15 @@ WHERE rolname = 'AGENT_HUB';
 --   dotnet ef database update
 --   → AIAgentManagement schema에 35개 테이블 생성
 --
+-- (Phase 3.5+) Phase 2.x / 5.1 / 7.1 시드 codify 파일 적용
+--   psql -h 192.168.10.39 -p 5440 -U AGENT_HUB -d AGENT_HUB \
+--        -f infra/db/seeds/phase5_phase7_seeds.sql
+--   → ApiServices 16개 (Phase 2.x + Phase 5.1 Nexus 포함)
+--   → Agents 15개 (Phase 7.1, DU 4 + career 8 + 공통 3)
+--   멱등 가드: INSERT ... WHERE NOT EXISTS (...)  -- 재실행 시 0행 INSERT
+--   참고: ApiKey 는 운영 DB 가 master (codify 제외) — 신규 환경에서는
+--        `user_mig/tools/phase72_seed.py --print-keys` 로 재발급
+--
 -- (Phase 4) DocUtil schema 이전
 --   docker exec docutil-api alembic upgrade head
 --   → document_utilization schema에 기존 tb_* 재배치
