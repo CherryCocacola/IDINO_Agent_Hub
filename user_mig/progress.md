@@ -170,6 +170,38 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-11 (agenthub/secrets — G.1 + G.2 안전 항목 1차 보안 보강: workspace 평문 시크릿 마스킹 + 운영 chmod 600 + G.2 강행 차단 사유 발견)
+- **commit**: `6cfdcee` ([agenthub/secrets] 평문 시크릿 마스킹 — iis-setting.ps1 + TODO.md placeholder 패턴 도입)
+- **목적**: 사용자 명시 G.1 + G.2 안전 항목 1차 적용. 시연 무관 "제대로 확실히 완벽히" 기조 준수 — placeholder 만 보유, 운영 시크릿은 외부 주입.
+- **G.1 완료 항목**:
+  1. **`agenthub/iis-setting.ps1`** — DB 비번 + JWT SecretKey + OpenAI/Gemini/Perplexity/Tavily 4 LLM 키 + SMTP Username/Password = 총 8개 평문 시크릿 → `$env:OPENAI_API_KEY` 등 환경변수 참조 + `<OPENAI_API_KEY>` placeholder fallback. 한국어 보안 경고 헤더 추가.
+  2. **`agenthub/TODO.md`** — IIS 설정 가이드의 동일 8개 평문 시크릿 동일 패턴 마스킹. line 83/86/88 의 `sk-proj-...` `pplx-...` `tvly-...` 약식 placeholder 는 안전하여 유지.
+  3. **운영 호스트 `/home/idino/docutil/.env`** — `chmod 600` 적용 (664 → 600, owner idino:idino 유지). G.1 #4 tb_llm_api_keys deprecate 메모는 본 progress 로그에 기록(아래 별도 트랙 후보).
+- **G.1 후속 잔존 평문 시크릿 (별도 트랙 권장 — 본 1차 트랙 외)**:
+  - `agenthub/Program.cs:496` — `Replace("Password=rnehrwhgdk20@^", "Password=***")` 가짜 마스킹 (anti-patterns.md §4 직접 위반, DB 비번 평문 코드 박힘)
+  - `agenthub/DbConnectionTest.ps1:2` — DB 비번 평문 한 줄
+  - `agenthub/TECHSPEC.md:910` — 위험 문서 자체에 DB 비번 평문 노출
+  - `user_mig/tools/phase72_seed.py:57` — JWT placeholder 평문 (iis-setting.ps1 과 동일 값, git history 잔존)
+  - `career/claudedocs/20260124_작업내역_보고서.md:153,168` — 이미 `sk-proj-***` 마스킹됨 (안전)
+- **G.2 안전 항목 사전 점검 결과 — 강행 차단**:
+  - **#5 (DocUtil OPENAI 키 제거) 보류**: 운영 컨테이너 docutil-api 가 R2 위반 코드 광범위 잔존 상태로 부팅됨 (Up 3 days). workspace commit `7393322` (Phase 7 R2 잔여 7건 보강) 가 운영 미배포. 운영 점검 결과:
+    - `LLM_PROVIDER=openai` (AgentHub 위임 X)
+    - `AGENTHUB_BASE_URL` / `AGENTHUB_API_KEY` 환경변수 docker-compose.yml + .env 모두 미정의
+    - `AgentHubClient` / `agenthub_client` 문자열 grep 결과 운영 컨테이너 내부 코드에 **0건**
+    - `/app/app/integrations/image_generation/service.py:188` `AsyncOpenAI` 직접 사용 잔존
+    - 12개 모듈에서 `OpenAI|openai\.` import (`llm/{openai,claude,gemini,azure}_client.py`, `modules/{chat,search,api_keys,templates}/service.py`, `workers/{report_generator,training/trainer,embedding_generator}.py`, `integrations/rag/graph_rag.py` 등)
+    - **결론**: workspace 코드는 R2 청소 완료이지만 운영 호스트는 Phase 7 전 상태. 운영 OPENAI 키 제거 = 채팅/검색/이미지생성 즉시 중단. G.2 #5 강행은 사용자 기조 "제대로 확실히 완벽히" 정면 위반. **선행 트랙 필요**: workspace Phase 7 코드 운영 배포(docker compose build + up).
+  - **#6 (Qdrant 강력 키 발급) — 운영 상태 이상 발견**: 현재 Qdrant 가 빈 키(`QDRANT__SERVICE__API_KEY=`)로 부팅됐으나 `curl http://qdrant:6333/collections` 가 **401 응답**. docutil-api 내부 `QdrantClient(api_key="")` Python 호출도 401 `Unauthorized`. 두 컨테이너 모두 healthy 표시이지만 RAG 호출이 실제 작동하는지 의심. `docker logs --since=24h` 의 qdrant/embedding 키워드 로그 **0건** — 최근 24h RAG 미사용 가능성 또는 로그 레벨 낮음. **결론**: 강력 키 발급은 현재보다 나빠지지 않지만, RAG 가 이미 깨졌을 가능성이 있어 사용자 확인 필요.
+  - **#7 (REDIS/RABBITMQ/MINIO/FLOWER/GRAFANA 비번 강화) — 안전 강행 가능**: 현재 패턴 `docutil_<svc>_2024` (len 16~18, prefix=docu/flow/graf, suffix=024) 확인. docker-compose 의 5개 변수 참조(redis URL/celery broker/MinIO Secret/Flower basic-auth/Grafana admin) 모두 `${VAR}` 패턴이라 재시작 시 일관 적용 가능. 단, 대량 재시작 (8개 컨테이너) 이 운영 다운타임을 동반.
+- **권고**: G.2 강행 전 다음 사용자 결정 필요:
+  - Q-A: 운영 호스트에 workspace Phase 7 코드 배포 가능 시점? (docker compose pull + up — 이미지 빌드 + DB migration 필요 가능성)
+  - Q-B: Qdrant 401 상태 — RAG 가 실제 운영에서 사용 중인가? (사용 중이라면 어떤 인증 경로? / 미사용이라면 강력 키 발급 후 정상화)
+  - Q-C: 5개 서비스 비번 일괄 강화 + 대량 재시작 시점 — 업무 외 시간 또는 즉시?
+- **별도 트랙 후보 (본 진행과 무관)**:
+  - **R18 (TECHSPEC)** — 평문 시크릿 잔존: Program.cs 가짜 마스킹 + TECHSPEC/DbConnectionTest 평문 → 별도 청소 트랙
+  - **tb_llm_api_keys deprecate** — DocUtil 운영 DB 0행 확인 후 별도 EF migration 트랙
+  - **git history sanitize (D 옵션)** — first commit `1da04ab` 의 평문 키 잔존, force-push 매우 위험 트랙
+
 ### 2026-05-11 (docutil/r2 — Phase 7 R2 잔여 7건 완전 보강: chat/search/trainer/llm-client AgentHub 위임 + dead code 제거)
 - **commit**: `7393322` ([docutil/r2] Phase 7 — R2 잔여 7건 완전 보강 (chat/search/trainer/llm-client AgentHub 위임 + dead code 제거))
 - **목적**: DU-14 `/v1/images` 트랙(commit `6a2dd2f`) 완료 후 grep 으로 발견된 DocUtil 측 R2(anti-patterns.md §1) 위반 7건 완전 정리. 사용자 기조 "제대로 확실히 완벽히 구현" 준수 — 추정 매핑/부분 구현/dead code 잔존/임시 fallback 금지.
