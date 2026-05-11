@@ -170,6 +170,70 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-12 (트랙 #63 — DocUtil DB schema 정합 복구 / 옵션 B: public → document_utilization SET SCHEMA 이전, 운영 라이브 회귀 완료)
+- **목적**: 직전 트랙 #1 (2026-05-12 후속 #1) 에서 발견된 DocUtil DB schema 정합성 결함 — 운영 docutil-postgres 의 `docutil` DB 에서 28개 테이블 모두 `public` 스키마 적재 vs DocUtil ORM 모델 `__table_args__={'schema':'document_utilization'}` + `MetaData(schema='document_utilization')` + `search_path=document_utilization,public` 강제와 불일치. 결과: docutil 자체 로그인 endpoint HTTP 500 (`asyncpg.exceptions.UndefinedTableError: relation "document_utilization.tb_users" does not exist`) + agenthub `/api/admin/docutil/users` BFF HTTP 502 (`DOCUTIL_UPSTREAM_ERROR — organization_id 를 추출할 수 없습니다`). 사용자 명시 기조 ("시연은 신경쓰지 말고 제대로 확실히 완벽히") + `<<autonomous-loop-dynamic>>` 자율 진행 승인으로 옵션 B (테이블 SET SCHEMA 이전, 데이터 mutation 없음) 채택.
+- **운영 commit**: 없음 — 본 트랙은 운영 DB DDL + 컨테이너 재시작만 수행 (workspace 변경 0건). progress.md 갱신만 commit 예정.
+- **1) 사전 백업 (필수, `tmp/track63_step1_backup.py`)**:
+  - `docker exec docutil-postgres pg_dump -U docutil -d docutil --schema=public -F c -f /tmp/docutil_public_pre_schema_migrate_20260511_234125.dump` → 702,194 bytes (≈ 685 KiB)
+  - 호스트 회수: `/home/idino/docutil/backups/docutil_public_pre_schema_migrate_20260511_234125.dump`
+  - 디스크 여유 확인: `/dev/mapper/ubuntu--vg-ubuntu--lv 591G used 131G / avail 435G (24%)` (PASS)
+  - **사전 row count baseline 스냅샷**: `tb_users=11, tb_documents=31, tb_document_chunks=646, tb_search_history=383, tb_chat_messages=220, tb_audit_logs=757, alembic_version=009_organization_quotas`
+  - **사전 검증**: public 스키마 테이블 28개 (정확히 일치) + `document_utilization` 스키마 0 테이블 (이전 안전 확보)
+- **2) 다운타임 진입 (`tmp/track63_step234_migrate.py`)**:
+  - stop ISO: `2026-05-11T23:42:57.642678Z`
+  - `cd /home/idino/docutil && docker compose stop api celery-worker celery-beat` — 3 컨테이너 모두 `Exited (0)` 확인. (service 이름 정정: `api/celery-worker/celery-beat` ↔ 컨테이너 `docutil-api/docutil-celery-worker-1/docutil-celery-beat`)
+  - postgres / qdrant / redis / rabbitmq / minio / nginx / frontend 는 그대로 유지 (DB 자체는 LIVE 유지)
+- **3) DDL 트랜잭션 (BEGIN/COMMIT 단일 트랜잭션, base64 encoded heredoc → `docker exec -i docutil-postgres psql -U docutil -d docutil -v ON_ERROR_STOP=1`)**:
+  - `CREATE SCHEMA IF NOT EXISTS document_utilization`
+  - `GRANT USAGE/ALL ON SCHEMA document_utilization TO docutil` + `ALTER DEFAULT PRIVILEGES IN SCHEMA document_utilization GRANT ALL ON TABLES/SEQUENCES TO docutil`
+  - **28 `ALTER TABLE public.<t> SET SCHEMA document_utilization`** (alembic_version + tb_agents/tb_audit_logs/tb_boards/tb_chat_messages/tb_chat_sessions/tb_departments/tb_document_access/tb_document_chunks/tb_document_templates/tb_documents/tb_documents_v2/tb_documents_v2_templates/tb_evaluation_configs/tb_evaluation_logs/tb_faq_entries/tb_folders/tb_generated_reports_archive/tb_llm_api_keys/tb_organization_quotas/tb_organizations/tb_project_departments/tb_project_members/tb_projects/tb_report_templates/tb_search_history/tb_search_scopes/tb_users)
+  - **트랜잭션 내부 검증 SELECT**: `document_utilization=28, public=0` (PASS)
+  - `ALTER ROLE docutil SET search_path TO document_utilization, public` (역할 default search_path 갱신 — 다음 세션부터 적용)
+  - `COMMIT` 성공, 트랜잭션 소요 0.4초. PostgreSQL `ALTER TABLE SET SCHEMA` 는 메타데이터만 변경 → 데이터 이동 0, FK 55개 + 인덱스 97개 자동 이동, downtime 영향 없음
+- **4) 컨테이너 재시작 + healthy 폴링**:
+  - `cd /home/idino/docutil && docker compose up -d --force-recreate api celery-worker celery-beat` → 3 컨테이너 모두 Started
+  - docutil-api healthy 도달 시각 `2026-05-11T23:43:31.309201Z`, 28.9초 (depends_on healthy 체크 + alembic 시작 검증 시간)
+  - **총 다운타임: 33.7초** (stop → healthy)
+- **5) 회귀 검증 (`tmp/track63_step5_verify.py` + `track63_step5_verify_v2.py`, 7항목 모두 PASS)**:
+  - **V1 search_path (새 세션)**: `SHOW search_path` → `document_utilization, public` ✅ (ALTER ROLE 새 세션부터 적용 확인)
+  - **V2 row count baseline 100% 일치**: `tb_users=11, tb_documents=31, tb_document_chunks=646, tb_search_history=383, tb_chat_messages=220, tb_audit_logs=757, alembic_version=009_organization_quotas` — **데이터 mutation 0 입증**
+  - **V7 public schema 비어 있음**: `SELECT COUNT(*) FROM pg_tables WHERE schemaname='public'` → 0 (28 테이블 모두 이동 완료, 잔존 없음)
+  - **V4 DocUtil 자체 로그인 endpoint**: `POST /api/v1/auth/login` (잘못된 자격증명) → HTTP=401 `{"detail":"Invalid credentials or account is locked."}` — **직전 500 (UndefinedTableError) → 401 정상화** (schema 복구 효과 입증)
+  - **V5 DocUtil chat endpoint**: `/api/v1/chat` GET → HTTP=404 (POST 만 허용, 5xx 아님)
+  - **V6 AgentHub BFF `/api/admin/docutil/users` (admin@example.com JWT len=555)**: HTTP=**200**, items 배열 운영자 사용자 데이터 실제 반환 (dglee/wjlee/gaze/... organizationId/departmentId/role 포함 한국어 username 정상 UTF-8) — **직전 502 → 200 정상화**
+  - **V6-b docutil-api 최근 5분 로그**: `UndefinedTable | asyncpg.exceptions | ERROR` 매치 0건 (PASS)
+  - **agenthub 포트 발견**: `agenthub|0.0.0.0:64005->8080/tcp` (ASPNETCORE_URLS=http://+:8080, 호스트 노출 포트 64005)
+- **6) 변경 영향 / 회복 절차**:
+  - workspace 변경: 본 progress.md 한 건만. agenthub / docutil 소스코드 변경 0. alembic 마이그레이션 파일 생성 0.
+  - 운영 DB 변경: `document_utilization` 스키마 신설 + 28 ALTER TABLE SET SCHEMA + `ALTER ROLE docutil SET search_path` (3 종 변경, 모두 메타데이터, 데이터 mutation 0).
+  - 운영 컨테이너 변경: docutil-api / docutil-celery-worker-1 / docutil-celery-beat force-recreate (총 33.7초 다운타임).
+  - **회복 절차 (반전 SQL — 사용자 결정 시)**:
+    ```
+    docker compose stop api celery-worker celery-beat
+    docker exec -i docutil-postgres psql -U docutil -d docutil <<EOF
+    BEGIN;
+    -- 28 테이블 + alembic_version 역이전
+    ALTER TABLE document_utilization.alembic_version SET SCHEMA public;
+    ALTER TABLE document_utilization.tb_users SET SCHEMA public;
+    -- ... (다른 27 테이블 동일 패턴)
+    ALTER ROLE docutil SET search_path TO public;
+    DROP SCHEMA document_utilization;
+    COMMIT;
+    EOF
+    docker compose up -d --force-recreate api celery-worker celery-beat
+    ```
+  - 또는 backup restore: `pg_restore -d docutil -U docutil --clean --if-exists /home/idino/docutil/backups/docutil_public_pre_schema_migrate_20260511_234125.dump` (단, restore 는 새 schema 의 의도된 정합 상태를 되돌리는 것이므로 권장하지 않음 — DocUtil 모델은 `document_utilization` 을 기대)
+- **7) 의미 / 영향**:
+  - **ADR-5 (PG schema 격리) 운영 정합 회복** — DocUtil 모델 코드와 운영 DB 가 일치 (이전: 코드는 `document_utilization`, 실제는 `public` 으로 격리 R3 무력화)
+  - **트랙 #1 후속 #1 발급한 ApiKeyId=3 (`docutil-runtime-key`) 미영향** — AgentHub DB(`AGENT_HUB.AIAgentManagement.ApiKeys`)에 저장, DocUtil DB 와 무관
+  - **DocUtil 의 모든 인증 의존 endpoint 운영 정상화** — 직전 트랙 #1 에서 발견된 502/500 양쪽 모두 해소
+  - **alembic 정합 보존**: `alembic_version=009_organization_quotas` 유지 (운영 R2 청소 시점 이후의 마이그레이션 미적용 없음). 단, alembic baseline 의 `document_utilization` schema 처리 검증은 별도 트랙으로 권고
+- **8) 후속 트랙 권고 (사용자 결정 대기)**:
+  - **트랙 #56 ENCRYPTION_KEY 회전** (`#56 in_progress`): 본 트랙 schema 복구 완료로 docutil 자체 인증/암복호화 endpoint 정상 동작 — 회전 작업 안전 진행 가능 조건 확보
+  - **트랙 #62 임시 secrets 파일 삭제** (`#62 pending`): `/home/idino/.docutil_apikey_1778539242.txt` + `/home/idino/.g2_secrets_20260511_174342.txt` 삭제 결정 — 본 트랙과 무관, 사용자 결정 대기
+  - **alembic baseline 재검토 (장기)**: DocUtil 운영 alembic 의 `009_organization_quotas` 까지의 마이그레이션이 운영 적용 시 `public` 으로 적재된 경위 추적 — DocUtil 측 마이그레이션 파일이 `op.execute("SET search_path TO document_utilization")` 미포함 또는 `create_table(schema='document_utilization')` 미사용 추정. 본 트랙은 운영 DB 만 정합 — 향후 마이그레이션 재실행 시 동일 문제 재발 방지 위해 DocUtil 측 코드 검토 필요 (별도 트랙)
+  - **본 트랙 #61 (pending → 통합)**: `#61` 은 동일 주제로 등록되어 있었음 — 본 트랙 #63 으로 흡수, deleted 처리 권고
+
 ### 2026-05-12 (후속 #1 — docutil AgentHubClient 환경변수 설정 + 운영 라이브 회귀 완료)
 - **운영 commit**: 없음 — 본 트랙은 운영 호스트 `.env` / DB INSERT / 컨테이너 재시작만 수행 (workspace 변경 0건). progress.md 갱신만 commit 예정.
 - **목적**: G.2 A1 직후 발견된 "운영 docutil `.env` 에 `AGENTHUB_URL`/`AGENTHUB_API_KEY` 둘 다 부재" 해소. 사용자 명시 후속 #1 ("1" 승인) 으로 실행. 사용자 기조 "시연은 신경쓰지 말고 제대로 확실히 완벽히" 준수 — 부분 구현 금지.
