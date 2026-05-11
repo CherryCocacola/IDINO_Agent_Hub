@@ -2,8 +2,11 @@
 이미지 생성 서비스 모듈.
 
 두 가지 이미지 소스를 지원한다:
-  - **DALL-E 3** (OpenAI): 프롬프트 기반 AI 이미지 생성
-  - **Unsplash**: 무료 스톡 이미지 검색 및 다운로드
+  - **DALL-E 3** (AgentHub `/v1/images/generations` 경유 — R2 단일 진입점 강제):
+    프롬프트 기반 AI 이미지 생성. anti-patterns.md §1 (Direct SDK Import) 준수를 위해
+    ``openai`` SDK 직접 사용 없이 ``AgentHubClient.generate_image_bytes`` 로 위임한다.
+    AgentHub 내부에서 ApiKeyPool 라운드로빈, PII/금칙어, 사용량 기록, LlmRouting 분기를 일괄 처리.
+  - **Unsplash**: 무료 스톡 이미지 검색 및 다운로드 (LLM 호출 아님 — R2 적용 대상 아님).
 
 사용 예시::
 
@@ -11,7 +14,7 @@
 
     service = ImageGenerationService()
 
-    # DALL-E 3로 이미지 생성
+    # DALL-E 3로 이미지 생성 (AgentHub 경유)
     image_bytes = await service.generate("사무실에서 회의하는 사람들")
 
     # Unsplash에서 스톡 이미지 검색
@@ -20,12 +23,12 @@
 
 from __future__ import annotations
 
-import base64
 import logging
 
 import httpx
 
 from app.core.config import get_settings
+from app.integrations.agenthub_client import AgentHubError, get_agenthub_client
 
 # 로거 설정 — 이 모듈에서 발생하는 모든 로그에 모듈 이름이 표시된다
 logger = logging.getLogger(__name__)
@@ -134,18 +137,22 @@ class ImageGenerationService:
         size: str = "1024x1024",
         style: str = "natural",
     ) -> bytes | None:
-        """OpenAI DALL-E 3 API를 사용하여 이미지를 생성한다.
+        """DALL-E 3 이미지를 생성한다 (AgentHub `/v1/images/generations` 위임).
+
+        Phase 7 — R2 단일 진입점 강제. ``openai`` SDK 직접 호출 (anti-patterns.md §1) 제거.
+        AgentHub 가 ApiKeyPool 라운드로빈/PII 검사/사용량 기록/LlmRouting 분기를 일괄 처리한 뒤
+        b64_json 응답을 반환하면 본 메서드가 bytes 로 디코딩한다.
 
         동작 흐름:
-        1. OpenAI API 키가 설정되어 있는지 확인
-        2. 크기(size)와 스타일(style) 파라미터 유효성 검증
-        3. OpenAI의 images/generations 엔드포인트에 요청
-        4. Base64로 인코딩된 응답을 디코딩하여 바이트로 반환
+        1. 크기(size)와 스타일(style) 파라미터 유효성 검증 (잘못된 값 → 기본값으로 대체)
+        2. AgentHubClient.generate_image_bytes 호출 (agent_code="docutil-image-generator")
+        3. AgentHub 가 내부적으로 ServiceCode=dalle 의 DALL-E API 호출 → URL 다운로드 → base64 → DocUtil 반환
+        4. bytes 반환 (실패 시 None)
 
         Parameters
         ----------
         prompt : str
-            이미지 생성 프롬프트. 한글도 지원됨.
+            이미지 생성 프롬프트. 한글/영어 모두 지원.
         size : str
             이미지 크기. 기본값 "1024x1024" (정사각형).
         style : str
@@ -154,18 +161,17 @@ class ImageGenerationService:
         Returns
         -------
         bytes | None
-            생성된 이미지의 PNG 바이트 데이터. 실패 시 None.
-        """
-        # ── 1단계: API 키 확인 ────────────────────────────────────────────
-        if not settings.openai_api_key:
-            logger.error(
-                "DALL-E 3 이미지 생성 실패: OPENAI_API_KEY가 설정되지 않았습니다. "
-                ".env 파일에 OPENAI_API_KEY를 추가하세요."
-            )
-            return None
+            생성된 이미지의 PNG 바이트 데이터. AgentHub 호출 실패 또는 응답 누락 시 None.
 
-        # ── 2단계: 파라미터 유효성 검증 ────────────────────────────────────
-        # 잘못된 크기가 들어오면 기본값으로 대체 (에러 대신 경고)
+        Notes
+        -----
+        AgentHub URL/API Key 환경변수(``AGENTHUB_URL``/``AGENTHUB_API_KEY``)가 누락된 경우
+        ``AgentHubClient`` 초기화 시점에 ``ValueError`` 가 발생한다. 본 메서드는 이를 잡아
+        None 반환 + 로그 기록으로 degrade (기존 동작과 동일).
+        """
+        # ── 1단계: 파라미터 유효성 검증 ────────────────────────────────────
+        # 잘못된 크기가 들어오면 기본값으로 대체 (에러 대신 경고). DALL-E 3 의 size 제한
+        # (1024x1024 / 1024x1792 / 1792x1024) 은 AgentHub 측 CallDallEAsync 가 한 번 더 검증.
         if size not in ALLOWED_DALLE3_SIZES:
             logger.warning(
                 "잘못된 DALL-E 3 크기 '%s' → 기본값 '1024x1024'으로 대체합니다. 허용 크기: %s",
@@ -183,53 +189,55 @@ class ImageGenerationService:
             )
             style = "natural"
 
-        # ── 3단계: OpenAI API 호출 ────────────────────────────────────────
+        # ── 2단계: AgentHubClient 위임 (R2 단일 진입점) ─────────────────────
         try:
-            # openai 패키지의 AsyncOpenAI 클라이언트 사용
-            from openai import AsyncOpenAI
-
-            # 비동기 OpenAI 클라이언트 생성
-            client = AsyncOpenAI(api_key=settings.openai_api_key)
-
-            # DALL-E 3 이미지 생성 요청
-            # response_format="b64_json" → URL 대신 Base64 인코딩된 이미지 직접 수신
-            # 이렇게 하면 별도의 이미지 다운로드 과정이 필요 없음
-            response = await client.images.generate(
-                model="dall-e-3",  # DALL-E 3 모델 사용
-                prompt=prompt,  # 이미지 설명 프롬프트
-                size=size,  # 이미지 크기 (예: 1024x1024)
-                style=style,  # 스타일 (natural 또는 vivid)
-                quality="standard",  # 품질 (standard 또는 hd)
-                response_format="b64_json",  # Base64 JSON으로 응답 받기
-                n=1,  # 1장만 생성
-            )
-
-            # ── 4단계: Base64 디코딩 ──────────────────────────────────────
-            # API 응답에서 Base64로 인코딩된 이미지 데이터 추출
-            b64_data = response.data[0].b64_json
-            if not b64_data:
-                logger.error("DALL-E 3 응답에 이미지 데이터(b64_json)가 없습니다.")
-                return None
-
-            # Base64 문자열을 바이트로 디코딩
-            image_bytes = base64.b64decode(b64_data)
-
-            logger.info(
-                "DALL-E 3 이미지 생성 성공 — 크기: %s, %d 바이트",
-                size,
-                len(image_bytes),
-            )
-            return image_bytes
-
-        except Exception as exc:
-            # 모든 예외를 잡아서 로그에 기록하고 None 반환
-            # 이미지 생성 실패가 전체 서비스를 중단시키지 않도록 함
+            client = get_agenthub_client()
+        except ValueError as exc:
+            # 환경변수 누락 — 운영 환경 설정 오류. degrade 처리.
             logger.error(
-                "DALL-E 3 이미지 생성 중 오류 발생: %s",
+                "AgentHub 이미지 생성 실패: AgentHubClient 초기화 오류 (%s). "
+                "AGENTHUB_URL/AGENTHUB_API_KEY 환경변수를 확인하세요.",
                 exc,
-                exc_info=True,  # 스택 트레이스도 로그에 포함
             )
             return None
+
+        try:
+            image_bytes = await client.generate_image_bytes(
+                prompt=prompt,
+                agent_code="docutil-image-generator",
+                size=size,
+                quality="standard",
+                style=style,
+                # 이미지 생성은 평균 10~30 초 — 클라이언트 기본 60 초로 충분하나 명시.
+                timeout=HTTP_TIMEOUT,
+            )
+        except AgentHubError as exc:
+            # AgentHub 호출 실패 (네트워크/타임아웃/4xx/5xx). 한국어 에러 메시지 첨부됨.
+            logger.error(
+                "AgentHub 이미지 생성 호출 실패: status=%s, msg=%s",
+                exc.status_code,
+                exc,
+            )
+            return None
+        except ValueError as exc:
+            # 빈 prompt 등 클라이언트측 검증 실패.
+            logger.error("AgentHub 이미지 생성 요청 검증 실패: %s", exc)
+            return None
+
+        if image_bytes is None:
+            logger.error(
+                "AgentHub 이미지 생성 응답에 b64_json 누락 — agent=docutil-image-generator, size=%s, style=%s",
+                size,
+                style,
+            )
+            return None
+
+        logger.info(
+            "DALL-E 3 이미지 생성 성공 (AgentHub 경유) — 크기: %s, %d 바이트",
+            size,
+            len(image_bytes),
+        )
+        return image_bytes
 
     # ══════════════════════════════════════════════════════════════════════
     # Unsplash (무료 스톡 이미지 검색)

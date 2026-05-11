@@ -3,8 +3,9 @@ AgentHubClient — DocUtil 측 공용 AI Gateway 클라이언트
 =========================================================
 
 목적 (Phase 7.2 — R2 단일 진입점 인프라 사전 준비):
-    DocUtil 의 모든 LLM 호출을 *AgentHub* 의 OpenAI 호환 엔드포인트
-    (`POST /v1/chat/completions`) 로 위임하기 위한 비동기 httpx 래퍼.
+    DocUtil 의 모든 LLM/Embedding/Image 호출을 *AgentHub* 의 OpenAI 호환 엔드포인트
+    (`POST /v1/chat/completions`, `/v1/embeddings`, `/v1/images/generations`) 로
+    위임하기 위한 비동기 httpx 래퍼.
 
 설계 원칙:
     - **Single Implementation (P1)**: 본 모듈이 DocUtil 의 유일한 AgentHub 진입점.
@@ -49,6 +50,7 @@ AgentHubClient — DocUtil 측 공용 AI Gateway 클라이언트
     본 클라이언트는 `app.core.config.settings` 와 분리되어 환경변수 직접 로드한다 —
     DocUtil S6/S7 진행 중인 환경에서 settings 의존성 충돌 회피.
 """
+
 from __future__ import annotations
 
 import json
@@ -65,8 +67,9 @@ logger = logging.getLogger(__name__)
 class AgentHubError(Exception):
     """AgentHub 호출 실패 시 발생. status_code / error_body 첨부."""
 
-    def __init__(self, message: str, *, status_code: Optional[int] = None,
-                 error_body: Optional[dict[str, Any]] = None) -> None:
+    def __init__(
+        self, message: str, *, status_code: Optional[int] = None, error_body: Optional[dict[str, Any]] = None
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.error_body = error_body
@@ -161,8 +164,7 @@ class AgentHubClient:
         try:
             return resp.json()
         except json.JSONDecodeError as ex:
-            logger.error("AgentHub chat 응답 JSON 파싱 실패: agent=%s body=%s",
-                         agent_code, resp.text[:500])
+            logger.error("AgentHub chat 응답 JSON 파싱 실패: agent=%s body=%s", agent_code, resp.text[:500])
             raise AgentHubError("AgentHub 응답 형식이 올바르지 않습니다") from ex
 
     async def chat_stream(
@@ -196,9 +198,7 @@ class AgentHubClient:
             payload.update(extra)
 
         try:
-            async with self._client.stream(
-                "POST", "/v1/chat/completions", json=payload
-            ) as response:
+            async with self._client.stream("POST", "/v1/chat/completions", json=payload) as response:
                 if response.status_code >= 400:
                     # 스트리밍 응답이라도 시작 직후 4xx/5xx 면 본문을 읽어 한국어 에러로 변환.
                     body_bytes = await response.aread()
@@ -211,7 +211,7 @@ class AgentHubClient:
                     if not line.startswith("data: "):
                         # 주석(`: ping`) 또는 비표준 라인 — 무시.
                         continue
-                    payload_str = line[len("data: "):].strip()
+                    payload_str = line[len("data: ") :].strip()
                     if payload_str == "[DONE]":
                         return
                     try:
@@ -275,9 +275,157 @@ class AgentHubClient:
         try:
             return resp.json()
         except json.JSONDecodeError as ex:
-            logger.error("AgentHub embed 응답 JSON 파싱 실패: agent=%s body=%s",
-                         agent_code, resp.text[:500])
+            logger.error("AgentHub embed 응답 JSON 파싱 실패: agent=%s body=%s", agent_code, resp.text[:500])
             raise AgentHubError("AgentHub 임베딩 응답 형식이 올바르지 않습니다") from ex
+
+    async def generate_image(
+        self,
+        prompt: str,
+        *,
+        agent_code: str = "docutil-image-generator",
+        n: int = 1,
+        size: str = "1024x1024",
+        quality: str = "standard",
+        style: Optional[str] = None,
+        response_format: str = "url",
+        timeout: Optional[float] = None,
+        extra: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """
+        Phase 7 — 이미지 생성 호출. AgentHub `/v1/images/generations` 엔드포인트 위임.
+
+        OpenAI Images API 와 100% 호환되는 응답 dict 를 반환한다 — 호출처는 OpenAI SDK 와
+        동일한 패턴 (``resp["data"][0]["url"]`` 또는 ``resp["data"][0]["b64_json"]``) 으로
+        사용 가능. URL 만 필요하면 `generate_image()` 를, 바이트가 필요하면
+        `generate_image_bytes()` 헬퍼를 사용한다.
+
+        :param prompt: 이미지 생성 프롬프트. 한국어/영어 모두 허용. 최대 4000자.
+        :param agent_code: AgentCode (기본 "docutil-image-generator").
+            AgentHub 가 ServiceCode (dalle/gemini-image/imagen4 등) 와 DefaultModel 을 결정.
+        :param n: 생성할 이미지 수. DALL-E 3 은 1만 지원. 기본 1.
+        :param size: 이미지 크기. DALL-E 3 허용: 1024x1024 / 1024x1792 / 1792x1024. 기본 1024x1024.
+        :param quality: "standard" 또는 "hd". 기본 standard.
+        :param style: "natural" 또는 "vivid". 기본 None (Agent 기본값 사용).
+        :param response_format: "url" 또는 "b64_json". 기본 url.
+            b64_json 인 경우 AgentHub 가 외부 LLM 의 url 을 다운로드하여 base64 로 변환.
+        :param timeout: 호출 단위 timeout 오버라이드(초). None 이면 클라이언트 기본값(60).
+        :param extra: 향후 호환용 추가 파라미터.
+        :return: ``{"created": <unix_ts>, "data": [{"url": "..."} | {"b64_json": "..."}]}``
+
+        :raises AgentHubError: HTTP 4xx/5xx 또는 네트워크/타임아웃 실패.
+        :raises ValueError: 빈 prompt.
+        """
+        if not prompt or not prompt.strip():
+            raise ValueError("이미지 생성을 위해서는 prompt 가 필요합니다.")
+
+        rf = (response_format or "url").lower().strip()
+        if rf not in {"url", "b64_json"}:
+            raise ValueError(f"response_format 은 'url' 또는 'b64_json' 만 허용합니다 (입력: '{response_format}').")
+
+        payload: dict[str, Any] = {
+            "model": agent_code,
+            "prompt": prompt,
+            "n": n,
+            "size": size,
+            "quality": quality,
+            "response_format": rf,
+        }
+        if style is not None:
+            payload["style"] = style
+        if extra:
+            payload.update(extra)
+
+        # 이미지 생성은 평균 10~30 초 — 호출 단위 timeout 오버라이드 지원.
+        post_kwargs: dict[str, Any] = {"json": payload}
+        if timeout is not None:
+            post_kwargs["timeout"] = timeout
+
+        try:
+            resp = await self._client.post("/v1/images/generations", **post_kwargs)
+        except httpx.TimeoutException as ex:
+            logger.error("AgentHub generate_image 타임아웃: agent=%s", agent_code)
+            raise AgentHubError(
+                "AgentHub 이미지 생성 응답 시간 초과 — 이미지 생성은 평균 10~30 초가 소요됩니다."
+            ) from ex
+        except httpx.RequestError as ex:
+            logger.error("AgentHub generate_image 네트워크 오류: agent=%s err=%s", agent_code, ex)
+            raise AgentHubError("AgentHub 이미지 생성 서버에 연결할 수 없습니다") from ex
+
+        if resp.status_code >= 400:
+            self._raise_for_status(resp)
+
+        try:
+            return resp.json()
+        except json.JSONDecodeError as ex:
+            logger.error(
+                "AgentHub generate_image 응답 JSON 파싱 실패: agent=%s body=%s",
+                agent_code,
+                resp.text[:500],
+            )
+            raise AgentHubError("AgentHub 이미지 생성 응답 형식이 올바르지 않습니다") from ex
+
+    async def generate_image_bytes(
+        self,
+        prompt: str,
+        *,
+        agent_code: str = "docutil-image-generator",
+        size: str = "1024x1024",
+        quality: str = "standard",
+        style: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> bytes | None:
+        """
+        편의 헬퍼 — `generate_image(response_format='b64_json')` 결과의 첫 이미지를
+        ``bytes`` 로 디코딩하여 반환한다.
+
+        DocUtil 의 기존 `ImageGenerationService._generate_dalle3` 가 bytes 반환 인터페이스를
+        가지고 있어 호출처(`auto_select.py` 등) 가 그 형태에 의존한다. 본 헬퍼로 호환 인터페이스를
+        유지한다.
+
+        :return: 생성된 이미지의 PNG/JPEG 바이트. 응답에 이미지가 없으면 None.
+        :raises AgentHubError: HTTP 또는 네트워크 오류.
+        :raises ValueError: 빈 prompt.
+        """
+        import base64
+
+        resp = await self.generate_image(
+            prompt=prompt,
+            agent_code=agent_code,
+            n=1,
+            size=size,
+            quality=quality,
+            style=style,
+            response_format="b64_json",
+            timeout=timeout,
+        )
+
+        data = resp.get("data") or []
+        if not data:
+            logger.warning(
+                "AgentHub generate_image_bytes 응답에 data 없음 — agent=%s, prompt='%s'",
+                agent_code,
+                prompt[:80],
+            )
+            return None
+
+        b64 = data[0].get("b64_json")
+        if not b64:
+            logger.error(
+                "AgentHub generate_image_bytes 응답에 b64_json 없음 — agent=%s, first_item_keys=%s",
+                agent_code,
+                list(data[0].keys()),
+            )
+            return None
+
+        try:
+            return base64.b64decode(b64)
+        except (ValueError, TypeError) as ex:
+            logger.error(
+                "AgentHub generate_image_bytes base64 디코딩 실패: agent=%s err=%s",
+                agent_code,
+                ex,
+            )
+            return None
 
     async def aclose(self) -> None:
         """내부 httpx.AsyncClient 의 connection pool 을 종료한다 (lifespan shutdown)."""
@@ -303,9 +451,7 @@ class AgentHubClient:
         return AgentHubClient._build_error_from_response(status_code, raw_body, body)
 
     @staticmethod
-    def _build_error_from_response(
-        status_code: int, raw_body: str, body: Optional[dict[str, Any]]
-    ) -> "AgentHubError":
+    def _build_error_from_response(status_code: int, raw_body: str, body: Optional[dict[str, Any]]) -> "AgentHubError":
         # AgentHub 의 ErrorResponseDto 형식 (한국어 message + errorCode) 우선 사용.
         if isinstance(body, dict) and isinstance(body.get("message"), str):
             msg = body["message"]
@@ -329,6 +475,7 @@ class AgentHubClient:
 
 
 # ── 싱글턴 헬퍼 ─────────────────────────────────────────────────────────────
+
 
 @lru_cache(maxsize=1)
 def get_agenthub_client() -> AgentHubClient:

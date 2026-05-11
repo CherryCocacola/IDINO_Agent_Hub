@@ -635,6 +635,253 @@ public class OpenAICompatController : ControllerBase
     }
 
     // ════════════════════════════════════════════════════════════════════════════
+    // POST /v1/images/generations  (Phase 7 — DU-14 R2 강제)
+    //
+    // OpenAI Images API 호환 엔드포인트.
+    // DocUtil/career 의 직접 OpenAI/Unsplash 이미지 호출(P1 위반)을 본 게이트웨이로 흡수한다.
+    //
+    // 인증: ApiKey (chat 컨트롤러와 동일). agent-docutil-image-generator 같이 ServiceCode=dalle 인
+    //   Agent 가 ApiKey 의 AgentId 와 일치하거나 ApiKey 가 unbound (모든 Agent 접근) 이어야 함.
+    //
+    // model 파싱 우선순위:
+    //   1) AgentCode 가 Agents 테이블에 존재 → 그 Agent 의 ApiService + DefaultModel 사용
+    //   2) "dall-e-3"/"dall-e-2" 같은 OpenAI 모델명 → docutil-image-generator Agent 로 폴백
+    //
+    // LlmRouting 분기:
+    //   - External  → AiProxyService.SendImageGenerationAsync 로 외부 LLM 호출
+    //   - Internal  → Nexus 는 이미지 미지원 — 400 한국어 안내 + permission_denied
+    //   - Hybrid    → 현재 Phase 에서 정책 평가 미구현 — External 로 처리하되 X-Policy-Note 헤더로 안내
+    //
+    // 응답 형식:
+    //   - response_format=url   (기본) — 외부 LLM 의 url 그대로 전달
+    //   - response_format=b64_json    — AgentHub 가 url 을 GET 으로 다운로드 후 base64 인코딩 (DocUtil bytes 사용 경로)
+    // ════════════════════════════════════════════════════════════════════════════
+
+    [HttpPost("images/generations")]
+    public async Task<IActionResult> ImagesGenerationsAsync(
+        [FromBody] OpenAIImagesRequestDto request,
+        [FromServices] IAiProxyService aiProxy,
+        [FromServices] IHttpClientFactory httpClientFactory,
+        CancellationToken cancellationToken)
+    {
+        // ── 인증 ────────────────────────────────────────────────────────────────
+        if (!TryGetUserId(out var userId))
+            return Unauthorized(ErrorBody("authentication_error", "Unauthorized"));
+
+        // ── 요청 유효성 ─────────────────────────────────────────────────────────
+        if (request == null)
+            return BadRequest(ErrorBody("invalid_request_error", "요청 본문이 비어 있습니다."));
+
+        if (string.IsNullOrWhiteSpace(request.Model))
+            return BadRequest(ErrorBody("invalid_request_error", "'model' 필드는 필수입니다."));
+
+        if (string.IsNullOrWhiteSpace(request.Prompt))
+            return BadRequest(ErrorBody("invalid_request_error", "'prompt' 필드는 필수입니다."));
+
+        if (request.Prompt.Length > 4000)
+            return BadRequest(ErrorBody("invalid_request_error", "프롬프트는 최대 4000자까지 입력 가능합니다."));
+
+        var n = request.N ?? 1;
+        if (n < 1 || n > 10)
+            return BadRequest(ErrorBody("invalid_request_error", "'n' 은 1~10 범위여야 합니다."));
+
+        var responseFormat = string.IsNullOrWhiteSpace(request.ResponseFormat)
+            ? "url"
+            : request.ResponseFormat.ToLowerInvariant();
+        if (responseFormat != "url" && responseFormat != "b64_json")
+        {
+            return BadRequest(ErrorBody("invalid_request_error",
+                $"'response_format' 은 'url' 또는 'b64_json' 만 지원합니다 (현재: '{request.ResponseFormat}')."));
+        }
+
+        // ── Agent 룩업 ──────────────────────────────────────────────────────────
+        // 우선 model 그대로 AgentCode 시도 → 실패 시 docutil-image-generator 폴백 (Phase 7.1 시드).
+        var agent = await _context.Agents
+            .Include(a => a.ApiService)
+            .FirstOrDefaultAsync(
+                a => a.AgentCode == request.Model && a.IsActive, cancellationToken);
+
+        if (agent == null)
+        {
+            // OpenAI 호환 SDK 가 "dall-e-3" 같은 모델명을 보내는 경우 처리.
+            agent = await _context.Agents
+                .Include(a => a.ApiService)
+                .FirstOrDefaultAsync(
+                    a => a.AgentCode == "docutil-image-generator" && a.IsActive, cancellationToken);
+
+            if (agent == null)
+            {
+                _logger.LogWarning(
+                    "/v1/images/generations 요청 model='{Model}' AgentCode 미일치 + docutil-image-generator Agent 미시드",
+                    request.Model);
+                return NotFound(ErrorBody(
+                    "model_not_found",
+                    $"모델 '{request.Model}' 을 찾을 수 없으며 docutil-image-generator 폴백도 미시드 상태입니다."));
+            }
+        }
+
+        // ── 권한 검사 (chat 과 동일 패턴) ──────────────────────────────────────
+        // ApiKey 가 특정 Agent 에 묶인 경우, 키의 AgentId 가 본 Agent 와 일치하거나
+        // Agent 가 IsPublic 이거나 사용자가 소유자여야 함.
+        var agentIdClaim = User.FindFirst("AgentId")?.Value;
+        if (int.TryParse(agentIdClaim, out var linkedAgentId) && linkedAgentId > 0 && linkedAgentId != agent.AgentId)
+        {
+            return StatusCode(403, ErrorBody("permission_denied",
+                "이 API 키는 해당 이미지 생성 Agent에 접근 권한이 없습니다."));
+        }
+        if (!agent.IsPublic && agent.CreatedBy != userId)
+            return StatusCode(403, ErrorBody("permission_denied", "이 Agent 에 접근할 수 없습니다."));
+
+        if (agent.ApiService == null)
+        {
+            _logger.LogError(
+                "Images Agent '{AgentCode}' 가 ApiService 를 보유하지 않음 — 시드 누락 가능성",
+                agent.AgentCode);
+            return StatusCode(500, ErrorBody("internal_error",
+                "Agent 의 ApiService 매핑이 누락되었습니다."));
+        }
+
+        // ── LlmRouting 분기 ────────────────────────────────────────────────────
+        // Nexus 는 이미지 생성 미지원 → Internal 라우팅은 400 한국어 안내 후 종료.
+        // Hybrid 는 현 Phase 에서 별도 정책 평가 없이 External 로 처리.
+        var llmRouting = (agent.LlmRouting ?? "External").Trim();
+        if (string.Equals(llmRouting, "Internal", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning(
+                "/v1/images/generations Agent={AgentCode} 의 LlmRouting=Internal 차단 — Nexus 이미지 미지원",
+                agent.AgentCode);
+            return BadRequest(ErrorBody("invalid_request_error",
+                "내부망 LLM(Nexus)은 이미지 생성을 지원하지 않습니다. Agent 의 LlmRouting 을 External 또는 Hybrid 로 설정하세요."));
+        }
+
+        // ── 실제 모델명 결정 ────────────────────────────────────────────────────
+        // Agent.DefaultModel 우선 (예: "dall-e-3") — 미설정 시 ApiService.DefaultModel.
+        // 단, request.Model 이 OpenAI 이미지 모델명("dall-e-") 으로 시작하면 그 값을 우선 — 외부 SDK 호환.
+        string actualModel;
+        if (!string.IsNullOrEmpty(request.Model)
+            && request.Model.StartsWith("dall-e-", StringComparison.OrdinalIgnoreCase))
+        {
+            actualModel = request.Model;
+        }
+        else
+        {
+            actualModel = agent.DefaultModel
+                ?? agent.ApiService.DefaultModel
+                ?? "dall-e-3";
+        }
+
+        // ── 내부 ImageGenerationRequestDto 로 변환 ─────────────────────────────
+        // 기존 IAiProxyService.SendImageGenerationAsync 분기(CallDallEAsync/CallGeminiImage/Imagen4/Gen4/Flux2)를
+        // 그대로 재활용한다. 코드 중복 0.
+        var internalRequest = new ImageGenerationRequestDto
+        {
+            Prompt = request.Prompt,
+            Model = actualModel,
+            Size = string.IsNullOrEmpty(request.Size) ? "1024x1024" : request.Size,
+            Quality = string.IsNullOrEmpty(request.Quality) ? "standard" : request.Quality,
+            Style = request.Style,
+            NumberOfImages = n,
+            UserId = userId,
+            ServiceId = agent.ApiService.ServiceId,
+            AgentId = agent.AgentId,
+            EnableWebSearch = false, // OpenAI 호환 표면에서는 미지원
+        };
+
+        // ── AiProxyService 위임 ────────────────────────────────────────────────
+        ImageGenerationResponseDto result;
+        try
+        {
+            result = await aiProxy.SendImageGenerationAsync(
+                agent.ApiService.ServiceId, actualModel, internalRequest, cancellationToken);
+        }
+        catch (NotSupportedException ex)
+        {
+            _logger.LogWarning(ex, "/v1/images/generations 미지원 프로바이더: {ServiceCode}",
+                agent.ApiService.ServiceCode);
+            return BadRequest(ErrorBody("invalid_request_error", ex.Message));
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            _logger.LogWarning(ex, "/v1/images/generations 외부 LLM 429");
+            return StatusCode(429, ErrorBody("rate_limit_exceeded",
+                "외부 LLM Rate Limit 초과 — 잠시 후 재시도하세요."));
+        }
+        catch (InvalidOperationException ex)
+        {
+            // OpenAI API key 미설정 / 응답 파싱 실패 등.
+            _logger.LogError(ex, "/v1/images/generations 외부 LLM 호출 실패: {ServiceCode}",
+                agent.ApiService.ServiceCode);
+            return StatusCode(502, ErrorBody("upstream_error", "이미지 생성 외부 호출에 실패했습니다."));
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "/v1/images/generations 외부 LLM HTTP 오류: {ServiceCode}",
+                agent.ApiService.ServiceCode);
+            return StatusCode(502, ErrorBody("upstream_error", "이미지 생성 외부 호출 중 네트워크 오류가 발생했습니다."));
+        }
+
+        if (result?.ImageUrls == null || result.ImageUrls.Count == 0)
+        {
+            _logger.LogError("/v1/images/generations 결과에 ImageUrls 없음: agent={AgentCode}", agent.AgentCode);
+            return StatusCode(502, ErrorBody("upstream_error", "외부 LLM 이 이미지 URL 을 반환하지 않았습니다."));
+        }
+
+        // ── 응답 구성 ──────────────────────────────────────────────────────────
+        // response_format=b64_json 인 경우 외부 LLM 의 URL 을 GET 으로 받아 base64 인코딩.
+        // (CallDallEAsync 가 response_format="url" 로 고정 호출하므로 본 경로가 b64 변환을 수행한다.)
+        var items = new List<OpenAIImageItemDto>(result.ImageUrls.Count);
+        if (responseFormat == "b64_json")
+        {
+            // 외부 CDN 접근에 별도의 인증이 필요 없도록 기본 HttpClient 사용 (named pool 불요).
+            var downloader = httpClientFactory.CreateClient();
+            downloader.Timeout = TimeSpan.FromSeconds(60);
+
+            foreach (var url in result.ImageUrls)
+            {
+                if (string.IsNullOrWhiteSpace(url)) continue;
+                try
+                {
+                    var bytes = await downloader.GetByteArrayAsync(url, cancellationToken);
+                    items.Add(new OpenAIImageItemDto
+                    {
+                        B64Json = Convert.ToBase64String(bytes),
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "/v1/images/generations b64_json 변환 실패: agent={AgentCode}, url(prefix)={UrlPrefix}",
+                        agent.AgentCode, url.Length > 80 ? url[..80] : url);
+                    return StatusCode(502, ErrorBody("upstream_error",
+                        "외부 LLM URL 에서 이미지 바이트를 받아 base64 로 변환하는 중 오류가 발생했습니다."));
+                }
+            }
+
+            if (items.Count == 0)
+            {
+                return StatusCode(502, ErrorBody("upstream_error",
+                    "b64_json 변환할 유효한 이미지 URL 이 없습니다."));
+            }
+        }
+        else
+        {
+            foreach (var url in result.ImageUrls)
+            {
+                if (string.IsNullOrWhiteSpace(url)) continue;
+                items.Add(new OpenAIImageItemDto { Url = url });
+            }
+        }
+
+        var response = new OpenAIImagesResponseDto
+        {
+            Created = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Data = items,
+        };
+
+        return Ok(response);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
     // 헬퍼
     // ════════════════════════════════════════════════════════════════════════════
 
