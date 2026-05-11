@@ -1638,6 +1638,371 @@ export async function deleteReportTemplate(templateId: string): Promise<void> {
   await api.delete(`${REPORTS_BASE}/templates/${templateId}`)
 }
 
+// ─── Phase 10.2d — DocUtil 문서 템플릿(Document Templates) BFF ──────────────
+//
+// AgentHub `/api/admin/docutil/templates/*` 진입점. DocUtil 의 Jinja2 기반 문서
+// 생성용 템플릿(보고서 출력 템플릿과 무관 — 별도 도메인).
+//
+// 백엔드 record DTO(IDocUtilClient.cs 의 DocUtilDocumentTemplate*) 와 1:1.
+// snake_case 키 ↔ camelCase 매핑은 Program.cs JsonNamingPolicy.CamelCase 가 처리.
+
+const DOC_TEMPLATES_BASE = '/admin/docutil/templates'
+
+// ─── 인터페이스 ──────────────────────────────────────────────────────────
+
+/** 문서 템플릿 한 행(목록 표시용 — DocUtilDocumentTemplate record 매핑, 17 필드). */
+export interface DocUtilDocumentTemplate {
+  id: string
+  organizationId: string
+  name: string
+  description: string | null
+  templateType: string
+  tone: string
+  outputFormat: string
+  schema: Record<string, unknown> | null
+  samplePrompt: string | null
+  isActive: boolean
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  templateStoragePath: string | null
+  jinja2Variables: Record<string, unknown> | null
+  renderingMode: string
+  imageGenerationConfig: Record<string, unknown> | null
+}
+
+/** 문서 템플릿 상세 — 요약과 동일 셋. */
+export type DocUtilDocumentTemplateDetail = DocUtilDocumentTemplate
+
+/** 문서 템플릿 목록 응답. */
+export interface DocUtilDocumentTemplateList {
+  items: DocUtilDocumentTemplate[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 문서 템플릿 생성 요청(JSON, 메타데이터만). */
+export interface CreateDocumentTemplateRequest {
+  name: string
+  templateType: string
+  outputFormat: string
+  description?: string | null
+  tone?: string
+  schema?: Record<string, unknown> | null
+  samplePrompt?: string | null
+  renderingMode?: string
+  imageGenerationConfig?: Record<string, unknown> | null
+}
+
+/** 문서 템플릿 수정 요청(모두 nullable, partial). */
+export interface UpdateDocumentTemplateRequest {
+  name?: string | null
+  description?: string | null
+  templateType?: string | null
+  tone?: string | null
+  outputFormat?: string | null
+  schema?: Record<string, unknown> | null
+  samplePrompt?: string | null
+  isActive?: boolean | null
+  renderingMode?: string | null
+  imageGenerationConfig?: Record<string, unknown> | null
+}
+
+/** 템플릿 변수 한 행(6 필드). */
+export interface DocUtilDocumentTemplateVariable {
+  name: string
+  varType: string
+  label: string | null
+  description: string | null
+  required: boolean
+  category: string
+}
+
+/** 변수 메타 일괄 수정 요청. */
+export interface UpdateDocumentTemplateVariablesRequest {
+  variables: DocUtilDocumentTemplateVariable[]
+}
+
+/** 파일 업로드 응답. */
+export interface DocUtilDocumentTemplateUpload {
+  id: string
+  name: string
+  outputFormat: string
+  renderingMode: string
+  templateStoragePath: string | null
+  variables: DocUtilDocumentTemplateVariable[]
+}
+
+/** AI 자동채움 요청. */
+export interface AutoFillDocumentTemplateRequest {
+  sourceDocumentIds: string[]
+  aiPrompt?: string | null
+}
+
+/** AI 자동채움 응답. */
+export interface DocUtilDocumentTemplateAutoFill {
+  context: Record<string, unknown>
+}
+
+/** 변수 매핑 한 행. */
+export interface DocUtilDocumentTemplateMapping {
+  locationType: 'table_cell' | 'paragraph'
+  variableName: string
+  tableIndex?: number | null
+  row?: number | null
+  col?: number | null
+  paragraphIndex?: number | null
+  varType?: string
+  label?: string | null
+  category?: string
+  fieldType?: 'short' | 'long'
+}
+
+/** 변수 매핑 적용 요청. */
+export interface ApplyDocumentTemplateMappingRequest {
+  mappings: DocUtilDocumentTemplateMapping[]
+}
+
+/** Convert 요청 — AI 분석 결과 wrapper. */
+export interface ConvertDocumentTemplateRequest {
+  aiAnalysis: Record<string, unknown>
+}
+
+/** 미리보기 다운로드 응답(Blob + 파일명). */
+export interface DocumentTemplatePreview {
+  blob: Blob
+  fileName: string
+  contentType: string
+}
+
+// ─── 함수 (15) ───────────────────────────────────────────────────────────
+
+/** 문서 템플릿 목록 조회(페이징 + 유형 필터). */
+export async function listDocumentTemplates(
+  page: number = 1,
+  size: number = 20,
+  filters: { templateType?: string } = {}
+): Promise<DocUtilDocumentTemplateList> {
+  const params: Record<string, string | number> = { page, size }
+  if (filters.templateType) params.templateType = filters.templateType
+  const { data } = await api.get<DocUtilDocumentTemplateList>(DOC_TEMPLATES_BASE, { params })
+  return data
+}
+
+/** 문서 템플릿 상세 조회. */
+export async function getDocumentTemplate(
+  templateId: string
+): Promise<DocUtilDocumentTemplateDetail> {
+  const { data } = await api.get<DocUtilDocumentTemplateDetail>(
+    `${DOC_TEMPLATES_BASE}/${templateId}`
+  )
+  return data
+}
+
+/** 문서 템플릿 생성(JSON, 메타데이터만 — 파일 업로드는 별도). */
+export async function createDocumentTemplate(
+  request: CreateDocumentTemplateRequest
+): Promise<DocUtilDocumentTemplateDetail> {
+  const { data } = await api.post<DocUtilDocumentTemplateDetail>(
+    DOC_TEMPLATES_BASE,
+    request
+  )
+  return data
+}
+
+/** 문서 템플릿 수정(partial). */
+export async function updateDocumentTemplate(
+  templateId: string,
+  request: UpdateDocumentTemplateRequest
+): Promise<DocUtilDocumentTemplateDetail> {
+  const { data } = await api.put<DocUtilDocumentTemplateDetail>(
+    `${DOC_TEMPLATES_BASE}/${templateId}`,
+    request
+  )
+  return data
+}
+
+/** 문서 템플릿 삭제. */
+export async function deleteDocumentTemplate(templateId: string): Promise<void> {
+  await api.delete(`${DOC_TEMPLATES_BASE}/${templateId}`)
+}
+
+/** 일반 Jinja2 템플릿 파일 업로드 — multipart/form-data. */
+export async function uploadDocumentTemplate(
+  templateType: string,
+  outputFormat: string,
+  file: File,
+  options: { tone?: string; name?: string; description?: string } = {}
+): Promise<DocUtilDocumentTemplateUpload> {
+  const form = new FormData()
+  form.append('templateType', templateType)
+  form.append('outputFormat', outputFormat)
+  if (options.tone) form.append('tone', options.tone)
+  if (options.name) form.append('name', options.name)
+  if (options.description) form.append('description', options.description)
+  form.append('file', file, file.name)
+
+  const { data } = await api.post<DocUtilDocumentTemplateUpload>(
+    `${DOC_TEMPLATES_BASE}/upload`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return data
+}
+
+/** 빈 양식 업로드(AI 자동 Jinja2 변환) — multipart/form-data. */
+export async function uploadBlankFormTemplate(
+  templateType: string,
+  outputFormat: string,
+  file: File,
+  options: { tone?: string; name?: string; description?: string } = {}
+): Promise<DocUtilDocumentTemplateUpload> {
+  const form = new FormData()
+  form.append('templateType', templateType)
+  form.append('outputFormat', outputFormat)
+  if (options.tone) form.append('tone', options.tone)
+  if (options.name) form.append('name', options.name)
+  if (options.description) form.append('description', options.description)
+  form.append('file', file, file.name)
+
+  const { data } = await api.post<DocUtilDocumentTemplateUpload>(
+    `${DOC_TEMPLATES_BASE}/upload-blank`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return data
+}
+
+/** 스마트 업로드(파일 자동 분석 후 처리 분기) — multipart/form-data. */
+export async function uploadSmartTemplate(
+  file: File,
+  options: { templateType?: string; tone?: string; name?: string; description?: string } = {}
+): Promise<DocUtilDocumentTemplateUpload> {
+  const form = new FormData()
+  if (options.templateType) form.append('templateType', options.templateType)
+  if (options.tone) form.append('tone', options.tone)
+  if (options.name) form.append('name', options.name)
+  if (options.description) form.append('description', options.description)
+  form.append('file', file, file.name)
+
+  const { data } = await api.post<DocUtilDocumentTemplateUpload>(
+    `${DOC_TEMPLATES_BASE}/upload-smart`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return data
+}
+
+/** 일반 문서 → Jinja2 변환(AI 분석 결과 적용). */
+export async function convertDocumentTemplate(
+  templateId: string,
+  request: ConvertDocumentTemplateRequest
+): Promise<DocUtilDocumentTemplateDetail> {
+  const { data } = await api.post<DocUtilDocumentTemplateDetail>(
+    `${DOC_TEMPLATES_BASE}/${templateId}/convert`,
+    request
+  )
+  return data
+}
+
+/** AI 자동채움 — 소스 문서로부터 변수값 자동 생성. */
+export async function autoFillDocumentTemplate(
+  templateId: string,
+  request: AutoFillDocumentTemplateRequest
+): Promise<DocUtilDocumentTemplateAutoFill> {
+  const { data } = await api.post<DocUtilDocumentTemplateAutoFill>(
+    `${DOC_TEMPLATES_BASE}/${templateId}/auto-fill`,
+    request
+  )
+  return data
+}
+
+/** 변수 메타 조회. */
+export async function getDocumentTemplateVariables(
+  templateId: string
+): Promise<DocUtilDocumentTemplateVariable[]> {
+  const { data } = await api.get<DocUtilDocumentTemplateVariable[]>(
+    `${DOC_TEMPLATES_BASE}/${templateId}/variables`
+  )
+  return data
+}
+
+/** 변수 메타 일괄 수정. */
+export async function updateDocumentTemplateVariables(
+  templateId: string,
+  request: UpdateDocumentTemplateVariablesRequest
+): Promise<DocUtilDocumentTemplateDetail> {
+  const { data } = await api.put<DocUtilDocumentTemplateDetail>(
+    `${DOC_TEMPLATES_BASE}/${templateId}/variables`,
+    request
+  )
+  return data
+}
+
+/** 에디터용 문서 구조 조회(paragraphs/tables/existing_variables). */
+export async function getDocumentTemplateStructure(
+  templateId: string
+): Promise<Record<string, unknown>> {
+  const { data } = await api.get<Record<string, unknown>>(
+    `${DOC_TEMPLATES_BASE}/${templateId}/structure`
+  )
+  return data
+}
+
+/** 변수 매핑 적용. */
+export async function applyDocumentTemplateMapping(
+  templateId: string,
+  request: ApplyDocumentTemplateMappingRequest
+): Promise<DocUtilDocumentTemplateDetail> {
+  const { data } = await api.post<DocUtilDocumentTemplateDetail>(
+    `${DOC_TEMPLATES_BASE}/${templateId}/apply-mapping`,
+    request
+  )
+  return data
+}
+
+/**
+ * 템플릿 파일 미리보기 다운로드 — binary Blob 반환.
+ * 호출자는 Blob 을 URL.createObjectURL 로 열거나 a[download] 로 저장.
+ */
+export async function previewDocumentTemplate(
+  templateId: string
+): Promise<DocumentTemplatePreview> {
+  const response = await api.get(
+    `${DOC_TEMPLATES_BASE}/${templateId}/preview`,
+    { responseType: 'blob' }
+  )
+  const disposition = (response.headers['content-disposition'] as string | undefined) ?? ''
+  const fileName = parseDocumentTemplateFileName(disposition, templateId)
+  const contentType = (response.headers['content-type'] as string | undefined)
+    ?? 'application/octet-stream'
+  return { blob: response.data as Blob, fileName, contentType }
+}
+
+/**
+ * Content-Disposition 헤더에서 filename 추출 (RFC 5987 우선).
+ * Report download 의 parseReportFileName 과 동일 로직 — 별도 함수로 중복 회피하지 않음(도메인 격리).
+ */
+function parseDocumentTemplateFileName(disposition: string | undefined, templateId: string): string {
+  const fallback = `template-${templateId}`
+  if (!disposition) return fallback
+
+  const star = /filename\*=(?:UTF-8|utf-8)''([^;]+)/i.exec(disposition)
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''))
+    } catch {
+      // fallthrough
+    }
+  }
+
+  const ascii = /filename="?([^";]+)"?/i.exec(disposition)
+  if (ascii) return ascii[1].trim()
+
+  return fallback
+}
+
 export default {
   listDocuments,
   uploadDocument,
@@ -1714,5 +2079,21 @@ export default {
   getReportTemplate,
   createReportTemplate,
   updateReportTemplate,
-  deleteReportTemplate
+  deleteReportTemplate,
+  // Phase 10.2d — Document Templates
+  listDocumentTemplates,
+  getDocumentTemplate,
+  createDocumentTemplate,
+  updateDocumentTemplate,
+  deleteDocumentTemplate,
+  uploadDocumentTemplate,
+  uploadBlankFormTemplate,
+  uploadSmartTemplate,
+  convertDocumentTemplate,
+  autoFillDocumentTemplate,
+  getDocumentTemplateVariables,
+  updateDocumentTemplateVariables,
+  getDocumentTemplateStructure,
+  applyDocumentTemplateMapping,
+  previewDocumentTemplate
 }

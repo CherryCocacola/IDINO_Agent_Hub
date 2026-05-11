@@ -376,6 +376,13 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         path: '/admin/docutil-reports',
         icon: 'bi bi-file-earmark-text',
         roles: ['Admin', 'SuperAdmin']
+      },
+      // Phase 10.2d (2026-05-11): DocUtil 문서 템플릿(Jinja2) — 문서 생성용 템플릿 운영.
+      {
+        name: t('nav.docutilTemplates'),
+        path: '/admin/docutil-templates',
+        icon: 'bi bi-file-earmark-code',
+        roles: ['Admin', 'SuperAdmin']
       }
     ]
   },

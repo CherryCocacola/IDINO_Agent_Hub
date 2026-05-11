@@ -953,6 +953,194 @@ public interface IDocUtilClient
     Task DeleteReportTemplateAsync(
         string templateId,
         CancellationToken cancellationToken = default);
+
+    // ── Phase 10.2d (2026-05-11): DocUtil 문서 템플릿(Document Templates) 운영자 BFF ─
+    //
+    // 통합 비전 매핑(P1 Control Plane / P5 인증 / R2 단일 진입점):
+    //   AgentHub 운영자 콘솔이 DocUtil 의 문서 템플릿(Jinja2 기반 문서 생성용) 카탈로그 +
+    //   파일 업로드(일반/빈양식/스마트) + AI 자동채움 + 변환 + 변수 메타 편집 + 미리보기 다운로드 +
+    //   구조 조회 + 변수 매핑 적용까지 단일 진입점에서 운영. Phase 10.1/10.2a~10.2c 와 동일 BFF 패턴.
+    //
+    // 데이터 소스: DocUtil 소스 인스펙션(`docutil/backend/app/modules/templates/`):
+    //   - router 마운트: app.main 에서 `prefix="/api/v1"`로 마운트 + router 내부 `prefix=""` + 라우트 path "/templates/..."
+    //   - 즉, 모든 endpoint 는 `/api/v1/templates/...` 절대 경로.
+    //   - 410(deprecate) 표식 없음 — 모두 정상 라이브 endpoint.
+    //
+    //   1. GET    /api/v1/templates                                       → TemplateListResponse (member)
+    //   2. POST   /api/v1/templates (JSON)                                → TemplateResponse 201 (admin)
+    //   3. POST   /api/v1/templates/upload (multipart)                    → TemplateUploadResponse 201 (admin)
+    //   4. POST   /api/v1/templates/upload-blank (multipart)              → TemplateUploadResponse 201 (admin)
+    //   5. POST   /api/v1/templates/upload-smart (multipart)              → TemplateUploadResponse 201 (admin)
+    //   6. GET    /api/v1/templates/{template_id}                         → TemplateResponse (member)
+    //   7. PUT    /api/v1/templates/{template_id}                         → TemplateResponse (admin)
+    //   8. DELETE /api/v1/templates/{template_id}                         → 204 (admin)
+    //   9. POST   /api/v1/templates/{template_id}/convert (JSON ai_analysis) → TemplateResponse (admin)
+    //  10. POST   /api/v1/templates/{template_id}/auto-fill (JSON)        → AutoFillResponse (member)
+    //  11. GET    /api/v1/templates/{template_id}/variables               → List<TemplateVariableSchema> (member)
+    //  12. PUT    /api/v1/templates/{template_id}/variables               → TemplateResponse (admin)
+    //  13. GET    /api/v1/templates/{template_id}/preview                 → StreamingResponse(file) (member)
+    //  14. GET    /api/v1/templates/{template_id}/structure               → free-form dict (admin)
+    //  15. POST   /api/v1/templates/{template_id}/apply-mapping           → TemplateResponse (admin)
+    //
+    // 인증/권한 / org_id 자동 부착:
+    //   - AgentHub 측: [Authorize(Roles="Admin,SuperAdmin")] 게이트 (Controller 레벨)
+    //   - DocUtil 측: IDocUtilTokenProvider 4단계 폴백 + DocUtil 라우터의 `_check_org` 가 토큰의
+    //     organization_id 를 자동 검증(403 if missing). 본 클라이언트는 org_id 헤더를 별도 부착하지
+    //     않음 — DocUtil 의 dependency injection 으로 토큰에서 추출.
+    //   - DocUtil 의 require_role 로 admin 인 endpoint 들도 운영자 토큰이면 통과(super_admin/admin/org_admin).
+    //
+    // BFF 표면 매핑(추정 금지):
+    //   - TemplateResponse: 모든 19 필드(id/organization_id/name/description/template_type/tone/output_format/
+    //     schema/sample_prompt/is_active/created_by/created_at(=ins_dt)/updated_at(=upd_dt)/
+    //     template_storage_path/jinja2_variables/rendering_mode/image_generation_config) 보존.
+    //   - TemplateVariableSchema: name/var_type/label/description/required/category 6 필드.
+    //   - VariableMapping: location_type/table_index/row/col/paragraph_index/variable_name/var_type/
+    //     label/category/field_type 10 필드.
+    //   - schema (alias of schema_): Pydantic alias 처리 — Python 측 reserved word 회피용. JSON 상에서는
+    //     "schema" 키. 본 record 는 "Schema" property.
+
+    /// <summary>
+    /// 문서 템플릿 목록 — GET /api/v1/templates (페이징 + 필터).
+    /// </summary>
+    /// <param name="templateType">템플릿 유형 필터(예: "report", "proposal"). 선택.</param>
+    /// <param name="page">DocUtil 페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 20, DocUtil 한도 1~100).</param>
+    Task<DocUtilDocumentTemplateList> ListDocumentTemplatesAsync(
+        string? templateType = null,
+        int page = 1,
+        int size = 20,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 문서 템플릿 상세 — GET /api/v1/templates/{template_id}.
+    /// 404 응답은 null 로 정규화한다.
+    /// </summary>
+    Task<DocUtilDocumentTemplateDetail?> GetDocumentTemplateAsync(
+        string templateId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 문서 템플릿 생성(메타데이터만) — POST /api/v1/templates (JSON TemplateCreate).
+    /// 파일 업로드는 UploadDocumentTemplateAsync 또는 UploadBlankFormAsync, UploadSmartTemplateAsync.
+    /// </summary>
+    Task<DocUtilDocumentTemplateDetail> CreateDocumentTemplateAsync(
+        DocUtilCreateDocumentTemplateRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 문서 템플릿 수정(partial) — PUT /api/v1/templates/{template_id} (TemplateUpdate).
+    /// </summary>
+    Task<DocUtilDocumentTemplateDetail> UpdateDocumentTemplateAsync(
+        string templateId,
+        DocUtilUpdateDocumentTemplateRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 문서 템플릿 삭제 — DELETE /api/v1/templates/{template_id} (204).
+    /// </summary>
+    Task DeleteDocumentTemplateAsync(
+        string templateId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 문서 템플릿 파일 업로드(일반 Jinja2) — POST /api/v1/templates/upload (multipart/form-data).
+    /// 업로드된 파일 내 {{ }} 변수가 자동 추출되어 응답에 포함된다.
+    /// </summary>
+    /// <param name="request">templateType/tone/outputFormat 등 메타.</param>
+    /// <param name="fileStream">파일 본문 stream — 호출자(Controller) 소유, Dispose 도 호출자 책임.</param>
+    /// <param name="fileName">원본 파일명(확장자 포함).</param>
+    Task<DocUtilDocumentTemplateUpload> UploadDocumentTemplateAsync(
+        DocUtilUploadDocumentTemplateRequest request,
+        Stream fileStream,
+        string fileName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 빈 양식 업로드(AI 자동 Jinja2 변환) — POST /api/v1/templates/upload-blank (multipart/form-data).
+    /// 빈 양식 DOCX/PPTX 를 업로드하면 AI 가 구조를 분석하고 각 빈 섹션에 Jinja2 변수를 자동 삽입한다.
+    /// </summary>
+    Task<DocUtilDocumentTemplateUpload> UploadBlankFormAsync(
+        DocUtilUploadDocumentTemplateRequest request,
+        Stream fileStream,
+        string fileName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 스마트 업로드(자동 라우팅) — POST /api/v1/templates/upload-smart (multipart/form-data).
+    /// 파일 내 {{ }} 패턴 존재 여부로 일반 vs 빈양식 경로를 자동 선택한다.
+    /// name/template_type 생략 시 파일명/내용에서 자동 추측(둘 다 nullable).
+    /// </summary>
+    Task<DocUtilDocumentTemplateUpload> UploadSmartTemplateAsync(
+        DocUtilUploadSmartTemplateRequest request,
+        Stream fileStream,
+        string fileName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 일반 문서 → Jinja2 템플릿 변환 — POST /api/v1/templates/{template_id}/convert.
+    /// AI 분석 결과(replacements 배열)를 body 의 ai_analysis 로 전달하면 원본의 텍스트가
+    /// {{ 변수명 }} 으로 치환된 새 파일이 저장된다.
+    /// </summary>
+    /// <param name="aiAnalysis">AI 분석 결과 free-form dict (예: { "replacements": [...] }).</param>
+    Task<DocUtilDocumentTemplateDetail> ConvertDocumentTemplateAsync(
+        string templateId,
+        IDictionary<string, object?> aiAnalysis,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// AI 자동채움 — POST /api/v1/templates/{template_id}/auto-fill.
+    /// 소스 문서 ID 목록을 전달하면 GPT-4o 가 템플릿 변수에 맞는 값들을 자동 생성하여 context dict 로 반환.
+    /// </summary>
+    Task<DocUtilDocumentTemplateAutoFill> AutoFillDocumentTemplateAsync(
+        string templateId,
+        DocUtilAutoFillDocumentTemplateRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 변수 메타 조회 — GET /api/v1/templates/{template_id}/variables.
+    /// jinja2_variables 가 비어 있으면 빈 배열을 반환.
+    /// </summary>
+    Task<List<DocUtilDocumentTemplateVariable>> GetDocumentTemplateVariablesAsync(
+        string templateId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 변수 메타 일괄 수정 — PUT /api/v1/templates/{template_id}/variables (TemplateVariablesUpdate).
+    /// 변수 라벨/타입/필수 여부/카테고리 등 사용자 편집을 저장.
+    /// </summary>
+    Task<DocUtilDocumentTemplateDetail> UpdateDocumentTemplateVariablesAsync(
+        string templateId,
+        DocUtilUpdateDocumentTemplateVariablesRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 템플릿 원본 파일 미리보기/다운로드 — GET /api/v1/templates/{template_id}/preview.
+    /// <para>
+    /// 응답은 stream — MinIO 의 원본 파일. Content-Type / Content-Disposition 헤더 메타 동봉.
+    /// 호출자(Controller) 가 FileStreamResult 로 흘려보내며 HttpResponseOwnedStream 으로 lifetime 결합.
+    /// </para>
+    /// </summary>
+    Task<DocUtilDocumentTemplatePreview> PreviewDocumentTemplateAsync(
+        string templateId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 에디터용 문서 구조 — GET /api/v1/templates/{template_id}/structure.
+    /// 응답은 free-form dict: { "paragraphs": [...], "tables": [...], "existing_variables": [...] }.
+    /// 프론트엔드의 변수 매핑 에디터가 표 셀/문단을 시각화하는 데 사용.
+    /// </summary>
+    Task<IDictionary<string, object?>> GetDocumentTemplateStructureAsync(
+        string templateId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 변수 매핑 적용 — POST /api/v1/templates/{template_id}/apply-mapping.
+    /// 에디터에서 사용자가 설정한 셀/문단 ↔ 변수 매핑을 원본 DOCX 에 적용하여 {{ 변수명 }} 삽입 + MinIO 재저장.
+    /// </summary>
+    Task<DocUtilDocumentTemplateDetail> ApplyDocumentTemplateMappingAsync(
+        string templateId,
+        DocUtilApplyDocumentTemplateMappingRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 // ── DocUtil DTO (FastAPI 응답 1:1 매핑, snake_case 직렬화는 DocUtilClient 에서 처리) ──
@@ -1995,3 +2183,246 @@ public sealed record DocUtilCreateReportTemplateRequest(
 public sealed record DocUtilUpdateReportTemplateRequest(
     string? Name = null,
     string? Description = null);
+
+// ── Phase 10.2d (2026-05-11): DocUtil Document Templates BFF DTO ─────────────
+//
+// DocUtil 소스 인스펙션 결과(`docutil/backend/app/modules/templates/schemas.py`):
+//   TemplateCreate(8 필드) / TemplateUpdate(10 필드, 모두 nullable) /
+//   TemplateResponse(19 필드, ins_dt→created_at / upd_dt→updated_at alias) /
+//   TemplateUploadResponse(6 필드, variables 포함) /
+//   TemplateVariableSchema(6 필드, category 기본 "ai_generated") /
+//   TemplateVariablesUpdate({variables:[...]}) /
+//   AutoFillRequest / AutoFillResponse / VariableMappingPayload / VariableMapping(10 필드).
+//
+// 1:1 매핑 — 추정 금지 원칙 적용. PascalCase 외부 표면(camelCase JSON),
+// snake_case ↔ JsonNamingPolicy.SnakeCaseLower 직렬화는 DocUtilClient 내부에서 처리.
+
+/// <summary>
+/// 문서 템플릿 한 행(목록 표시용 요약) — DocUtil TemplateResponse 와 동일 19 필드.
+/// </summary>
+/// <param name="Id">템플릿 UUID.</param>
+/// <param name="OrganizationId">조직 UUID.</param>
+/// <param name="Name">템플릿 이름.</param>
+/// <param name="Description">설명(없으면 null).</param>
+/// <param name="TemplateType">템플릿 유형 자유 텍스트 (예: report/proposal/계약서).</param>
+/// <param name="Tone">문서 어조 (예: formal/casual). 기본 "formal".</param>
+/// <param name="OutputFormat">출력 형식 (예: docx/pdf/html/pptx).</param>
+/// <param name="Schema">템플릿 변수 정의 JSON 스키마(Pydantic 의 schema_ alias) — free-form dict.</param>
+/// <param name="SamplePrompt">예시 프롬프트(없으면 null).</param>
+/// <param name="IsActive">활성 여부.</param>
+/// <param name="CreatedBy">생성자 UUID.</param>
+/// <param name="CreatedAt">생성 시각(DocUtil ins_dt).</param>
+/// <param name="UpdatedAt">수정 시각(DocUtil upd_dt).</param>
+/// <param name="TemplateStoragePath">MinIO 저장 경로(파일 미업로드 시 null).</param>
+/// <param name="Jinja2Variables">추출/저장된 Jinja2 변수 free-form dict (없으면 null).</param>
+/// <param name="RenderingMode">렌더링 방식 (jinja2/structured). 기본 "jinja2".</param>
+/// <param name="ImageGenerationConfig">이미지 생성 설정 (provider/enabled 등, 없으면 null).</param>
+public sealed record DocUtilDocumentTemplate(
+    string Id,
+    string OrganizationId,
+    string Name,
+    string? Description,
+    string TemplateType,
+    string Tone,
+    string OutputFormat,
+    IDictionary<string, object?>? Schema,
+    string? SamplePrompt,
+    bool IsActive,
+    string CreatedBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt,
+    string? TemplateStoragePath,
+    IDictionary<string, object?>? Jinja2Variables,
+    string RenderingMode,
+    IDictionary<string, object?>? ImageGenerationConfig);
+
+/// <summary>
+/// 문서 템플릿 상세 — 요약과 동일 셋(의미적 분리).
+/// </summary>
+public sealed record DocUtilDocumentTemplateDetail(
+    string Id,
+    string OrganizationId,
+    string Name,
+    string? Description,
+    string TemplateType,
+    string Tone,
+    string OutputFormat,
+    IDictionary<string, object?>? Schema,
+    string? SamplePrompt,
+    bool IsActive,
+    string CreatedBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt,
+    string? TemplateStoragePath,
+    IDictionary<string, object?>? Jinja2Variables,
+    string RenderingMode,
+    IDictionary<string, object?>? ImageGenerationConfig);
+
+/// <summary>
+/// 문서 템플릿 목록 응답 — DocUtil TemplateListResponse 매핑.
+/// </summary>
+public sealed record DocUtilDocumentTemplateList(
+    DocUtilDocumentTemplate[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// 문서 템플릿 생성 요청(메타데이터만) — DocUtil TemplateCreate 매핑.
+/// 파일 업로드는 별도 endpoint(upload / upload-blank / upload-smart) 사용.
+/// </summary>
+/// <param name="Name">템플릿 이름(1~255자).</param>
+/// <param name="TemplateType">템플릿 유형 자유 텍스트(~100자).</param>
+/// <param name="OutputFormat">출력 형식(docx/pdf/html/pptx 등 ~20자).</param>
+/// <param name="Description">설명(~2000자, 선택).</param>
+/// <param name="Tone">문서 어조(기본 "formal").</param>
+/// <param name="Schema">템플릿 변수 정의 JSON 스키마(선택).</param>
+/// <param name="SamplePrompt">예시 프롬프트(~5000자, 선택).</param>
+/// <param name="RenderingMode">렌더링 방식(기본 "jinja2").</param>
+/// <param name="ImageGenerationConfig">이미지 생성 설정(선택).</param>
+public sealed record DocUtilCreateDocumentTemplateRequest(
+    string Name,
+    string TemplateType,
+    string OutputFormat,
+    string? Description = null,
+    string Tone = "formal",
+    IDictionary<string, object?>? Schema = null,
+    string? SamplePrompt = null,
+    string RenderingMode = "jinja2",
+    IDictionary<string, object?>? ImageGenerationConfig = null);
+
+/// <summary>
+/// 문서 템플릿 부분 수정 요청 — DocUtil TemplateUpdate 매핑(모두 nullable, partial).
+/// </summary>
+public sealed record DocUtilUpdateDocumentTemplateRequest(
+    string? Name = null,
+    string? Description = null,
+    string? TemplateType = null,
+    string? Tone = null,
+    string? OutputFormat = null,
+    IDictionary<string, object?>? Schema = null,
+    string? SamplePrompt = null,
+    bool? IsActive = null,
+    string? RenderingMode = null,
+    IDictionary<string, object?>? ImageGenerationConfig = null);
+
+/// <summary>
+/// 파일 업로드(일반/빈양식) 요청 메타 — multipart 의 form 필드(파일 외).
+/// </summary>
+/// <param name="TemplateType">템플릿 유형(필수, ~100자).</param>
+/// <param name="OutputFormat">출력 형식(필수, ~20자).</param>
+/// <param name="Tone">문서 어조(기본 "formal").</param>
+/// <param name="Name">템플릿 이름(생략 시 파일명 사용).</param>
+/// <param name="Description">템플릿 설명(선택).</param>
+public sealed record DocUtilUploadDocumentTemplateRequest(
+    string TemplateType,
+    string OutputFormat,
+    string Tone = "formal",
+    string? Name = null,
+    string? Description = null);
+
+/// <summary>
+/// 스마트 업로드 요청 메타 — 모두 nullable, 자동 추측 허용.
+/// </summary>
+/// <param name="Name">템플릿 이름(생략 시 파일명).</param>
+/// <param name="Description">설명(선택).</param>
+/// <param name="TemplateType">유형(생략 시 키워드 매칭으로 자동 추측).</param>
+/// <param name="Tone">문서 어조(기본 "formal").</param>
+public sealed record DocUtilUploadSmartTemplateRequest(
+    string? Name = null,
+    string? Description = null,
+    string? TemplateType = null,
+    string Tone = "formal");
+
+/// <summary>
+/// 템플릿 변수 한 행 — DocUtil TemplateVariableSchema 매핑(6 필드).
+/// </summary>
+/// <param name="Name">변수명({{ name }}). 영문/숫자/언더스코어, 숫자로 시작 불가.</param>
+/// <param name="VarType">타입(string/array/boolean/image/date 등). 기본 "string".</param>
+/// <param name="Label">사용자 표시 라벨(한글 등, 선택).</param>
+/// <param name="Description">변수 상세 설명(선택).</param>
+/// <param name="Required">필수 입력 여부(기본 true).</param>
+/// <param name="Category">입력 방식 카테고리(user_input/session_auto/ai_generated). 기본 "ai_generated".</param>
+public sealed record DocUtilDocumentTemplateVariable(
+    string Name,
+    string VarType,
+    string? Label,
+    string? Description,
+    bool Required,
+    string Category);
+
+/// <summary>
+/// 변수 메타 일괄 수정 요청 — DocUtil TemplateVariablesUpdate 매핑.
+/// </summary>
+public sealed record DocUtilUpdateDocumentTemplateVariablesRequest(
+    DocUtilDocumentTemplateVariable[] Variables);
+
+/// <summary>
+/// 파일 업로드 응답 — DocUtil TemplateUploadResponse 매핑.
+/// </summary>
+public sealed record DocUtilDocumentTemplateUpload(
+    string Id,
+    string Name,
+    string OutputFormat,
+    string RenderingMode,
+    string? TemplateStoragePath,
+    DocUtilDocumentTemplateVariable[] Variables);
+
+/// <summary>
+/// AI 자동채움 요청 — DocUtil AutoFillRequest 매핑(JSON body 로 전달).
+/// </summary>
+/// <param name="SourceDocumentIds">참고할 소스 문서 ID 배열(1+).</param>
+/// <param name="AiPrompt">AI 에게 전달할 추가 지시(선택, 예: "간결하게 작성").</param>
+public sealed record DocUtilAutoFillDocumentTemplateRequest(
+    string[] SourceDocumentIds,
+    string? AiPrompt = null);
+
+/// <summary>
+/// AI 자동채움 응답 — DocUtil AutoFillResponse 매핑.
+/// context 는 변수명 → 생성된 값 free-form 매핑.
+/// </summary>
+public sealed record DocUtilDocumentTemplateAutoFill(
+    IDictionary<string, object?> Context);
+
+/// <summary>
+/// 변수 매핑 한 행 — DocUtil VariableMapping 매핑(10 필드).
+/// </summary>
+/// <param name="LocationType">"table_cell" 또는 "paragraph".</param>
+/// <param name="VariableName">매핑할 Jinja2 변수명(영문/숫자/언더스코어, 숫자로 시작 불가).</param>
+/// <param name="TableIndex">표 인덱스 (table_cell 일 때 필수).</param>
+/// <param name="Row">행 인덱스 (table_cell 일 때 필수).</param>
+/// <param name="Col">열 인덱스 (table_cell 일 때 필수).</param>
+/// <param name="ParagraphIndex">문단 인덱스 (paragraph 일 때 필수).</param>
+/// <param name="VarType">변수 타입(기본 "string").</param>
+/// <param name="Label">사용자 표시 라벨(선택).</param>
+/// <param name="Category">변수 카테고리(기본 "ai_generated").</param>
+/// <param name="FieldType">입력란 유형(short / long, 기본 "short").</param>
+public sealed record DocUtilDocumentTemplateMapping(
+    string LocationType,
+    string VariableName,
+    int? TableIndex = null,
+    int? Row = null,
+    int? Col = null,
+    int? ParagraphIndex = null,
+    string VarType = "string",
+    string? Label = null,
+    string Category = "ai_generated",
+    string FieldType = "short");
+
+/// <summary>
+/// 변수 매핑 적용 요청 — DocUtil VariableMappingPayload 매핑.
+/// </summary>
+public sealed record DocUtilApplyDocumentTemplateMappingRequest(
+    DocUtilDocumentTemplateMapping[] Mappings);
+
+/// <summary>
+/// 템플릿 파일 미리보기 응답 — binary stream + 헤더 메타.
+/// <para>
+/// 호출자(Controller) 가 FileStreamResult 로 그대로 흘려보낸다.
+/// Stream 은 HttpResponseOwnedStream 으로 wrap 되어 호출자가 Dispose 한다.
+/// </para>
+/// </summary>
+public sealed record DocUtilDocumentTemplatePreview(
+    Stream Stream,
+    string ContentType,
+    string FileName);

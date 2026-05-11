@@ -231,6 +231,13 @@ const routes = [
         component: () => import('@/views/admin/AdminDocUtilReports.vue'),
         meta: { requiresAuth: true, role: 'Admin' }
       },
+      // Phase 10.2d (2026-05-11): DocUtil 문서 템플릿(Jinja2) 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-templates',
+        name: 'AdminDocUtilTemplates',
+        component: () => import('@/views/admin/AdminDocUtilTemplates.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
       {
         path: 'reports',
         name: 'Reports',

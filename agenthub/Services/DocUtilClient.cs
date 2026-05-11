@@ -3199,6 +3199,647 @@ public class DocUtilClient : IDocUtilClient
         await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // Phase 10.2d (2026-05-11): Document Templates (15 endpoints)
+    //
+    // 모든 endpoint 는 DocUtil 의 `/api/v1/templates/*` (router prefix=""에서 main.py 가
+    // f"{API_V1}" 로 마운트). org_id 는 DocUtil 라우터의 `_check_org` 가 토큰의
+    // organization_id 를 자동 검증하므로 본 클라이언트는 별도 헤더 부착 안 함.
+    // multipart 업로드(3종) 는 BuildJsonRequestAsync 대신 직접 HttpRequestMessage + MultipartFormDataContent
+    // 구성 — Authorization 헤더는 동일 패턴(IDocUtilTokenProvider).
+    // ══════════════════════════════════════════════════════════════════════
+
+    public async Task<DocUtilDocumentTemplateList> ListDocumentTemplatesAsync(
+        string? templateType = null,
+        int page = 1,
+        int size = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 100) size = 20;
+
+        // DocUtil query 는 template_type / page / size. snake_case 그대로 전달.
+        var qs = new List<string> { $"page={page}", $"size={size}" };
+        if (!string.IsNullOrWhiteSpace(templateType))
+        {
+            qs.Add($"template_type={Uri.EscapeDataString(templateType)}");
+        }
+        var path = $"/api/v1/templates?{string.Join("&", qs)}";
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DocumentTemplateListResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 문서 템플릿 목록 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        var items = (dto.Items ?? Array.Empty<DocumentTemplateResponseDto>())
+            .Select(MapDocumentTemplate).ToArray();
+        return new DocUtilDocumentTemplateList(items, dto.Total, dto.Page, dto.Size);
+    }
+
+    public async Task<DocUtilDocumentTemplateDetail?> GetDocumentTemplateAsync(
+        string templateId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+
+        var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DocumentTemplateResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 문서 템플릿 상세 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapDocumentTemplateDetail(dto);
+    }
+
+    public async Task<DocUtilDocumentTemplateDetail> CreateDocumentTemplateAsync(
+        DocUtilCreateDocumentTemplateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException("name 이 비어 있습니다.", nameof(request));
+        }
+
+        // DocUtil TemplateCreate — schema 필드는 Pydantic alias 'schema'(예약어 회피용 schema_) →
+        // JSON 키는 "schema". JsonNamingPolicy.SnakeCaseLower 는 PascalCase 'Schema' → 'schema' 매핑.
+        var body = new DocumentTemplateCreateRequestDto
+        {
+            Name = request.Name,
+            Description = request.Description,
+            TemplateType = request.TemplateType,
+            Tone = request.Tone,
+            OutputFormat = request.OutputFormat,
+            Schema = request.Schema,
+            SamplePrompt = request.SamplePrompt,
+            RenderingMode = request.RenderingMode,
+            ImageGenerationConfig = request.ImageGenerationConfig,
+        };
+
+        const string path = "/api/v1/templates";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DocumentTemplateResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 문서 템플릿 생성 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapDocumentTemplateDetail(dto);
+    }
+
+    public async Task<DocUtilDocumentTemplateDetail> UpdateDocumentTemplateAsync(
+        string templateId,
+        DocUtilUpdateDocumentTemplateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+
+        var body = new DocumentTemplateUpdateRequestDto
+        {
+            Name = request.Name,
+            Description = request.Description,
+            TemplateType = request.TemplateType,
+            Tone = request.Tone,
+            OutputFormat = request.OutputFormat,
+            Schema = request.Schema,
+            SamplePrompt = request.SamplePrompt,
+            IsActive = request.IsActive,
+            RenderingMode = request.RenderingMode,
+            ImageGenerationConfig = request.ImageGenerationConfig,
+        };
+
+        var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DocumentTemplateResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 문서 템플릿 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapDocumentTemplateDetail(dto);
+    }
+
+    public async Task DeleteDocumentTemplateAsync(
+        string templateId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+
+        var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    public Task<DocUtilDocumentTemplateUpload> UploadDocumentTemplateAsync(
+        DocUtilUploadDocumentTemplateRequest request,
+        Stream fileStream,
+        string fileName,
+        CancellationToken cancellationToken = default)
+        => UploadDocumentTemplateInternalAsync(
+            "/api/v1/templates/upload",
+            request,
+            smartRequest: null,
+            fileStream,
+            fileName,
+            cancellationToken);
+
+    public Task<DocUtilDocumentTemplateUpload> UploadBlankFormAsync(
+        DocUtilUploadDocumentTemplateRequest request,
+        Stream fileStream,
+        string fileName,
+        CancellationToken cancellationToken = default)
+        => UploadDocumentTemplateInternalAsync(
+            "/api/v1/templates/upload-blank",
+            request,
+            smartRequest: null,
+            fileStream,
+            fileName,
+            cancellationToken);
+
+    public Task<DocUtilDocumentTemplateUpload> UploadSmartTemplateAsync(
+        DocUtilUploadSmartTemplateRequest request,
+        Stream fileStream,
+        string fileName,
+        CancellationToken cancellationToken = default)
+        => UploadDocumentTemplateInternalAsync(
+            "/api/v1/templates/upload-smart",
+            standardRequest: null,
+            smartRequest: request,
+            fileStream,
+            fileName,
+            cancellationToken);
+
+    /// <summary>
+    /// 3종 업로드 endpoint 의 공통 multipart 구성 + 응답 매핑.
+    /// 일반/빈양식: template_type/output_format 필수. 스마트: 모두 nullable.
+    /// </summary>
+    private async Task<DocUtilDocumentTemplateUpload> UploadDocumentTemplateInternalAsync(
+        string path,
+        DocUtilUploadDocumentTemplateRequest? standardRequest,
+        DocUtilUploadSmartTemplateRequest? smartRequest,
+        Stream fileStream,
+        string fileName,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(fileStream);
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            throw new ArgumentException("fileName 이 비어 있습니다.", nameof(fileName));
+        }
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        using var multipart = new MultipartFormDataContent();
+        if (standardRequest != null)
+        {
+            // 일반/빈양식 — template_type/output_format 필수, tone(기본 formal), name/description 선택.
+            multipart.Add(new StringContent(standardRequest.TemplateType, Encoding.UTF8), "template_type");
+            multipart.Add(new StringContent(standardRequest.OutputFormat, Encoding.UTF8), "output_format");
+            multipart.Add(new StringContent(standardRequest.Tone ?? "formal", Encoding.UTF8), "tone");
+            if (!string.IsNullOrEmpty(standardRequest.Name))
+            {
+                multipart.Add(new StringContent(standardRequest.Name, Encoding.UTF8), "name");
+            }
+            if (!string.IsNullOrEmpty(standardRequest.Description))
+            {
+                multipart.Add(new StringContent(standardRequest.Description, Encoding.UTF8), "description");
+            }
+        }
+        else if (smartRequest != null)
+        {
+            // 스마트 — 모두 nullable. tone 만 기본값 적용.
+            multipart.Add(new StringContent(smartRequest.Tone ?? "formal", Encoding.UTF8), "tone");
+            if (!string.IsNullOrEmpty(smartRequest.Name))
+            {
+                multipart.Add(new StringContent(smartRequest.Name, Encoding.UTF8), "name");
+            }
+            if (!string.IsNullOrEmpty(smartRequest.Description))
+            {
+                multipart.Add(new StringContent(smartRequest.Description, Encoding.UTF8), "description");
+            }
+            if (!string.IsNullOrEmpty(smartRequest.TemplateType))
+            {
+                multipart.Add(new StringContent(smartRequest.TemplateType, Encoding.UTF8), "template_type");
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException("UploadDocumentTemplateInternal: standardRequest 또는 smartRequest 중 하나 필요.");
+        }
+
+        var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        multipart.Add(streamContent, "file", fileName);
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = multipart,
+        };
+        var token = await _tokenProvider.GetTokenAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+        else
+        {
+            _logger.LogWarning("DocUtil 토큰 미설정 — 문서 템플릿 업로드 호출이 401 로 실패할 수 있음.");
+        }
+
+        _logger.LogDebug(
+            "DocUtil 문서 템플릿 업로드 호출 - Path={Path}, FileName={FileName}",
+            path, fileName);
+
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DocumentTemplateUploadResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 문서 템플릿 업로드 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapDocumentTemplateUpload(dto);
+    }
+
+    public async Task<DocUtilDocumentTemplateDetail> ConvertDocumentTemplateAsync(
+        string templateId,
+        IDictionary<string, object?> aiAnalysis,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+        ArgumentNullException.ThrowIfNull(aiAnalysis);
+
+        // DocUtil 라우터는 body=dict 형식: { "ai_analysis": {...} } 만 추출하여 사용.
+        var body = new Dictionary<string, object?> { ["ai_analysis"] = aiAnalysis };
+
+        var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}/convert";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DocumentTemplateResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 문서 템플릿 변환 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapDocumentTemplateDetail(dto);
+    }
+
+    public async Task<DocUtilDocumentTemplateAutoFill> AutoFillDocumentTemplateAsync(
+        string templateId,
+        DocUtilAutoFillDocumentTemplateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.SourceDocumentIds == null || request.SourceDocumentIds.Length == 0)
+        {
+            throw new ArgumentException("source_document_ids 가 비어 있습니다.", nameof(request));
+        }
+
+        // DocUtil 라우터의 Body 파라미터 — source_document_ids(필수) + ai_prompt(선택).
+        var body = new Dictionary<string, object?>
+        {
+            ["source_document_ids"] = request.SourceDocumentIds,
+        };
+        if (!string.IsNullOrEmpty(request.AiPrompt))
+        {
+            body["ai_prompt"] = request.AiPrompt;
+        }
+
+        var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}/auto-fill";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DocumentTemplateAutoFillResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 자동채움 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        IDictionary<string, object?> context;
+        if (dto.Context is JsonElement ctxEl && ctxEl.ValueKind == JsonValueKind.Object)
+        {
+            context = ConvertJsonElementToDict(ctxEl);
+        }
+        else
+        {
+            context = new Dictionary<string, object?>(StringComparer.Ordinal);
+        }
+        return new DocUtilDocumentTemplateAutoFill(context);
+    }
+
+    public async Task<List<DocUtilDocumentTemplateVariable>> GetDocumentTemplateVariablesAsync(
+        string templateId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+
+        var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}/variables";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dtos = await JsonSerializer.DeserializeAsync<List<DocumentTemplateVariableDto>>(stream, JsonOptions, cancellationToken);
+        if (dtos is null)
+        {
+            return new List<DocUtilDocumentTemplateVariable>();
+        }
+        return dtos.Select(MapDocumentTemplateVariable).ToList();
+    }
+
+    public async Task<DocUtilDocumentTemplateDetail> UpdateDocumentTemplateVariablesAsync(
+        string templateId,
+        DocUtilUpdateDocumentTemplateVariablesRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Variables == null)
+        {
+            throw new ArgumentException("variables 배열이 null 입니다.", nameof(request));
+        }
+
+        var body = new DocumentTemplateVariablesUpdateRequestDto
+        {
+            Variables = request.Variables.Select(v => new DocumentTemplateVariableDto
+            {
+                Name = v.Name,
+                VarType = v.VarType,
+                Label = v.Label,
+                Description = v.Description,
+                Required = v.Required,
+                Category = v.Category,
+            }).ToArray(),
+        };
+
+        var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}/variables";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DocumentTemplateResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 문서 템플릿 변수 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapDocumentTemplateDetail(dto);
+    }
+
+    public async Task<DocUtilDocumentTemplatePreview> PreviewDocumentTemplateAsync(
+        string templateId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+
+        var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}/preview";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        // stream 반환 — using 사용 안 함(호출자 소유, HttpResponseOwnedStream 으로 lifetime 결합).
+
+        _logger.LogInformation("DocUtil 문서 템플릿 미리보기 호출 - TemplateId={TemplateId}", templateId);
+
+        var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            try
+            {
+                await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+            }
+            finally
+            {
+                response.Dispose();
+                httpRequest.Dispose();
+            }
+        }
+
+        var contentType = response.Content.Headers.ContentType?.ToString()
+            ?? "application/octet-stream";
+
+        var disposition = response.Content.Headers.ContentDisposition;
+        var fileName = disposition?.FileNameStar
+            ?? disposition?.FileName?.Trim('"')
+            ?? $"template-{templateId}";
+
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var owned = new HttpResponseOwnedStream(stream, response, httpRequest);
+        return new DocUtilDocumentTemplatePreview(owned, contentType, fileName);
+    }
+
+    public async Task<IDictionary<string, object?>> GetDocumentTemplateStructureAsync(
+        string templateId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+
+        var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}/structure";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        // 응답은 free-form dict — JsonElement 로 받아 ConvertJsonElementToDict 변환.
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var element = await JsonSerializer.DeserializeAsync<JsonElement>(stream, JsonOptions, cancellationToken);
+        return ConvertJsonElementToDict(element);
+    }
+
+    public async Task<DocUtilDocumentTemplateDetail> ApplyDocumentTemplateMappingAsync(
+        string templateId,
+        DocUtilApplyDocumentTemplateMappingRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            throw new ArgumentException("templateId 가 비어 있습니다.", nameof(templateId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Mappings == null || request.Mappings.Length == 0)
+        {
+            throw new ArgumentException("mappings 가 비어 있습니다.", nameof(request));
+        }
+
+        // DocUtil VariableMappingPayload — mappings 배열.
+        var body = new DocumentTemplateMappingPayloadDto
+        {
+            Mappings = request.Mappings.Select(m => new DocumentTemplateMappingDto
+            {
+                LocationType = m.LocationType,
+                TableIndex = m.TableIndex,
+                Row = m.Row,
+                Col = m.Col,
+                ParagraphIndex = m.ParagraphIndex,
+                VariableName = m.VariableName,
+                VarType = m.VarType,
+                Label = m.Label,
+                Category = m.Category,
+                FieldType = m.FieldType,
+            }).ToArray(),
+        };
+
+        var path = $"/api/v1/templates/{Uri.EscapeDataString(templateId)}/apply-mapping";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<DocumentTemplateResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 문서 템플릿 매핑 적용 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapDocumentTemplateDetail(dto);
+    }
+
+    // ── Phase 10.2d 매핑 헬퍼 ──────────────────────────────────────────────
+
+    private static DocUtilDocumentTemplate MapDocumentTemplate(DocumentTemplateResponseDto dto)
+    {
+        return new DocUtilDocumentTemplate(
+            dto.Id ?? string.Empty,
+            dto.OrganizationId ?? string.Empty,
+            dto.Name ?? string.Empty,
+            dto.Description,
+            dto.TemplateType ?? string.Empty,
+            dto.Tone ?? "formal",
+            dto.OutputFormat ?? string.Empty,
+            ConvertJsonElementToOptionalDict(dto.Schema),
+            dto.SamplePrompt,
+            dto.IsActive,
+            dto.CreatedBy ?? string.Empty,
+            dto.CreatedAt,
+            dto.UpdatedAt,
+            dto.TemplateStoragePath,
+            ConvertJsonElementToOptionalDict(dto.Jinja2Variables),
+            dto.RenderingMode ?? "jinja2",
+            ConvertJsonElementToOptionalDict(dto.ImageGenerationConfig));
+    }
+
+    private static DocUtilDocumentTemplateDetail MapDocumentTemplateDetail(DocumentTemplateResponseDto dto)
+    {
+        return new DocUtilDocumentTemplateDetail(
+            dto.Id ?? string.Empty,
+            dto.OrganizationId ?? string.Empty,
+            dto.Name ?? string.Empty,
+            dto.Description,
+            dto.TemplateType ?? string.Empty,
+            dto.Tone ?? "formal",
+            dto.OutputFormat ?? string.Empty,
+            ConvertJsonElementToOptionalDict(dto.Schema),
+            dto.SamplePrompt,
+            dto.IsActive,
+            dto.CreatedBy ?? string.Empty,
+            dto.CreatedAt,
+            dto.UpdatedAt,
+            dto.TemplateStoragePath,
+            ConvertJsonElementToOptionalDict(dto.Jinja2Variables),
+            dto.RenderingMode ?? "jinja2",
+            ConvertJsonElementToOptionalDict(dto.ImageGenerationConfig));
+    }
+
+    private static DocUtilDocumentTemplateVariable MapDocumentTemplateVariable(DocumentTemplateVariableDto dto)
+    {
+        return new DocUtilDocumentTemplateVariable(
+            dto.Name ?? string.Empty,
+            string.IsNullOrEmpty(dto.VarType) ? "string" : dto.VarType,
+            dto.Label,
+            dto.Description,
+            dto.Required,
+            string.IsNullOrEmpty(dto.Category) ? "ai_generated" : dto.Category);
+    }
+
+    private static DocUtilDocumentTemplateUpload MapDocumentTemplateUpload(DocumentTemplateUploadResponseDto dto)
+    {
+        var vars = (dto.Variables ?? Array.Empty<DocumentTemplateVariableDto>())
+            .Select(MapDocumentTemplateVariable).ToArray();
+        return new DocUtilDocumentTemplateUpload(
+            dto.Id ?? string.Empty,
+            dto.Name ?? string.Empty,
+            dto.OutputFormat ?? string.Empty,
+            dto.RenderingMode ?? "jinja2",
+            dto.TemplateStoragePath,
+            vars);
+    }
+
+    /// <summary>
+    /// JsonElement → IDictionary 변환 — null/Undefined 면 null 반환(record nullable 필드용).
+    /// </summary>
+    private static IDictionary<string, object?>? ConvertJsonElementToOptionalDict(JsonElement? element)
+    {
+        if (!element.HasValue) return null;
+        var el = element.Value;
+        if (el.ValueKind == JsonValueKind.Null || el.ValueKind == JsonValueKind.Undefined) return null;
+        if (el.ValueKind != JsonValueKind.Object) return null;
+        return ConvertJsonElementToDict(el);
+    }
+
     // ── Phase 10.2c 매핑 헬퍼 ──────────────────────────────────────────────
 
     private static DocUtilFaq MapFaq(FaqResponseDto dto) => new(
@@ -4049,6 +4690,117 @@ public class DocUtilClient : IDocUtilClient
     {
         [JsonPropertyName("name")] public string? Name { get; set; }
         [JsonPropertyName("description")] public string? Description { get; set; }
+    }
+
+    // ── Phase 10.2d (2026-05-11): Document Templates 직렬화 DTO ──────────────
+    //
+    // DocUtil 의 schemas.py 와 1:1. snake_case JSON 키 명시(JsonPropertyName) — JsonNamingPolicy 와 중복이지만
+    // 명시성을 우선해 다른 DTO 패턴과 일관성 유지. JsonElement? 필드는 free-form dict 매핑용.
+
+    private sealed class DocumentTemplateResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("organization_id")] public string? OrganizationId { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("template_type")] public string? TemplateType { get; set; }
+        [JsonPropertyName("tone")] public string? Tone { get; set; }
+        [JsonPropertyName("output_format")] public string? OutputFormat { get; set; }
+        [JsonPropertyName("schema")] public JsonElement? Schema { get; set; }
+        [JsonPropertyName("sample_prompt")] public string? SamplePrompt { get; set; }
+        [JsonPropertyName("is_active")] public bool IsActive { get; set; }
+        [JsonPropertyName("created_by")] public string? CreatedBy { get; set; }
+        // DocUtil TemplateResponse 는 ins_dt/upd_dt 를 validation_alias 로 받는다 — 응답 본문에 created_at/updated_at 으로 직렬화.
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+        [JsonPropertyName("updated_at")] public DateTime UpdatedAt { get; set; }
+        [JsonPropertyName("template_storage_path")] public string? TemplateStoragePath { get; set; }
+        [JsonPropertyName("jinja2_variables")] public JsonElement? Jinja2Variables { get; set; }
+        [JsonPropertyName("rendering_mode")] public string? RenderingMode { get; set; }
+        [JsonPropertyName("image_generation_config")] public JsonElement? ImageGenerationConfig { get; set; }
+    }
+
+    private sealed class DocumentTemplateListResponseDto
+    {
+        [JsonPropertyName("items")] public DocumentTemplateResponseDto[]? Items { get; set; }
+        [JsonPropertyName("total")] public long Total { get; set; }
+        [JsonPropertyName("page")] public int Page { get; set; }
+        [JsonPropertyName("size")] public int Size { get; set; }
+    }
+
+    private sealed class DocumentTemplateCreateRequestDto
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("template_type")] public string? TemplateType { get; set; }
+        [JsonPropertyName("tone")] public string? Tone { get; set; }
+        [JsonPropertyName("output_format")] public string? OutputFormat { get; set; }
+        [JsonPropertyName("schema")] public IDictionary<string, object?>? Schema { get; set; }
+        [JsonPropertyName("sample_prompt")] public string? SamplePrompt { get; set; }
+        [JsonPropertyName("rendering_mode")] public string? RenderingMode { get; set; }
+        [JsonPropertyName("image_generation_config")] public IDictionary<string, object?>? ImageGenerationConfig { get; set; }
+    }
+
+    private sealed class DocumentTemplateUpdateRequestDto
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("template_type")] public string? TemplateType { get; set; }
+        [JsonPropertyName("tone")] public string? Tone { get; set; }
+        [JsonPropertyName("output_format")] public string? OutputFormat { get; set; }
+        [JsonPropertyName("schema")] public IDictionary<string, object?>? Schema { get; set; }
+        [JsonPropertyName("sample_prompt")] public string? SamplePrompt { get; set; }
+        [JsonPropertyName("is_active")] public bool? IsActive { get; set; }
+        [JsonPropertyName("rendering_mode")] public string? RenderingMode { get; set; }
+        [JsonPropertyName("image_generation_config")] public IDictionary<string, object?>? ImageGenerationConfig { get; set; }
+    }
+
+    private sealed class DocumentTemplateVariableDto
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("var_type")] public string? VarType { get; set; }
+        [JsonPropertyName("label")] public string? Label { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("required")] public bool Required { get; set; } = true;
+        [JsonPropertyName("category")] public string? Category { get; set; }
+    }
+
+    private sealed class DocumentTemplateVariablesUpdateRequestDto
+    {
+        [JsonPropertyName("variables")] public DocumentTemplateVariableDto[]? Variables { get; set; }
+    }
+
+    private sealed class DocumentTemplateUploadResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("output_format")] public string? OutputFormat { get; set; }
+        [JsonPropertyName("rendering_mode")] public string? RenderingMode { get; set; }
+        [JsonPropertyName("template_storage_path")] public string? TemplateStoragePath { get; set; }
+        [JsonPropertyName("variables")] public DocumentTemplateVariableDto[]? Variables { get; set; }
+    }
+
+    private sealed class DocumentTemplateAutoFillResponseDto
+    {
+        [JsonPropertyName("context")] public JsonElement? Context { get; set; }
+    }
+
+    private sealed class DocumentTemplateMappingDto
+    {
+        [JsonPropertyName("location_type")] public string? LocationType { get; set; }
+        [JsonPropertyName("table_index")] public int? TableIndex { get; set; }
+        [JsonPropertyName("row")] public int? Row { get; set; }
+        [JsonPropertyName("col")] public int? Col { get; set; }
+        [JsonPropertyName("paragraph_index")] public int? ParagraphIndex { get; set; }
+        [JsonPropertyName("variable_name")] public string? VariableName { get; set; }
+        [JsonPropertyName("var_type")] public string? VarType { get; set; }
+        [JsonPropertyName("label")] public string? Label { get; set; }
+        [JsonPropertyName("category")] public string? Category { get; set; }
+        [JsonPropertyName("field_type")] public string? FieldType { get; set; }
+    }
+
+    private sealed class DocumentTemplateMappingPayloadDto
+    {
+        [JsonPropertyName("mappings")] public DocumentTemplateMappingDto[]? Mappings { get; set; }
     }
 
     private sealed class HttpResponseOwnedStream : Stream
