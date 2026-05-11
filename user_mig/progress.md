@@ -171,8 +171,8 @@
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
 ### 2026-05-12 (트랙 #63 — DocUtil DB schema 정합 복구 / 옵션 B: public → document_utilization SET SCHEMA 이전, 운영 라이브 회귀 완료)
+- **운영 commit**: `857d323` (`[user_mig] progress.md — 트랙 #63 DocUtil DB schema 정합 복구 완료 (옵션 B: SET SCHEMA 이전)`, +64 LOC progress.md only). workspace 코드 변경 0 — 운영 DB DDL + 컨테이너 재시작만 수행.
 - **목적**: 직전 트랙 #1 (2026-05-12 후속 #1) 에서 발견된 DocUtil DB schema 정합성 결함 — 운영 docutil-postgres 의 `docutil` DB 에서 28개 테이블 모두 `public` 스키마 적재 vs DocUtil ORM 모델 `__table_args__={'schema':'document_utilization'}` + `MetaData(schema='document_utilization')` + `search_path=document_utilization,public` 강제와 불일치. 결과: docutil 자체 로그인 endpoint HTTP 500 (`asyncpg.exceptions.UndefinedTableError: relation "document_utilization.tb_users" does not exist`) + agenthub `/api/admin/docutil/users` BFF HTTP 502 (`DOCUTIL_UPSTREAM_ERROR — organization_id 를 추출할 수 없습니다`). 사용자 명시 기조 ("시연은 신경쓰지 말고 제대로 확실히 완벽히") + `<<autonomous-loop-dynamic>>` 자율 진행 승인으로 옵션 B (테이블 SET SCHEMA 이전, 데이터 mutation 없음) 채택.
-- **운영 commit**: 없음 — 본 트랙은 운영 DB DDL + 컨테이너 재시작만 수행 (workspace 변경 0건). progress.md 갱신만 commit 예정.
 - **1) 사전 백업 (필수, `tmp/track63_step1_backup.py`)**:
   - `docker exec docutil-postgres pg_dump -U docutil -d docutil --schema=public -F c -f /tmp/docutil_public_pre_schema_migrate_20260511_234125.dump` → 702,194 bytes (≈ 685 KiB)
   - 호스트 회수: `/home/idino/docutil/backups/docutil_public_pre_schema_migrate_20260511_234125.dump`
