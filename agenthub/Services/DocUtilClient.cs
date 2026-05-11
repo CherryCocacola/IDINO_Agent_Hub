@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AIAgentManagement.Exceptions;
 
 namespace AIAgentManagement.Services;
 
@@ -4019,12 +4020,18 @@ public class DocUtilClient : IDocUtilClient
     }
 
     /// <summary>
-    /// DocUtil 응답 상태 코드를 검사하고, 실패 시 한국어 InvalidOperationException 으로 변환.
-    /// AgentHub GlobalExceptionHandlerMiddleware 가 502/503 으로 응답 합성한다.
+    /// DocUtil 응답 상태 코드를 검사하고, 실패 시 한국어 <see cref="DocUtilUpstreamException"/> 으로 변환.
+    /// AgentHub GlobalExceptionHandlerMiddleware 또는 BFF 컨트롤러가 502/410 등으로 응답 합성한다.
     /// <para>
     /// Phase 10.x (2026-05-11) 보강 — 클라이언트 응답에 DocUtil 영문 body 를 그대로
-    /// 노출하지 않는다(정보 누출 위험 + UX 비일관). 원본 body 는 LogError 에만 기록.
+    /// 노출하지 않는다(정보 누출 위험 + UX 비일관). 원본 body 는 LogError/LogWarning 에만 기록.
     /// 단, 422 validation error 의 경우 detail[0].msg 를 한국어 안내와 함께 추출 시도.
+    /// </para>
+    /// <para>
+    /// Phase 10.x Medium/Low 보강 (2026-05-11) — 410 Gone 분기 신설. DocUtil 측이 deprecate 한
+    /// 엔드포인트(Reports 4개) 호출 시 BFF 가 일반 502 가 아닌 410 + 한국어 안내로 응답하도록
+    /// status code 를 <see cref="DocUtilUpstreamException.StatusCode"/> 로 전파.
+    /// 기존 catch (InvalidOperationException) 분기는 그대로 동작(상속 관계 유지).
     /// </para>
     /// </summary>
     private async Task EnsureSuccessOrThrowKoreanAsync(
@@ -4044,8 +4051,23 @@ public class DocUtilClient : IDocUtilClient
             _logger.LogError(
                 "DocUtil 인증 실패 - Path={Path}, Status={Status}, Body={Body}",
                 path, status, body);
-            throw new InvalidOperationException(
+            throw new DocUtilUpstreamException(
+                response.StatusCode,
+                path,
                 "DocUtil 인증 실패. JwtToken 또는 ApiKey 설정을 확인하세요.");
+        }
+
+        // 410 Gone — DocUtil 측이 deprecate 한 엔드포인트.
+        // 호출자(컨트롤러) 가 catch (DocUtilUpstreamException) 으로 분기하여 410 + 한국어 안내 노출.
+        if (response.StatusCode == HttpStatusCode.Gone)
+        {
+            _logger.LogWarning(
+                "DocUtil 엔드포인트 deprecate(410 Gone) - Path={Path}, Body={Body}",
+                path, body);
+            throw new DocUtilUpstreamException(
+                response.StatusCode,
+                path,
+                "이 기능은 DocUtil 측에서 deprecate 되었습니다. 신규 디자이너 워크플로(/admin/docutil-documents-v2) 를 사용하세요.");
         }
 
         // 5xx — DocUtil 서비스 장애.
@@ -4054,7 +4076,9 @@ public class DocUtilClient : IDocUtilClient
             _logger.LogError(
                 "DocUtil 서비스 오류 - Path={Path}, Status={Status}, Body={Body}",
                 path, status, body);
-            throw new InvalidOperationException(
+            throw new DocUtilUpstreamException(
+                response.StatusCode,
+                path,
                 $"DocUtil 응답 실패. 네트워크 또는 서비스 상태를 확인하세요. (HTTP {status})");
         }
 
@@ -4069,10 +4093,14 @@ public class DocUtilClient : IDocUtilClient
                 path, status, body);
             if (!string.IsNullOrEmpty(hint))
             {
-                throw new InvalidOperationException(
+                throw new DocUtilUpstreamException(
+                    response.StatusCode,
+                    path,
                     $"DocUtil 입력 검증에 실패했습니다 (HTTP 422): {hint}");
             }
-            throw new InvalidOperationException(
+            throw new DocUtilUpstreamException(
+                response.StatusCode,
+                path,
                 "DocUtil 입력 검증에 실패했습니다 (HTTP 422). 운영자에게 문의하세요.");
         }
 
@@ -4080,7 +4108,9 @@ public class DocUtilClient : IDocUtilClient
         _logger.LogWarning(
             "DocUtil 호출 실패 - Path={Path}, Status={Status}, Body={Body}",
             path, status, body);
-        throw new InvalidOperationException(
+        throw new DocUtilUpstreamException(
+            response.StatusCode,
+            path,
             $"DocUtil 호출이 실패했습니다 (HTTP {status}). 입력값 또는 권한을 확인하세요.");
     }
 

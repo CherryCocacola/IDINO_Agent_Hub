@@ -1421,6 +1421,8 @@
     "validationConvertJson": "ai_analysis is not a valid JSON object.",
     "validationMappingJson": "Mappings is not a valid non-empty JSON array.",
     "validationFileRequired": "Please select a file.",
+    "noStorageWarning": "This template has no original file uploaded — convert and mapping cannot be applied. Upload a file via standard/blank/smart upload first.",
+    "noStorageTooltip": "Available after uploading the source file",
     "errorBoundary": "An error occurred while loading DocUtil document templates.",
     "errorUnknown": "An error occurred while processing the request."
   },
@@ -1472,7 +1474,7 @@
   },
   "adminDocutilDocAgents": {
     "title": "DocUtil Agents (chatbot personas)",
-    "subtitle": "Manage DocUtil's own AI personas for chatbot / report / proposal / minutes. This is a separate domain from AgentHub's Agent entity.",
+    "subtitle": "DocUtil chatbot personas — a separate domain from AgentHub Agents. (Personas for chatbot / report / proposal / minutes)",
     "warningSeparateDomain": "ℹ The \"Agent\" on this screen refers to DocUtil's chatbot persona (system_prompt / temperature / max_tokens). AgentHub's routing/RAG host Agent is managed separately from the \"Agents\" menu.",
     "refresh": "Refresh",
     "newAgent": "New Agent",

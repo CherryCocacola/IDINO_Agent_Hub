@@ -386,6 +386,11 @@
             <!-- 변환 (Convert) -->
             <div v-if="detailTab === 'convert'">
               <p class="text-muted small mb-3">{{ t('adminDocutilTemplates.convertHint') }}</p>
+              <!-- Phase 10.x Medium 보강 — 원본 파일 미업로드 시 사전 안내 -->
+              <div v-if="!detailHasStorage" class="alert alert-warning small mb-3">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                {{ t('adminDocutilTemplates.noStorageWarning') }}
+              </div>
               <div class="mb-3">
                 <label class="form-label">{{ t('adminDocutilTemplates.convertAnalysis') }}</label>
                 <textarea
@@ -393,13 +398,15 @@
                   class="form-control font-monospace small"
                   rows="10"
                   :placeholder="convertPlaceholder"
+                  :disabled="!detailHasStorage"
                 ></textarea>
                 <small class="text-muted">{{ t('adminDocutilTemplates.convertAnalysisHelp') }}</small>
               </div>
               <button
                 type="button"
                 class="btn btn-primary"
-                :disabled="convertLoading"
+                :disabled="convertLoading || !detailHasStorage"
+                :title="!detailHasStorage ? t('adminDocutilTemplates.noStorageTooltip') : ''"
                 @click="onConvert"
               >
                 <span v-if="convertLoading" class="spinner-border spinner-border-sm me-2"></span>
@@ -410,6 +417,11 @@
             <!-- 변수 매핑 적용 -->
             <div v-if="detailTab === 'mapping'">
               <p class="text-muted small mb-3">{{ t('adminDocutilTemplates.mappingHint') }}</p>
+              <!-- Phase 10.x Medium 보강 — 원본 파일 미업로드 시 사전 안내 -->
+              <div v-if="!detailHasStorage" class="alert alert-warning small mb-3">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                {{ t('adminDocutilTemplates.noStorageWarning') }}
+              </div>
               <div class="mb-3">
                 <label class="form-label">{{ t('adminDocutilTemplates.mappingJson') }}</label>
                 <textarea
@@ -417,13 +429,15 @@
                   class="form-control font-monospace small"
                   rows="12"
                   :placeholder="mappingPlaceholder"
+                  :disabled="!detailHasStorage"
                 ></textarea>
                 <small class="text-muted">{{ t('adminDocutilTemplates.mappingJsonHelp') }}</small>
               </div>
               <button
                 type="button"
                 class="btn btn-primary"
-                :disabled="mappingLoading"
+                :disabled="mappingLoading || !detailHasStorage"
+                :title="!detailHasStorage ? t('adminDocutilTemplates.noStorageTooltip') : ''"
                 @click="onApplyMapping"
               >
                 <span v-if="mappingLoading" class="spinner-border spinner-border-sm me-2"></span>
@@ -695,6 +709,14 @@ const uploadModalHint = computed(() => {
 const totalPages = computed(() => {
   if (total.value <= 0) return 1
   return Math.max(1, Math.ceil(total.value / size.value))
+})
+
+// Phase 10.x Medium 보강 — 원본 파일이 업로드되지 않은 템플릿은 convert/apply-mapping 불가.
+// detail 모달의 convert/mapping 탭 버튼을 disable + 안내 메시지 표시.
+const detailHasStorage = computed(() => {
+  const tpl = detailModal.template
+  if (!tpl) return false
+  return !!(tpl.templateStoragePath && tpl.templateStoragePath.trim().length > 0)
 })
 
 // ══════════════════════════════════════════════════════════════════════

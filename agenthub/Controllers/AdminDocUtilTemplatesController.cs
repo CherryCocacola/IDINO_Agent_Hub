@@ -661,6 +661,11 @@ public class AdminDocUtilTemplatesController : ControllerBase
 
     /// <summary>
     /// 일반 문서 → Jinja2 변환 — DocUtil `/api/v1/templates/{template_id}/convert` (POST).
+    /// <para>
+    /// Phase 10.x Medium 보강 (2026-05-11) — convert 는 templateStoragePath(원본 파일) 가 있어야
+    /// 의미가 있다. 사전에 GetDocumentTemplateAsync 로 확인 후 null 이면 400 BadRequest +
+    /// 한국어 안내 즉시 반환(DocUtil 측 422/500 회피, 운영자 UX 개선).
+    /// </para>
     /// </summary>
     [HttpPost("{templateId}/convert")]
     public async Task<ActionResult<DocUtilDocumentTemplateDetail>> ConvertToTemplate(
@@ -690,6 +695,15 @@ public class AdminDocUtilTemplatesController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "ai_analysis 직렬화 실패 — 그대로 위임");
+        }
+
+        // Phase 10.x — 사전 검증: 원본 파일 미업로드 템플릿은 변환 불가.
+        if (!await EnsureTemplateHasStorageAsync(templateId, ct))
+        {
+            return BadRequest(new ErrorResponseDto(
+                "이 템플릿은 원본 파일이 업로드되지 않아 변환할 수 없습니다. 먼저 파일을 업로드하세요.",
+                "DOCUTIL_TEMPLATE_NO_STORAGE",
+                new { templateId, operation = "convert" }));
         }
 
         try
@@ -777,6 +791,16 @@ public class AdminDocUtilTemplatesController : ControllerBase
             }
         }
 
+        // Phase 10.x Medium 보강 — 원본 파일 미업로드 템플릿은 매핑 적용 불가.
+        // DocUtil 측이 storage_path 기준으로 파일을 열어 매핑을 적용하므로 null 이면 즉시 차단.
+        if (!await EnsureTemplateHasStorageAsync(templateId, ct))
+        {
+            return BadRequest(new ErrorResponseDto(
+                "이 템플릿은 원본 파일이 업로드되지 않아 변수 매핑을 적용할 수 없습니다. 먼저 파일을 업로드하세요.",
+                "DOCUTIL_TEMPLATE_NO_STORAGE",
+                new { templateId, operation = "apply-mapping" }));
+        }
+
         try
         {
             var updated = await _docUtilClient.ApplyDocumentTemplateMappingAsync(templateId, request, ct);
@@ -837,6 +861,48 @@ public class AdminDocUtilTemplatesController : ControllerBase
         {
             EnableRangeProcessing = false,
         };
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // 헬퍼 — 사전 검증 (Phase 10.x Medium 보강)
+    // ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 템플릿이 원본 파일(TemplateStoragePath) 을 보유하고 있는지 확인.
+    /// <para>
+    /// convert / apply-mapping 은 원본 파일이 있어야 의미가 있는 작업이므로 사전에 차단한다.
+    /// DocUtil 호출(GetDocumentTemplateAsync) 자체가 실패하면(404/5xx 등) false 가 아닌 예외로 전파
+    /// → 호출자의 catch (InvalidOperationException) 분기가 502 로 응답.
+    /// </para>
+    /// <para>
+    /// 캐시 namespace 와 일치하는 prefix(DetailCachePrefix) 로 short-circuit 확인 시도(캐시 hit 시
+    /// DocUtil 추가 호출 없이 즉시 판정), miss 시 _docUtilClient.GetDocumentTemplateAsync 위임.
+    /// </para>
+    /// </summary>
+    /// <returns>true = 원본 파일 보유, false = TemplateStoragePath 가 null/빈 문자열.</returns>
+    private async Task<bool> EnsureTemplateHasStorageAsync(string templateId, CancellationToken ct)
+    {
+        // 캐시 short-circuit — Detail 캐시가 살아있으면 DocUtil 호출 없이 판정.
+        var version = await _cachingService.GetVersionAsync(CacheVersionNamespace);
+        var cacheKey = $"{DetailCachePrefix}v{version}:{templateId}";
+        var cached = await _cachingService.GetAsync<CachedDocumentTemplateDto>(cacheKey);
+        if (cached != null)
+        {
+            return !string.IsNullOrWhiteSpace(cached.TemplateStoragePath);
+        }
+
+        // 캐시 miss — DocUtil 호출. 404 등은 호출자의 InvalidOperationException catch 로 전파.
+        var detail = await _docUtilClient.GetDocumentTemplateAsync(templateId, ct);
+        if (detail == null)
+        {
+            // 404 — convert/apply-mapping 진입 자체가 무효. 호출자에서 InvalidOperationException 으로
+            // 전파되도록 throw(EnsureSuccessOrThrowKoreanAsync 와 동일 패턴).
+            throw new InvalidOperationException("템플릿을 찾을 수 없습니다.");
+        }
+
+        // detail 을 캐시에 저장 — 다음 호출 short-circuit.
+        await _cachingService.SetAsync(cacheKey, CachedDocumentTemplateDto.From(detail), DetailCacheTtl);
+        return !string.IsNullOrWhiteSpace(detail.TemplateStoragePath);
     }
 
     // ──────────────────────────────────────────────────────────────────────

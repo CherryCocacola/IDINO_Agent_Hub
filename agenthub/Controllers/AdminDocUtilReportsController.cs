@@ -1,9 +1,11 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AIAgentManagement.DTOs;
+using AIAgentManagement.Exceptions;
 using AIAgentManagement.Services;
 
 namespace AIAgentManagement.Controllers;
@@ -269,6 +271,17 @@ public class AdminDocUtilReportsController : ControllerBase
             // 본 BFF 는 응답 본문을 그대로 노출(상태 코드는 200 통일 — Vue 측 분기 단순화).
             return Ok(resp.Data);
         }
+        catch (DocUtilUpstreamException ex) when (ex.StatusCode == HttpStatusCode.Gone)
+        {
+            // Phase 10.x Medium 보강 — DocUtil 측 deprecate 안내를 운영자에게 명시.
+            _logger.LogWarning(ex,
+                "DocUtil 보고서 생성 endpoint deprecate (410 Gone) - title={Title}", request.Title);
+            await InvalidateReportsCacheAsync();
+            return StatusCode(410, new ErrorResponseDto(
+                "보고서 생성 기능은 DocUtil 측에서 deprecate 되었습니다. 신규 디자이너 워크플로(`/admin/docutil-documents-v2`)를 사용하세요.",
+                "DOCUTIL_ENDPOINT_DEPRECATED",
+                new { upstream = ex.Message, deprecatedPath = ex.Path }));
+        }
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "DocUtil 보고서 생성 실패 (title={Title})", request.Title);
@@ -497,6 +510,17 @@ public class AdminDocUtilReportsController : ControllerBase
             await InvalidateTemplatesCacheAsync();
             return CreatedAtAction(nameof(GetTemplate), new { templateId = created.Id }, created);
         }
+        catch (DocUtilUpstreamException ex) when (ex.StatusCode == HttpStatusCode.Gone)
+        {
+            // Phase 10.x Medium 보강 — DocUtil 측 deprecate 안내.
+            _logger.LogWarning(ex,
+                "DocUtil 보고서 템플릿 생성 endpoint deprecate (410 Gone) - name={Name}", request.Name);
+            await InvalidateTemplatesCacheAsync();
+            return StatusCode(410, new ErrorResponseDto(
+                "보고서 템플릿 생성 기능은 DocUtil 측에서 deprecate 되었습니다. 신규 디자이너 워크플로(`/admin/docutil-documents-v2`)를 사용하세요.",
+                "DOCUTIL_ENDPOINT_DEPRECATED",
+                new { upstream = ex.Message, deprecatedPath = ex.Path }));
+        }
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "DocUtil 보고서 템플릿 생성 실패 (name={Name})", request.Name);
@@ -542,6 +566,17 @@ public class AdminDocUtilReportsController : ControllerBase
             await InvalidateTemplatesCacheAsync();
             return Ok(updated);
         }
+        catch (DocUtilUpstreamException ex) when (ex.StatusCode == HttpStatusCode.Gone)
+        {
+            // Phase 10.x Medium 보강 — DocUtil 측 deprecate 안내.
+            _logger.LogWarning(ex,
+                "DocUtil 보고서 템플릿 수정 endpoint deprecate (410 Gone) - id={Id}", templateId);
+            await InvalidateTemplatesCacheAsync();
+            return StatusCode(410, new ErrorResponseDto(
+                "보고서 템플릿 수정 기능은 DocUtil 측에서 deprecate 되었습니다. 신규 디자이너 워크플로(`/admin/docutil-documents-v2`)를 사용하세요.",
+                "DOCUTIL_ENDPOINT_DEPRECATED",
+                new { upstream = ex.Message, deprecatedPath = ex.Path }));
+        }
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "DocUtil 보고서 템플릿 수정 실패 (id={Id})", templateId);
@@ -570,6 +605,17 @@ public class AdminDocUtilReportsController : ControllerBase
             _logger.LogInformation("운영자 DocUtil 보고서 템플릿 삭제 성공 - TemplateId={Id}", templateId);
             await InvalidateTemplatesCacheAsync();
             return NoContent();
+        }
+        catch (DocUtilUpstreamException ex) when (ex.StatusCode == HttpStatusCode.Gone)
+        {
+            // Phase 10.x Medium 보강 — DocUtil 측 deprecate 안내.
+            _logger.LogWarning(ex,
+                "DocUtil 보고서 템플릿 삭제 endpoint deprecate (410 Gone) - id={Id}", templateId);
+            await InvalidateTemplatesCacheAsync();
+            return StatusCode(410, new ErrorResponseDto(
+                "보고서 템플릿 삭제 기능은 DocUtil 측에서 deprecate 되었습니다. 신규 디자이너 워크플로(`/admin/docutil-documents-v2`)를 사용하세요.",
+                "DOCUTIL_ENDPOINT_DEPRECATED",
+                new { upstream = ex.Message, deprecatedPath = ex.Path }));
         }
         catch (InvalidOperationException ex)
         {
