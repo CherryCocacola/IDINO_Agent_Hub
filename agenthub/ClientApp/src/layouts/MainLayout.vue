@@ -383,6 +383,27 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         path: '/admin/docutil-templates',
         icon: 'bi bi-file-earmark-code',
         roles: ['Admin', 'SuperAdmin']
+      },
+      // Phase 10.2e (2026-05-11): DocUtil LLM API Key — 외부 프로바이더 키 등록/회수/검증.
+      {
+        name: t('nav.docutilApiKeys'),
+        path: '/admin/docutil-api-keys',
+        icon: 'bi bi-key',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      // Phase 10.2e (2026-05-11): DocUtil 자체 에이전트(챗봇용 페르소나) — AgentHub Agent 와 별개.
+      {
+        name: t('nav.docutilDocAgents'),
+        path: '/admin/docutil-doc-agents',
+        icon: 'bi bi-robot',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      // Phase 10.2e (2026-05-11): DocUtil 문서 V2(디자이너 워크플로) — 보고서 템플릿의 후속.
+      {
+        name: t('nav.docutilDocumentsV2'),
+        path: '/admin/docutil-documents-v2',
+        icon: 'bi bi-easel2',
+        roles: ['Admin', 'SuperAdmin']
       }
     ]
   },

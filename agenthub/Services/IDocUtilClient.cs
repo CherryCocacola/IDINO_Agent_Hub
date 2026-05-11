@@ -1141,6 +1141,198 @@ public interface IDocUtilClient
         string templateId,
         DocUtilApplyDocumentTemplateMappingRequest request,
         CancellationToken cancellationToken = default);
+
+    // ── Phase 10.2e (2026-05-11): DocUtil API Keys + Agents + Documents V2 운영자 BFF ──
+    //
+    // 통합 비전(ADR-2 / R2 단일 진입점):
+    //   AgentHub 운영자 콘솔이 DocUtil 의 다음 3개 도메인까지 단일 진입점에서 운영한다.
+    //
+    //   A) API Keys — LLM 프로바이더(OpenAI/Anthropic/Gemini) API 키 등록/회수/검증
+    //      /api/v1/api-keys                       (GET 페이징 조회)
+    //      /api/v1/api-keys                       (POST 등록 — 평문 key 는 한 번만 응답)
+    //      /api/v1/api-keys/{key_id}              (DELETE 회수)
+    //      /api/v1/api-keys/{key_id}/verify       (POST 검증 — 프로바이더에 한 번 호출)
+    //
+    //   B) Agents — DocUtil 자체 AI 에이전트(챗봇/보고서/제안서/회의록용 페르소나)
+    //      ※ AgentHub 의 `Agent` 엔티티와는 다른 별도 도메인 — UI 에 명확히 구분 표기.
+    //      /api/v1/agents                         (GET 페이징 + agent_type 필터)
+    //      /api/v1/agents                         (POST 생성 — admin only)
+    //      /api/v1/agents/{agent_id}              (GET 단건)
+    //      /api/v1/agents/{agent_id}              (PUT partial 수정 — admin only)
+    //      /api/v1/agents/{agent_id}              (DELETE 삭제 — admin only)
+    //
+    //   C) Documents V2 — 신규 디자이너 기반 문서 워크플로(Phase 4 S1/S2). 보고서 템플릿의 후속.
+    //      /api/v1/v2/documents                   (POST Mode A 자유 생성)
+    //      /api/v1/v2/documents                   (GET 페이징 + document_type / mode 필터)
+    //      /api/v1/v2/documents/{document_id}     (GET 단건)
+    //      /api/v1/v2/documents/{document_id}     (PATCH 부분 패치 — page/component/tokens)
+    //      /api/v1/v2/documents/{document_id}/export    (POST 비동기 export — 202 + job_id)
+    //      /api/v1/v2/documents/exports/{job_id}        (GET 작업 상태 폴링)
+    //      /api/v1/v2/documents/exports/{job_id}/download (GET 결과 파일 프록시 다운로드)
+    //
+    // 인증/스코프:
+    //   세 도메인 모두 운영자 JWT 의 organization_id claim 으로 자동 scope.
+    //   본 클라이언트는 path 에 orgId 명시 X (DocUtil 측이 토큰에서 추출).
+    //
+    // 4xx/5xx 매핑:
+    //   EnsureSuccessOrThrowKoreanAsync 가 InvalidOperationException 으로 통일,
+    //   Controller 가 502 ErrorResponseDto 한국어 본문으로 응답한다(Phase 10.1/10.2 동일 패턴).
+
+    // ── API Keys (4) ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// LLM API Key 목록 — GET /api/v1/api-keys?page&amp;size.
+    /// 응답의 ``api_key_prefix`` 는 마스킹된 prefix (예: ``sk-abc1****``) — 평문은 등록 시 단 한 번만 반환된다.
+    /// </summary>
+    Task<DocUtilApiKeyList> ListApiKeysAsync(
+        int page = 1,
+        int size = 20,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// LLM API Key 등록 — POST /api/v1/api-keys (ApiKeyCreate — llm_name + api_key 평문).
+    /// DocUtil 측이 AES 암호화 후 DB 저장. 응답에 마스킹 prefix 만 포함된다.
+    /// </summary>
+    Task<DocUtilApiKeyDetail> CreateApiKeyAsync(
+        DocUtilCreateApiKeyRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// LLM API Key 삭제 — DELETE /api/v1/api-keys/{key_id} (204).
+    /// </summary>
+    Task DeleteApiKeyAsync(
+        string keyId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// LLM API Key 검증 — POST /api/v1/api-keys/{key_id}/verify.
+    /// DocUtil 이 복호화된 키로 프로바이더에 1회 호출하고 ``is_valid`` + ``message`` 반환.
+    /// </summary>
+    Task<DocUtilApiKeyVerifyResult> VerifyApiKeyAsync(
+        string keyId,
+        CancellationToken cancellationToken = default);
+
+    // ── Agents (DocUtil 자체) (5) ──────────────────────────────────────────
+
+    /// <summary>
+    /// DocUtil 에이전트 목록 — GET /api/v1/agents (페이징 + agent_type 필터).
+    /// <para>
+    /// ※ AgentHub 의 ``Agents`` 와 별개 — DocUtil 자체 챗봇 / 보고서 / 제안서 / 회의록용 페르소나.
+    /// </para>
+    /// </summary>
+    /// <param name="agentType">에이전트 유형 필터(chatbot/report/proposal/minutes 등). 선택.</param>
+    /// <param name="page">페이지 번호(1-based, 기본 1).</param>
+    /// <param name="size">페이지 크기(기본 20, DocUtil 한도 1~100).</param>
+    Task<DocUtilDocAgentList> ListDocAgentsAsync(
+        string? agentType = null,
+        int page = 1,
+        int size = 20,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// DocUtil 에이전트 단건 — GET /api/v1/agents/{agent_id}.
+    /// 404 응답은 null 로 정규화한다.
+    /// </summary>
+    Task<DocUtilDocAgentDetail?> GetDocAgentAsync(
+        string agentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// DocUtil 에이전트 생성 — POST /api/v1/agents (AgentCreate).
+    /// </summary>
+    Task<DocUtilDocAgentDetail> CreateDocAgentAsync(
+        DocUtilCreateDocAgentRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// DocUtil 에이전트 부분 수정 — PUT /api/v1/agents/{agent_id} (AgentUpdate).
+    /// 비어 있는 필드는 직렬화에서 제외(JsonOptions.WhenWritingNull).
+    /// </summary>
+    Task<DocUtilDocAgentDetail> UpdateDocAgentAsync(
+        string agentId,
+        DocUtilUpdateDocAgentRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// DocUtil 에이전트 삭제 — DELETE /api/v1/agents/{agent_id} (204).
+    /// </summary>
+    Task DeleteDocAgentAsync(
+        string agentId,
+        CancellationToken cancellationToken = default);
+
+    // ── Documents V2 (7) ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// 문서 V2 자유 생성 — POST /api/v1/v2/documents (GenerateDocumentRequest, 202 Accepted).
+    /// 현재는 mode=free_generation 만 허용 — template_fill 은 DocUtil 측 D8 단계에서 활성화 예정.
+    /// 응답에 생성된 DocumentV2 (id/status/document_schema) 가 동봉.
+    /// </summary>
+    Task<DocUtilDocumentV2Detail> GenerateDocumentV2Async(
+        DocUtilGenerateDocumentV2Request request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 문서 V2 목록 — GET /api/v1/v2/documents?document_type&amp;mode&amp;limit&amp;offset.
+    /// DocUtil 측은 ``limit/offset`` 페이지네이션을 사용한다(``page/size`` 와 별개).
+    /// </summary>
+    /// <param name="documentType">문서 타입 필터(slide_report/proposal/minutes/...). 선택.</param>
+    /// <param name="mode">생성 모드 필터(free_generation / template_fill). 선택.</param>
+    /// <param name="limit">페이지 크기(기본 20, 1~100).</param>
+    /// <param name="offset">조회 시작 오프셋(기본 0, ≥0).</param>
+    Task<DocUtilDocumentV2List> ListDocumentsV2Async(
+        string? documentType = null,
+        string? mode = null,
+        int limit = 20,
+        int offset = 0,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 문서 V2 단건 — GET /api/v1/v2/documents/{document_id}.
+    /// 404 응답은 null 로 정규화한다.
+    /// </summary>
+    Task<DocUtilDocumentV2Detail?> GetDocumentV2Async(
+        string documentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 문서 V2 부분 패치 — PATCH /api/v1/v2/documents/{document_id} (PartialDocumentPatch).
+    /// patch_type: page | component | tokens. expected_version(낙관적 락) 선택.
+    /// 409 Conflict — 다른 사용자가 먼저 수정한 경우.
+    /// </summary>
+    Task<DocUtilDocumentV2Detail> PatchDocumentV2Async(
+        string documentId,
+        DocUtilPatchDocumentV2Request request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 문서 V2 비동기 Export 요청 — POST /api/v1/v2/documents/{document_id}/export (ExportJobRequest, 202 Accepted).
+    /// Celery 작업 등록 후 job_id 를 반환. 실제 빌드는 백그라운드.
+    /// 포맷: pptx/docx/hwpx/pdf/html.
+    /// </summary>
+    Task<DocUtilExportJobAck> RequestDocumentV2ExportAsync(
+        string documentId,
+        DocUtilRequestDocumentV2ExportRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Export 작업 상태 — GET /api/v1/v2/documents/exports/{job_id}.
+    /// status: pending | running | completed | failed. completed 시 download 가능.
+    /// </summary>
+    Task<DocUtilExportJobStatus> GetDocumentV2ExportStatusAsync(
+        string jobId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Export 결과 다운로드(백엔드 프록시) — GET /api/v1/v2/documents/exports/{job_id}/download.
+    /// <para>
+    /// 응답은 stream — MinIO 의 결과 파일. Content-Type / Content-Disposition 헤더 메타 동봉.
+    /// 호출자(Controller) 가 FileStreamResult 로 흘려보내며 HttpResponseOwnedStream 으로 lifetime 결합.
+    /// </para>
+    /// 상태: 200 정상 / 403 권한 / 404 만료 / 409 미완료 / 410 파일 삭제.
+    /// </summary>
+    Task<DocUtilDocumentV2Download> DownloadDocumentV2ExportAsync(
+        string jobId,
+        CancellationToken cancellationToken = default);
 }
 
 // ── DocUtil DTO (FastAPI 응답 1:1 매핑, snake_case 직렬화는 DocUtilClient 에서 처리) ──
@@ -2423,6 +2615,262 @@ public sealed record DocUtilApplyDocumentTemplateMappingRequest(
 /// </para>
 /// </summary>
 public sealed record DocUtilDocumentTemplatePreview(
+    Stream Stream,
+    string ContentType,
+    string FileName);
+
+// ════════════════════════════════════════════════════════════════════════════
+// Phase 10.2e (2026-05-11) — DocUtil API Keys + Agents + Documents V2 DTO
+//
+// 모든 record 는 DocUtil FastAPI 의 Pydantic 스키마와 1:1 매핑(snake_case <-> PascalCase).
+// JsonNamingPolicy.SnakeCaseLower 가 DocUtilClient 에서 일관 적용된다.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── API Keys ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// LLM API Key 등록 요청 — DocUtil ApiKeyCreate 매핑.
+/// </summary>
+/// <param name="LlmName">프로바이더 이름(예: "openai", "anthropic"). 1~64자.</param>
+/// <param name="ApiKey">평문 API Key — DocUtil 측이 AES 암호화 후 DB 저장. 응답에는 마스킹 prefix 만 노출.</param>
+public sealed record DocUtilCreateApiKeyRequest(
+    string LlmName,
+    string ApiKey);
+
+/// <summary>
+/// LLM API Key 한 행(마스킹).
+/// </summary>
+/// <param name="Id">API Key UUID.</param>
+/// <param name="OrganizationId">소속 조직 ID.</param>
+/// <param name="LlmName">프로바이더 이름.</param>
+/// <param name="ApiKeyPrefix">마스킹된 prefix(예: "sk-abc1****").</param>
+/// <param name="IsVerified">VerifyApiKeyAsync 결과 — DocUtil 측이 검증 후 true 로 갱신.</param>
+/// <param name="RegisteredBy">등록한 사용자 ID(선택).</param>
+/// <param name="CreatedAt">등록 시각(DB ins_dt).</param>
+/// <param name="UpdatedAt">최근 수정 시각(DB upd_dt).</param>
+public sealed record DocUtilApiKeyDetail(
+    string Id,
+    string OrganizationId,
+    string LlmName,
+    string ApiKeyPrefix,
+    bool IsVerified,
+    string? RegisteredBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+/// <summary>
+/// LLM API Key 목록 응답(페이징).
+/// </summary>
+public sealed record DocUtilApiKeyList(
+    DocUtilApiKeyDetail[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+/// <summary>
+/// LLM API Key 검증 결과 — DocUtil 측이 프로바이더에 1회 호출 후 ApiKey.IsVerified 갱신.
+/// </summary>
+/// <param name="IsValid">검증 성공 여부.</param>
+/// <param name="Message">한국어 또는 영어 상태 메시지(프로바이더 응답 기반).</param>
+public sealed record DocUtilApiKeyVerifyResult(
+    bool IsValid,
+    string Message);
+
+// ── DocUtil Agents (AgentHub Agent 와 별개) ───────────────────────────────
+
+/// <summary>
+/// DocUtil 에이전트 생성 요청 — DocUtil AgentCreate 매핑.
+/// </summary>
+/// <param name="Name">에이전트 이름(필수, 1~255자).</param>
+/// <param name="Description">설명(선택, ~2000자).</param>
+/// <param name="AgentType">에이전트 유형(chatbot / report / proposal / minutes 등 자유 입력, 1~20자).</param>
+/// <param name="SystemPrompt">시스템 프롬프트(필수, 1자 이상).</param>
+/// <param name="LlmProvider">LLM 프로바이더(openai / azure_openai / gemini / anthropic). null 이면 시스템 기본값.</param>
+/// <param name="LlmModel">모델 식별자(기본 "gpt-4o").</param>
+/// <param name="Temperature">LLM temperature(0.0~2.0, 기본 0.1).</param>
+/// <param name="MaxTokens">최대 응답 토큰(1~128000, 기본 4096).</param>
+public sealed record DocUtilCreateDocAgentRequest(
+    string Name,
+    string AgentType,
+    string SystemPrompt,
+    string? Description = null,
+    string? LlmProvider = null,
+    string LlmModel = "gpt-4o",
+    double Temperature = 0.1,
+    int MaxTokens = 4096);
+
+/// <summary>
+/// DocUtil 에이전트 부분 수정 요청 — DocUtil AgentUpdate 매핑(모두 nullable).
+/// </summary>
+public sealed record DocUtilUpdateDocAgentRequest(
+    string? Name = null,
+    string? Description = null,
+    string? AgentType = null,
+    string? SystemPrompt = null,
+    string? LlmProvider = null,
+    string? LlmModel = null,
+    double? Temperature = null,
+    int? MaxTokens = null,
+    bool? IsActive = null);
+
+/// <summary>
+/// DocUtil 에이전트 한 행.
+/// </summary>
+/// <param name="Id">에이전트 UUID.</param>
+/// <param name="OrganizationId">소속 조직 ID.</param>
+/// <param name="Name">에이전트 이름.</param>
+/// <param name="Description">설명(선택).</param>
+/// <param name="AgentType">에이전트 유형.</param>
+/// <param name="SystemPrompt">시스템 프롬프트.</param>
+/// <param name="LlmProvider">LLM 프로바이더(선택).</param>
+/// <param name="LlmModel">모델 식별자.</param>
+/// <param name="Temperature">LLM temperature.</param>
+/// <param name="MaxTokens">최대 응답 토큰.</param>
+/// <param name="IsActive">활성화 여부.</param>
+/// <param name="CreatedBy">생성한 사용자 ID.</param>
+/// <param name="CreatedAt">생성 시각(DB ins_dt).</param>
+/// <param name="UpdatedAt">최근 수정 시각(DB upd_dt).</param>
+public sealed record DocUtilDocAgentDetail(
+    string Id,
+    string OrganizationId,
+    string Name,
+    string? Description,
+    string AgentType,
+    string SystemPrompt,
+    string? LlmProvider,
+    string LlmModel,
+    double Temperature,
+    int MaxTokens,
+    bool IsActive,
+    string CreatedBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+/// <summary>
+/// DocUtil 에이전트 목록 응답(페이징).
+/// </summary>
+public sealed record DocUtilDocAgentList(
+    DocUtilDocAgentDetail[] Items,
+    long Total,
+    int Page,
+    int Size);
+
+// ── Documents V2 ──────────────────────────────────────────────────────────
+
+/// <summary>
+/// 문서 V2 자유 생성 요청 — DocUtil GenerateDocumentRequest 매핑(Mode A).
+/// </summary>
+/// <param name="Prompt">사용자 자연어 요청(1~8000자).</param>
+/// <param name="DocumentType">문서 타입(slide_report/docx_report/proposal/minutes/one_pager/weekly_status/freeform_doc).</param>
+/// <param name="Mode">생성 모드 — 현재 "free_generation" 만 허용("template_fill" 은 추후).</param>
+/// <param name="SourceDocumentIds">RAG 근거 문서 ID 배열(선택, 최대 10개).</param>
+/// <param name="AgentId">사용할 DocUtil 에이전트 ID(선택).</param>
+/// <param name="DesignTokens">브랜드 토큰 free-form JSON dict(선택). null 이면 idino_default.</param>
+public sealed record DocUtilGenerateDocumentV2Request(
+    string Prompt,
+    string DocumentType,
+    string Mode = "free_generation",
+    string[]? SourceDocumentIds = null,
+    string? AgentId = null,
+    IDictionary<string, object?>? DesignTokens = null);
+
+/// <summary>
+/// 문서 V2 부분 패치 요청 — DocUtil PartialDocumentPatch 매핑.
+/// </summary>
+/// <param name="PatchType">"page" | "component" | "tokens".</param>
+/// <param name="PageId">대상 페이지 id ("p1", "p2", ...). patch_type=page|component 시 필수.</param>
+/// <param name="ComponentId">대상 컴포넌트 id ("c1", "c2", ...). patch_type=component 시 필수.</param>
+/// <param name="Data">patch_type 별 페이로드 — free-form dict.</param>
+/// <param name="ExpectedVersion">낙관적 락(선택). null 이면 락 생략.</param>
+public sealed record DocUtilPatchDocumentV2Request(
+    string PatchType,
+    IDictionary<string, object?> Data,
+    string? PageId = null,
+    string? ComponentId = null,
+    int? ExpectedVersion = null);
+
+/// <summary>
+/// 문서 V2 export 요청 — DocUtil ExportJobRequest 매핑.
+/// </summary>
+/// <param name="Format">"pptx" | "docx" | "hwpx" | "pdf" | "html".</param>
+public sealed record DocUtilRequestDocumentV2ExportRequest(
+    string Format);
+
+/// <summary>
+/// 문서 V2 단건 — DocUtil DocumentV2Response 매핑.
+/// </summary>
+/// <param name="Id">문서 UUID.</param>
+/// <param name="OrganizationId">조직 ID.</param>
+/// <param name="GeneratedByUserId">생성한 사용자 ID(선택).</param>
+/// <param name="AgentId">사용된 DocUtil 에이전트 ID(선택).</param>
+/// <param name="TemplateId">템플릿 ID(template_fill 모드 시).</param>
+/// <param name="DocumentType">문서 타입.</param>
+/// <param name="Mode">생성 모드(free_generation / template_fill).</param>
+/// <param name="Title">문서 제목(LLM 생성).</param>
+/// <param name="Status">상태(generating / completed / failed 등 DocUtil 내부 값).</param>
+/// <param name="ErrorMessage">실패 사유(선택).</param>
+/// <param name="LlmProvider">사용된 LLM 프로바이더(선택).</param>
+/// <param name="LlmModel">사용된 모델(선택).</param>
+/// <param name="PromptTokens">입력 토큰 수(선택).</param>
+/// <param name="CompletionTokens">출력 토큰 수(선택).</param>
+/// <param name="CreatedAt">생성 시각.</param>
+/// <param name="CompletedAt">완료 시각(선택).</param>
+/// <param name="DocumentSchema">DocumentSchema JSON — free-form dict(DocUtil 의 22개 컴포넌트 union).</param>
+public sealed record DocUtilDocumentV2Detail(
+    string Id,
+    string OrganizationId,
+    string? GeneratedByUserId,
+    string? AgentId,
+    string? TemplateId,
+    string DocumentType,
+    string Mode,
+    string Title,
+    string Status,
+    string? ErrorMessage,
+    string? LlmProvider,
+    string? LlmModel,
+    int? PromptTokens,
+    int? CompletionTokens,
+    DateTime CreatedAt,
+    DateTime? CompletedAt,
+    IDictionary<string, object?>? DocumentSchema);
+
+/// <summary>
+/// 문서 V2 목록 응답(limit/offset 페이지네이션).
+/// </summary>
+public sealed record DocUtilDocumentV2List(
+    DocUtilDocumentV2Detail[] Items,
+    long Total,
+    int Limit,
+    int Offset);
+
+/// <summary>
+/// 문서 V2 export 등록 응답 — { job_id }.
+/// </summary>
+public sealed record DocUtilExportJobAck(
+    string JobId);
+
+/// <summary>
+/// 문서 V2 export 작업 상태.
+/// </summary>
+/// <param name="Status">pending | running | completed | failed.</param>
+/// <param name="Progress">0~100 정수 진행률.</param>
+/// <param name="DownloadUrl">completed 시 MinIO presigned URL 또는 null(프록시 다운로드 권장).</param>
+/// <param name="Error">failed 시 한국어 에러 메시지.</param>
+public sealed record DocUtilExportJobStatus(
+    string Status,
+    int Progress,
+    string? DownloadUrl,
+    string? Error);
+
+/// <summary>
+/// 문서 V2 export 결과 다운로드 응답 — 백엔드 프록시 stream + 헤더 메타.
+/// <para>
+/// 호출자(Controller) 가 FileStreamResult 로 그대로 흘려보낸다.
+/// Stream 은 HttpResponseOwnedStream 으로 wrap 되어 호출자가 Dispose 한다.
+/// </para>
+/// </summary>
+public sealed record DocUtilDocumentV2Download(
     Stream Stream,
     string ContentType,
     string FileName);

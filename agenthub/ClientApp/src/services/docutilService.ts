@@ -2003,6 +2003,407 @@ function parseDocumentTemplateFileName(disposition: string | undefined, template
   return fallback
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// Phase 10.2e (2026-05-11) — DocUtil API Keys + Agents + Documents V2
+//
+// 백엔드 record DTO(IDocUtilClient.cs) 와 1:1.
+// snake_case 키 ↔ camelCase 매핑은 Program.cs JsonNamingPolicy.CamelCase 가 처리.
+// ════════════════════════════════════════════════════════════════════════════
+
+const API_KEYS_BASE = '/admin/docutil/api-keys'
+const DOC_AGENTS_BASE = '/admin/docutil/agents'
+const DOCUMENTS_V2_BASE = '/admin/docutil/documents-v2'
+
+// ─── API Keys 인터페이스 ─────────────────────────────────────────────────
+
+/** LLM API Key 한 행(마스킹). */
+export interface DocUtilApiKey {
+  id: string
+  organizationId: string
+  llmName: string
+  apiKeyPrefix: string
+  isVerified: boolean
+  registeredBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** LLM API Key 상세 — 목록과 동일 셋. */
+export type DocUtilApiKeyDetail = DocUtilApiKey
+
+/** LLM API Key 목록 응답. */
+export interface DocUtilApiKeyList {
+  items: DocUtilApiKey[]
+  total: number
+  page: number
+  size: number
+}
+
+/** LLM API Key 등록 요청. */
+export interface CreateApiKeyRequest {
+  llmName: string
+  apiKey: string
+}
+
+/** LLM API Key 검증 결과. */
+export interface DocUtilApiKeyVerifyResult {
+  isValid: boolean
+  message: string
+}
+
+// ─── DocUtil Agents 인터페이스 (AgentHub Agent 와 별개) ─────────────────────
+
+/** DocUtil 자체 에이전트 한 행. */
+export interface DocUtilDocAgent {
+  id: string
+  organizationId: string
+  name: string
+  description: string | null
+  agentType: string
+  systemPrompt: string
+  llmProvider: string | null
+  llmModel: string
+  temperature: number
+  maxTokens: number
+  isActive: boolean
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type DocUtilDocAgentDetail = DocUtilDocAgent
+
+export interface DocUtilDocAgentList {
+  items: DocUtilDocAgent[]
+  total: number
+  page: number
+  size: number
+}
+
+export interface CreateDocAgentRequest {
+  name: string
+  agentType: string
+  systemPrompt: string
+  description?: string | null
+  llmProvider?: string | null
+  llmModel?: string
+  temperature?: number
+  maxTokens?: number
+}
+
+export interface UpdateDocAgentRequest {
+  name?: string | null
+  description?: string | null
+  agentType?: string | null
+  systemPrompt?: string | null
+  llmProvider?: string | null
+  llmModel?: string | null
+  temperature?: number | null
+  maxTokens?: number | null
+  isActive?: boolean | null
+}
+
+// ─── Documents V2 인터페이스 ────────────────────────────────────────────
+
+export type DocumentV2Type =
+  | 'slide_report'
+  | 'docx_report'
+  | 'proposal'
+  | 'minutes'
+  | 'one_pager'
+  | 'weekly_status'
+  | 'freeform_doc'
+
+export type DocumentV2Mode = 'free_generation' | 'template_fill'
+
+export type DocumentV2PatchType = 'page' | 'component' | 'tokens'
+
+export type DocumentV2ExportFormat = 'pptx' | 'docx' | 'hwpx' | 'pdf' | 'html'
+
+export type DocumentV2ExportStatusValue =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+
+export interface DocUtilDocumentV2 {
+  id: string
+  organizationId: string
+  generatedByUserId: string | null
+  agentId: string | null
+  templateId: string | null
+  documentType: string
+  mode: string
+  title: string
+  status: string
+  errorMessage: string | null
+  llmProvider: string | null
+  llmModel: string | null
+  promptTokens: number | null
+  completionTokens: number | null
+  createdAt: string
+  completedAt: string | null
+  documentSchema: Record<string, unknown> | null
+}
+
+export type DocUtilDocumentV2Detail = DocUtilDocumentV2
+
+export interface DocUtilDocumentV2List {
+  items: DocUtilDocumentV2[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface GenerateDocumentV2Request {
+  prompt: string
+  documentType: DocumentV2Type
+  mode?: DocumentV2Mode
+  sourceDocumentIds?: string[] | null
+  agentId?: string | null
+  designTokens?: Record<string, unknown> | null
+}
+
+export interface PatchDocumentV2Request {
+  patchType: DocumentV2PatchType
+  data: Record<string, unknown>
+  pageId?: string | null
+  componentId?: string | null
+  expectedVersion?: number | null
+}
+
+export interface RequestDocumentV2ExportRequest {
+  format: DocumentV2ExportFormat
+}
+
+export interface DocumentV2ExportJobAck {
+  jobId: string
+}
+
+export interface DocumentV2ExportStatus {
+  status: DocumentV2ExportStatusValue
+  progress: number
+  downloadUrl: string | null
+  error: string | null
+}
+
+export interface DocumentV2Download {
+  blob: Blob
+  fileName: string
+  contentType: string
+}
+
+// ─── API Keys 함수 (4) ───────────────────────────────────────────────────
+
+/** LLM API Key 목록 조회(페이징). 응답 prefix 는 마스킹된 prefix. */
+export async function listApiKeys(
+  page: number = 1,
+  size: number = 20
+): Promise<DocUtilApiKeyList> {
+  const { data } = await api.get<DocUtilApiKeyList>(API_KEYS_BASE, {
+    params: { page, size }
+  })
+  return data
+}
+
+/**
+ * LLM API Key 등록 — 평문 키는 요청 시 한 번만 전송된다.
+ * DocUtil 측이 AES 암호화 후 폐기하며, 응답에는 마스킹 prefix 만 포함된다.
+ */
+export async function createApiKey(
+  request: CreateApiKeyRequest
+): Promise<DocUtilApiKeyDetail> {
+  const { data } = await api.post<DocUtilApiKeyDetail>(API_KEYS_BASE, request)
+  return data
+}
+
+/** LLM API Key 회수(삭제). */
+export async function deleteApiKey(keyId: string): Promise<void> {
+  await api.delete(`${API_KEYS_BASE}/${keyId}`)
+}
+
+/**
+ * LLM API Key 검증 — DocUtil 이 프로바이더에 1회 호출 후 is_valid + message 반환.
+ * 외부 LLM 응답 지연으로 수십 초 소요 가능 — 로딩 처리 권장.
+ */
+export async function verifyApiKey(
+  keyId: string
+): Promise<DocUtilApiKeyVerifyResult> {
+  const { data } = await api.post<DocUtilApiKeyVerifyResult>(
+    `${API_KEYS_BASE}/${keyId}/verify`
+  )
+  return data
+}
+
+// ─── DocUtil Agents 함수 (5) ──────────────────────────────────────────────
+
+/** DocUtil 에이전트 목록(페이징 + agent_type 필터). */
+export async function listDocAgents(
+  page: number = 1,
+  size: number = 20,
+  filters: { agentType?: string } = {}
+): Promise<DocUtilDocAgentList> {
+  const params: Record<string, string | number> = { page, size }
+  if (filters.agentType) params.agentType = filters.agentType
+  const { data } = await api.get<DocUtilDocAgentList>(DOC_AGENTS_BASE, { params })
+  return data
+}
+
+/** DocUtil 에이전트 상세. */
+export async function getDocAgent(
+  agentId: string
+): Promise<DocUtilDocAgentDetail> {
+  const { data } = await api.get<DocUtilDocAgentDetail>(
+    `${DOC_AGENTS_BASE}/${agentId}`
+  )
+  return data
+}
+
+/** DocUtil 에이전트 생성. */
+export async function createDocAgent(
+  request: CreateDocAgentRequest
+): Promise<DocUtilDocAgentDetail> {
+  const { data } = await api.post<DocUtilDocAgentDetail>(
+    DOC_AGENTS_BASE,
+    request
+  )
+  return data
+}
+
+/** DocUtil 에이전트 부분 수정(보낸 필드만 갱신). */
+export async function updateDocAgent(
+  agentId: string,
+  request: UpdateDocAgentRequest
+): Promise<DocUtilDocAgentDetail> {
+  const { data } = await api.put<DocUtilDocAgentDetail>(
+    `${DOC_AGENTS_BASE}/${agentId}`,
+    request
+  )
+  return data
+}
+
+/** DocUtil 에이전트 삭제. */
+export async function deleteDocAgent(agentId: string): Promise<void> {
+  await api.delete(`${DOC_AGENTS_BASE}/${agentId}`)
+}
+
+// ─── Documents V2 함수 (7) ──────────────────────────────────────────────
+
+/** 문서 V2 목록(limit/offset + 필터). */
+export async function listDocumentsV2(
+  limit: number = 20,
+  offset: number = 0,
+  filters: { documentType?: string; mode?: string } = {}
+): Promise<DocUtilDocumentV2List> {
+  const params: Record<string, string | number> = { limit, offset }
+  if (filters.documentType) params.documentType = filters.documentType
+  if (filters.mode) params.mode = filters.mode
+  const { data } = await api.get<DocUtilDocumentV2List>(DOCUMENTS_V2_BASE, {
+    params
+  })
+  return data
+}
+
+/** 문서 V2 단건. */
+export async function getDocumentV2(
+  documentId: string
+): Promise<DocUtilDocumentV2Detail> {
+  const { data } = await api.get<DocUtilDocumentV2Detail>(
+    `${DOCUMENTS_V2_BASE}/${documentId}`
+  )
+  return data
+}
+
+/**
+ * 문서 V2 자유 생성(Mode A) — 202 Accepted.
+ * 생성 직후 status 는 generating 일 수 있어 단건 조회 폴링이 필요할 수 있다.
+ */
+export async function generateDocumentV2(
+  request: GenerateDocumentV2Request
+): Promise<DocUtilDocumentV2Detail> {
+  const { data } = await api.post<DocUtilDocumentV2Detail>(
+    DOCUMENTS_V2_BASE,
+    request
+  )
+  return data
+}
+
+/** 문서 V2 부분 패치(page / component / tokens). expectedVersion 으로 낙관적 락. */
+export async function patchDocumentV2(
+  documentId: string,
+  request: PatchDocumentV2Request
+): Promise<DocUtilDocumentV2Detail> {
+  const { data } = await api.patch<DocUtilDocumentV2Detail>(
+    `${DOCUMENTS_V2_BASE}/${documentId}`,
+    request
+  )
+  return data
+}
+
+/** 문서 V2 비동기 export 요청 — 202 + job_id. */
+export async function requestDocumentV2Export(
+  documentId: string,
+  request: RequestDocumentV2ExportRequest
+): Promise<DocumentV2ExportJobAck> {
+  const { data } = await api.post<DocumentV2ExportJobAck>(
+    `${DOCUMENTS_V2_BASE}/${documentId}/export`,
+    request
+  )
+  return data
+}
+
+/** Export 작업 상태 폴링. */
+export async function getDocumentV2ExportStatus(
+  jobId: string
+): Promise<DocumentV2ExportStatus> {
+  const { data } = await api.get<DocumentV2ExportStatus>(
+    `${DOCUMENTS_V2_BASE}/exports/${jobId}`
+  )
+  return data
+}
+
+/** Export 결과 다운로드(백엔드 프록시). Blob + 파일명/Content-Type 반환. */
+export async function downloadDocumentV2Export(
+  jobId: string
+): Promise<DocumentV2Download> {
+  const response = await api.get(
+    `${DOCUMENTS_V2_BASE}/exports/${jobId}/download`,
+    { responseType: 'blob' }
+  )
+  const disposition = (response.headers['content-disposition'] as string | undefined) ?? ''
+  const fileName = parseDocumentV2FileName(disposition, jobId)
+  const contentType =
+    (response.headers['content-type'] as string | undefined) ?? 'application/octet-stream'
+  return {
+    blob: response.data as Blob,
+    fileName,
+    contentType
+  }
+}
+
+/**
+ * Documents V2 export 응답의 Content-Disposition 헤더에서 파일명 추출 (RFC 5987 우선).
+ * previewDocumentTemplate 의 parseDocumentTemplateFileName 과 동일 로직 — 도메인 격리 위해 별도 함수.
+ */
+function parseDocumentV2FileName(disposition: string | undefined, jobId: string): string {
+  const fallback = `document-${jobId}`
+  if (!disposition) return fallback
+
+  const star = /filename\*=(?:UTF-8|utf-8)''([^;]+)/i.exec(disposition)
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''))
+    } catch {
+      // fallthrough
+    }
+  }
+
+  const ascii = /filename="?([^";]+)"?/i.exec(disposition)
+  if (ascii) return ascii[1].trim()
+
+  return fallback
+}
+
 export default {
   listDocuments,
   uploadDocument,
@@ -2095,5 +2496,22 @@ export default {
   updateDocumentTemplateVariables,
   getDocumentTemplateStructure,
   applyDocumentTemplateMapping,
-  previewDocumentTemplate
+  previewDocumentTemplate,
+  // Phase 10.2e — API Keys + Doc Agents + Documents V2
+  listApiKeys,
+  createApiKey,
+  deleteApiKey,
+  verifyApiKey,
+  listDocAgents,
+  getDocAgent,
+  createDocAgent,
+  updateDocAgent,
+  deleteDocAgent,
+  listDocumentsV2,
+  getDocumentV2,
+  generateDocumentV2,
+  patchDocumentV2,
+  requestDocumentV2Export,
+  getDocumentV2ExportStatus,
+  downloadDocumentV2Export
 }

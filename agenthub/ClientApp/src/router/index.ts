@@ -238,6 +238,27 @@ const routes = [
         component: () => import('@/views/admin/AdminDocUtilTemplates.vue'),
         meta: { requiresAuth: true, role: 'Admin' }
       },
+      // Phase 10.2e (2026-05-11): DocUtil LLM API Key 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-api-keys',
+        name: 'AdminDocUtilApiKeys',
+        component: () => import('@/views/admin/AdminDocUtilApiKeys.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
+      // Phase 10.2e (2026-05-11): DocUtil 에이전트(챗봇용 페르소나) 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-doc-agents',
+        name: 'AdminDocUtilDocAgents',
+        component: () => import('@/views/admin/AdminDocUtilDocAgents.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
+      // Phase 10.2e (2026-05-11): DocUtil 문서 V2(디자이너 워크플로) 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-documents-v2',
+        name: 'AdminDocUtilDocumentsV2',
+        component: () => import('@/views/admin/AdminDocUtilDocumentsV2.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
       {
         path: 'reports',
         name: 'Reports',
