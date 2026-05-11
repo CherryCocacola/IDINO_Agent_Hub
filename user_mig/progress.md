@@ -170,6 +170,112 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-11 (infra/db — 시드 reproducibility 보강: Phase 2.x + Phase 5.1 + Phase 7.1 codify, ApiKey 제외)
+- **목적**: Phase 4.5 known issue 잔여 "운영 DB 시드 codify 부재" 해소. CI/신규 환경 부팅 시 시드 자동 적용 가능하도록 운영 DB 의 실제 시드 16 ApiServices + 15 Agents 를 idempotent SQL 로 codify.
+- **추가 파일**: `infra/db/seeds/phase5_phase7_seeds.sql` (292 줄, 33,907 bytes)
+  - §1 ApiServices 16개 (chatgpt/claude/cursor/copilot/gemini/mistral/dalle/gemini-image/imagen4/gen4-image/flux2/gen4-video/veo/openai-video/perplexity/nexus) — `ServiceCode` 기준 `WHERE NOT EXISTS` 멱등 가드
+  - §2 Agents 15개 (Phase 7.1: docutil-rag-chat / docutil-report-generator / docutil-evaluator / docutil-image-generator / career-actionboard-orchestrator / career-rag-actionboard / career-competency-analyzer / career-action-recommender / career-chatbot / career-semester-planner / career-simulation-suggester / career-simulation-analyzer / embedding-default / web-search-default / agentic-search) — `AgentCode` 기준 `WHERE NOT EXISTS` 멱등 가드
+  - **ServiceId FK lookup 패턴**: `(SELECT "ServiceId" FROM ... WHERE "ServiceCode" = 'chatgpt')` 서브쿼리로 신규 DB serial 시퀀스 불일치(17/23/32 ≠ 1/7/16) 흡수
+  - §3 검증 쿼리 (api_services_seed=16, agents_seed_15=15, nexus_present=1 기대)
+- **수정 파일**: `infra/db/init.sql` — §9 "다음 단계" 에 Phase 3.5+ 시드 적용 명령 추가 (9 lines)
+- **codify 패턴 결정**: 옵션 A (별도 `infra/db/seeds/*.sql` 파일) 선택. 사유:
+  1. 기존 `init.sql` §9 가 "테이블/시드 데이터는 Phase 3 EF 가 담당" 명시 — schema/extension/role 책임 분리 보존
+  2. AgentHub 시드는 본래 `DatabaseInitializer.cs`(C# 런타임) 가 담당 → EF migration `HasData` 패턴이 아님. EF migration 에 raw SQL 추가하면 기존 패턴 위배
+  3. UNIQUE 제약이 PK(`ServiceId`/`AgentId`)만 존재해 `ON CONFLICT (ServiceCode)` 사용 불가 → `WHERE NOT EXISTS` 패턴은 SQL 파일이 EF migration 보다 더 자연스러움
+- **UNIQUE 제약 조사 결과**:
+  - `Agents.AgentCode`: UNIQUE 없음 (PK 만)
+  - `ApiServices.ServiceCode`: UNIQUE 없음 (PK 만)
+  - `ApiKeys.KeyName`: UNIQUE 없음 (PK 만)
+  - → 모든 멱등 가드는 `INSERT ... SELECT ... WHERE NOT EXISTS` 패턴 채택. 향후 UNIQUE 인덱스 추가 시 `ON CONFLICT DO NOTHING` 으로 단순화 가능 (별도 트랙)
+- **ApiKey codify 제외 결정 (운영 DB master 원칙 준수)**:
+  - 운영 PG `AIAgentManagement.ApiKeys` 실제 상태: ApiKeyId=2 KeyName='test' (UserId=1, AgentId=12, Scopes=NULL, IsActive=true, ExpiresAt=2026-03-31) **1행만 존재**
+  - progress.md 1366 기록 "Phase 7.2 ApiKey 2건 PASS (id=1 docutil-master-key, id=2 career-master-key)" 와 운영 현실 갭 확인 — 시연용 임시 발급 후 운영 환경에 미반영/삭제 추정
+  - 평문 `KeyHash` codify 시 보안 위험 + Phase 7.2 master key 가 운영 부재이므로 codify 대상 자체 없음
+  - 신규 환경에서 master key 필요 시 `user_mig/tools/phase72_seed.py --print-keys` 로 재발급 (기존 idempotent 스크립트 활용)
+- **빈 schema 시뮬레이션 검증** (운영 DB 내 `tmp_verify_seed` 격리 schema 사용 + ROLLBACK 으로 운영 무변경):
+  - SETUP: `CREATE SCHEMA tmp_verify_seed; CREATE TABLE ... LIKE "AIAgentManagement"."ApiServices"/"Agents" INCLUDING ALL`
+  - 1차 적용: ApiServices 16/16 INSERT + Agents 15/15 INSERT (FK 정합)
+  - **2차 idempotent**: ApiServices 16-16=0 행 + Agents 15-15=0 행 (재실행 시 0 INSERT) — **IDEMPOTENT PASS**
+  - 정합성: 운영 DB vs tmp_verify_seed schema 비즈니스 컬럼(ServiceId 시퀀스 제외) 1:1 비교
+    - ApiServices: **16/16 PASS** (ServiceName/Description/ApiEndpoint/DefaultModel/CostPerRequest/IsActive/SortOrder/ServiceType/IconClass/ColorCode 모두 일치)
+    - Agents: **15/15 PASS** (AgentName/Description/SystemPrompt/Temperature/MaxTokens/DefaultModel/EnableRag/PiiProtectionMode/ConsumerSystems/KnowledgeBaseSource/LlmRouting/RoutingPolicyJson/IconClass/ColorCode/IsPublic/CreatedBy/IsActive/SortOrder/PlaceholderText/ChatTheme/AllowGuestChat/AllowedEmbedDomains 모두 일치)
+    - ServiceId FK 매핑: **15/15 PASS** (career-chatbot→nexus / docutil-image-generator→dalle / 나머지 13→chatgpt)
+- **운영 DB 영향**: **0 행 변경** (BEGIN ... 모든 작업 ... ROLLBACK 로 운영 schema 무변경 보장 — 운영 16 svc + 15 agent + 1 ApiKey 보존)
+- **검증 절차 (재현 가능)**:
+  ```
+  # 빈 DB 시뮬레이션:
+  psql -h <host> -p <port> -U postgres -d <empty_db> -f infra/db/init.sql -v idino_pw="'<pw>'"
+  cd agenthub && dotnet ef database update                                        # 테이블 생성
+  psql -h <host> -p <port> -U AGENT_HUB -d AGENT_HUB -f infra/db/seeds/phase5_phase7_seeds.sql
+  # 기대: api_services_seed=16, agents_seed_15=15, nexus_present=1
+  # 재실행: 동일 명령 → 0 INSERT (idempotent)
+  ```
+- **알려진 제약 / 향후 작업**:
+  - 본 시드 파일은 AgentHub `DatabaseInitializer.SeedAsync` 와 데이터 중복 가능성 — Phase 3.5+ 에서 둘 중 하나로 일원화 검토 (현재는 DatabaseInitializer 가 멱등 가드 + Seed SQL 도 멱등 가드 → 충돌 없음, 단 유지보수 부담)
+  - ApiKey 재발급 시 `phase72_seed.py` 의 JWT_SECRET_KEY 가 `appsettings.Development.json` JwtSettings:SecretKey 와 동기화되어 있어야 함 (현재 hardcoded — Phase 3.5+ 환경변수 분리 검토)
+  - UNIQUE 인덱스 부재 — 향후 `Agents.AgentCode` / `ApiServices.ServiceCode` / `ApiKeys.KeyName` UNIQUE 제약 추가 시 `ON CONFLICT DO NOTHING` 로 단순화 가능 (별도 트랙)
+
+### 2026-05-11 (Phase 6.5 e2e — DocUtil RAG round-trip 라이브 검증 PASS)
+- **검증 결과**: AgentHub → DocUtil `/api/v1/search` round-trip 운영 라이브 검증 완료. ADR-2 단일 위임 흐름 정상 동작 확인.
+- **검증 절차 (운영서버 192.168.10.39)**:
+  1. 사전 수집: `docutil-postgres` 컨테이너(운영 PG, 5440 호스트 매핑) 의 `AIAgentManagement.Agents` 32 행 조회
+     - `KnowledgeBaseSource='DocUtil'` Agent 4 건 식별: AgentId=22 `docutil-rag-chat`, 23 `docutil-report-generator`, 27 `career-rag-actionboard`, 36 `agentic-search` (모두 `EnableRag=true`, Hybrid 라우팅)
+     - 운영 Agent 시드가 이미 DocUtil 위임 상태이므로 **SQL UPDATE 불요** — 원복 SQL 도 불요
+  2. JWT 발급 → `POST /api/chat/send` 호출 (`AgentId=22`, `serviceId=17`, `model=gpt-4o-mini`, `messages=[{user, 한국어 query}]`, `enableRag=true`, `ragTopK=3`, `language=ko`)
+  3. AgentHub 로그 분석으로 RAG 흐름 검증
+  4. DocUtil 로그 분석으로 수신 검증
+  5. ChatMessages / ChatConversations DB row 영속화 검증
+- **AgentHub 로그 (RAG 흐름)**:
+  ```
+  Chat request prepared. EnableRag: True, DocumentIds: null, AgentId: 22
+  RAG check in SendChatMessageAsync: EnableRag=True, RagService=available
+  RAG search starting. EnableRag: True, Query: Phase 6.5 e2e 검증입니다..., UserId: 1, AgentId: 22
+  QueryRewriter PASS — 원본 한국어 → +1건 영문 augment (Please provide the titles or key topics ...)
+  RAG 위임 - AgentId=22, KnowledgeBaseSource=DocUtil, CollectionRef=(global), TopK=3, QueryCount=2
+  Start processing HTTP request POST http://docutil-api:8000/api/v1/search  (x2 - multi-query)
+  RAG 결과 - DistinctChunks=5, TopK 반환=3
+  RAG search completed and added to request.Messages. Found 3 relevant chunks.
+  ```
+- **DocUtil 로그 (수신 측)**:
+  ```
+  Reranking unavailable, returning fused order  (x2)
+  INFO: 172.28.0.16:51686 - "POST /api/v1/search HTTP/1.1" 200 OK  (x2 per request, 4 total)
+  ```
+- **LLM 응답 (Message 894, gpt-4o-mini-2024-07-18)**:
+  ```
+  죄송하지만, "Phase 6.5 e2e 검증"에 대한 구체적인 정보는 제공된 문서에서 찾을 수 없습니다.
+  따라서 해당 내용에 대해 답변할 수 없습니다. 다른 질문이 있으시면 도와드리겠습니다.
+  ```
+  → `tokensUsed=970`(RAG 청크 prepend 영향으로 prompt 비대), `cost=$0.0291`, `responseTime=4282ms`
+  → LLM 이 "**제공된 문서**" 라는 phrase 로 RAG context 의 존재를 명시적으로 인지 → 시스템 프롬프트에 청크가 prepend 됐음을 입증
+  → SystemPrompt 정책 "출처가 없는 추측이나 일반 지식으로 답변하지 마세요... 문서에서 답을 찾을 수 없으면 솔직히 모른다고 답합니다" 준수 (hallucination 0)
+- **영속화 검증 (DB)**:
+  - `ChatConversations.ConversationId=262` (Title=`phase10_1c regression`, AgentId=22, ServiceId=17, Model=`gpt-4o`, EnableRag=true)
+  - `ChatMessages` 영속화: 893(user query), 894(assistant 응답) row 추가 — 2026-05-11 03:57:41 UTC
+  - 동일 conversation 의 어제 message(891/892, 2026-05-10) 도 RAG path 정상 동작 확인 (Phase 10.1c regression)
+- **검증 평가**:
+  - RAG round-trip 동작: **PASS** (AgentHub → DocUtil → 5 chunks → 3 prepend → LLM → 응답)
+  - 응답 품질: **PASS** (RAG context 인지, hedging without hallucination, SystemPrompt 정책 준수)
+  - Latency: 4282 ms (DocUtil 2-query rewrite + RRF + gpt-4o-mini 호출 포함)
+  - Multi-query RRF: 한국어 원본 + 영문 augment(LLM rewrite) 양 query 가 DocUtil 호출되어 RRF 결합
+  - Phase 6.1~6.4(DocUtilClient/BFF) + Phase 7.x(R2 단일 진입점) + ADR-2(KB 단일 권위) 모두 **운영 환경 통합 동작 확인**
+- **부차 발견(별도 트랙)**:
+  - 운영 DocUtil PG 의 `tb_documents`/`tb_documents_v2`/`tb_document_chunks`/`tb_folders`/`tb_search_scopes`/`tb_projects` 모두 0 행. 그럼에도 `/api/v1/search` 가 5 chunks 반환 → Qdrant `doc_embeddings` 컬렉션에 별도 데이터가 있음을 시사. 마이그레이션 시 Qdrant 코퍼스 inventory 별도 점검 권장 (task 추가 권고)
+  - 운영 DocUtil 의 `QDRANT_API_KEY=` 빈 값 — Qdrant access 가 LAN-only 의존 (보안 약점, 별도 트랙)
+  - `OPENAI_API_KEY` 가 `docutil-api` env 에 평문 노출 (`docker inspect` 로 가시) — Phase 6 ADR-2 에서 DocUtil 의 LLM 직접 호출 deprecate 일관성 점검 필요 (별도 트랙)
+  - `/api/chat/send` Endpoint validation: `ServiceId` 가 DTO 에서 nullable 이나 컨트롤러 라인 349 에서 필수 처리 → Vue UI 도 동일 흐름이므로 Validation 명세 일관 (변경 불요)
+  - 외부 OpenAI 일시 `InternalServerError` 1회 관측 → 1회 retry 로 PASS. AgentHub 의 fallback model 로직(`FallbackModel` 파라미터)이 본 호출에서는 사용 안 됨 (gpt-4o-mini 자체로 성공). Phase 10.x fallback 정책 별도 검증 권고
+- **TECHSPEC 영향**:
+  - Phase 6 (DocUtil 운영자 흡수 + KB 위임) **운영 검증 완료** → §12 Phase 표에서 Phase 6.5 = ✓ 표기 가능
+  - ADR-2 (KB 단일 권위 = DocUtil) 운영 동작으로 final acceptance
+- **사용된 검증 스크립트** (`tmp/phase65_step1~10*.py`, 10개 단계):
+  - step1: 운영 컨테이너 식별 → docutil-postgres 확정
+  - step2-3: PG schema 조사 → Agents/document_utilization 테이블 카탈로그
+  - step4-5: Agents 시드 + DocUtil 0건 + Qdrant doc_embeddings 컬렉션 이름 확정
+  - step6-7: JWT 로그인 + chat send → ServiceId 누락/correctness 조정
+  - step8: 안정적 응답 확보 (retry 1회로 PASS) + RAG context flow 로그 추출
+  - step10: ChatMessage / ChatConversation 영속화 검증
+
 ### 2026-05-11 (Phase 10.x — 정합성 분석 Critical/High/Medium 결함 보강 — 6건)
 
 **배경**: code-analysis-specialist 가 Phase 10.x 완료 직후 `agenthub/` + DocUtil BFF 트랙 전반에 대한 정합성 분석을 수행하고 Critical 1·High 4·Medium 1 의 6개 결함을 식별. 시연 압박과 무관하게 "제대로/확실히/완벽히" 보강 — 부분 구현·@ts-nocheck·TODO 일체 금지. 모든 보강은 회복탄력성·UX 일관성·보안(정보 누출 방지) 차원이며 신규 기능 추가가 아닌 기존 패턴의 누락 보강.
