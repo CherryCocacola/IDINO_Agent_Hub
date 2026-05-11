@@ -17,70 +17,89 @@ Write-Host "  AIAgentManagement IIS 환경변수 설정" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 
+# =============================================================
+# ⚠ 보안 경고 — 운영 시크릿은 절대 이 스크립트에 평문으로 두지 않는다.
+# =============================================================
+# 본 스크립트는 IIS Machine 환경변수에 등록할 "키 이름" 만 정의한다.
+# 실제 값은 다음 중 하나의 방식으로 운영자가 직접 주입한다:
+#   1) Windows Credential Manager (cmdkey / Get-Credential)
+#   2) 별도 .secrets.ps1 (gitignore 대상)을 dot-source: `. .\.secrets.ps1`
+#   3) 운영자가 PowerShell 세션에서 `$env:OPENAI_KEY = '...'` 로 주입 후 본 스크립트 실행
+# placeholder 그대로 실행하면 앱이 부팅은 되지만 외부 LLM 호출이 실패한다 — 의도된 동작.
+# 회전 시: 외부 콘솔에서 키 재발급 → 위 방식 중 하나로 값 주입 → 본 스크립트 재실행 → iisreset.
+
 # --------------------------------------------------
-# 1. DB 연결 문자열
+# 1. DB 연결 문자열 — 비밀번호는 외부 주입
 # --------------------------------------------------
+$dbPassword = if ($env:AGENTHUB_DB_PASSWORD) { $env:AGENTHUB_DB_PASSWORD } else { "<DB_PASSWORD>" }
 [System.Environment]::SetEnvironmentVariable(
     "ConnectionStrings__DefaultConnection",
-    "Server=192.168.10.159;Database=AIAgentManagement;User ID=aiuser;Password=rnehrwhgdk20@^;TrustServerCertificate=true;MultipleActiveResultSets=true",
+    "Server=192.168.10.159;Database=AIAgentManagement;User ID=aiuser;Password=$dbPassword;TrustServerCertificate=true;MultipleActiveResultSets=true",
     "Machine"
 )
 Write-Host "✅ ConnectionStrings__DefaultConnection" -ForegroundColor Green
 
 # --------------------------------------------------
-# 2. JWT 시크릿 키
+# 2. JWT 시크릿 키 — 운영 환경에서는 32바이트 이상 랜덤값을 외부 주입
 # --------------------------------------------------
+$jwtSecret = if ($env:AGENTHUB_JWT_SECRET) { $env:AGENTHUB_JWT_SECRET } else { "<JWT_SECRET_KEY_AT_LEAST_32_CHARS>" }
 [System.Environment]::SetEnvironmentVariable(
     "JwtSettings__SecretKey",
-    "YourSuperSecretKeyForJWTTokenGenerationThatShouldBeAtLeast32CharactersLong!",
+    $jwtSecret,
     "Machine"
 )
 Write-Host "✅ JwtSettings__SecretKey" -ForegroundColor Green
 
 # --------------------------------------------------
-# 3. AI API 키
+# 3. AI API 키 — 외부 LLM 콘솔에서 발급, 환경변수로 주입
 # --------------------------------------------------
+$openaiKey = if ($env:OPENAI_API_KEY) { $env:OPENAI_API_KEY } else { "<OPENAI_API_KEY>" }
 [System.Environment]::SetEnvironmentVariable(
     "AiApiSettings__OpenAI__ApiKey",
-    "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",
+    $openaiKey,
     "Machine"
 )
 Write-Host "✅ AiApiSettings__OpenAI__ApiKey" -ForegroundColor Green
 
+$geminiKey = if ($env:GEMINI_API_KEY) { $env:GEMINI_API_KEY } else { "<GEMINI_API_KEY>" }
 [System.Environment]::SetEnvironmentVariable(
     "AiApiSettings__Gemini__ApiKey",
-    "AIzaSyC_P29YSPl5mLvlPeSHTWhTk36y-6Qf4wo",
+    $geminiKey,
     "Machine"
 )
 Write-Host "✅ AiApiSettings__Gemini__ApiKey" -ForegroundColor Green
 
+$perplexityKey = if ($env:PERPLEXITY_API_KEY) { $env:PERPLEXITY_API_KEY } else { "<PERPLEXITY_API_KEY>" }
 [System.Environment]::SetEnvironmentVariable(
     "AiApiSettings__Perplexity__ApiKey",
-    "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",
+    $perplexityKey,
     "Machine"
 )
 Write-Host "✅ AiApiSettings__Perplexity__ApiKey" -ForegroundColor Green
 
+$tavilyKey = if ($env:TAVILY_API_KEY) { $env:TAVILY_API_KEY } else { "<TAVILY_API_KEY>" }
 [System.Environment]::SetEnvironmentVariable(
     "AiApiSettings__Tavily__ApiKey",
-    "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",
+    $tavilyKey,
     "Machine"
 )
 Write-Host "✅ AiApiSettings__Tavily__ApiKey" -ForegroundColor Green
 
 # --------------------------------------------------
-# 4. 이메일 설정
+# 4. 이메일 설정 — SMTP 앱 비밀번호는 외부 주입
 # --------------------------------------------------
+$smtpUser = if ($env:SMTP_USERNAME) { $env:SMTP_USERNAME } else { "<SMTP_USERNAME>" }
 [System.Environment]::SetEnvironmentVariable(
     "EmailSettings__SmtpUsername",
-    "jyj7970@gmail.com",
+    $smtpUser,
     "Machine"
 )
 Write-Host "✅ EmailSettings__SmtpUsername" -ForegroundColor Green
 
+$smtpPassword = if ($env:SMTP_PASSWORD) { $env:SMTP_PASSWORD } else { "<SMTP_APP_PASSWORD>" }
 [System.Environment]::SetEnvironmentVariable(
     "EmailSettings__SmtpPassword",
-    "asjlnarogfiprmna",
+    $smtpPassword,
     "Machine"
 )
 Write-Host "✅ EmailSettings__SmtpPassword" -ForegroundColor Green

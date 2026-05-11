@@ -95,58 +95,79 @@
 ```powershell
 # ⚠️ 관리자 권한 PowerShell에서 실행 필요
 # 실행 후 iisreset 으로 IIS 재시작 필요
+#
+# 🔐 보안: 아래 placeholder 값들은 절대 git 에 평문으로 커밋하지 않는다.
+# 운영자는 본 스크립트 실행 전에 PowerShell 세션에서 다음 환경변수를 먼저 주입한다:
+#   $env:AGENTHUB_DB_PASSWORD = '...'
+#   $env:AGENTHUB_JWT_SECRET  = '...'
+#   $env:OPENAI_API_KEY       = '...'
+#   $env:GEMINI_API_KEY       = '...'
+#   $env:PERPLEXITY_API_KEY   = '...'
+#   $env:TAVILY_API_KEY       = '...'
+#   $env:SMTP_USERNAME        = '...'
+#   $env:SMTP_PASSWORD        = '...'
+# 또는 .gitignore 처리된 .secrets.ps1 을 dot-source: `. .\.secrets.ps1`
+# placeholder 그대로 실행하면 앱은 부팅되지만 외부 LLM/SMTP 호출이 실패한다 (의도된 동작).
 
 # DB 연결
+$dbPassword = if ($env:AGENTHUB_DB_PASSWORD) { $env:AGENTHUB_DB_PASSWORD } else { "<DB_PASSWORD>" }
 [System.Environment]::SetEnvironmentVariable(
     "ConnectionStrings__DefaultConnection",
-    "Server=192.168.10.159;Database=AIAgentManagement;User ID=aiuser;Password=rnehrwhgdk20@^;TrustServerCertificate=true;MultipleActiveResultSets=true",
+    "Server=192.168.10.159;Database=AIAgentManagement;User ID=aiuser;Password=$dbPassword;TrustServerCertificate=true;MultipleActiveResultSets=true",
     "Machine"
 )
 
 # JWT
+$jwtSecret = if ($env:AGENTHUB_JWT_SECRET) { $env:AGENTHUB_JWT_SECRET } else { "<JWT_SECRET_KEY_AT_LEAST_32_CHARS>" }
 [System.Environment]::SetEnvironmentVariable(
     "JwtSettings__SecretKey",
-    "YourSuperSecretKeyForJWTTokenGenerationThatShouldBeAtLeast32CharactersLong!",
+    $jwtSecret,
     "Machine"
 )
 
 # OpenAI
+$openaiKey = if ($env:OPENAI_API_KEY) { $env:OPENAI_API_KEY } else { "<OPENAI_API_KEY>" }
 [System.Environment]::SetEnvironmentVariable(
     "AiApiSettings__OpenAI__ApiKey",
-    "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",
+    $openaiKey,
     "Machine"
 )
 
 # Gemini
+$geminiKey = if ($env:GEMINI_API_KEY) { $env:GEMINI_API_KEY } else { "<GEMINI_API_KEY>" }
 [System.Environment]::SetEnvironmentVariable(
     "AiApiSettings__Gemini__ApiKey",
-    "AIzaSyC_P29YSPl5mLvlPeSHTWhTk36y-6Qf4wo",
+    $geminiKey,
     "Machine"
 )
 
 # Perplexity
+$perplexityKey = if ($env:PERPLEXITY_API_KEY) { $env:PERPLEXITY_API_KEY } else { "<PERPLEXITY_API_KEY>" }
 [System.Environment]::SetEnvironmentVariable(
     "AiApiSettings__Perplexity__ApiKey",
-    "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",
+    $perplexityKey,
     "Machine"
 )
 
 # Tavily
+$tavilyKey = if ($env:TAVILY_API_KEY) { $env:TAVILY_API_KEY } else { "<TAVILY_API_KEY>" }
 [System.Environment]::SetEnvironmentVariable(
     "AiApiSettings__Tavily__ApiKey",
-    "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",
+    $tavilyKey,
     "Machine"
 )
 
 # Email
+$smtpUser = if ($env:SMTP_USERNAME) { $env:SMTP_USERNAME } else { "<SMTP_USERNAME>" }
 [System.Environment]::SetEnvironmentVariable(
     "EmailSettings__SmtpUsername",
-    "jyj7970@gmail.com",
+    $smtpUser,
     "Machine"
 )
+$smtpPassword = if ($env:SMTP_PASSWORD) { $env:SMTP_PASSWORD } else { "<SMTP_APP_PASSWORD>" }
 [System.Environment]::SetEnvironmentVariable(
     "EmailSettings__SmtpPassword",
-    "asjlnarogfiprmna",
+    $smtpPassword,
     "Machine"
 )
 
