@@ -45,10 +45,19 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from app.integrations.llm.claude_client import ClaudeClient
-from app.integrations.llm.client import OpenAICompatibleClient
-from app.integrations.llm.factory import create_llm_client
-from app.integrations.llm.schema_adapter import (
+# Phase 7 — R2 완전 보강 (2026-05-11): claude_client 모듈이 dead code 로 판정되어
+# 삭제됨. 본 live-API 테스트는 Phase 4 S1 D7 시점의 obsolete 검증 (factory 가
+# ``AgentHubLLMWrapper`` 만 반환하는 Phase 7.3 정책에서는 의미 상실).
+# 모듈 로딩 자체가 실패하지 않도록 ``pytest.importorskip`` 으로 collection skip.
+pytest.importorskip(
+    "app.integrations.llm.claude_client",
+    reason="Phase 7 (2026-05-11) claude_client.py removed — live-API tests obsolete",
+)
+
+from app.integrations.llm.claude_client import ClaudeClient  # noqa: E402
+from app.integrations.llm.client import OpenAICompatibleClient  # noqa: E402
+from app.integrations.llm.factory import create_llm_client  # noqa: E402
+from app.integrations.llm.schema_adapter import (  # noqa: E402
     pydantic_to_gemini_schema,
     pydantic_to_openai_schema,
     validate_structured_output,

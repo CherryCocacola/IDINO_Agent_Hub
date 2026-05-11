@@ -62,11 +62,16 @@ class LLMClient(ABC):
         self,
         api_key: str | None = None,
         model: str = "gpt-4o",
-        base_url: str = "https://api.openai.com/v1",
+        base_url: str | None = None,
     ) -> None:
+        # Phase 7 — R2 완전 보강 (2026-05-11): base_url default 를 ``https://api.openai.com/v1``
+        # 에서 ``None`` 으로 변경. ``AgentHubLLMWrapper`` 가 ``"agenthub://"`` 로 override 하고,
+        # 서브클래스(OpenAIClient/VLLMClient/SGLangClient/AzureOpenAIClient)는 명시 지정한다.
+        # base_url 미지정 상태로 ``OpenAICompatibleClient`` 가 instantiate 되면 ``RuntimeError``
+        # 를 던져 OpenAI 직접 호출(anti-patterns.md §1 위반)을 사전 차단.
         self.api_key = api_key
         self.model = model
-        self.base_url = base_url.rstrip("/")
+        self.base_url = base_url.rstrip("/") if base_url else ""
 
     # -- 비동기 메서드 (FastAPI 등에서 사용) --
 
@@ -631,6 +636,14 @@ class OpenAICompatibleClient(LLMClient):
 class OpenAIClient(OpenAICompatibleClient):
     """OpenAI API (GPT-4o 등) 클라이언트.
 
+    .. deprecated:: Phase 7.3 (2026-05-06)
+        Phase 7.3 부터 ``factory.create_llm_client`` 는 본 클래스를 직접 instantiate 하지
+        않고 ``AgentHubLLMWrapper`` 를 반환한다 — R2 단일 진입점 원칙. 본 클래스는
+        ``ModelRouter`` 의 의존성으로만 잔존하며 (``ModelRouter`` 자체도 app 내 사용처 0건),
+        ``__init__`` 호출 시 ``RuntimeError`` 를 던져 OpenAI 직접 호출(anti-patterns.md §1)
+        을 사전 차단한다. 신규 호출은 ``AgentHubLLMWrapper`` 또는 ``create_llm_client``
+        을 사용한다.
+
     기본 설정은 config.py의 openai_api_key, llm_model을 사용한다.
     """
 
@@ -638,12 +651,13 @@ class OpenAIClient(OpenAICompatibleClient):
         self,
         api_key: str | None = None,
         model: str | None = None,
-        base_url: str = "https://api.openai.com/v1",
+        base_url: str | None = None,
     ) -> None:
-        super().__init__(
-            api_key=api_key or settings.openai_api_key,
-            model=model or settings.llm_model,
-            base_url=base_url,
+        # Phase 7 — R2 완전 보강: OpenAI 직접 호출 차단. 호출자에게 마이그레이션 경로 안내.
+        raise RuntimeError(
+            "OpenAIClient 직접 instantiate 는 더 이상 지원되지 않습니다 "
+            "(Phase 7 R2 보강, anti-patterns.md §1). "
+            "AgentHubLLMWrapper 또는 create_llm_client('chat') 을 사용하세요."
         )
 
 
@@ -655,7 +669,10 @@ class OpenAIClient(OpenAICompatibleClient):
 class VLLMClient(OpenAICompatibleClient):
     """자체 호스팅 vLLM (OpenAI-호환 API) 클라이언트.
 
-    GPU 서버에서 실행되는 vLLM 엔진에 연결한다.
+    .. deprecated:: Phase 7.3 (2026-05-06)
+        ``factory.create_llm_client`` 가 본 클래스를 instantiate 하지 않는다.
+        Phase 7 (2026-05-11) 부터 ``__init__`` 호출 시 ``RuntimeError`` — vLLM 직접
+        호출은 AgentHub 의 ``LlmRouting=Internal`` 정책으로 라우팅된다.
     """
 
     def __init__(
@@ -664,10 +681,11 @@ class VLLMClient(OpenAICompatibleClient):
         model: str | None = None,
         base_url: str | None = None,
     ) -> None:
-        super().__init__(
-            api_key=api_key,
-            model=model or settings.llm_model,
-            base_url=base_url or settings.vllm_url,
+        raise RuntimeError(
+            "VLLMClient 직접 instantiate 는 더 이상 지원되지 않습니다 "
+            "(Phase 7 R2 보강, anti-patterns.md §1). "
+            "AgentHub Agent 의 LlmRouting='Internal' 정책 또는 "
+            "create_llm_client('chat') 을 사용하세요."
         )
 
 
@@ -679,7 +697,9 @@ class VLLMClient(OpenAICompatibleClient):
 class SGLangClient(OpenAICompatibleClient):
     """SGLang 서빙 엔진 클라이언트.
 
-    RadixAttention으로 다중 턴 대화의 KV 캐시를 효율적으로 재활용한다.
+    .. deprecated:: Phase 7.3 (2026-05-06)
+        ``factory.create_llm_client`` 가 본 클래스를 instantiate 하지 않는다.
+        Phase 7 (2026-05-11) 부터 ``__init__`` 호출 시 ``RuntimeError``.
     """
 
     def __init__(
@@ -688,10 +708,11 @@ class SGLangClient(OpenAICompatibleClient):
         model: str | None = None,
         api_key: str = "EMPTY",
     ) -> None:
-        super().__init__(
-            api_key=api_key,
-            model=model or settings.llm_model,
-            base_url=base_url or settings.sglang_url,
+        raise RuntimeError(
+            "SGLangClient 직접 instantiate 는 더 이상 지원되지 않습니다 "
+            "(Phase 7 R2 보강, anti-patterns.md §1). "
+            "AgentHub Agent 의 LlmRouting='Internal' 정책 또는 "
+            "create_llm_client('chat') 을 사용하세요."
         )
 
 
@@ -702,6 +723,12 @@ class SGLangClient(OpenAICompatibleClient):
 
 class ModelRouter:
     """조직/태스크 기반으로 LLM 클라이언트를 선택하는 라우터.
+
+    .. deprecated:: Phase 7.3 (2026-05-06)
+        본 라우터는 OpenAIClient/VLLMClient/SGLangClient 를 instantiate 하나, 세 클래스
+        모두 Phase 7 (2026-05-11) 부터 ``RuntimeError`` 를 던진다 — A/B 라우팅 책임은
+        AgentHub 의 ``LlmRouting`` (External/Internal/Hybrid) 으로 이관되었다. app 내
+        사용처 0건. 신규 호출은 ``AgentHubLLMWrapper`` 또는 ``create_llm_client`` 사용.
 
     결정적 해시 기반 A/B 테스트를 지원하여, 동일한 (org_id, task_type) 조합은
     항상 같은 프로바이더로 라우팅된다. 다중 턴 채팅에는 SGLang을 우선 선택한다.

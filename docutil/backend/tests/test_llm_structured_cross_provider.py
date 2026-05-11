@@ -28,11 +28,24 @@ import httpx
 import pytest
 from pydantic import BaseModel, Field, ValidationError
 
+# Phase 7 — R2 완전 보강 (2026-05-11): claude_client / gemini_client 모듈이 dead code
+# 로 판정되어 삭제됨. 본 테스트는 Phase 4 S1 D5 cross-provider 시점의 obsolete 검증으로,
+# Phase 7.3 이후 factory 가 ``AgentHubLLMWrapper`` 만 반환하므로 의미를 상실했다.
+# 모듈 로딩 자체가 실패하지 않도록 ``pytest.importorskip`` 으로 collection 단계에서 skip.
+pytest.importorskip(
+    "app.integrations.llm.claude_client",
+    reason="Phase 7 (2026-05-11) claude_client.py removed — cross-provider tests obsolete",
+)
+pytest.importorskip(
+    "app.integrations.llm.gemini_client",
+    reason="Phase 7 (2026-05-11) gemini_client.py removed — cross-provider tests obsolete",
+)
+
 from app.integrations.llm.azure_client import AzureOpenAIClient
-from app.integrations.llm.claude_client import ClaudeClient
-from app.integrations.llm.client import OpenAIClient
-from app.integrations.llm.gemini_client import GeminiClient
-from app.integrations.llm.schema_adapter import (
+from app.integrations.llm.claude_client import ClaudeClient  # noqa: E402  # importorskip 후
+from app.integrations.llm.client import OpenAIClient  # noqa: E402
+from app.integrations.llm.gemini_client import GeminiClient  # noqa: E402
+from app.integrations.llm.schema_adapter import (  # noqa: E402
     provider_capability_report,
     pydantic_to_claude_tool,
     pydantic_to_gemini_schema,
@@ -559,7 +572,7 @@ class TestSchemaAdapter:
     #
     # D7 실 API 호출에서 ``required`` 누락 외에도 ``pattern`` / ``minLength`` /
     # ``maxItems`` 같은 JSON Schema 제약 키워드가 strict 모드에서 400 을
-    #유발함이 관측됨. OpenAI strict 는 JSON Schema subset 만 허용하며,
+    # 유발함이 관측됨. OpenAI strict 는 JSON Schema subset 만 허용하며,
     # 다음 키워드는 **모두 제거**해야 한다:
     #
     # - 문자열: ``minLength`` / ``maxLength`` / ``pattern`` / ``format``
@@ -618,7 +631,7 @@ class TestSchemaAdapter:
 
         result = pydantic_to_openai_schema(WithDefaults, strict=True)
         as_json = json_module.dumps(result["schema"])
-        assert "\"default\"" not in as_json, "default 키워드가 strict 스키마에 남아있음"
+        assert '"default"' not in as_json, "default 키워드가 strict 스키마에 남아있음"
 
     def test_openai_strict_document_schema_passes_api_rules(self):
         """H12-3: 실제 DocumentSchema 가 OpenAI strict 규정을 완전히 만족해야 한다.
@@ -638,13 +651,24 @@ class TestSchemaAdapter:
 
         # 미지원 키워드 0건
         unsupported = {
-            "minLength", "maxLength", "pattern", "format",
-            "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum",
+            "minLength",
+            "maxLength",
+            "pattern",
+            "format",
+            "minimum",
+            "maximum",
+            "exclusiveMinimum",
+            "exclusiveMaximum",
             "multipleOf",
-            "minItems", "maxItems", "uniqueItems",
-            "minProperties", "maxProperties",
-            "default", "$schema",
-            "oneOf", "discriminator",
+            "minItems",
+            "maxItems",
+            "uniqueItems",
+            "minProperties",
+            "maxProperties",
+            "default",
+            "$schema",
+            "oneOf",
+            "discriminator",
         }
         for kw in unsupported:
             assert f'"{kw}"' not in as_json, f"DocumentSchema strict 출력에 '{kw}' 가 남아있음"
@@ -655,12 +679,8 @@ class TestSchemaAdapter:
                 if node.get("type") == "object":
                     props = set((node.get("properties") or {}).keys())
                     req = set(node.get("required") or [])
-                    assert props == req, (
-                        f"{path}: required({sorted(req)}) != properties({sorted(props)})"
-                    )
-                    assert node.get("additionalProperties") is False, (
-                        f"{path}: additionalProperties 가 false 가 아님"
-                    )
+                    assert props == req, f"{path}: required({sorted(req)}) != properties({sorted(props)})"
+                    assert node.get("additionalProperties") is False, f"{path}: additionalProperties 가 false 가 아님"
                 for k, v in node.items():
                     _check_object(v, f"{path}.{k}")
             elif isinstance(node, list):

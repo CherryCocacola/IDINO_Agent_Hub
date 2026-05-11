@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass, field
 
 from app.core.config import get_settings
-from app.integrations.llm.client import OpenAIClient
+from app.integrations.llm.factory import create_llm_client
 from app.integrations.llm.prompts import GRAPH_RAG_ENTITY_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,10 @@ class GraphRAGEngine:
     """Graph RAG engine that extracts entities and uses graph traversal."""
 
     def __init__(self):
-        self._llm = OpenAIClient()
+        # Phase 7 — R2 완전 보강: ``OpenAIClient()`` 직접 호출(anti-patterns.md §1 위반) 제거.
+        # ``create_llm_client("chat")`` 가 AgentHubLLMWrapper 를 반환하므로 모든 entity 추출
+        # 호출은 AgentHub Gateway 로 위임된다. AgentCode 는 ``docutil-rag-chat`` 자동 매핑.
+        self._llm = create_llm_client("chat")
         self._graphs: dict[str, KnowledgeGraph] = {}
 
     async def build_graph_from_chunks(

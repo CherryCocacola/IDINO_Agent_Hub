@@ -75,11 +75,7 @@ class ChatService:
             organization_id=org_id,
             title=data.title,
             search_scope_id=data.search_scope_id,
-            scoped_document_ids=(
-                [str(d) for d in data.scoped_document_ids]
-                if data.scoped_document_ids
-                else None
-            ),
+            scoped_document_ids=([str(d) for d in data.scoped_document_ids] if data.scoped_document_ids else None),
             is_active=True,
         )
         db.add(session)
@@ -93,9 +89,7 @@ class ChatService:
             search_scope_id=session.search_scope_id,
             title=session.title,
             scoped_document_ids=(
-                [UUID(str(d)) for d in session.scoped_document_ids]
-                if session.scoped_document_ids
-                else None
+                [UUID(str(d)) for d in session.scoped_document_ids] if session.scoped_document_ids else None
             ),
             is_active=session.is_active,
             created_at=session.ins_dt,
@@ -155,11 +149,7 @@ class ChatService:
                 organization_id=s.organization_id,
                 search_scope_id=s.search_scope_id,
                 title=s.title,
-                scoped_document_ids=(
-                    [UUID(str(d)) for d in s.scoped_document_ids]
-                    if s.scoped_document_ids
-                    else None
-                ),
+                scoped_document_ids=([UUID(str(d)) for d in s.scoped_document_ids] if s.scoped_document_ids else None),
                 is_active=s.is_active,
                 created_at=s.ins_dt,
                 updated_at=s.upd_dt,
@@ -202,9 +192,7 @@ class ChatService:
             search_scope_id=session.search_scope_id,
             title=session.title,
             scoped_document_ids=(
-                [UUID(str(d)) for d in session.scoped_document_ids]
-                if session.scoped_document_ids
-                else None
+                [UUID(str(d)) for d in session.scoped_document_ids] if session.scoped_document_ids else None
             ),
             is_active=session.is_active,
             created_at=session.ins_dt,
@@ -268,11 +256,7 @@ class ChatService:
 
         offset = (page - 1) * size
 
-        count_stmt = (
-            select(func.count())
-            .select_from(ChatMessage)
-            .where(ChatMessage.session_id == session_id)
-        )
+        count_stmt = select(func.count()).select_from(ChatMessage).where(ChatMessage.session_id == session_id)
         total = (await db.execute(count_stmt)).scalar() or 0
 
         stmt = (
@@ -402,11 +386,7 @@ class ChatService:
             )
 
         scope_id = session.search_scope_id
-        doc_ids = (
-            [UUID(str(d)) for d in session.scoped_document_ids]
-            if session.scoped_document_ids
-            else None
-        )
+        doc_ids = [UUID(str(d)) for d in session.scoped_document_ids] if session.scoped_document_ids else None
 
         # 검색 단계는 OpenAI 임베딩 API 를 호출하므로 429/네트워크 오류로 실패할 수
         # 있다. 실패해도 챗봇 자체는 답변을 시도해야 사용자 경험이 좋으므로,
@@ -449,9 +429,7 @@ class ChatService:
                     "관리자에게 결제/한도 갱신을 요청해주세요."
                 )
             elif status_code == 401:
-                search_warning = (
-                    "임베딩 API 키 인증 실패(401). 관리자에게 API 키 확인을 요청해주세요."
-                )
+                search_warning = "임베딩 API 키 인증 실패(401). 관리자에게 API 키 확인을 요청해주세요."
             else:
                 search_warning = f"문서 검색이 실패했습니다(HTTP {status_code})."
             logger.warning("Embedding search failed: status=%s", status_code)
@@ -491,120 +469,68 @@ class ChatService:
         token_count_input = 0
         token_count_output = 0
 
+        # Phase 7 — R2 완전 보강: OpenAI httpx 직접 스트리밍을 AgentHubClient.chat_stream
+        # 위임으로 교체 (anti-patterns.md §1 위반 해소).
+        # - 엔드포인트: AgentHub `POST /v1/chat/completions` (stream=True)
+        # - 인증: `X-API-Key` (환경변수 AGENTHUB_API_KEY) — AgentHub 가 라우팅/사용량/PII 처리.
+        # - AgentCode: chat 흐름은 `docutil-rag-chat` 사용 (factory.create_llm_client 매핑과 일치).
+        # - chunk 형식: OpenAI ChatCompletionChunk 와 동일 (`choices[0].delta.content` + `usage`)
+        #   → 기존 token_count_input/output usage 추출 로직 그대로 보존.
+        from app.integrations.agenthub_client import (
+            AgentHubError,
+            get_agenthub_client,
+        )
+
+        temperature = options.get("temperature", settings.llm_temperature) if options else settings.llm_temperature
+        max_tokens = options.get("max_tokens", settings.llm_max_tokens) if options else settings.llm_max_tokens
+
         try:
-            # httpx 는 모듈 상단에서 이미 import. 여기서는 AsyncClient 만 사용.
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                temperature = (
-                    options.get("temperature", settings.llm_temperature)
-                    if options
-                    else settings.llm_temperature
-                )
-                max_tokens = (
-                    options.get("max_tokens", settings.llm_max_tokens)
-                    if options
-                    else settings.llm_max_tokens
-                )
+            agenthub = get_agenthub_client()
+            async for chunk_data in agenthub.chat_stream(
+                agent_code="docutil-rag-chat",
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ):
+                try:
+                    delta = chunk_data.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                    if delta:
+                        full_answer += delta
+                        token_count_output += 1
+                        yield WebSocketResponse(
+                            type="chunk",
+                            data={"text": delta},
+                        )
 
-                # LLM 프로바이더별 엔드포인트 선택
-                if settings.llm_provider == "openai":
-                    llm_url = "https://api.openai.com/v1/chat/completions"
-                    llm_headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
-                else:
-                    llm_url = f"{settings.vllm_url}/chat/completions"
-                    llm_headers = {"Authorization": f"Bearer {settings.openai_api_key or ''}"}
+                    # AgentHub 가 OpenAI 호환 usage 를 전달하면 정확한 토큰 수로 덮어쓴다.
+                    usage = chunk_data.get("usage")
+                    if usage:
+                        token_count_input = usage.get("prompt_tokens", token_count_input)
+                        token_count_output = usage.get("completion_tokens", token_count_output)
+                except Exception:
+                    logger.debug("Skipping unparseable AgentHub SSE chunk")
 
-                async with client.stream(
-                    "POST",
-                    llm_url,
-                    json={
-                        "model": settings.llm_model,
-                        "messages": messages,
-                        "temperature": temperature,
-                        "max_tokens": max_tokens,
-                        "stream": True,
-                    },
-                    headers=llm_headers,
-                ) as resp:
-                    resp.raise_for_status()
-
-                    async for line in resp.aiter_lines():
-                        if not line or not line.startswith("data: "):
-                            continue
-
-                        data_str = line[6:].strip()
-                        if data_str == "[DONE]":
-                            break
-
-                        try:
-                            import json
-
-                            chunk_data = json.loads(data_str)
-                            delta = (
-                                chunk_data.get("choices", [{}])[0]
-                                .get("delta", {})
-                                .get("content", "")
-                            )
-                            if delta:
-                                full_answer += delta
-                                token_count_output += 1
-                                yield WebSocketResponse(
-                                    type="chunk",
-                                    data={"text": delta},
-                                )
-
-                            # Capture usage if provided
-                            usage = chunk_data.get("usage")
-                            if usage:
-                                token_count_input = usage.get(
-                                    "prompt_tokens", token_count_input
-                                )
-                                token_count_output = usage.get(
-                                    "completion_tokens", token_count_output
-                                )
-
-                        except Exception:
-                            logger.debug("Skipping unparseable SSE chunk")
-
-        except httpx.HTTPStatusError as exc:
-            # OpenAI/vLLM 응답 코드 별로 한국어 안내문을 분기한다.
-            # 429: 사용량 한도 초과 (결제/한도 갱신 필요)
-            # 401: API 키 인증 실패 (키 설정 확인 필요)
-            # 5xx: 외부 서비스 일시 장애 (잠시 후 재시도)
-            status_code = exc.response.status_code
+        except AgentHubError as exc:
+            # AgentHub 가 HTTP 4xx/5xx 또는 네트워크 오류를 한국어 메시지의 AgentHubError 로
+            # 변환해서 던진다. status_code 별로 사용자 안내문을 분기.
+            status_code = exc.status_code
             if status_code == 429:
+                full_answer = "AI 사용량 한도(429)를 초과했습니다. 관리자에게 결제/한도 갱신을 요청해주세요."
+            elif status_code in (401, 403):
+                full_answer = "AI 게이트웨이 인증에 실패했습니다. 관리자에게 AgentHub API 키 설정 확인을 요청해주세요."
+            elif status_code and 500 <= status_code < 600:
                 full_answer = (
-                    "OpenAI API 사용량 한도(429)를 초과했습니다. "
-                    "관리자에게 결제/한도 갱신을 요청해주세요."
-                )
-            elif status_code == 401:
-                full_answer = (
-                    "LLM API 키 인증에 실패했습니다(401). "
-                    "관리자에게 API 키 설정 확인을 요청해주세요."
-                )
-            elif 500 <= status_code < 600:
-                full_answer = (
-                    f"LLM 서비스가 일시적으로 응답하지 않습니다(HTTP {status_code}). "
-                    "잠시 후 다시 시도해주세요."
+                    f"AI 서비스가 일시적으로 응답하지 않습니다(HTTP {status_code}). 잠시 후 다시 시도해주세요."
                 )
             else:
-                full_answer = (
-                    f"LLM 호출이 실패했습니다(HTTP {status_code}). "
-                    "관리자에게 문의해주세요."
-                )
-            logger.warning("LLM HTTP error: status=%s", status_code)
-            yield WebSocketResponse(type="chunk", data={"text": full_answer})
-        except httpx.TimeoutException:
-            full_answer = (
-                "LLM 응답이 시간 초과되었습니다(120초). 잠시 후 다시 시도해주세요."
-            )
-            logger.warning("LLM timeout")
+                # AgentHubError 메시지를 사용자에게 그대로 노출 (이미 한국어).
+                full_answer = str(exc) or ("AI 호출이 실패했습니다. 관리자에게 문의해주세요.")
+            logger.warning("AgentHub chat_stream 실패: status=%s err=%s", status_code, exc)
             yield WebSocketResponse(type="chunk", data={"text": full_answer})
         except Exception:
-            # 기타 예외는 로그를 통해 원인을 추적하고, 사용자에게는 일관된 한국어 메시지.
-            logger.exception("LLM streaming failed")
-            full_answer = (
-                "응답 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-            )
+            # AgentHubClient 가 변환하지 못한 예외(예: 환경변수 미설정 ValueError 등).
+            logger.exception("LLM streaming failed (AgentHub 위임)")
+            full_answer = "응답 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             yield WebSocketResponse(type="chunk", data={"text": full_answer})
 
         # -- 6. Build citations and metadata -----------------------------------
@@ -660,11 +586,7 @@ class ChatService:
         db.add(assistant_message)
 
         # Update session timestamp (DB 컬럼명은 upd_dt)
-        session.upd_dt = (
-            __import__("datetime").datetime.now(
-                __import__("datetime").timezone.utc
-            )
-        )
+        session.upd_dt = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
         await db.flush()
 
         yield WebSocketResponse(
@@ -688,9 +610,7 @@ class ChatService:
         history, and the current user query.
         """
 
-        numbered_context = "\n\n".join(
-            f"[{i + 1}] {chunk}" for i, chunk in enumerate(context_chunks)
-        )
+        numbered_context = "\n\n".join(f"[{i + 1}] {chunk}" for i, chunk in enumerate(context_chunks))
 
         system_prompt = (
             "You are a knowledgeable document assistant. Answer the user's "
@@ -707,15 +627,19 @@ class ChatService:
 
         # Add conversation history
         for msg in history:
-            messages.append({
-                "role": msg.role,
-                "content": msg.content,
-            })
+            messages.append(
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                }
+            )
 
         # Add current query
-        messages.append({
-            "role": "user",
-            "content": user_query,
-        })
+        messages.append(
+            {
+                "role": "user",
+                "content": user_query,
+            }
+        )
 
         return messages

@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import logging
 
-from app.core.config import get_settings
-
 from .config import TrainingConfig
 
 logger = logging.getLogger(__name__)
@@ -215,10 +213,15 @@ class Qwen3Trainer:
         )
 
         # Reward function using oracle judge
-        def reward_function(completions: list[str], prompts: list[str]) -> list[float]:
-            """Score completions using oracle judge model."""
+        # Phase 7 — R2 완전 보강: OpenAI httpx 직접 호출(anti-patterns.md §1 위반) 제거.
+        # GRPO worker 는 prefork Celery 환경이므로 동기 변종 ``generate_sync`` 사용.
+        # AgentCode "docutil-evaluator" — LLM-as-Judge / 평가 전용 Agent.
+        from app.integrations.llm.factory import create_llm_client
 
-            import httpx
+        judge_llm = create_llm_client("training_judge")
+
+        def reward_function(completions: list[str], prompts: list[str]) -> list[float]:
+            """Score completions using oracle judge model (AgentHub 위임)."""
 
             scores = []
             for completion, prompt in zip(completions, prompts, strict=False):
@@ -230,19 +233,13 @@ class Qwen3Trainer:
                         f"Criteria: accuracy, reasoning quality, Korean fluency, helpfulness.\n"
                         f"Output only the number."
                     )
-                    # Synchronous call for reward function
-                    resp = httpx.post(
-                        "https://api.openai.com/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {get_settings().openai_api_key}"},
-                        json={
-                            "model": self.config.judge_model,
-                            "messages": [{"role": "user", "content": judge_prompt}],
-                            "temperature": 0.0,
-                            "max_tokens": 10,
-                        },
-                        timeout=30.0,
-                    )
-                    score_text = resp.json()["choices"][0]["message"]["content"].strip()
+                    # AgentHub `/v1/chat/completions` 동기 호출 — Celery prefork 워커에서
+                    # asyncio 이벤트 루프 없이 사용 가능.
+                    score_text = judge_llm.generate_sync(
+                        messages=[{"role": "user", "content": judge_prompt}],
+                        temperature=0.0,
+                        max_tokens=10,
+                    ).strip()
                     score = float(score_text) / 10.0
                     scores.append(max(0.0, min(1.0, score)))
                 except Exception:

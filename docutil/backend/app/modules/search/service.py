@@ -527,35 +527,28 @@ class SearchService:
     async def _get_embedding(text: str) -> list[float]:
         """Dense 임베딩 벡터를 생성한다.
 
-        EMBEDDING_PROVIDER에 따라 OpenAI API 또는 내부 GPU 서비스를 사용한다.
+        Phase 7 — R2 완전 보강: OpenAI/vLLM `/embeddings` 직접 httpx 호출을
+        AgentHubClient.embed() 위임으로 교체 (anti-patterns.md §1 위반 해소).
+        AgentHub 가 `embedding-default` Agent 의 라우팅(External=OpenAI text-embedding-3-small
+        / Internal=Nexus) 을 결정한다. 응답 형식은 OpenAI Embeddings API 와 100% 호환되어
+        `resp["data"][0]["embedding"]` 으로 동일하게 추출 가능.
         """
 
         settings = get_settings()
 
         try:
-            import httpx
+            from app.integrations.agenthub_client import get_agenthub_client
 
-            # 프로바이더별 엔드포인트/모델 선택
-            if settings.embedding_provider == "openai":
-                url = "https://api.openai.com/v1/embeddings"
-                model = settings.openai_embedding_model
-                headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
-            else:
-                url = f"{settings.vllm_url}/embeddings"
-                model = settings.embedding_model
-                headers = {"Authorization": f"Bearer {settings.openai_api_key or ''}"}
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    url,
-                    json={"model": model, "input": text},
-                    headers=headers,
-                )
-                response.raise_for_status()
-                data = response.json()
-                return data["data"][0]["embedding"]
+            agenthub = get_agenthub_client()
+            # AgentCode "embedding-default" — Phase 7.1 시드 카탈로그에 등록된
+            # 1536D OpenAI 호환 임베딩 Agent. 미존재 시 AgentHub 가 모델명 폴백 처리.
+            resp = await agenthub.embed(
+                agent_code="embedding-default",
+                input=text,
+            )
+            return resp["data"][0]["embedding"]
         except Exception:
-            logger.exception("Failed to obtain embedding, returning zeros")
+            logger.exception("Failed to obtain embedding (AgentHub 위임), returning zeros")
             return [0.0] * settings.embedding_dimension
 
     @staticmethod
@@ -827,9 +820,7 @@ class SearchService:
         settings = get_settings()
 
         # Build numbered context
-        numbered = "\n\n".join(
-            f"[{i + 1}] {chunk}" for i, chunk in enumerate(context_chunks)
-        )
+        numbered = "\n\n".join(f"[{i + 1}] {chunk}" for i, chunk in enumerate(context_chunks))
 
         messages: list[dict[str, str]] = []
         if system_prompt:
@@ -838,46 +829,28 @@ class SearchService:
         messages.append(
             {
                 "role": "user",
-                "content": (
-                    f"Context:\n{numbered}\n\n"
-                    f"Question: {query}\n\n"
-                    "Answer:"
-                ),
+                "content": (f"Context:\n{numbered}\n\nQuestion: {query}\n\nAnswer:"),
             }
         )
 
         try:
-            import httpx
+            # Phase 7 — R2 완전 보강: OpenAI/vLLM httpx 직접 호출을 AgentHub `/v1/chat/completions`
+            # 위임으로 교체 (anti-patterns.md §1 위반 해소). `docutil-rag-chat` AgentCode 사용
+            # — RAG 컨텍스트 grounded 답변 생성. AgentHub 가 라우팅/사용량/PII 정책 적용.
+            from app.integrations.agenthub_client import get_agenthub_client
 
-            # LLM 프로바이더별 엔드포인트 선택
-            if settings.llm_provider == "openai":
-                url = "https://api.openai.com/v1/chat/completions"
-                headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
-            else:
-                url = f"{settings.vllm_url}/chat/completions"
-                headers = {"Authorization": f"Bearer {settings.openai_api_key or ''}"}
-
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                resp = await client.post(
-                    url,
-                    json={
-                        "model": settings.llm_model,
-                        "messages": messages,
-                        "temperature": settings.llm_temperature,
-                        "max_tokens": settings.llm_max_tokens,
-                    },
-                    headers=headers,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                return data["choices"][0]["message"]["content"]
+            agenthub = get_agenthub_client()
+            resp = await agenthub.chat(
+                agent_code="docutil-rag-chat",
+                messages=messages,
+                temperature=settings.llm_temperature,
+                max_tokens=settings.llm_max_tokens,
+            )
+            return resp["choices"][0]["message"]["content"]
 
         except Exception:
-            logger.exception("LLM answer generation failed")
-            return (
-                "I was unable to generate an answer at this time. "
-                "Please try again later."
-            )
+            logger.exception("LLM answer generation failed (AgentHub 위임)")
+            return "I was unable to generate an answer at this time. Please try again later."
 
     @staticmethod
     async def _check_hallucination(
@@ -890,8 +863,9 @@ class SearchService:
         hallucinated).  Uses a secondary LLM call to judge faithfulness.
         """
 
-        settings = get_settings()
-
+        # Phase 7 — R2 보강: ``settings.llm_provider`` 분기가 AgentHub 위임으로 제거되어
+        # 본 함수에서 settings 참조가 불필요. ``get_settings`` import 자체는 다른 메서드에서
+        # 사용 중이므로 모듈 상단 import 는 유지.
         context_text = "\n\n".join(context_chunks)
 
         messages = [
@@ -907,43 +881,28 @@ class SearchService:
             },
             {
                 "role": "user",
-                "content": (
-                    f"Context:\n{context_text}\n\n"
-                    f"Answer:\n{answer}\n\n"
-                    "Hallucination score (0.0 to 1.0):"
-                ),
+                "content": (f"Context:\n{context_text}\n\nAnswer:\n{answer}\n\nHallucination score (0.0 to 1.0):"),
             },
         ]
 
         try:
-            import httpx
+            # Phase 7 — R2 완전 보강: OpenAI/vLLM httpx 직접 호출을 AgentHub `/v1/chat/completions`
+            # 위임으로 교체 (anti-patterns.md §1 위반 해소). `docutil-evaluator` AgentCode 사용
+            # — LLM-as-Judge / 사실성 평가용 Agent. temperature=0, max_tokens=10 으로 점수만 추출.
+            from app.integrations.agenthub_client import get_agenthub_client
 
-            # LLM 프로바이더별 엔드포인트 선택
-            if settings.llm_provider == "openai":
-                llm_url = "https://api.openai.com/v1/chat/completions"
-                llm_headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
-            else:
-                llm_url = f"{settings.vllm_url}/chat/completions"
-                llm_headers = {"Authorization": f"Bearer {settings.openai_api_key or ''}"}
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(
-                    llm_url,
-                    json={
-                        "model": settings.llm_model,
-                        "messages": messages,
-                        "temperature": 0.0,
-                        "max_tokens": 10,
-                    },
-                    headers=llm_headers,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                score_text = data["choices"][0]["message"]["content"].strip()
-                return max(0.0, min(1.0, float(score_text)))
+            agenthub = get_agenthub_client()
+            resp = await agenthub.chat(
+                agent_code="docutil-evaluator",
+                messages=messages,
+                temperature=0.0,
+                max_tokens=10,
+            )
+            score_text = resp["choices"][0]["message"]["content"].strip()
+            return max(0.0, min(1.0, float(score_text)))
 
         except Exception:
-            logger.warning("Hallucination check failed, returning default 0.5")
+            logger.warning("Hallucination check failed (AgentHub 위임), returning default 0.5")
             return 0.5
 
     @staticmethod
@@ -1093,9 +1052,9 @@ class SearchService:
         # 운영 환경에서 user_id 가 None 이라면 인증 누락이므로 fail-closed.
         if user_id is None or user_role is None:
             logger.warning(
-                "Search visibility check requires user_id/user_role; "
-                "returning empty result. user_id=%s role=%s",
-                user_id, user_role,
+                "Search visibility check requires user_id/user_role; returning empty result. user_id=%s role=%s",
+                user_id,
+                user_role,
             )
             return []
 
@@ -1113,12 +1072,9 @@ class SearchService:
             return []
 
         # 가시 문서 ID SELECT
-        stmt = (
-            select(Document.id)
-            .where(
-                Document.organization_id == org_id,
-                or_(*scope_clauses),
-            )
+        stmt = select(Document.id).where(
+            Document.organization_id == org_id,
+            or_(*scope_clauses),
         )
         # 호출자가 doc_ids 를 명시한 경우 — 권한 밖 ID 가 새지 않도록 교집합
         if doc_ids:
