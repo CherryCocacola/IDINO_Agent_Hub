@@ -170,6 +170,40 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-11 (docutil/r2 — Phase 7 R2 잔여 7건 완전 보강: chat/search/trainer/llm-client AgentHub 위임 + dead code 제거)
+- **commit**: `7393322` ([docutil/r2] Phase 7 — R2 잔여 7건 완전 보강 (chat/search/trainer/llm-client AgentHub 위임 + dead code 제거))
+- **목적**: DU-14 `/v1/images` 트랙(commit `6a2dd2f`) 완료 후 grep 으로 발견된 DocUtil 측 R2(anti-patterns.md §1) 위반 7건 완전 정리. 사용자 기조 "제대로 확실히 완벽히 구현" 준수 — 추정 매핑/부분 구현/dead code 잔존/임시 fallback 금지.
+- **사전 조사 (필수)**: import grep + 파일 정독으로 각 위치의 live/dead 정확 판정.
+  - factory.create_llm_client 가 Phase 7.3 부터 `AgentHubLLMWrapper` 만 반환 — `ClaudeClient`/`GeminiClient`/`OpenAIClient`/`VLLMClient`/`SGLangClient` 는 app 코드 instantiate 0건 확인 (tests 만 잔존).
+  - `Qwen3Trainer` 외부 호출 0건 확인 (data_generator.py 와 같은 디렉토리이지만 data_generator 는 self-contained, trainer dead).
+  - `graph_rag.py:105` `OpenAIClient()` 직접 instantiate — `graph_rag_enabled=False` default 이지만 R2 위반 명확, 본 트랙에 함께 보강.
+- **변경 7+1 (총 10 파일, +257 / -1124 LOC, claude_client.py 502 + gemini_client.py 304 삭제 포함)**:
+  1. **`docutil/backend/app/modules/chat/service.py`** (`_chat_with_websocket`, line 489~) — `https://api.openai.com/v1/chat/completions` 직접 httpx stream → `AgentHubClient.chat_stream(agent_code="docutil-rag-chat")` 위임. raw chunk dict 로 `choices[0].delta.content` + `usage.prompt_tokens/completion_tokens` 추출 그대로 보존 (token_count_input/output DB 기록 회귀 0). 예외 처리는 `AgentHubError.status_code` 별 한국어 안내문 분기 (429/401/403/5xx).
+  2. **`docutil/backend/app/modules/search/service.py::_get_embedding`** (line 526~) — `https://api.openai.com/v1/embeddings` 직접 httpx → `AgentHubClient.embed(agent_code="embedding-default")` 위임. Phase 7.1 시드 카탈로그의 1536D 임베딩 Agent. fallback zeros 폴백 동일 유지.
+  3. **`docutil/backend/app/modules/search/service.py::_generate_llm_answer`** (line 842~) — `https://api.openai.com/v1/chat/completions` 직접 httpx → `AgentHubClient.chat(agent_code="docutil-rag-chat")` 위임. RAG grounded 답변 생성.
+  4. **`docutil/backend/app/modules/search/service.py::_check_hallucination`** (line 873~) — `https://api.openai.com/v1/chat/completions` 직접 httpx → `AgentHubClient.chat(agent_code="docutil-evaluator")` 위임. LLM-as-Judge / 사실성 평가용 Agent, temperature=0 + max_tokens=10.
+  5. **`docutil/backend/app/workers/training/trainer.py::reward_function`** (line 217~) — GRPO Celery worker 의 inner `reward_function` 의 `https://api.openai.com/v1/chat/completions` 직접 sync httpx → `create_llm_client("training_judge").generate_sync()` 위임. AgentHubLLMWrapper 의 `_sync_post` 가 동기 httpx 로 AgentHub 호출. unused `get_settings` import 정리.
+  6. **`docutil/backend/app/integrations/llm/claude_client.py`** (502 LOC) — **파일 삭제**. `from anthropic import` SDK 직접 import 가 R2 위반. app 코드 instantiate 0건 (tests 만) 확인 후 dead 판정. `__init__.py` 에서 `ClaudeClient` import/__all__ 제거.
+  7. **`docutil/backend/app/integrations/llm/gemini_client.py`** (304 LOC) — **파일 삭제**. `https://generativelanguage.googleapis.com/v1beta/openai` OpenAI 호환 URL 직접 사용. app 코드 instantiate 0건 확인. `__init__.py` 에서 `GeminiClient` import/__all__ 제거.
+  8. **`docutil/backend/app/integrations/rag/graph_rag.py::GraphRAGEngine.__init__`** (보너스) — `OpenAIClient()` 직접 instantiate(R2 위반) → `create_llm_client("chat")` factory 경유로 변경. `graph_rag_enabled=False` default 이지만 활성화 시 R2 보장.
+  9. **`docutil/backend/app/integrations/llm/client.py`** — `LLMClient.__init__` base_url default 를 `"https://api.openai.com/v1"` → `None` (placeholder, base_url 미지정 instantiate 차단). `OpenAIClient`/`VLLMClient`/`SGLangClient.__init__` 에 `RuntimeError` 가드 추가 — Phase 7 R2 보강 정책 위반 시 즉시 raise + 마이그레이션 경로 안내 (AgentHubLLMWrapper / create_llm_client 사용). `ModelRouter` 클래스에 deprecation docstring 추가 (3 종 의존 클래스가 RuntimeError 던지므로 자동 dead).
+  10. **`docutil/backend/tests/test_llm_{structured_cross_provider,live_providers}.py`** — `pytest.importorskip` collection 가드 추가. 삭제된 모듈 import 시도가 collection 단계에서 skip 되어 다른 tests 영향 0. Phase 4 S1 시점 cross-provider/live-API 테스트는 Phase 7.3 정책에서 의미 상실(obsolete). 별도 트랙으로 정리 예정.
+- **R2 위반 grep 최종 검증 (anti-patterns.md §1)**:
+  - `from openai import|import openai\b|from anthropic import|import anthropic\b|from google\.generativeai|import google\.generativeai` in `docutil/backend/app/` → **0건**
+  - `api.openai.com|api.anthropic.com|generativelanguage.googleapis.com` in `docutil/backend/app/` → 5건 잔존, 모두 R2 직접 위반 **아님**:
+    - `embedding_generator.py:8` — Phase 7.4 migration 노트 docstring
+    - `__init__.py:11` / `client.py:67` — 본 트랙 Phase 7 보강 설명 주석
+    - `api_keys/service.py:24-26` — **명시적 회색지대** (운영자 LLM 카탈로그 fetch — LLM 호출 아님, 별도 트랙 후보)
+- **smoke import 검증 PASS** — 변경 11개 module (`app.integrations.llm`, `client`, `factory`, `azure_client`, `__init__`, `agenthub_client`, `rag.graph_rag`, `workers.training.trainer`, `workers.training.data_generator`, `modules.chat.service`, `modules.search.service`, `modules.api_keys.service`) 모두 import OK. ImportError 0건.
+- **ruff check 결과**: 본 트랙 변경 신규 errors **0건**. 7 errors 잔존(`chat/service.py:18 delete unused`, `search/service.py:16 func unused`, `81 settings unused`, line 921 I001 등) 은 모두 pre-existing — 본 트랙 PR 범위 외.
+- **ruff format 적용**: 변경 8 파일 (test 2 파일 + chat/search + 본 트랙 4 파일) 자동 포맷.
+- **별도 트랙 후보 (사용자 결정 필요)**:
+  - **회색지대 `api_keys/service.py:24-26`** — DocUtil 운영자의 LLM 카탈로그 (`/v1/models` 등) fetch. AgentHub `/v1/models` endpoint 신설 후 BFF 패턴으로 위임 가능. R2 직접 위반은 아님 (LLM 호출 아닌 메타 조회).
+  - **Unsplash 3건** (`image_generation/service.py::_fetch_unsplash`, `image_generation/auto_select.py::_try_unsplash`, `workers/report_generator.py:1263`) — stock photo API. **anti-patterns §1 위반 아님** (LLM 호출 아님). AgentHub `/v1/images/generations` 의 Unsplash fallback 통합은 별도 설계 결정.
+  - **테스트 obsolete 정리** — `test_llm_structured_cross_provider.py` / `test_llm_live_providers.py` 두 파일 (총 ~1000 LOC) 은 importorskip 으로 가드되어 안전하지만 Phase 7.3 정책에서 의미 상실. 별도 트랙에서 삭제 또는 AgentHub gateway 대상 cross-routing 테스트로 재작성 권장.
+  - **`api_keys` LLM API 키 저장소** — DocUtil 의 `LLMApiKey` 테이블 자체가 Phase 7.3 단일 진입점 정책에서 사용되지 않음 (AgentHub `ApiKeyPool` 이 마스터). 별도 트랙에서 deprecate 검토.
+  - **ModelRouter / OpenAIClient/VLLMClient/SGLangClient/AzureOpenAIClient deprecate 완료 후 파일 삭제** — RuntimeError 가드만 추가했고 클래스 정의는 유지. Phase 8+ 정리 트랙에서 완전 삭제 가능.
+
 ### 2026-05-11 (infra/db — 시드 reproducibility 보강: Phase 2.x + Phase 5.1 + Phase 7.1 codify, ApiKey 제외)
 - **목적**: Phase 4.5 known issue 잔여 "운영 DB 시드 codify 부재" 해소. CI/신규 환경 부팅 시 시드 자동 적용 가능하도록 운영 DB 의 실제 시드 16 ApiServices + 15 Agents 를 idempotent SQL 로 codify.
 - **추가 파일**: `infra/db/seeds/phase5_phase7_seeds.sql` (292 줄, 33,907 bytes)
