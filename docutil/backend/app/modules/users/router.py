@@ -37,6 +37,12 @@ class _StatusBody(BaseModel):
     response_model=UserListResponse,
     summary="List users",
 )
+@router.get(
+    "/",
+    response_model=UserListResponse,
+    summary="List users (trailing slash alias — 트랙 #88-7)",
+    include_in_schema=False,
+)
 async def list_users(
     org_id: UUID = Query(..., description="Organisation to list users for"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -73,6 +79,13 @@ async def list_users(
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a user",
+)
+@router.post(
+    "/",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a user (trailing slash alias — 트랙 #88-7)",
+    include_in_schema=False,
 )
 async def create_user(
     user_data: UserCreate,

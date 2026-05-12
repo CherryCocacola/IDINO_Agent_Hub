@@ -177,14 +177,14 @@ export default function AdminAccountsPage() {
       if (searchQuery.trim()) params.search = searchQuery.trim();
       if (roleFilter !== "all") params.role = roleFilter;
 
-      // Use /users/ endpoint with admin role filter
-      // trailing slash 필수 — FastAPI router가 "/" 로 등록돼 있어 /users 는 404
+      // 트랙 #88-7 — FastAPI redirect_slashes=False 이므로 trailing slash 제거.
+      // 라우터 prefix `/api/v1/users` + route `""` → 정확히 `/api/v1/users` 일치.
       const data = await apiClient.get<{
         items: AdminUser[];
         total: number;
         page: number;
         size: number;
-      }>("/users/", params);
+      }>("/users", params);
       setUsers(data.items || []);
       setPagination({
         total: data.total || 0,
@@ -282,7 +282,7 @@ export default function AdminAccountsPage() {
           department_id: formData.department_id,
         };
         // trailing slash 필수 (FastAPI router "/" 등록)
-        await apiClient.post("/users/", createData);
+        await apiClient.post("/users", createData);
         addToast("사용자가 생성되었습니다", "success");
       }
       setDialogOpen(false);

@@ -63,6 +63,7 @@ from app.modules.search_scopes.router import router as search_scopes_router
 from app.modules.templates.router import router as templates_router
 from app.modules.evaluation.router import router as evaluation_router
 from app.modules.users.router import router as users_router
+from app.modules.settings.router import router as settings_router
 
 settings = get_settings()
 
@@ -161,6 +162,7 @@ app.include_router(faq_router, prefix=f"{API_V1}", tags=["FAQ"])
 app.include_router(templates_router, prefix=f"{API_V1}", tags=["Templates"])
 app.include_router(agents_router, prefix=f"{API_V1}", tags=["Agents"])
 app.include_router(evaluation_router, prefix=f"{API_V1}", tags=["Evaluation"])
+app.include_router(settings_router, prefix=f"{API_V1}", tags=["Settings"])
 
 
 # ---------------------------------------------------------------------------
