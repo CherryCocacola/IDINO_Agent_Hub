@@ -1,0 +1,393 @@
+{
+  "started_at": "2026-05-12 15:40:00",
+  "results": [
+    {
+      "screen": "Dashboard",
+      "path": "/",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/landing",
+      "note": "final=http://192.168.10.39:64005/landing",
+      "duration_ms": 1830
+    },
+    {
+      "screen": "Users",
+      "path": "/users",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/users",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/users",
+      "duration_ms": 1529
+    },
+    {
+      "screen": "Agents",
+      "path": "/agents",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/agents",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/agents",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "AgentChat",
+      "path": "/agents/chat",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/agents/chat",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/agents/chat",
+      "duration_ms": 1521
+    },
+    {
+      "screen": "AgentMultiChat",
+      "path": "/agents/multi-chat",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/agents/multi-chat",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/agents/multi-chat",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "AgentBuilder",
+      "path": "/agents/builder",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/agents/builder",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/agents/builder",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "Quota",
+      "path": "/quota",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/quota",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/quota",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "Analytics",
+      "path": "/analytics",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/analytics",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/analytics",
+      "duration_ms": 1523
+    },
+    {
+      "screen": "Settings",
+      "path": "/settings",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/settings",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/settings",
+      "duration_ms": 1521
+    },
+    {
+      "screen": "Playground",
+      "path": "/playground",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/playground",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/playground",
+      "duration_ms": 1521
+    },
+    {
+      "screen": "AgentMarketplace",
+      "path": "/agents/marketplace",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/agents/marketplace",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/agents/marketplace",
+      "duration_ms": 1519
+    },
+    {
+      "screen": "AgentTemplates",
+      "path": "/agents/templates",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/agents/templates",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/agents/templates",
+      "duration_ms": 1522
+    },
+    {
+      "screen": "AuditLog",
+      "path": "/audit-log",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/audit-log",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/audit-log",
+      "duration_ms": 1518
+    },
+    {
+      "screen": "CostAnalysis",
+      "path": "/cost-analysis",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/cost-analysis",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/cost-analysis",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "Help",
+      "path": "/help",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/help",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/help",
+      "duration_ms": 1523
+    },
+    {
+      "screen": "AdminKnowledgeBase",
+      "path": "/admin/knowledge-base",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/knowledge-base",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/knowledge-base",
+      "duration_ms": 1526
+    },
+    {
+      "screen": "AdminKnowledgeBaseUpload",
+      "path": "/admin/knowledge-base/upload",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/knowledge-base/upload",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/knowledge-base/upload",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "AdminRagMetrics",
+      "path": "/admin/rag-metrics",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/rag-metrics",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/rag-metrics",
+      "duration_ms": 1522
+    },
+    {
+      "screen": "AdminDocUtilUsers",
+      "path": "/admin/docutil-users",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-users",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-users",
+      "duration_ms": 1521
+    },
+    {
+      "screen": "AdminDocUtilDepartments",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-departments",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-departments",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "AdminDocUtilProjects",
+      "path": "/admin/docutil-projects",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-projects",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-projects",
+      "duration_ms": 1519
+    },
+    {
+      "screen": "AdminDocUtilDashboard",
+      "path": "/admin/docutil-dashboard",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-dashboard",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-dashboard",
+      "duration_ms": 1522
+    },
+    {
+      "screen": "AdminDocUtilAudit",
+      "path": "/admin/docutil-audit",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-audit",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-audit",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "AdminDocUtilSearchScopes",
+      "path": "/admin/docutil-search-scopes",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-search-scopes",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-search-scopes",
+      "duration_ms": 1521
+    },
+    {
+      "screen": "AdminDocUtilEvaluation",
+      "path": "/admin/docutil-evaluation",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-evaluation",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-evaluation",
+      "duration_ms": 1521
+    },
+    {
+      "screen": "AdminDocUtilFaq",
+      "path": "/admin/docutil-faq",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-faq",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-faq",
+      "duration_ms": 1524
+    },
+    {
+      "screen": "AdminDocUtilReports",
+      "path": "/admin/docutil-reports",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-reports",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-reports",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "AdminDocUtilTemplates",
+      "path": "/admin/docutil-templates",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-templates",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-templates",
+      "duration_ms": 1527
+    },
+    {
+      "screen": "AdminDocUtilApiKeys",
+      "path": "/admin/docutil-api-keys",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-api-keys",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-api-keys",
+      "duration_ms": 1517
+    },
+    {
+      "screen": "AdminDocUtilDocAgents",
+      "path": "/admin/docutil-doc-agents",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-doc-agents",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-doc-agents",
+      "duration_ms": 1522
+    },
+    {
+      "screen": "AdminDocUtilDocumentsV2",
+      "path": "/admin/docutil-documents-v2",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/admin/docutil-documents-v2",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/admin/docutil-documents-v2",
+      "duration_ms": 1519
+    },
+    {
+      "screen": "Reports",
+      "path": "/reports",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/reports",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/reports",
+      "duration_ms": 1519
+    },
+    {
+      "screen": "UsageHistory",
+      "path": "/usage-history",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/usage-history",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/usage-history",
+      "duration_ms": 1525
+    },
+    {
+      "screen": "ApiKeys",
+      "path": "/api-keys",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/api-keys",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/api-keys",
+      "duration_ms": 1525
+    },
+    {
+      "screen": "BannedWords",
+      "path": "/banned-words",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/banned-words",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/banned-words",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "PiiProtection",
+      "path": "/pii-protection",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/pii-protection",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/pii-protection",
+      "duration_ms": 1519
+    },
+    {
+      "screen": "Team",
+      "path": "/team",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/team",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/team",
+      "duration_ms": 1524
+    },
+    {
+      "screen": "SystemHealth",
+      "path": "/system-health",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/system-health",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/system-health",
+      "duration_ms": 1521
+    },
+    {
+      "screen": "DatabaseBackup",
+      "path": "/database-backup",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/database-backup",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/database-backup",
+      "duration_ms": 1522
+    },
+    {
+      "screen": "PresentationTemplateManagement",
+      "path": "/presentation-templates",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/presentation-templates",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/presentation-templates",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "ImageGeneration",
+      "path": "/image-generation",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/image-generation",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/image-generation",
+      "duration_ms": 1521
+    },
+    {
+      "screen": "QuickImageGeneration",
+      "path": "/quick-image",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/quick-image",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/quick-image",
+      "duration_ms": 1531
+    },
+    {
+      "screen": "PresentationBuilder",
+      "path": "/presentation-builder",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/presentation-builder",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/presentation-builder",
+      "duration_ms": 1520
+    },
+    {
+      "screen": "Tools",
+      "path": "/tools",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/tools",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/tools",
+      "duration_ms": 1518
+    },
+    {
+      "screen": "ToolBuilder",
+      "path": "/tools/builder",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/tools/builder",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/tools/builder",
+      "duration_ms": 1523
+    },
+    {
+      "screen": "Workflows",
+      "path": "/workflows",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/workflows",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/workflows",
+      "duration_ms": 1521
+    },
+    {
+      "screen": "WorkflowBuilder",
+      "path": "/workflows/builder",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/workflows/builder",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/workflows/builder",
+      "duration_ms": 1523
+    },
+    {
+      "screen": "WorkflowExecutionMonitor",
+      "path": "/workflows/executions",
+      "status": "PASS",
+      "final_url": "http://192.168.10.39:64005/login?redirect=/workflows/executions",
+      "note": "final=http://192.168.10.39:64005/login?redirect=/workflows/executions",
+      "duration_ms": 1520
+    }
+  ],
+  "summary": {
+    "PASS": 48,
+    "FAIL": 0
+  }
+}

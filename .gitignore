@@ -155,3 +155,10 @@ nul
 nu_
 *.lock-info
 .scheduled_tasks.lock
+
+# ─── e2e Playwright storage state (JWT/refreshToken 포함 — 절대 커밋 금지) ───
+# 트랙 #83 (2026-05-12) — admin_state.json 에 JWT token + refreshToken 평문 포함 확인됨.
+# 모든 *_state.json 패턴을 차단하여 향후 자동화 토큰 누설 방지.
+tools/ui_e2e/full/_admin_state.json
+tools/ui_e2e/full/*_state.json
+tools/ui_e2e/**/storage_state*.json
