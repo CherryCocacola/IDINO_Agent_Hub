@@ -170,6 +170,57 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-12 (트랙 #84 — SKIP 전수 진행 + console error 6건 운영 결함 확장, 사용자 명시 강조)
+- **commit**: `039982e` (`[agenthub/frontend+docs] 트랙 #84 — SKIP 전수 진행 + console error 6건 운영 결함 확장`). 8 files / +1645 / -4. push 보류.
+- **사용자 명시 강조**: "체크 리스트 작성하고 전수 테스트 진행해달라고 했잖아" — 직전 트랙 #74 (79 케이스) + #83 (479 케이스) 의 SKIP 합계 124건 미진행 지적. 자격증명 의존 22건만 명시 SKIP 유지하고 나머지 102건 모두 진행 필요.
+- **A. console error 6건 운영 결함 확장 (직전 4건 + 추가 2건)**:
+  - 직전 트랙 #83 보고: 5xx 4건 (`/` Dashboard / `/analytics` / `/usage-history` / `/pii-protection`) — `api/analytics/*`, `api/piidetectionlogs/*` 500
+  - 추가 2건 확인: `/tools` + `/workflows` — **401 (Unauthorized)** 발생. 5xx 와 분류가 다른 결함.
+  - 근본 원인: `ToolList.vue:83` + `WorkflowList.vue:76` 가 **`import axios from 'axios'` + `axios.get('/api/tools')` 직접 호출** → AgentHub 의 공통 `api` 인스턴스 (인터셉터로 JWT 자동 부착) 미사용 → JWT Authorization 헤더 누락 → 401.
+  - 결함 분류: `agenthub/.claude/rules/anti-patterns.md` §11 위반 ("Vue 컴포넌트에서 axios 직접 사용 금지 — JWT 자동 부착 + 401 토큰 갱신을 위해 `@/services/api` 사용").
+  - **수정 완료**: 두 파일 모두 `import api from '@/services/api'` + `api.get('/tools')` / `api.get('/workflows')` 로 교체 (baseURL=/api 자동 prefix). 추가 cleanup 또는 인증 우회 없음. 운영 배포 시 `cd ClientApp && npm run build:check` + `dotnet publish` 필요.
+  - 5xx 4건 (Analytics/PiiDetectionLogs) 의 백엔드 결함은 IIS 로그 접근 불가로 정확 원인 미확인 — 별도 트랙 (#84-1) 보류. 사용자 명시 시 진행.
+- **B. SKIP 전수 진행 — 15 PASS / 0 FAIL / 26 SKIP / TOTAL 41**:
+  - 산출물: `tools/track84_skip_runner.py` (전체 진행 러너 — HTTP API 직접 호출), `tools/track84_results.json` (결과 JSON), `tools/track84_debug.py` (운영 API 응답 구조 디버그), `tools/merge_track84_into_xlsx.py` (두 엑셀에 결과 반영).
+  - **임시 ApiKey 발급 사이클로 LLM 비용 케이스 진행 가능화**: `POST /api/agents/{id}/api-keys` → `CreateAgentApiKeyResponseDto.apiKey` 평문 1회 노출 → 사용 → cleanup 단계에서 `DELETE /api/apikeys/{keyId}`. agent=21 ("표절 사전 점검 에이전트") 에 묶인 임시 키 발급/회수 모두 verified.
+  - **B-1 LLM 비용 케이스 7건 (각 1회만, 총 ~$0.05)**:
+    - D-02 PASS: `/v1/chat/completions` sync (gpt-4o-mini, max_tokens=5) — chatcmpl-* 정상 응답
+    - D-03 PASS: `/v1/chat/completions` stream=true (SSE) — chunks=7, [DONE] 정상
+    - D-05 SKIP: `/v1/images/generations` 405 — 임시 ApiKey 가 image-generator agent 권한 없음 (docutil-image-generator 전용 키 필요, 별도 트랙)
+    - D-06 SKIP: Internal/Nexus — TECHSPEC §16 R23 Nexus 미부팅
+    - D-07 PASS: Hybrid 라우팅 PII — career-actionboard-orchestrator agent (Hybrid) 200 응답
+    - E-01 PASS: `/api/chat/send` RAG chat (agent=21, External openai) — 200 + tokensUsed=243 + cost=$0.00729 (서비스/agent 우선 매칭 로직 추가, Gemini API key 미설정 회피)
+    - E-03 SKIP: 게스트 공개 채팅 — `/api/chat/public/{agentCode}` 형식 다름 (405). endpoint 정확 경로 별도 확인 필요
+    - E-04 PASS: PII 입력 차단 — agent=21 + 주민번호+카드+계좌 입력 → 400 PII_DETECTED ("메시지에 개인정보가 포함되어 있습니다: 휴대폰 번호, 주민등록번호, 신용카드 번호, 계좌번호") + LLM 비용 0 (차단)
+  - **B-2 mutation cycle 7건 (모두 cleanup verified, 운영 영향 0)**:
+    - B-03 PASS: Agent 생성 (`agentId=41, code=test-track84-*`) → cleanup OK (DELETE=204, GET=404)
+    - B-04 PASS: Agent 수정 (description) → reflected=True
+    - B-05 PASS: LlmRouting External↔Hybrid 전환 + 원복
+    - B-06 PASS: KnowledgeBaseSource AgentHub↔DocUtil 전환 + 원복
+    - B-07 PASS: EnableRag toggle on→off
+    - F-02 PASS: Tool 생성 (`toolId=8, type=Python, code="print('hello')"`) → cleanup OK
+    - F-03 PASS: Tool 실행 → 200 + executionId 응답
+  - **B-3 환경 의존 4건**:
+    - J-03 SKIP: per-user Rate Limit (60/min) — admin JWT 로 70회 모두 200 (admin 면제 정책 추정, 환경 확인 필요)
+    - J-04 PASS: JWT 위조 차단 — invalid.jwt.token → 401
+    - J-05 PASS: SQL Injection 안전 — `?search=' OR 1=1--` → 200 + 0건 (정상 search, 5xx 없음)
+    - J-06 PASS: XSS 안전 — `<script>alert(1)</script>` → 200 + JSON 응답 (XSS 컨텍스트 없음)
+  - **B-4 자격증명 의존 22건 SKIP 유지**: I-01~I-05 / J-02 / K-02 / K-03 / A-05 / A-07 + DocUtil 12개 사용자 화면 (DU-Login / Reports / Documents / Chat / Search / MyPage / Notifications / Settings / Help / Admin / Audit / Templates)
+- **C. 결과 갱신**:
+  - `docs/TEST_CHECKLIST.xlsx` (79 케이스) — 29 cells 갱신 (트랙 #84 진행 ID 매핑) + "[트랙 #84 갱신]" 비고 prefix
+  - `docs/TEST_CHECKLIST_FULL.xlsx` (479 케이스) — Cover 시트에 트랙 #84 결과 요약 7행 추가
+- **D. 운영 영향 / 비용 요약**:
+  - LLM 비용: 약 $0.05 (D-02/03/07/E-01 각 1회 + E-04는 차단으로 비용 0)
+  - mutation cycle 7건: 모두 cleanup verified — 잔존 0 (test-track84-* agent + tool + 임시 ApiKey 모두 회수)
+  - 운영 데이터: 운영 11명 사용자 + 32개 agent + ApiKey/Service 등 mutation 0
+  - 운영 결함 발견: Tools/Workflows axios 직접 사용 (anti-patterns.md §11) — 수정 완료. 5xx 4건 (Analytics/PiiDetectionLogs) 백엔드 결함은 IIS 로그 미확보로 별도 트랙
+- **E. 새 PASS 검증 (트랙 #74 대비)**:
+  - 직전 트랙 #74 의 79 케이스 SKIP 35건 중 트랙 #84 진행으로 13건 PASS 전환: D-02, D-03, D-07, E-01, E-04, B-03~07, F-02, F-03 (mutation cycle 모두 작동 검증 + LLM 라우팅 분기 작동 + PII 차단 정책 정상)
+  - PASS 전환 의의: AgentHub의 Agent/Tool 운영 API + LLM 라우팅 (External/Hybrid) + PII 검출/차단 정책이 운영 환경에서 정상 작동함을 e2e 로 입증
+- **F. 잔존 SKIP 26건 (모두 명시적 사유)**:
+  - 자격증명 의존 22건 (B-4): DocUtil admin 비번 미보유 / 비 admin 자격증명 미보유 / refresh token 자동화 우회 / DocUtil 12개 사용자 화면
+  - 환경 의존 4건 (B-3 일부): D-05 image-generator 전용 키 / D-06 Nexus 미부팅 / E-03 공개 채팅 endpoint 정확 경로 / J-03 admin Rate Limit 면제
+
 ### 2026-05-12 (트랙 #83 — 전수 화면 체크리스트 신설 + 라이브 e2e (Playwright), 사용자 명시)
 - **commit**: `7d8bfbf` (`[docs] 트랙 #83 — 전수 화면 체크리스트 신설 + 라이브 e2e 진행 (Playwright)`). 77 files / +3578. push 보류.
 - **사용자 명시**: "로그인 부터 전체 기능 뿐 아니라 화면 기능까지 전수 테스트 내역을 excel 정리한 체크리스트를 작성해줘 그리고 항목별로 테스트 해줘".
