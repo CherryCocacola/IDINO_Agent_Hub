@@ -23,6 +23,17 @@ public class PiiDetectionLogsController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>
+    /// FromQuery DateTime 은 ISO 8601 Z suffix 라도 Kind=Unspecified 로 바인딩될 수 있다.
+    /// PostgreSQL timestamptz 컬럼은 Kind=Utc 만 허용하므로 본 헬퍼로 정규화한다.
+    /// </summary>
+    private static DateTime ToUtc(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+    };
+
     [HttpGet]
     public async Task<ActionResult<object>> GetLogs(
         [FromQuery] int? userId,
@@ -51,10 +62,17 @@ public class PiiDetectionLogsController : ControllerBase
                 query = query.Where(l => l.ActionTaken == actionTaken);
 
             if (startDate.HasValue)
-                query = query.Where(l => l.DetectedAt >= startDate.Value);
+            {
+                // Npgsql timestamptz 호환 — FromQuery DateTime Kind 정규화
+                var startUtc = ToUtc(startDate.Value);
+                query = query.Where(l => l.DetectedAt >= startUtc);
+            }
 
             if (endDate.HasValue)
-                query = query.Where(l => l.DetectedAt <= endDate.Value.AddDays(1));
+            {
+                var endUtc = ToUtc(endDate.Value.AddDays(1));
+                query = query.Where(l => l.DetectedAt <= endUtc);
+            }
 
             var totalCount = await query.CountAsync();
 
@@ -113,10 +131,17 @@ public class PiiDetectionLogsController : ControllerBase
             var query = _context.PiiDetectionLogs.AsQueryable();
 
             if (startDate.HasValue)
-                query = query.Where(l => l.DetectedAt >= startDate.Value);
+            {
+                // Npgsql timestamptz 호환 — FromQuery DateTime Kind 정규화
+                var startUtc = ToUtc(startDate.Value);
+                query = query.Where(l => l.DetectedAt >= startUtc);
+            }
 
             if (endDate.HasValue)
-                query = query.Where(l => l.DetectedAt <= endDate.Value.AddDays(1));
+            {
+                var endUtc = ToUtc(endDate.Value.AddDays(1));
+                query = query.Where(l => l.DetectedAt <= endUtc);
+            }
 
             var totalDetections = await query.CountAsync();
             var blockedCount = await query.CountAsync(l => l.ActionTaken == "Block");

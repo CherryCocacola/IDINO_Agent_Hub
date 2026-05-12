@@ -173,13 +173,15 @@ public class AnalyticsController : ControllerBase
                 return Forbid();
 
             var now = DateTime.UtcNow;
+            // `.Date` / `new DateTime(...)` 모두 Kind=Unspecified 반환 — Npgsql 의 timestamptz 컬럼은
+            // Kind=Utc 만 허용하므로 SpecifyKind 로 명시한다. (Phase 3.x PG 전환 후 회귀 차단)
             DateTime from = period switch
             {
-                "day"   => now.Date,
-                "week"  => now.Date.AddDays(-(int)now.DayOfWeek),
-                "month" => new DateTime(now.Year, now.Month, 1),
-                "year"  => new DateTime(now.Year, 1, 1),
-                _       => new DateTime(now.Year, now.Month, 1)
+                "day"   => DateTime.SpecifyKind(now.Date, DateTimeKind.Utc),
+                "week"  => DateTime.SpecifyKind(now.Date.AddDays(-(int)now.DayOfWeek), DateTimeKind.Utc),
+                "month" => DateTime.SpecifyKind(new DateTime(now.Year, now.Month, 1), DateTimeKind.Utc),
+                "year"  => DateTime.SpecifyKind(new DateTime(now.Year, 1, 1), DateTimeKind.Utc),
+                _       => DateTime.SpecifyKind(new DateTime(now.Year, now.Month, 1), DateTimeKind.Utc)
             };
 
             var usageQuery = _context.ApiUsages
@@ -253,7 +255,8 @@ public class AnalyticsController : ControllerBase
                 return Forbid();
 
             days = Math.Clamp(days, 1, 365);
-            var from = DateTime.UtcNow.Date.AddDays(-days + 1);
+            // `.Date` 는 Kind=Unspecified 반환 → Npgsql timestamptz 호환을 위해 Utc 로 명시
+            var from = DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(-days + 1), DateTimeKind.Utc);
 
             var daily = await _context.ApiUsages
                 .Join(_context.ChatConversations,

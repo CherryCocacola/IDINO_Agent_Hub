@@ -14,15 +14,33 @@ public class AnalyticsService : IAnalyticsService
         _context = context;
     }
 
+    /// <summary>
+    /// PostgreSQL `timestamp with time zone` 컬럼은 `DateTime.Kind=Utc` 만 허용한다.
+    /// `.Date` 속성과 `new DateTime(...)` 생성자는 `Kind=Unspecified` 를 반환하므로
+    /// 외부 입력(FromQuery) / 내부 계산 결과 모두 본 헬퍼를 통과시킨다.
+    /// (Npgsql 6+ strict UTC 정책 — `Cannot write DateTime with Kind=Unspecified` 예외 차단)
+    /// </summary>
+    private static DateTime ToUtc(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+        };
+    }
+
     public async Task<DashboardStatsDto> GetDashboardStatsAsync()
     {
         var totalUsers = await _context.Users.Where(u => !u.IsDeleted).CountAsync();
         var activeUsers = await _context.Users.Where(u => !u.IsDeleted && u.Status == "Active").CountAsync();
-        var todayStart = DateTime.UtcNow.Date;
+        // `.Date` 는 Kind=Unspecified 반환 → SpecifyKind 로 Utc 명시
+        var todayStart = ToUtc(DateTime.UtcNow.Date);
         var todayApiCalls = await _context.ApiUsages
             .Where(u => u.RequestTime.Date == todayStart)
             .CountAsync();
-        var thisMonthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        // `new DateTime(...)` 도 Kind=Unspecified
+        var thisMonthStart = ToUtc(new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1));
         var thisMonthCost = await _context.ApiUsages
             .Where(u => u.RequestTime >= thisMonthStart)
             .SumAsync(u => u.RequestCost);
@@ -38,8 +56,9 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<List<UsageStatsDto>> GetUsageStatsAsync(DateTime? startDate, DateTime? endDate, int? userId = null)
     {
-        var start = startDate ?? DateTime.UtcNow.AddDays(-30);
-        var end = endDate ?? DateTime.UtcNow;
+        // FromQuery 로 들어온 DateTime 은 Kind=Unspecified 일 수 있음 → ToUtc 통과
+        var start = ToUtc(startDate ?? DateTime.UtcNow.AddDays(-30));
+        var end = ToUtc(endDate ?? DateTime.UtcNow);
 
         var query = _context.ApiUsages
             .Include(u => u.ApiService)
@@ -71,8 +90,8 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<CostAnalysisDto> GetCostAnalysisAsync(DateTime? startDate, DateTime? endDate)
     {
-        var start = startDate ?? DateTime.UtcNow.AddDays(-30);
-        var end = endDate ?? DateTime.UtcNow;
+        var start = ToUtc(startDate ?? DateTime.UtcNow.AddDays(-30));
+        var end = ToUtc(endDate ?? DateTime.UtcNow);
 
         var totalCost = await _context.ApiUsages
             .Where(u => u.RequestTime >= start && u.RequestTime <= end)
@@ -165,8 +184,8 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<UserUsageDto> GetUserUsageAsync(int userId, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var start = startDate ?? DateTime.UtcNow.AddDays(-30);
-        var end = endDate ?? DateTime.UtcNow;
+        var start = ToUtc(startDate ?? DateTime.UtcNow.AddDays(-30));
+        var end = ToUtc(endDate ?? DateTime.UtcNow);
 
         var user = await _context.Users.FindAsync(userId);
         if (user == null)
@@ -206,8 +225,8 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<(List<ApiUsageDto> Items, int TotalCount)> GetUsageHistoryAsync(DateTime? startDate, DateTime? endDate, int? userId = null, int? serviceId = null, int? statusCode = null, string? search = null, int skip = 0, int take = 100)
     {
-        var start = startDate ?? DateTime.UtcNow.AddDays(-30);
-        var end = endDate ?? DateTime.UtcNow.AddDays(1);
+        var start = ToUtc(startDate ?? DateTime.UtcNow.AddDays(-30));
+        var end = ToUtc(endDate ?? DateTime.UtcNow.AddDays(1));
 
         // Include 제거 — AsNoTracking + 프로젝션으로 필요한 컬럼만 SELECT
         // COUNT 쿼리에서 search 없을 때 JOIN 불필요 → 대폭 속도 개선
@@ -233,11 +252,12 @@ public class AnalyticsService : IAnalyticsService
                 (u.Model != null && u.Model.ToLower().Contains(s)));
         }
 
-        // COUNT와 페이지 데이터 병렬 조회
-        // COUNT: search 없으면 JOIN 없이 ApiUsages 단일 테이블 COUNT → 빠름
-        // LIST:  프로젝션으로 필요한 컬럼만 SELECT (User/ApiService 전체 로드 안 함)
-        var countTask = baseQuery.CountAsync();
-        var listTask = baseQuery
+        // COUNT 와 페이지 데이터 — 동일 DbContext 인스턴스에서 병렬(Task.WhenAll) 실행은 불가.
+        // EF Core 의 ConcurrencyDetector 가 `A second operation was started on this context instance` 로 차단.
+        // (Phase 3.x PG 전환 후 노출된 결함 — Npgsql 단일 connection 기반에서 더 엄격하게 검출됨)
+        // 순차 await 로 변경 — COUNT 자체가 aggregate 라 빠르고, LIST 는 page size 한정이라 합쳐도 수백 ms 이내.
+        var totalCount = await baseQuery.CountAsync();
+        var items = await baseQuery
             .OrderByDescending(u => u.RequestTime)
             .Skip(skip)
             .Take(take)
@@ -259,8 +279,7 @@ public class AnalyticsService : IAnalyticsService
             })
             .ToListAsync();
 
-        await Task.WhenAll(countTask, listTask);
-        return (listTask.Result, countTask.Result);
+        return (items, totalCount);
     }
 
     /// <summary>
@@ -270,8 +289,8 @@ public class AnalyticsService : IAnalyticsService
         DateTime? startDate, DateTime? endDate,
         int? userId = null, int? serviceId = null, int? statusCode = null)
     {
-        var start = startDate ?? DateTime.UtcNow.AddDays(-30);
-        var end   = endDate   ?? DateTime.UtcNow.AddDays(1);
+        var start = ToUtc(startDate ?? DateTime.UtcNow.AddDays(-30));
+        var end   = ToUtc(endDate   ?? DateTime.UtcNow.AddDays(1));
 
         // Include 불필요 — aggregate 쿼리이므로 JOIN 없이 ApiUsages 테이블만 사용
         var query = _context.ApiUsages
