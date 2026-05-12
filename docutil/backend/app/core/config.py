@@ -7,6 +7,8 @@ Loads all service URLs, secrets, and tunables from environment variables
 
 from __future__ import annotations
 
+import math
+from collections import Counter
 from functools import lru_cache
 from typing import Literal
 
@@ -171,9 +173,19 @@ class Settings(BaseSettings):
     otel_service_name: str = "document-utilization-api"
 
     # ── encryption (AES-256) ─────────────────────────────────────────────
+    # 트랙 #65: default 는 "validator 가 통과하는 형식적 placeholder" 일 뿐,
+    # 실제 키는 반드시 환경변수 ENCRYPTION_KEY 로 주입해야 한다. 아래 default
+    # 는 dev 부팅 편의용 random hex 이며, 운영에서는 절대 사용 금지.
+    # 강한 키 생성: python -c "import secrets; print(secrets.token_hex(32))"
     encryption_key: str = Field(
-        default="0123456789abcdef0123456789abcdef",
-        description="32-byte hex-encoded AES-256 key for encrypting API keys at rest.",
+        default=(
+            # dev placeholder — 운영 키 아님 (validator 통과용 random hex)
+            "7c4e9a1f3b8d6021e5a738c92f0b14d6a89c52e0316f7b94d2f508a17c4e1b03"
+        ),
+        description=(
+            "32-byte hex-encoded AES-256 key for encrypting API keys at rest. "
+            "MUST be overridden via ENCRYPTION_KEY env var in production."
+        ),
     )
 
     # ── cors ─────────────────────────────────────────────────────────────
@@ -224,10 +236,68 @@ class Settings(BaseSettings):
 
     @field_validator("encryption_key")
     @classmethod
-    def _validate_encryption_key_length(cls, v: str) -> str:
-        decoded = bytes.fromhex(v)
-        if len(decoded) != 32:
+    def _validate_encryption_key(cls, v: str) -> str:
+        """ENCRYPTION_KEY (AES-256-GCM) validator.
+
+        검증 항목 (트랙 #65 — 약한 키 부팅 차단):
+        1. 64자 hex (32바이트) — AES-256 키 길이 강제
+        2. distinct byte ratio ≥ 16/32 (50%) — 패턴화된 키 차단
+        3. Shannon entropy ≥ 4.5 bits/byte — 저엔트로피 키 차단
+        4. 16/32자 hex 반복 패턴 차단 (`0123...0123...` 같은 데모 키)
+
+        트랙 #64 회전 사고(데모 키 `0123456789abcdef...` 가 운영에 적재됨)
+        재발을 코드 레이어에서 원천 차단한다. 약한 키가 환경변수로 주입되면
+        FastAPI 부팅 자체가 실패하여 운영 반영 전에 발견되도록 한다.
+
+        강한 키 생성:
+            python -c "import secrets; print(secrets.token_hex(32))"
+        """
+        # 조건 1: hex 디코딩 + 길이
+        try:
+            key_bytes = bytes.fromhex(v)
+        except ValueError as exc:
+            raise ValueError("encryption_key must be valid hex characters (0-9a-fA-F)") from exc
+
+        if len(key_bytes) != 32:
             raise ValueError("encryption_key must be exactly 32 bytes (64 hex characters) for AES-256.")
+
+        # 조건 4 (먼저 차단): 명확한 반복 패턴 — 데모 키 즉시 차단
+        # 16자 hex(8바이트)가 4회 반복: `0123456789abcdef` × 4 형태
+        if v[:16] == v[16:32] == v[32:48] == v[48:64]:
+            raise ValueError(
+                "encryption_key uses a repeating 16-char hex pattern (demo/weak key). "
+                "Generate a cryptographically random key: "
+                "python -c 'import secrets; print(secrets.token_hex(32))'"
+            )
+        # 32자 hex(16바이트)가 2회 반복
+        if v[:32] == v[32:64]:
+            raise ValueError(
+                "encryption_key uses a repeating 32-char hex pattern (weak key). "
+                "Generate a cryptographically random key: "
+                "python -c 'import secrets; print(secrets.token_hex(32))'"
+            )
+
+        # 조건 2: distinct byte 비율 — 32바이트 중 16개 미만 distinct 는 약한 키
+        distinct = len(set(key_bytes))
+        if distinct < 16:
+            raise ValueError(
+                f"encryption_key has too few distinct bytes ({distinct}/32, required ≥ 16). "
+                "Generate a cryptographically random key: "
+                "python -c 'import secrets; print(secrets.token_hex(32))'"
+            )
+
+        # 조건 3: Shannon entropy — 4.5 bits/byte 미만은 약한 키
+        # 강한 random 키는 7.0+ bits/byte, 약한 데모 키는 4.0 미만
+        counts = Counter(key_bytes)
+        total = len(key_bytes)
+        entropy = -sum((count / total) * math.log2(count / total) for count in counts.values())
+        if entropy < 4.5:
+            raise ValueError(
+                f"encryption_key entropy too low ({entropy:.2f} bits/byte, required ≥ 4.5). "
+                "Generate a cryptographically random key: "
+                "python -c 'import secrets; print(secrets.token_hex(32))'"
+            )
+
         return v
 
     @field_validator("cors_origins", mode="before")

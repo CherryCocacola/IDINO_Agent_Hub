@@ -16,7 +16,13 @@ import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite://")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-jwt-signing-purposes-only")
-os.environ.setdefault("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+# 트랙 #65: config.py 의 ENCRYPTION_KEY validator 가 엔트로피/반복 패턴을
+# 차단하므로, 약한 데모 키 (`0123...` 반복) 대신 강한 random hex 사용.
+# 운영 키 아님 — 테스트 전용 32바이트 random hex.
+os.environ.setdefault(
+    "ENCRYPTION_KEY",
+    "7c4e9a1f3b8d6021e5a738c92f0b14d6a89c52e0316f7b94d2f508a17c4e1b03",
+)
 os.environ.setdefault("CORS_ORIGINS", '["*"]')
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("MINIO_ENDPOINT", "localhost:9000")
