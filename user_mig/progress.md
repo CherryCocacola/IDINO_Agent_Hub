@@ -170,6 +170,41 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-12 (트랙 #83 — 전수 화면 체크리스트 신설 + 라이브 e2e (Playwright), 사용자 명시)
+- **commit**: `7d8bfbf` (`[docs] 트랙 #83 — 전수 화면 체크리스트 신설 + 라이브 e2e 진행 (Playwright)`). 77 files / +3578. push 보류.
+- **사용자 명시**: "로그인 부터 전체 기능 뿐 아니라 화면 기능까지 전수 테스트 내역을 excel 정리한 체크리스트를 작성해줘 그리고 항목별로 테스트 해줘".
+- **산출물**:
+  - `docs/TEST_CHECKLIST_FULL.xlsx` — 85 시트 (00_Cover / 01_Summary + 83 화면 시트) / **479 케이스** / 13 컬럼 (ID/화면/인터랙션/사전조건/입력/기대결과/위험도/자동화/결과/실측값/비고/검증일시/스크린샷). PASS/FAIL/SKIP conditional formatting + Summary 시트 COUNTIF 수식.
+  - `tools/ui_e2e/full/` — 8 파일: routes_catalog.py (라우트 카탈로그 + 케이스 빌더), build_excel.py (엑셀 신설), live_runner.py (Playwright 메인 러너), live_runner_redirect.py (anonymous 권한 분기 전수 검증), merge_results_into_excel.py + merge_redirect_results.py (결과 머지), verify_excel.py + verify_blanks.py (검증).
+  - `tools/ui_e2e/screenshots/full/` — **65 장** (AgentHub Vue 라우트 49 + DocUtil 공개 3 + 권한분기 샘플 5 + 추가 자동화 8). 평문 시크릿 없음 (시나리오 1의 발급키는 마스킹 + 즉시 회수 완료, 본 트랙은 재진행하지 않고 인용).
+- **대상 라우트 전수**:
+  - AgentHub Vue 49 (public 9 + protected 40, `agenthub/ClientApp/src/router/index.ts` 정독)
+  - DocUtil Next.js 25 (admin 15 + user 6 + auth 1 + public 3, `docutil/frontend/src/app/` 정독)
+  - 합계 74 + 권한분기 추가 13 = **87 routes 진입 검증**
+- **라이브 결과**:
+  - PASS **374** / FAIL **16** / SKIP **89** / blank **0** (총 479).
+  - 보안 OK: protected 48/48 anonymous → /login (redirect= 파라미터) or /landing 리다이렉트 PASS (router.beforeEach 가드 동작 검증).
+- **운영 결함 4건 (백엔드 5xx — UI는 정상)**: 화면 진입과 마운트는 모두 성공, API 호출만 500 → UI가 console error + 한국어 토스트로 우아하게 처리.
+  - `AnalyticsController.cs`: `/api/analytics/dashboard` 500, `/api/analytics/usage-history` 500, `/api/analytics/agents/{id}/stats?period=month` 500 (Dashboard / Analytics / UsageHistory 3 라우트 영향)
+  - `PiiDetectionLogsController.cs`: `/api/piidetectionlogs` 500, `/api/piidetectionlogs/statistics` 500 (PiiProtection 라우트 영향)
+  - → **후속 트랙 #84 후보**: 두 컨트롤러의 EF/SQL 쿼리 디버깅 (운영 DB 데이터 조회 실패 가능성 — 일자 필터 / null 처리 / EF 트래킹 등)
+- **트랙 #75 시나리오 인용** (재실행 안 함, 운영 영향 0 원칙):
+  - S1: ApiKey 발급+회수 1 cycle PASS (`scenario_1_result.json`, `b7de919`)
+  - S2: AgentChat LLM 1회 PASS (`scenario_2_result.json`, ~$0.0001, `b7de919`)
+  - S3: DocUtil 502 fallback PASS (`scenario_3_result.json`, `b7de919`)
+  - S4: DocUtil 자격증명 미확보 SKIP (`scenario_4_result.json`, `3542e33`)
+- **운영 무영향 정책 준수**:
+  - read-only 진입 + 안전 mutation **0건** (모든 mutation 케이스는 시나리오 1 인용으로 처리)
+  - LLM/이미지/PPTX 비용 케이스 (Playground / ImageGeneration / QuickImageGeneration / PresentationBuilder) — 폼 표시만, 전송 클릭 안 함
+  - DocUtil 인증 의존 22 케이스 (admin 15 + user 6 + 1 anon 외) — SKIP 처리, 자격증명 제공 시 진행 분기
+- **보안 사고 예방**:
+  - 라이브 러너의 admin 로그인 후 `_admin_state.json` 에 **JWT token + refreshToken 평문 저장됨** 발견 → 파일 즉시 삭제 + `.gitignore` 패턴 차단 (`tools/ui_e2e/full/_admin_state.json`, `tools/ui_e2e/full/*_state.json`, `tools/ui_e2e/**/storage_state*.json`).
+  - commit 직전 staged 파일 점검에서 `_admin_state.json` 포함 발견 → `git restore --staged` 로 unstage 후 파일 삭제 완료. 커밋 검사에서 차단됨 — git history 에 노출되지 않음.
+- **후속 트랙 후보**:
+  - **#84**: `AnalyticsController` + `PiiDetectionLogsController` 500 결함 디버그 (4 endpoints — 사용자 명시 후 진행)
+  - **#85**: DocUtil 사용자 자격증명 확보 후 22 SKIP 케이스 진행 (DocUtil 운영자 11명 명단 → 1명 테스트 계정 발급 협의 필요)
+  - **#86**: LLM 비용 케이스 다회 호출 명시 승인 받고 진행 (Playground / 이미지 / PPTX 각 1회씩)
+
 ### 2026-05-12 (트랙 #69 + #70 통합 — tb_llm_api_keys deprecate + alembic CI 게이트, 자율 진행)
 - **commits**:
   - `18548d4` ([infra/db] 트랙 #70 — alembic schema-agnostic CI 게이트 (ADR-18 강제)). 1 file / +224. push 보류.
