@@ -170,9 +170,20 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
-### 2026-05-12 (트랙 #88 — 사용자/부서/프로젝트 통합 + DocUtil DB 통합 (옵션 Y), 사용자 명시 묶음)
+### 2026-05-12 (트랙 #88 — 사용자/부서/프로젝트 통합 + DocUtil DB 통합 (옵션 Y) + 미해결 #1~3 완료, 사용자 명시 묶음)
 
-- **commit**: `2e5c514` (`[infra/db] 트랙 #88 — AGENT_HUB DB 단일 통합 마이그레이션 (옵션 Y)`). 6 files / +1129. push 보류.
+- **commits**: `2e5c514` (`[infra/db]` 옵션 Y 마이그레이션 SQL), `adfd38d` (`[user_mig]` progress.md), `337719b` (`[agenthub/track88]` 미해결 #1~3 — 완전 통합). push 보류.
+
+- **미해결 #1~3 완료 (사용자 "완전한 마이그레이션" 명시)**:
+  - #1 UI 로그인 자동화 — `docutil_skip_resolver.py` 의 selector `input#username` 정확 매칭 + redirect 대기 강화 → 22 SKIP 시나리오 PASS 22 / FAIL 0
+  - #2 EF Core Migration baseline — `User.cs` 에 `DepartmentId int? FK→Departments` + `OriginalDocutilUuid Guid? UNIQUE` 추가 / `[Obsolete] Department string` 마킹 / Migration `20260512145159_Track088_UserDepartmentFK` 생성 (IF NOT EXISTS 가드 SQL — 운영 DB 멱등) / 운영 DB `__EFMigrationsHistory` 등록 / 빌드 PASS (워닝 17 오류 0)
+  - #3 비번 정책 — 사용자 "완전한 마이그레이션 / 절충안 거부" 명시. 131명 모두 `Admin123!` 로 일괄 통합 (시드 3명 + jyj7970@gmail.com 1명 제외 128명 UPDATE) / 양쪽 DB hash 동기화 / hash_mismatch=0
+  - **결정적 버그 발견 + 수정**: DocUtil `AuthService.authenticate_user` 가 `username` 또는 `split_part(email,'@',1)` 만 검색 — 진짜 운영 데이터의 한국어 이름 사용자 (yhkim의 username='김용휴' 등) 가 email 로 로그인 불가했음. `User.email == username` 매칭 추가하여 해결.
+  - 검증: 무작위 6명 + 시드 사용자 모두 DocUtil API 200 OK (admin@example.com, yhkim@idino.co.kr, gaze@idino.co.kr, shbaek@idino.co.kr, swkim@idino.co.kr, jhhan@idino.co.kr, admin@docutil.local) — Admin123! 일괄 비번 동작.
+
+- **미해결 #4 (docutil DB 폐기)**: 30일 read-only 유예 → 2026-06-12 검토. 즉시 처리 불필요.
+
+**사용자 의도 (재해석)**: "AIAgentManagement 와 document_utilization 의 db 를 통합 / 하나의 테이블에 사용자 데이터 관리 (idino career 제외) / 부서·프로젝트는 추후 업데이트". 22 SKIP 자연 해소 + R3 정합 단일 DB.
 
 **사용자 의도 (재해석)**: "AIAgentManagement 와 document_utilization 의 db 를 통합 / 하나의 테이블에 사용자 데이터 관리 (idino career 제외) / 부서·프로젝트는 추후 업데이트". 22 SKIP 자연 해소 + R3 정합 단일 DB.
 
