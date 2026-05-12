@@ -1,0 +1,137 @@
+{
+  "track": "88-4 — DocUtil 22 SKIP 재검증",
+  "started_at": "2026-05-12 23:24:45",
+  "results": [
+    {
+      "case_prefix": "DU_anon",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_anon",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_anon",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_admin",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_user",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_user",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_user",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_user",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_user",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_user",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    },
+    {
+      "case_prefix": "DU_user",
+      "status": "LOGIN_FAILED",
+      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+    }
+  ],
+  "summary": {
+    "PASS": 0,
+    "FAIL": 0,
+    "PARTIAL": 0,
+    "LOGIN_FAILED": 25
+  }
+}
