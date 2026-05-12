@@ -170,6 +170,47 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-12 (트랙 #84-1 — Analytics/PiiDetectionLogs 5xx 디버그 + 재배포 + 재검증 묶음)
+- **commit**: `7c95459` (`[agenthub/analytics-pii] 트랙 #84-1 — Analytics/PiiDetectionLogs 5xx 디버그 + 재배포 + 재검증`). 25 files / +231 / -240. push 보류.
+- **사용자 옵션 A 승인**: #84-1 묶음 전체 자율 진행 (디버그 + deploy + 재검증). 시연 무시 + 제대로/확실히/완벽히 구현 기조 절대 준수.
+- **운영 IIS docker 로그 정밀 stack trace 수집 → 결함 2종 100% 확정**:
+  - **결함 1**: `System.ArgumentException: Cannot write DateTime with Kind=Unspecified to PostgreSQL type 'timestamp with time zone', only UTC is supported.` — Phase 3.x SQL Server → PostgreSQL 전환 후 노출. Npgsql 6+ 의 엄격 UTC 정책. SQL Server 에서는 `Kind=Unspecified` 허용되었으나 Npgsql 은 거부.
+    - `DateTime.UtcNow.Date` 속성은 `Kind=Unspecified` 반환 (함정)
+    - `new DateTime(year, month, 1)` 생성자도 `Kind=Unspecified`
+    - `[FromQuery] DateTime?` 모델 바인딩 — frontend ISO 8601 Z suffix 라도 일부 Kind=Unspecified 발생
+  - **결함 2**: `System.InvalidOperationException: A second operation was started on this context instance before a previous operation completed.` — Phase 3.x PG 전환 후 노출 (1차 fix deploy 이후 별도 표면화). EF Core ConcurrencyDetector 가 단일 DbContext 인스턴스 병렬 쿼리 차단. SQL Server MARS 에서는 허용되었으나 Npgsql 단일 connection 기반에서 더 엄격.
+    - `GetUsageHistoryAsync` 의 `Task.WhenAll(countTask, listTask)` 패턴 — 동일 DbContext 에서 두 쿼리 동시 실행
+- **수정 (백엔드 3 파일)**:
+  - `agenthub/Services/AnalyticsService.cs` (+34 / -15):
+    - `private static DateTime ToUtc(DateTime)` 헬퍼 도입 (Kind=Utc → 통과 / Local → ToUniversalTime / Unspecified → SpecifyKind)
+    - `GetDashboardStatsAsync` / `GetUsageStatsAsync` / `GetCostAnalysisAsync` / `GetUserUsageAsync` / `GetUsageHistoryAsync` / `GetUsageHistorySummaryAsync` — 6 메서드의 start/end/todayStart/thisMonthStart 모두 ToUtc 통과
+    - `GetUsageHistoryAsync`: `Task.WhenAll(countTask, listTask)` → `await totalCount = ...CountAsync()` + `await items = ...ToListAsync()` 순차 await (COUNT 자체 aggregate 라 빠르고 LIST page size 한정 → 합쳐도 수백 ms)
+  - `agenthub/Controllers/AnalyticsController.cs` (+8 / -7):
+    - `GetAgentStats`: `period switch` 의 `.Date` / `new DateTime(...)` 결과 모두 `DateTime.SpecifyKind(..., DateTimeKind.Utc)` 적용 (day/week/month/year/default 5분기)
+    - `GetAgentDailyStats`: `DateTime.UtcNow.Date.AddDays(-days + 1)` 결과 SpecifyKind(Utc)
+  - `agenthub/Controllers/PiiDetectionLogsController.cs` (+24 / -8):
+    - `private static DateTime ToUtc` 헬퍼 + `GetLogs` / `GetStatistics` 의 startDate/endDate 정규화
+- **운영 IIS 재배포 2회**:
+  - 1차 (fix1 — DateTime Kind): `tmp/deploy_track84_1.py` — 5 파일 sftp (백엔드 3 + 직전 #84 commit `039982e` 의 ClientApp 2 동반) + docker compose build agenthub --pull + force-recreate. 다운타임 6초. 백업 `.bak.track84_1_20260512_165330.tar.gz`. 사전 스모크 7/7 PASS.
+  - 2차 (fix2 — Task.WhenAll): `tmp/deploy_track84_1_fix2.py` — 1 파일 sftp (AnalyticsService.cs) + build + force-recreate. 다운타임 6초. 백업 `.bak.track84_1_fix2_20260512_165851.tar.gz`. 사전 스모크 8/8 PASS.
+- **Playwright 87 routes 재검증 (`tools/ui_e2e/full/live_runner.py`)**:
+  - 직전: PASS 61 / FAIL 4 / SKIP 22, console errors 9건, network 5xx 7건, network 401 2건
+  - 1차 deploy 후: PASS 63 / FAIL 2 / SKIP 22 — 결함 2 (Task.WhenAll) 노출
+  - 2차 deploy 후: **PASS 65 / FAIL 0 / SKIP 22**, console errors **0건**, network 5xx **0건**, network 401 **0건**
+  - 잔존 network: `/api/agents/public/test/info` 404 2건 (존재하지 않는 agent slug `test` — routes_catalog 사양 한계, status=PASS 분류)
+- **엑셀 갱신**: `docs/TEST_CHECKLIST_FULL.xlsx` 34셀 (Dashboard / Analytics / UsageHistory / PiiProtection / Tools / Workflows 의 -01~-06 + 비고 + AH-SP-010/064/067/071). Summary 시트: **PASS 390 / FAIL 0 / SKIP 89**.
+- **558 케이스 종합 결과**: 트랙 #74 79 + 트랙 #83 479 = 558 케이스. PASS 390 / FAIL 0 / SKIP 89 (자격증명 의존 22건 + 트랙 #84 SKIP 잔존). 운영 결함 9건 (5xx 7 + 401 2) → **0건**. 9/9 해소.
+- **잠재 회귀 위험 점검**:
+  - 동일 `Task.WhenAll + DbContext` 패턴 grep 결과: AnalyticsService 외 0건 (`AiProxyService.cs:2925` Tavily HTTP, `WorkflowEngine.cs:80` 노드 실행, `PresentationService.cs:1355` 프로세스 stdout — 모두 DbContext 무관, 안전).
+  - 동일 `DateTime.UtcNow.Date` 패턴 grep — Analytics/PiiDetectionLogs 외 잔존 0건 (수정 완료). 다른 컨트롤러의 `[FromQuery] DateTime` 진입점 4개 (AnalyticsController / PiiDetectionLogsController / AdminDocUtilOperationsController / ActivityLogController) — 후 2개는 DocUtil BFF / Activity Log Worker 라 EF 직접 쿼리 미발생.
+- **rollback 절차 (회수 절차)**: 운영 호스트의 `.bak.track84_1_*.tar.gz` 3개 + 직전 image `sha256:bcefee34...` (force-recreate 전 컨테이너 image) 로 즉시 복귀 가능. 미사용 (재검증 완료).
+- **별도 트랙 잔존 결함 (본 트랙 범위 외 — 운영 로그 식별)**:
+  - `ToolsController.cs:Execute` — `No active version found for tool 1` (ToolVersion 시드/관계 결함, 별도 트랙)
+  - `ScriptToolExecutor` — `process 'python' with working directory '/app'. No such file or directory` (docker image 에 python 미설치, 별도 트랙)
+  - `AiProxyService.Gemini` — `BadRequest` (Gemini API 응답 결함, 별도 트랙)
+  - `AgentsController.CreateAgent` — `FK_Agents_ApiServices_ServiceId` 위반 (특정 ServiceId 사라짐, 별도 트랙)
+  - 모두 본 트랙 #84-1 범위 외 — 별도 사용자 결정 시 진행.
+
 ### 2026-05-12 (트랙 #84 — SKIP 전수 진행 + console error 6건 운영 결함 확장, 사용자 명시 강조)
 - **commit**: `039982e` (`[agenthub/frontend+docs] 트랙 #84 — SKIP 전수 진행 + console error 6건 운영 결함 확장`). 8 files / +1645 / -4. push 보류.
 - **사용자 명시 강조**: "체크 리스트 작성하고 전수 테스트 진행해달라고 했잖아" — 직전 트랙 #74 (79 케이스) + #83 (479 케이스) 의 SKIP 합계 124건 미진행 지적. 자격증명 의존 22건만 명시 SKIP 유지하고 나머지 102건 모두 진행 필요.
