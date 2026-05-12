@@ -100,8 +100,8 @@ def main() -> None:
                                  expected=200, use_token=token))
     out["cases"].append({"id": "A-05", "scenario": "JWT 만료 → refresh token", "result": "SKIP",
                          "actual_preview": "운영 mutation 회피 — 별도 토큰 발급 부담"})
-    out["cases"].append(run_case("A-06", "로그아웃 (POST)", "POST", "/api/auth/logout",
-                                 expected={200, 204, 404, 405}, use_token=token))
+    out["cases"].append(run_case("A-06", "로그아웃 (POST + JSON body)", "POST", "/api/auth/logout",
+                                 expected={200, 204}, use_token=token, body={}))
     out["cases"].append({"id": "A-07", "scenario": "hslee@idino.co.kr 로그인", "result": "SKIP",
                          "actual_preview": "추가 자격증명 미보유, 사용자 결정 필요"})
 
@@ -182,8 +182,8 @@ def main() -> None:
     # --- E. 채팅 ---
     out["cases"].append({"id": "E-01", "scenario": "/api/chat/send", "result": "SKIP",
                          "actual_preview": "운영 LLM 비용 발생"})
-    out["cases"].append(run_case("E-02", "SignalR /hubs/notification GET (HTTP 협상 일부)", "GET",
-                                 "/hubs/notification/negotiate", expected={200, 404, 400, 401}, use_token=token))
+    out["cases"].append(run_case("E-02", "SignalR /hubs/notification POST negotiate (트랙 #75 보정)", "POST",
+                                 "/hubs/notification/negotiate?negotiateVersion=1", expected={200}, use_token=token, body=None))
     out["cases"].append({"id": "E-03", "scenario": "게스트 채팅 Rate Limit", "result": "SKIP",
                          "actual_preview": "운영 LLM 비용"})
     out["cases"].append({"id": "E-04", "scenario": "PII 입력 차단", "result": "SKIP",
@@ -204,10 +204,10 @@ def main() -> None:
         ("G-01", "users",            "/api/admin/docutil/users"),
         ("G-02", "departments",      "/api/admin/docutil/departments"),
         ("G-03", "projects",         "/api/admin/docutil/projects"),
-        ("G-04", "dashboard summary","/api/admin/docutil/dashboard/summary"),
+        ("G-04", "dashboard metrics", "/api/admin/docutil/dashboard/metrics"),
         ("G-05", "audit-logs",       "/api/admin/docutil/audit-logs"),
         ("G-06", "search-scopes",    "/api/admin/docutil/search-scopes"),
-        ("G-07", "evaluation",       "/api/admin/docutil/evaluation"),
+        ("G-07", "evaluation config", "/api/admin/docutil/evaluation/config"),
         ("G-08", "faq",              "/api/admin/docutil/faq"),
         ("G-09", "reports",          "/api/admin/docutil/reports"),
         ("G-10", "templates",        "/api/admin/docutil/templates"),

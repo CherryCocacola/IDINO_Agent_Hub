@@ -1,0 +1,71 @@
+{
+  "scenario_id": "S2",
+  "scenario": "LLM 1회 정밀 검증 (UI 채팅)",
+  "started_at": "2026-05-12 15:01:22",
+  "steps": [
+    {
+      "id": "2-1",
+      "desc": "admin 로그인",
+      "result": "PASS",
+      "duration_ms": 1660,
+      "screenshot": "tools/ui_e2e/screenshots/s2_01_post_login.png"
+    },
+    {
+      "id": "2-2",
+      "desc": "/agents 진입",
+      "result": "PASS",
+      "duration_ms": 1690,
+      "url": "http://192.168.10.39:64005/agents",
+      "title": "AI Agent Management",
+      "screenshot": "tools/ui_e2e/screenshots/s2_02_agents_page.png"
+    },
+    {
+      "id": "2-3",
+      "desc": "Agent 카드/리스트 선택",
+      "result": "PASS",
+      "duration_ms": 2890,
+      "agent": {
+        "selector": "a:has-text('채팅')",
+        "text": "멀티 채팅",
+        "url": "http://192.168.10.39:64005/agents/chat"
+      },
+      "screenshot": "tools/ui_e2e/screenshots/s2_03_agent_clicked.png"
+    },
+    {
+      "id": "2-4",
+      "desc": "메시지 입력 + 전송",
+      "result": "PASS",
+      "duration_ms": 472,
+      "input_selector": "textarea[placeholder*='메시지']"
+    },
+    {
+      "id": "2-5",
+      "desc": "LLM 응답 수신",
+      "result": "PASS",
+      "duration_ms": 37093,
+      "endpoints": [
+        "http://192.168.10.39:64005/api/chat/conversations/262/messages"
+      ],
+      "msg_count": 1,
+      "response_preview": "\n방금\nClaude\nPhase 10.2a 회귀 RAG 라우팅\n새로운 대화\n1일 전\nGemini\nphase10_1c regression\n새로운 대화\n1일 전\nClaude\nPhase9 회귀 한국어 RAG 검증\n새로운 대화\n3일 전\nChatGPT\n🚨 성희롱·성폭력 피해 신고 지원 에이전트\n2개 메시지\n4월 8일\nChatGPT\nAI 프롬프트엔지니어링 뭐부터 공부해",
+      "screenshot": "tools/ui_e2e/screenshots/s2_05_after_response.png"
+    }
+  ],
+  "llm_response": {
+    "response_visible_via_network": false,
+    "response_text_preview": "\n방금\nClaude\nPhase 10.2a 회귀 RAG 라우팅\n새로운 대화\n1일 전\nGemini\nphase10_1c regression\n새로운 대화\n1일 전\nClaude\nPhase9 회귀 한국어 RAG 검증\n새로운 대화\n3일 전\nChatGPT\n🚨 성희롱·성폭력 피해 신고 지원 에이전트\n2개 메시지\n4월 8일\nChatGPT\nAI 프롬프트엔지니어링 뭐부터 공부해야할까요?\n2개 메시지\n4월 8일\nChatGPT\nvalkey 소개해줘\n2개 메시지\n4월 7일\nClaude\n🧡 학생 심리상담 초기 스크리닝 에이전트\n3개 메시지\n4월 2일\nGemini\n기업 분석 보고서 생성 에이전트\n1개 메시지\n4월 2일\nChatGPT\n📄 공문·공지 초안 작성 에이전트\n새로운 대화\n4월 2일\nChatGPT\n참고문헌 자동 정리 에이전트\n1개 메시지\n4월 2일\nGemini\n아이디노 도우미(시나리오)\n103개 메시지\n4월 2일\nChatGPT\n아이디노 도우미\n11개 메시지\n4월 2일\nChatGPT\n프롬프트텔링\n새로운 대화\n",
+    "endpoints_called": [
+      "http://192.168.10.39:64005/api/chat/conversations/262/messages"
+    ],
+    "messages_captured": 1
+  },
+  "test_message": "안녕하세요, AgentHub UI e2e 테스트 (1회만)",
+  "finished_at": "2026-05-12 15:02:06",
+  "summary": {
+    "PASS": 5,
+    "FAIL": 0,
+    "SKIP": 0,
+    "INFO": 0
+  },
+  "overall": "PASS"
+}

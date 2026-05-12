@@ -1,0 +1,131 @@
+{
+  "target": "http://192.168.10.39:64005",
+  "started_at": "2026-05-12 14:23:00",
+  "checks": [
+    {
+      "step": "expand_menu",
+      "menu": "DOCUTIL 운영",
+      "result": "not_found"
+    },
+    {
+      "step": "expand_menu",
+      "menu": "운영자",
+      "result": "clicked"
+    },
+    {
+      "step": "expand_menu",
+      "menu": "설정",
+      "result": "clicked"
+    },
+    {
+      "step": "expand_menu",
+      "menu": "AI 서비스",
+      "result": "clicked"
+    },
+    {
+      "step": "shot_expanded",
+      "screenshot": "tools/ui_e2e/screenshots/probe_admin_all_menus_expanded.png"
+    },
+    {
+      "step": "all_items_after_expand",
+      "count": 18,
+      "items": [
+        {
+          "text": "AI 에이전트 관리",
+          "href": "/"
+        },
+        {
+          "text": "대시보드",
+          "href": "/"
+        },
+        {
+          "text": "지식베이스 관리",
+          "href": "/admin/knowledge-base"
+        },
+        {
+          "text": "RAG 메트릭",
+          "href": "/admin/rag-metrics"
+        },
+        {
+          "text": "사용자 관리",
+          "href": "/users"
+        },
+        {
+          "text": "팀 관리",
+          "href": "/team"
+        },
+        {
+          "text": "할당량 관리",
+          "href": "/quota"
+        },
+        {
+          "text": "API 키 관리",
+          "href": "/api-keys"
+        },
+        {
+          "text": "금칙어 관리",
+          "href": "/banned-words"
+        },
+        {
+          "text": "개인정보 보호 설정",
+          "href": "/pii-protection"
+        },
+        {
+          "text": "통계",
+          "href": "/analytics"
+        },
+        {
+          "text": "감사 로그",
+          "href": "/audit-log"
+        },
+        {
+          "text": "비용 분석",
+          "href": "/cost-analysis"
+        },
+        {
+          "text": "사용 기록",
+          "href": "/usage-history"
+        },
+        {
+          "text": "시스템 상태",
+          "href": "/system-health"
+        },
+        {
+          "text": "프레젠테이션 템플릿 관리",
+          "href": "/presentation-templates"
+        },
+        {
+          "text": "설정",
+          "href": "/settings"
+        },
+        {
+          "text": "도움말",
+          "href": "/help"
+        }
+      ]
+    },
+    {
+      "step": "keywords_after_expand",
+      "found": {
+        "API 키": 2,
+        "API Key": 0,
+        "키 발급": 0,
+        "사용자": 3,
+        "권한": 0,
+        "지식베이스": 2,
+        "Knowledge": 0,
+        "Tool": 0,
+        "Workflow": 0,
+        "분석": 2,
+        "사용량": 0,
+        "감사": 2,
+        "DocUtil 대시보드": 0,
+        "평가": 0,
+        "에이전트 빌더": 0,
+        "프로필": 0,
+        "프로파일": 0
+      }
+    }
+  ],
+  "finished_at": "2026-05-12 14:23:05"
+}

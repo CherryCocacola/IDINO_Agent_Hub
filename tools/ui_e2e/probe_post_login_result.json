@@ -1,0 +1,85 @@
+{
+  "target": "http://192.168.10.39:64005",
+  "started_at": "2026-05-12 14:22:22",
+  "checks": [
+    {
+      "step": "post_login_url",
+      "url": "http://192.168.10.39:64005/",
+      "title": "AI Agent Management"
+    },
+    {
+      "step": "post_login_shot",
+      "screenshot": "tools/ui_e2e/screenshots/probe_post_post_login_landing.png"
+    },
+    {
+      "step": "nav_items",
+      "count": 7,
+      "items": [
+        {
+          "text": "AI 에이전트 관리",
+          "href": "/",
+          "selector": "aside a"
+        },
+        {
+          "text": "대시보드",
+          "href": "/",
+          "selector": "aside a"
+        },
+        {
+          "text": "Agent 실행",
+          "href": "/agents",
+          "selector": "aside a"
+        },
+        {
+          "text": "멀티 채팅",
+          "href": "/agents/multi-chat",
+          "selector": "aside a"
+        },
+        {
+          "text": "이미지 생성",
+          "href": "/image-generation",
+          "selector": "aside a"
+        },
+        {
+          "text": "간편 이미지",
+          "href": "/quick-image",
+          "selector": "aside a"
+        },
+        {
+          "text": "프레젠테이션",
+          "href": "/presentation-builder",
+          "selector": "aside a"
+        }
+      ]
+    },
+    {
+      "step": "keyword_visibility",
+      "found": {
+        "API 키": false,
+        "API Key": false,
+        "키 관리": false,
+        "채팅": true,
+        "Chat": false,
+        "Playground": false,
+        "플레이그라운드": false,
+        "에이전트": true,
+        "Agent": true,
+        "DocUtil": true,
+        "지식베이스": false,
+        "Knowledge": false,
+        "평가": false,
+        "Evaluation": false,
+        "대시보드": true,
+        "Dashboard": false,
+        "사용량": false,
+        "Usage": false,
+        "Analytics": false,
+        "프로필": false,
+        "Profile": false,
+        "로그아웃": true,
+        "Logout": false
+      }
+    }
+  ],
+  "finished_at": "2026-05-12 14:22:25"
+}

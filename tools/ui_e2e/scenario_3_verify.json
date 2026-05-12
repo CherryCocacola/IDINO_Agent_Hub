@@ -1,0 +1,115 @@
+{
+  "started_at": "2026-05-12 15:04:50",
+  "steps": [
+    {
+      "id": "G-04a:metrics",
+      "ep": "/api/admin/docutil/dashboard/metrics",
+      "admin_status": 200,
+      "result": "PASS",
+      "preview": "{\"totalUsers\":11,\"activeUsers\":10,\"totalDocuments\":31,\"totalSearches\":110,\"featureUsage\":{\"user\":110,\"assistant\":110}}"
+    },
+    {
+      "id": "G-04a-anon:metrics",
+      "ep": "/api/admin/docutil/dashboard/metrics",
+      "anonymous_status": 401,
+      "result": "PASS",
+      "preview": ""
+    },
+    {
+      "id": "G-04a:response-times",
+      "ep": "/api/admin/docutil/dashboard/response-times",
+      "admin_status": 200,
+      "result": "PASS",
+      "preview": "{\"timestamps\":[],\"values\":[]}"
+    },
+    {
+      "id": "G-04a-anon:response-times",
+      "ep": "/api/admin/docutil/dashboard/response-times",
+      "anonymous_status": 401,
+      "result": "PASS",
+      "preview": ""
+    },
+    {
+      "id": "G-04a:search-errors",
+      "ep": "/api/admin/docutil/dashboard/search-errors",
+      "admin_status": 200,
+      "result": "PASS",
+      "preview": "{\"dates\":[\"2026-05-05\",\"2026-05-06\",\"2026-05-07\",\"2026-05-08\",\"2026-05-09\",\"2026-05-10\",\"2026-05-11\"],\"errorCounts\":[0,0,0,0,0,0,0]}"
+    },
+    {
+      "id": "G-04a-anon:search-errors",
+      "ep": "/api/admin/docutil/dashboard/search-errors",
+      "anonymous_status": 401,
+      "result": "PASS",
+      "preview": ""
+    },
+    {
+      "id": "G-04a:search-usage",
+      "ep": "/api/admin/docutil/dashboard/search-usage",
+      "admin_status": 200,
+      "result": "PASS",
+      "preview": "{\"totalRequests\":5,\"totalResponses\":5,\"totalFailures\":0,\"period\":\"7d\"}"
+    },
+    {
+      "id": "G-04a-anon:search-usage",
+      "ep": "/api/admin/docutil/dashboard/search-usage",
+      "anonymous_status": 401,
+      "result": "PASS",
+      "preview": ""
+    },
+    {
+      "id": "G-04a:upload-status",
+      "ep": "/api/admin/docutil/dashboard/upload-status",
+      "admin_status": 200,
+      "result": "PASS",
+      "preview": "{\"completed\":31,\"processing\":0,\"waiting\":0,\"error\":0}"
+    },
+    {
+      "id": "G-04a-anon:upload-status",
+      "ep": "/api/admin/docutil/dashboard/upload-status",
+      "anonymous_status": 401,
+      "result": "PASS",
+      "preview": ""
+    },
+    {
+      "id": "G-07a:config",
+      "ep": "/api/admin/docutil/evaluation/config",
+      "admin_status": 200,
+      "result": "PASS",
+      "preview": "{\"id\":\"15fd5542-200a-48c1-9eb5-d502443a62fb\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"contextRelevancyWeight\":0.25,\"answerFaithfulnessWeight\":0.3,\"answerRelevancyWeight\":0.25,\"hallucin"
+    },
+    {
+      "id": "G-07a-anon:config",
+      "ep": "/api/admin/docutil/evaluation/config",
+      "anonymous_status": 401,
+      "result": "PASS",
+      "preview": ""
+    },
+    {
+      "id": "A-06 (UI flow)",
+      "ep": "POST /api/auth/logout (Bearer + body {})",
+      "note": "UI 로그아웃 흐름은 JSON body 와 함께 호출. 트랙 #74의 415는 body 없는 curl 때문",
+      "result": "INFO"
+    },
+    {
+      "id": "A-06 verify",
+      "admin_status": 200,
+      "result": "PASS",
+      "preview": "{\"message\":\"Logout successful\"}"
+    },
+    {
+      "id": "E-02 (SignalR negotiate hunt)",
+      "negotiate_calls": [],
+      "websockets_observed": [],
+      "result": "FAIL",
+      "note": "여러 페이지(/, /agents/multi-chat, /agents/chat)에서 자동 negotiate 캡처 시도"
+    }
+  ],
+  "finished_at": "2026-05-12 15:05:08",
+  "summary": {
+    "PASS": 13,
+    "FAIL": 1,
+    "SKIP": 0,
+    "INFO": 1
+  }
+}

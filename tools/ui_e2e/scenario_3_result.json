@@ -1,0 +1,114 @@
+{
+  "scenario_id": "S3",
+  "scenario": "FAIL 4건 TC 보정",
+  "started_at": "2026-05-12 15:03:37",
+  "steps": [
+    {
+      "id": "3-2 (E-02 fix)",
+      "desc": "채팅 UI 진입 → 자동 SignalR negotiate + WebSocket OPEN",
+      "result": "FAIL",
+      "duration_ms": 2973,
+      "negotiate_calls": [],
+      "websockets": [],
+      "screenshot": "tools/ui_e2e/screenshots/s3_02_after_signalr_init.png"
+    },
+    {
+      "id": "3-3 (G-04a probe)",
+      "desc": "DOCUTIL 운영 하위 메뉴 식별",
+      "result": "INFO",
+      "items": [
+        {
+          "text": "대시보드",
+          "href": "/"
+        },
+        {
+          "text": "DocUtil 사용자",
+          "href": "/admin/docutil-users"
+        },
+        {
+          "text": "DocUtil 부서",
+          "href": "/admin/docutil-departments"
+        },
+        {
+          "text": "DocUtil 프로젝트",
+          "href": "/admin/docutil-projects"
+        },
+        {
+          "text": "DocUtil 대시보드",
+          "href": "/admin/docutil-dashboard"
+        },
+        {
+          "text": "DocUtil 감사 로그",
+          "href": "/admin/docutil-audit"
+        },
+        {
+          "text": "DocUtil 검색범위",
+          "href": "/admin/docutil-search-scopes"
+        },
+        {
+          "text": "DocUtil 평가",
+          "href": "/admin/docutil-evaluation"
+        },
+        {
+          "text": "DocUtil FAQ",
+          "href": "/admin/docutil-faq"
+        },
+        {
+          "text": "DocUtil 보고서",
+          "href": "/admin/docutil-reports"
+        },
+        {
+          "text": "DocUtil 문서 템플릿",
+          "href": "/admin/docutil-templates"
+        },
+        {
+          "text": "DocUtil LLM API Key",
+          "href": "/admin/docutil-api-keys"
+        },
+        {
+          "text": "DocUtil 에이전트",
+          "href": "/admin/docutil-doc-agents"
+        },
+        {
+          "text": "DocUtil 문서 V2",
+          "href": "/admin/docutil-documents-v2"
+        }
+      ]
+    },
+    {
+      "id": "3-3 (G-04a fix)",
+      "desc": "DOCUTIL 운영 대시보드 클릭 (DocUtil 대시보드)",
+      "result": "FAIL",
+      "duration_ms": 2833,
+      "candidate_endpoint": [],
+      "current_url": "http://192.168.10.39:64005/admin/docutil-dashboard",
+      "screenshot": "tools/ui_e2e/screenshots/s3_03_docutil_dashboard.png"
+    },
+    {
+      "id": "3-4 (G-07a fix)",
+      "desc": "DOCUTIL 운영 평가 클릭 (평가)",
+      "result": "FAIL",
+      "duration_ms": 2099,
+      "candidate_endpoint": [],
+      "current_url": "http://192.168.10.39:64005/admin/docutil-evaluation",
+      "screenshot": "tools/ui_e2e/screenshots/s3_04_docutil_evaluation.png"
+    },
+    {
+      "id": "3-1 (A-06 fix)",
+      "desc": "UI 로그아웃 (dropdown 로그아웃)",
+      "result": "PASS",
+      "duration_ms": 2548,
+      "logout_endpoint": [],
+      "post_logout_url": "http://192.168.10.39:64005/login",
+      "screenshot": "tools/ui_e2e/screenshots/s3_01_after_logout.png"
+    }
+  ],
+  "finished_at": "2026-05-12 15:03:50",
+  "summary": {
+    "PASS": 1,
+    "FAIL": 3,
+    "SKIP": 0,
+    "INFO": 1
+  },
+  "overall": "PARTIAL"
+}

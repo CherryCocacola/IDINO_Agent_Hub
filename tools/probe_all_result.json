@@ -1,5 +1,5 @@
 {
-  "started_at": "2026-05-12 13:44:58",
+  "started_at": "2026-05-12 15:09:55",
   "cases": [
     {
       "id": "A-01",
@@ -11,7 +11,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjEiLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L",
-      "duration_ms": 439,
+      "duration_ms": 400,
       "result": "PASS"
     },
     {
@@ -25,8 +25,8 @@
         422
       ],
       "actual_status": 401,
-      "actual_preview": "{\"message\":\"Invalid email or password\",\"errorCode\":\"UNAUTHORIZED\",\"details\":null,\"timestamp\":\"2026-05-12T04:45:00.2545467Z\"}",
-      "duration_ms": 328,
+      "actual_preview": "{\"message\":\"Invalid email or password\",\"errorCode\":\"UNAUTHORIZED\",\"details\":null,\"timestamp\":\"2026-05-12T06:09:58.1487402Z\"}",
+      "duration_ms": 312,
       "result": "PASS"
     },
     {
@@ -39,7 +39,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 0,
+      "duration_ms": 14,
       "result": "PASS"
     },
     {
@@ -52,7 +52,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "[{\"agentId\":21,\"agentCode\":\"표절-사전-점검-에이전트\",\"agentName\":\"표절 사전 점검 에이전트\",\"description\":\"제출 전 논문·과제물의 표절 위험 구절을 사전 탐지하고 수정 방법까지 안내합니다. CopyKiller 제출 전 자체 점검 용도에 최적화됩니다.\",\"serviceId\":17,\"serviceName\":\"Cha",
-      "duration_ms": 53,
+      "duration_ms": 52,
       "result": "PASS"
     },
     {
@@ -63,19 +63,17 @@
     },
     {
       "id": "A-06",
-      "scenario": "로그아웃 (POST)",
+      "scenario": "로그아웃 (POST + JSON body)",
       "method": "POST",
       "path": "/api/auth/logout",
       "expected": [
         200,
-        204,
-        404,
-        405
+        204
       ],
-      "actual_status": 415,
-      "actual_preview": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.16\",\"title\":\"Unsupported Media Type\",\"status\":415,\"traceId\":\"00-2228f487063da7eb6cb89113ce6e5024-d9d9e88eab6e9628-00\"}",
-      "duration_ms": 12,
-      "result": "FAIL"
+      "actual_status": 200,
+      "actual_preview": "{\"message\":\"Logout successful\"}",
+      "duration_ms": 36,
+      "result": "PASS"
     },
     {
       "id": "A-07",
@@ -93,7 +91,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "[{\"agentId\":21,\"agentCode\":\"표절-사전-점검-에이전트\",\"agentName\":\"표절 사전 점검 에이전트\",\"description\":\"제출 전 논문·과제물의 표절 위험 구절을 사전 탐지하고 수정 방법까지 안내합니다. CopyKiller 제출 전 자체 점검 용도에 최적화됩니다.\",\"serviceId\":17,\"serviceName\":\"Cha",
-      "duration_ms": 43,
+      "duration_ms": 52,
       "result": "PASS"
     },
     {
@@ -142,7 +140,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
-      "duration_ms": 17,
+      "duration_ms": 28,
       "result": "PASS"
     },
     {
@@ -173,7 +171,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "{\"message\":\"API Key is required\",\"hint\":\"X-API-Key 헤더 또는 Authorization: Bearer <key> 헤더를 포함해주세요.\"}",
-      "duration_ms": 28,
+      "duration_ms": 3,
       "result": "PASS"
     },
     {
@@ -220,19 +218,16 @@
     },
     {
       "id": "E-02",
-      "scenario": "SignalR /hubs/notification GET (HTTP 협상 일부)",
-      "method": "GET",
-      "path": "/hubs/notification/negotiate",
+      "scenario": "SignalR /hubs/notification POST negotiate (트랙 #75 보정)",
+      "method": "POST",
+      "path": "/hubs/notification/negotiate?negotiateVersion=1",
       "expected": [
-        200,
-        400,
-        401,
-        404
+        200
       ],
-      "actual_status": 405,
-      "actual_preview": "",
-      "duration_ms": 15,
-      "result": "FAIL"
+      "actual_status": 200,
+      "actual_preview": "{\"negotiateVersion\":1,\"connectionId\":\"ZsyHoe1PVM96BT3viW9oNA\",\"connectionToken\":\"F7L-kI5cttykt8ylQIMEKA\",\"availableTransports\":[{\"transport\":\"WebSockets\",\"transferFormats\":[\"Text\",\"Binary\"]},{\"transpo",
+      "duration_ms": 23,
+      "result": "PASS"
     },
     {
       "id": "E-03",
@@ -257,7 +252,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "[]",
-      "duration_ms": 16,
+      "duration_ms": 24,
       "result": "PASS"
     },
     {
@@ -283,7 +278,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "[]",
-      "duration_ms": 31,
+      "duration_ms": 34,
       "result": "PASS"
     },
     {
@@ -318,7 +313,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"items\":[{\"id\":\"52ff0252-d940-4357-8b19-6a1bda9b4cb3\",\"username\":\"이동건\",\"email\":\"dglee@idino.co.kr\",\"role\":\"member\",\"status\":\"active\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"departmen",
-      "duration_ms": 22,
+      "duration_ms": 17,
       "result": "PASS"
     },
     {
@@ -331,7 +326,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 21,
+      "duration_ms": 13,
       "result": "PASS"
     },
     {
@@ -347,7 +342,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "[{\"id\":\"37673e37-ce1e-498e-b493-e3435ffd25ee\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"parentId\":null,\"name\":\"TestDept7\",\"depth\":0,\"path\":\"/37673e37-ce1e-498e-b493-e3435ffd25ee/\",\"crea",
-      "duration_ms": 15,
+      "duration_ms": 17,
       "result": "PASS"
     },
     {
@@ -360,7 +355,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 15,
+      "duration_ms": 13,
       "result": "PASS"
     },
     {
@@ -376,27 +371,27 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"items\":[{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"description\":\"연구과제 문서 관리\",\"allowOriginalDownload\":false,\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"createdBy\":\"de358",
-      "duration_ms": 0,
+      "duration_ms": 5,
       "result": "PASS"
     },
     {
       "id": "G-04a",
-      "scenario": "dashboard summary anonymous 401",
+      "scenario": "dashboard metrics anonymous 401",
       "method": "GET",
-      "path": "/api/admin/docutil/dashboard/summary",
+      "path": "/api/admin/docutil/dashboard/metrics",
       "expected": [
         401
       ],
-      "actual_status": 200,
-      "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
-      "duration_ms": 17,
-      "result": "FAIL"
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 26,
+      "result": "PASS"
     },
     {
       "id": "G-04b",
-      "scenario": "dashboard summary admin Bearer read",
+      "scenario": "dashboard metrics admin Bearer read",
       "method": "GET",
-      "path": "/api/admin/docutil/dashboard/summary",
+      "path": "/api/admin/docutil/dashboard/metrics",
       "expected": [
         200,
         404,
@@ -404,7 +399,7 @@
         503
       ],
       "actual_status": 200,
-      "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
+      "actual_preview": "{\"totalUsers\":11,\"activeUsers\":10,\"totalDocuments\":31,\"totalSearches\":110,\"featureUsage\":{\"user\":110,\"assistant\":110}}",
       "duration_ms": 15,
       "result": "PASS"
     },
@@ -434,7 +429,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"items\":[{\"id\":\"37e46a26-f216-4b60-8538-eaf4145a8ddd\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"userId\":\"bafe866b-b7e2-4d26-8165-af62295e62f0\",\"action\":\"auth.login\",\"resourceType\":\"aut",
-      "duration_ms": 25,
+      "duration_ms": 28,
       "result": "PASS"
     },
     {
@@ -447,7 +442,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 16,
+      "duration_ms": 27,
       "result": "PASS"
     },
     {
@@ -463,27 +458,27 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"items\":[{\"id\":\"8a0f9f0f-c195-4a96-822c-f3fd7173e4b3\",\"name\":\"기본 범위 TEST\",\"description\":\"default\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"createdBy\":\"de3587d2-600a-4248-b2dc-25ad1335",
-      "duration_ms": 15,
+      "duration_ms": 16,
       "result": "PASS"
     },
     {
       "id": "G-07a",
-      "scenario": "evaluation anonymous 401",
+      "scenario": "evaluation config anonymous 401",
       "method": "GET",
-      "path": "/api/admin/docutil/evaluation",
+      "path": "/api/admin/docutil/evaluation/config",
       "expected": [
         401
       ],
-      "actual_status": 200,
-      "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
-      "duration_ms": 16,
-      "result": "FAIL"
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 13,
+      "result": "PASS"
     },
     {
       "id": "G-07b",
-      "scenario": "evaluation admin Bearer read",
+      "scenario": "evaluation config admin Bearer read",
       "method": "GET",
-      "path": "/api/admin/docutil/evaluation",
+      "path": "/api/admin/docutil/evaluation/config",
       "expected": [
         200,
         404,
@@ -491,8 +486,8 @@
         503
       ],
       "actual_status": 200,
-      "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
-      "duration_ms": 15,
+      "actual_preview": "{\"id\":\"15fd5542-200a-48c1-9eb5-d502443a62fb\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"contextRelevancyWeight\":0.25,\"answerFaithfulnessWeight\":0.3,\"answerRelevancyWeight\":0.25,\"hallucin",
+      "duration_ms": 16,
       "result": "PASS"
     },
     {
@@ -505,7 +500,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 18,
+      "duration_ms": 14,
       "result": "PASS"
     },
     {
@@ -521,7 +516,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"items\":[],\"total\":0,\"page\":1,\"size\":20}",
-      "duration_ms": 26,
+      "duration_ms": 17,
       "result": "PASS"
     },
     {
@@ -534,7 +529,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 16,
+      "duration_ms": 12,
       "result": "PASS"
     },
     {
@@ -550,7 +545,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"items\":[{\"id\":\"b2af009f-9018-43f5-9aac-44d5320a8ed3\",\"templateId\":null,\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"title\":\"회의록_양식\",\"status\":\"completed\",\"outputFormat\":\"docx\",\"outputStor",
-      "duration_ms": 16,
+      "duration_ms": 20,
       "result": "PASS"
     },
     {
@@ -563,7 +558,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 32,
+      "duration_ms": 29,
       "result": "PASS"
     },
     {
@@ -579,7 +574,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"items\":[{\"id\":\"b1a2264a-24a1-48a8-8ef4-57ba47378a70\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"회의록_양식\",\"description\":null,\"templateType\":\"회의록\",\"tone\":\"formal\",\"outputFormat\":\"d",
-      "duration_ms": 25,
+      "duration_ms": 4,
       "result": "PASS"
     },
     {
@@ -592,7 +587,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 16,
+      "duration_ms": 25,
       "result": "PASS"
     },
     {
@@ -608,7 +603,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"items\":[{\"id\":\"ae43f053-2279-48b7-85ea-56ba9c4bfabd\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"llmName\":\"openai\",\"apiKeyPrefix\":\"sk-proj-****\",\"isVerified\":true,\"registeredBy\":\"000000",
-      "duration_ms": 24,
+      "duration_ms": 33,
       "result": "PASS"
     },
     {
@@ -621,7 +616,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 11,
+      "duration_ms": 27,
       "result": "PASS"
     },
     {
@@ -637,7 +632,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"items\":[{\"id\":\"e90df318-70de-4137-b1ba-ea15cb54c52a\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"회의록 작성 AI\",\"description\":null,\"agentType\":\"minutes\",\"systemPrompt\":\"정확하고 체계적인 회의록",
-      "duration_ms": 15,
+      "duration_ms": 6,
       "result": "PASS"
     },
     {
@@ -650,7 +645,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 17,
+      "duration_ms": 23,
       "result": "PASS"
     },
     {
@@ -666,7 +661,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "{\"items\":[{\"id\":\"becafc95-f07f-4f8c-984d-ba83481257b9\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"generatedByUserId\":\"00000000-0000-4000-a000-000000000002\",\"agentId\":null,\"templateId\":nu",
-      "duration_ms": 43,
+      "duration_ms": 41,
       "result": "PASS"
     },
     {
@@ -680,7 +675,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "[{\"serviceId\":17,\"serviceName\":\"ChatGPT\",\"date\":\"2026-05-10T00:00:00Z\",\"requestCount\":1,\"totalTokens\":559,\"totalCost\":0.0168,\"averageResponseTime\":7170},{\"serviceId\":17,\"serviceName\":\"ChatGPT\",\"date\":",
-      "duration_ms": 16,
+      "duration_ms": 35,
       "result": "PASS"
     },
     {
@@ -694,7 +689,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "[{\"quotaId\":4,\"userId\":1,\"userEmail\":\"admin@example.com\",\"serviceId\":20,\"serviceName\":\"Copilot\",\"monthlyLimit\":2000,\"monthlyTokenLimit\":null,\"dailyLimit\":200,\"costLimit\":200.00,\"currentUsage\":0,\"curre",
-      "duration_ms": 187,
+      "duration_ms": 207,
       "result": "PASS"
     },
     {
@@ -708,7 +703,7 @@
       ],
       "actual_status": 200,
       "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
-      "duration_ms": 16,
+      "duration_ms": 27,
       "result": "PASS"
     },
     {
@@ -751,7 +746,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 16,
+      "duration_ms": 14,
       "result": "PASS"
     },
     {
@@ -764,7 +759,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 18,
+      "duration_ms": 14,
       "result": "PASS"
     },
     {
@@ -790,7 +785,7 @@
       ],
       "actual_status": 401,
       "actual_preview": "",
-      "duration_ms": 14,
+      "duration_ms": 3,
       "result": "PASS"
     },
     {
@@ -818,7 +813,7 @@
       ],
       "actual_status": 204,
       "actual_preview": "",
-      "duration_ms": 15,
+      "duration_ms": 2,
       "result": "PASS"
     },
     {
@@ -841,10 +836,10 @@
     }
   ],
   "summary": {
-    "PASS": 40,
-    "FAIL": 4,
+    "PASS": 44,
+    "FAIL": 0,
     "SKIP": 35,
     "TOTAL": 79
   },
-  "finished_at": "2026-05-12 13:45:00"
+  "finished_at": "2026-05-12 15:09:58"
 }

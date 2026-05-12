@@ -1,0 +1,98 @@
+[
+  {
+    "method": "POST",
+    "url": "http://192.168.10.39:64005/api/auth/login",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/analytics/dashboard",
+    "status": 500,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/analytics/usage-history?startDate=2026-05-05T06:03:39.824Z&endDate=2026-05-12T06:03:39.824Z&skip=0&take=10",
+    "status": 500,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/apiservices",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/users/me",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/apiservices/17/models",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/chat/conversations?isArchived=false",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/apiservices/17/models",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/chat/conversations/262/messages",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/admin/docutil/dashboard/search-errors?period=7d",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/admin/docutil/dashboard/response-times?period=7d",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/admin/docutil/dashboard/metrics",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/admin/docutil/dashboard/upload-status",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/admin/docutil/dashboard/search-usage?period=7d",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "GET",
+    "url": "http://192.168.10.39:64005/api/admin/docutil/evaluation/config",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  },
+  {
+    "method": "POST",
+    "url": "http://192.168.10.39:64005/api/auth/logout",
+    "status": 200,
+    "ct": "application/json; charset=utf-8"
+  }
+]

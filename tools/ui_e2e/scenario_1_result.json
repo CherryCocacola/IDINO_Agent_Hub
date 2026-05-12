@@ -1,0 +1,103 @@
+{
+  "scenario_id": "S1",
+  "scenario": "Agent API 키 mutation 1 cycle (UI)",
+  "started_at": "2026-05-12 15:00:06",
+  "steps": [
+    {
+      "id": "1-1",
+      "desc": "admin 로그인",
+      "result": "PASS",
+      "duration_ms": 1755,
+      "url": "http://192.168.10.39:64005/",
+      "screenshot": "tools/ui_e2e/screenshots/s1_01_post_login.png"
+    },
+    {
+      "id": "1-2",
+      "desc": "/api-keys 진입",
+      "result": "PASS",
+      "duration_ms": 1306,
+      "url": "http://192.168.10.39:64005/api-keys",
+      "screenshot": "tools/ui_e2e/screenshots/s1_02_apikey_page_arrived.png"
+    },
+    {
+      "id": "1-3",
+      "desc": "Agent API 키 탭 전환",
+      "result": "PASS",
+      "duration_ms": 735,
+      "screenshot": "tools/ui_e2e/screenshots/s1_03_agent_tab_active.png"
+    },
+    {
+      "id": "1-4",
+      "desc": "Agent 드롭다운 선택",
+      "result": "PASS",
+      "duration_ms": 765,
+      "agent": {
+        "value": "21",
+        "text": "표절 사전 점검 에이전트"
+      },
+      "screenshot": "tools/ui_e2e/screenshots/s1_04_agent_selected.png"
+    },
+    {
+      "id": "1-5",
+      "desc": "발급 버튼 클릭 (Agent API 키 발급)",
+      "result": "PASS",
+      "duration_ms": 699,
+      "screenshot": "tools/ui_e2e/screenshots/s1_05_issue_modal_opened.png"
+    },
+    {
+      "id": "1-6",
+      "desc": "keyName 입력",
+      "result": "PASS",
+      "duration_ms": 368,
+      "key_name": "ui-e2e-test-1778565606",
+      "screenshot": "tools/ui_e2e/screenshots/s1_06_name_filled.png"
+    },
+    {
+      "id": "1-7",
+      "desc": "발급 확정 + 응답 캡처",
+      "result": "PASS",
+      "duration_ms": 2617,
+      "key_captured": true,
+      "key_masked": "ak-x...aHxQ (len=46)",
+      "record_id": 8,
+      "endpoint": "http://192.168.10.39:64005/api/agents/21/api-keys",
+      "screenshot": "tools/ui_e2e/screenshots/s1_07_issue_completed_masked.png"
+    },
+    {
+      "id": "1-9",
+      "desc": "발급된 키로 GET /v1/models",
+      "result": "PASS",
+      "duration_ms": 52,
+      "status": 200,
+      "model_count": 1,
+      "body_preview": "{\"object\":\"list\",\"data\":[{\"id\":\"표절-사전-점검-에이전트\",\"object\":\"model\",\"created\":1775177313,\"owned_by\":\"agent-hub\",\"description\":\"표절 사전 점검 에이전트 — 제출 전 논문·과제물의 표절 위험 구절을 사전 탐지하고 수정 방법까지 안내합니다. CopyKiller 제출 전 자체 점검 용도에 최적화됩니다.\"}]}"
+    },
+    {
+      "id": "1-10",
+      "desc": "키 삭제 (UI 삭제 클릭)",
+      "result": "PASS",
+      "duration_ms": 2544,
+      "screenshot": "tools/ui_e2e/screenshots/s1_10_after_revoke_UI_삭제_클릭.png"
+    },
+    {
+      "id": "1-11",
+      "desc": "회수 후 GET /v1/models",
+      "result": "PASS",
+      "duration_ms": 1232,
+      "status": 401,
+      "body_preview": "{\"message\":\"Invalid or expired API Key\"}"
+    }
+  ],
+  "issued_key_masked": "ak-x...aHxQ (len=46)",
+  "issued_record_id": 8,
+  "key_name": "ui-e2e-test-1778565606",
+  "cleanup": [],
+  "finished_at": "2026-05-12 15:00:20",
+  "summary": {
+    "PASS": 10,
+    "FAIL": 0,
+    "SKIP": 0,
+    "INFO": 0
+  },
+  "overall": "PASS"
+}

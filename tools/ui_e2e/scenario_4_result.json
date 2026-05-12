@@ -1,0 +1,46 @@
+{
+  "scenario_id": "S4",
+  "scenario": "DocUtil UI I-01~I-05",
+  "started_at": "2026-05-12 15:06:20",
+  "steps": [
+    {
+      "id": "I-01",
+      "desc": "DocUtil 로그인 시도 (2건)",
+      "result": "FAIL",
+      "attempts": [
+        {
+          "username": "admin@example.com",
+          "password_masked": "Ad*******",
+          "post_login_url": "http://192.168.10.39:8041/login",
+          "login_api_status": "None",
+          "body": "",
+          "success": false
+        },
+        {
+          "username": "admin",
+          "password_masked": "ad***",
+          "post_login_url": "http://192.168.10.39:8041/login",
+          "login_api_status": "None",
+          "body": "",
+          "success": false
+        }
+      ],
+      "screenshot": "tools/ui_e2e/screenshots/s4_01_docutil_login_attempts.png"
+    },
+    {
+      "id": "I-02~I-05",
+      "desc": "자격증명 미확보 — 챗봇/검색/업로드/보고서 SKIP",
+      "result": "SKIP",
+      "note": "자격증명 확보 후 재실행 필요"
+    }
+  ],
+  "credentials_obtained": false,
+  "finished_at": "2026-05-12 15:06:27",
+  "summary": {
+    "PASS": 0,
+    "FAIL": 1,
+    "SKIP": 1,
+    "INFO": 0
+  },
+  "overall": "SKIP (자격증명 미확보)"
+}
