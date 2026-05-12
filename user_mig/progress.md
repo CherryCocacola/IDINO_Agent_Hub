@@ -170,6 +170,58 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-12 (트랙 #67 — db_schema validator + DB_MIGRATION.md v1.1, 자율 진행)
+- **commit**: `2af224f` (`[infra/db] 트랙 #67 — db_schema validator + docs/DB_MIGRATION.md v1.1 (Phase 2 산출물 확장)`). 3 files / +293 / -1. push 보류.
+- **목적**: 트랙 #66 alembic 분석 결과 식별된 시나리오 D (DB_SCHEMA env 누락/오타) 차단 + Phase 2 산출물 `docs/DB_MIGRATION.md` 갱신 (트랙 #63/#64/#65 결과 통합).
+- **db_schema validator** (`docutil/backend/app/core/config.py`):
+  - 빈 값 / 공백 → reject
+  - `public` (대소문자 무시) → reject
+  - PG identifier 규칙 위반 (알파/숫자/언더스코어, 첫 글자 알파 또는 _, 최대 63자) → reject
+  - `ClassVar[re.Pattern[str]]` 로 컴파일된 정규식 (pydantic v2 필드 오해석 방지)
+- **단위 테스트** (`docutil/backend/tests/test_config_validator.py`): `TestDbSchemaValidator` 10건 추가. 총 22건 (트랙 #65 12 + 트랙 #67 10) **모두 PASS** (0.44s).
+- **DB_MIGRATION.md v1.1** (`docs/DB_MIGRATION.md`): §10 운영 사고 이력 + 재발 방지 신설 (+155 LOC, 기존 §1~§9 + 부록 A/B 무손상).
+  - §10.1 alembic env.py 5중 안전 메커니즘 (라인 번호 인용)
+  - §10.2 마이그레이션 작성 규칙 4개 (schema 인자 명시 금지 / unqualified SQL / 누설 검증 / alembic 외부 적용 금지)
+  - §10.3 운영 사고 이력 — 트랙 #63 (`857d323`/`823346f`), #64 (`e203f6a`/`bc8d833`), #65 (`6a37557`), #67 (`2af224f`)
+  - §10.4 재발 방지 체크리스트 3 영역 (마이그레이션 작성/운영 적용/환경변수 변경)
+  - §10.5 회복 절차 (트랙 #63 옵션 B SET SCHEMA SQL 예시)
+  - §10.6 관련 ADR (ADR-4/5/11) + TECHSPEC (§16 R3, §13.2)
+- **검증**: ruff check + format PASS / pytest 22/22 PASS / git commit OK
+- **push 보류**: GitHub push 차단(`1da04ab` secret leak history) 미해소 + 사용자 명시 D 옵션 보류
+
+### 2026-05-12 (트랙 #65 — DocUtil ENCRYPTION_KEY validator 강화, 자율 진행)
+- **commit**: `6a37557` (`[docutil/config] 트랙 #65 — ENCRYPTION_KEY validator 강화 (엔트로피 + 반복 패턴 차단)`). 3 files / +72/-7 (config.py) + 5/-1 (conftest.py) + 168 (test_config_validator.py 신설). push 보류.
+- **목적**: 트랙 #64 회전 필요성 재발 방지. ENCRYPTION_KEY validator 가 길이만 검증하던 약점을 3중 검증으로 보강.
+- **검증 조건**:
+  - 16자 hex 4회 반복 차단 (`v[:16]==v[16:32]==v[32:48]==v[48:64]`)
+  - 32자 hex 2회 반복 차단
+  - distinct byte ratio ≥ 16/32 (50%)
+  - Shannon entropy ≥ 4.5 bits/byte
+- **단위 테스트** 12건 PASS (token_hex 통과 / 약한 키 거부 / 가이드 메시지 포함)
+- **부산물**: 기존 config.py default `0123456789abcdef0123456789abcdef` (32자, 길이도 invalid) → `secrets.token_hex(32)` 강한 random 으로 교체. 운영 환경변수 우선이므로 운영 무영향.
+
+### 2026-05-12 (트랙 #66 — alembic baseline 분석, 보고서만, 자율 진행)
+- **commit 없음** (분석 보고서, 결과는 트랙 #67 의 DB_MIGRATION.md §10 에 통합)
+- **결과**:
+  - 마이그레이션 파일 8개 (001~009, 008 skip) 모두 schema-agnostic — `schema=` 인자 0건, schema-qualified identifier 0건
+  - env.py 5중 안전 (Phase 4.1 `6150e34`) 정상 — `version_table_schema` / `include_schemas=True` / `CREATE SCHEMA` / `SET LOCAL search_path` / `connect_args`
+  - 트랙 #63 (`857d323`/`823346f`) public → document_utilization SET SCHEMA 복구 완료, head=009_organization_quotas 유지
+- **재발 시나리오 평가**: A/B/E/G 낮음, D 중간(env 누락 — 트랙 #67 validator 로 차단), F 중간(향후 마이그레이션 작성 실수 — DB_MIGRATION.md 규칙으로 차단), C 높음(alembic 외부 경로 적용 — 운영자 절차)
+- **권장 조치**:
+  - 즉시: None (운영 안정)
+  - 중기: 마이그레이션 작성 규칙 문서화 (트랙 #67 §10.2 반영)
+  - 장기: db_schema validator (트랙 #67 §10.4 반영)
+
+### 2026-05-12 (트랙 #62 — 운영 임시 secrets 파일 안전 삭제, 자율 진행)
+- **commit 없음** (운영 호스트 mutation, workspace 변경 없음)
+- **삭제 대상 3개** (모두 0600, shred + rm):
+  - `/home/idino/.g2_secrets_20260511_174342.txt` (G.2 5 서비스 비번, 494 bytes)
+  - `/home/idino/.docutil_apikey_1778539242.txt` (ApiKeyId=3 평문, 161 bytes)
+  - `/home/idino/.docutil_new_enckey_20260512_004813.txt` (DocUtil ENCRYPTION_KEY 새 키, 65 bytes)
+- **운영 .env 정합성 검증**: 7개 키 모두 `.env` 에 1건씩 존재 → 삭제 시 운영 영향 없음
+- **백업 5개 보존** (회복용): `.env.bak.20260511_084232`, `.env.bak.before_agenthub_env.20260512_074155`, `.env.bak.before_enckey_rotate_20260512_004813`, `.env.rotbak.20260512_005129`, `agenthub/.env.bak.20260511_132356`
+- **사후 검증**: 잔여 임시 secrets 파일 0건
+
 ### 2026-05-12 (트랙 #64 — DocUtil ENCRYPTION_KEY 회전, 옵션 B Bulk Re-encrypt, 운영 라이브 회귀 완료)
 - **운영 commit**: `e203f6a` (`[infra/docutil] 트랙 #64 — DocUtil ENCRYPTION_KEY 회전 (옵션 B Bulk Re-encrypt)`). workspace 코드 변경 0 — 운영 호스트 (`192.168.10.39`) `.env` + DB(`document_utilization.tb_llm_api_keys`) + 3 컨테이너 재시작만 수행. 작업 스크립트는 `tmp/track64_enckey/` (`.gitignore`, 미커밋).
 - **목적**: 트랙 #56 (G.1 분석) 에서 발견된 약한 ENCRYPTION_KEY 회전. 옛 키 `0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef` (64자 hex, 16자 4회 반복, 추정 엔트로피 ≈ 64bit) → 강한 키 `secrets.token_hex(32)` (64자 hex, 256bit 진정 난수). 사용자 명시 기조 ("시연은 신경쓰지 말고 제대로 확실히 완벽히") + autonomous-loop 자율 진행으로 옵션 B (Bulk Re-encrypt — 키만 교체, OpenAI 평문 키 보존) 채택.
