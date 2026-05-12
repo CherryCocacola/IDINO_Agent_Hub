@@ -70,12 +70,15 @@ class AuthService:
         """
 
         # -- look up user -------------------------------------------------
-        # username 또는 email 로컬파트(@ 앞부분)로 검색
+        # username, 전체 email, 또는 email 로컬파트(@ 앞부분)로 검색
+        # 트랙 #88 — 통합 후 tb_users.username 은 진짜 운영 데이터의 한국어 이름.
+        # 사용자는 보통 email 로 로그인하므로 User.email 매칭도 함께 검사.
         from sqlalchemy import or_, func
 
         stmt = select(User).where(
             or_(
                 User.username == username,
+                User.email == username,
                 func.split_part(User.email, '@', 1) == username,
             )
         )

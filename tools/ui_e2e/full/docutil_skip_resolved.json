@@ -1,137 +1,381 @@
 {
   "track": "88-4 — DocUtil 22 SKIP 재검증",
-  "started_at": "2026-05-12 23:24:45",
+  "started_at": "2026-05-13 00:46:15",
   "results": [
     {
-      "case_prefix": "DU_anon",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_AdminDashboard",
+      "path": "/dashboard",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:23",
+      "url_visited": "http://192.168.10.39:8041/dashboard",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_AdminDashboard.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/dashboard",
+      "redirected": false,
+      "duration_ms": 2116,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_anon",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_AdminAccounts",
+      "path": "/admin-accounts",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:25",
+      "url_visited": "http://192.168.10.39:8041/admin-accounts",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_AdminAccounts.png",
+      "dom_mounted": true,
+      "console_errors": [
+        "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      ],
+      "network_4xx_5xx": [
+        {
+          "url": "http://192.168.10.39:8041/api/v1/users/?org_id=00000000-0000-4000-a000-000000000001&page=1&size=20",
+          "status": 404,
+          "method": "GET"
+        }
+      ],
+      "final_url": "http://192.168.10.39:8041/admin-accounts",
+      "redirected": false,
+      "duration_ms": 2096,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_anon",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Agents",
+      "path": "/agents",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:28",
+      "url_visited": "http://192.168.10.39:8041/agents",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Agents.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/agents",
+      "redirected": false,
+      "duration_ms": 2085,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_ApiKeys",
+      "path": "/api-keys",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:30",
+      "url_visited": "http://192.168.10.39:8041/api-keys",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_ApiKeys.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/api-keys",
+      "redirected": false,
+      "duration_ms": 2097,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Departments",
+      "path": "/departments",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:32",
+      "url_visited": "http://192.168.10.39:8041/departments",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Departments.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/departments",
+      "redirected": false,
+      "duration_ms": 2083,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Documents",
+      "path": "/documents",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:34",
+      "url_visited": "http://192.168.10.39:8041/documents",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Documents.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/documents",
+      "redirected": false,
+      "duration_ms": 2121,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Evaluation",
+      "path": "/evaluation",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:36",
+      "url_visited": "http://192.168.10.39:8041/evaluation",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Evaluation.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/evaluation",
+      "redirected": false,
+      "duration_ms": 2095,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Help",
+      "path": "/help",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:38",
+      "url_visited": "http://192.168.10.39:8041/help",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Help.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/help",
+      "redirected": false,
+      "duration_ms": 2081,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Projects",
+      "path": "/projects",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:40",
+      "url_visited": "http://192.168.10.39:8041/projects",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Projects.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/projects",
+      "redirected": false,
+      "duration_ms": 2083,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_QuickGuide",
+      "path": "/quick-guide",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:42",
+      "url_visited": "http://192.168.10.39:8041/quick-guide",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_QuickGuide.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/quick-guide",
+      "redirected": false,
+      "duration_ms": 2085,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Quotas",
+      "path": "/quotas",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:44",
+      "url_visited": "http://192.168.10.39:8041/quotas",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Quotas.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/quotas",
+      "redirected": false,
+      "duration_ms": 2059,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_SearchScopes",
+      "path": "/search-scopes",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:46",
+      "url_visited": "http://192.168.10.39:8041/search-scopes",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_SearchScopes.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/search-scopes",
+      "redirected": false,
+      "duration_ms": 2089,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_SearchTest",
+      "path": "/search-test",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:48",
+      "url_visited": "http://192.168.10.39:8041/search-test",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_SearchTest.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/search-test",
+      "redirected": false,
+      "duration_ms": 2082,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Settings",
+      "path": "/settings",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:51",
+      "url_visited": "http://192.168.10.39:8041/settings",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Settings.png",
+      "dom_mounted": true,
+      "console_errors": [
+        "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      ],
+      "network_4xx_5xx": [
+        {
+          "url": "http://192.168.10.39:8041/api/v1/settings",
+          "status": 404,
+          "method": "GET"
+        }
+      ],
+      "final_url": "http://192.168.10.39:8041/settings",
+      "redirected": false,
+      "duration_ms": 2073,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Templates",
+      "path": "/templates",
+      "role": "admin",
+      "started_at": "2026-05-13 00:46:53",
+      "url_visited": "http://192.168.10.39:8041/templates",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Templates.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/templates",
+      "redirected": false,
+      "duration_ms": 2092,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Chat",
+      "path": "/chat",
+      "role": "user",
+      "started_at": "2026-05-13 00:46:55",
+      "url_visited": "http://192.168.10.39:8041/chat",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Chat.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/chat",
+      "redirected": false,
+      "duration_ms": 2064,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_DesignerCreate",
+      "path": "/designer/create",
+      "role": "user",
+      "started_at": "2026-05-13 00:46:57",
+      "url_visited": "http://192.168.10.39:8041/designer/create",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_DesignerCreate.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/designer/create",
+      "redirected": false,
+      "duration_ms": 2095,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_admin",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_DesignerFill",
+      "path": "/designer/fill/dummy",
+      "role": "user",
+      "started_at": "2026-05-13 00:46:59",
+      "url_visited": "http://192.168.10.39:8041/designer/fill/dummy",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_DesignerFill.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/designer/fill/dummy",
+      "redirected": false,
+      "duration_ms": 2087,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_user",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_DesignerDocument",
+      "path": "/designer/dummy",
+      "role": "user",
+      "started_at": "2026-05-13 00:47:01",
+      "url_visited": "http://192.168.10.39:8041/designer/dummy",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_DesignerDocument.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/designer/dummy",
+      "redirected": false,
+      "duration_ms": 2085,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_user",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_MyDocuments",
+      "path": "/my-documents",
+      "role": "user",
+      "started_at": "2026-05-13 00:47:03",
+      "url_visited": "http://192.168.10.39:8041/my-documents",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_MyDocuments.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/my-documents",
+      "redirected": false,
+      "duration_ms": 2068,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_user",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Reports",
+      "path": "/reports",
+      "role": "user",
+      "started_at": "2026-05-13 00:47:05",
+      "url_visited": "http://192.168.10.39:8041/reports",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Reports.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/reports",
+      "redirected": false,
+      "duration_ms": 2086,
+      "status": "PASS",
+      "note": ""
     },
     {
-      "case_prefix": "DU_user",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
-    },
-    {
-      "case_prefix": "DU_user",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
-    },
-    {
-      "case_prefix": "DU_user",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
-    },
-    {
-      "case_prefix": "DU_user",
-      "status": "LOGIN_FAILED",
-      "note": "DocUtil 로그인 실패: http://192.168.10.39:8041/login"
+      "case_prefix": "DU_DU_Search",
+      "path": "/search",
+      "role": "user",
+      "started_at": "2026-05-13 00:47:07",
+      "url_visited": "http://192.168.10.39:8041/search",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/full/s88_DU_DU_Search.png",
+      "dom_mounted": true,
+      "console_errors": [],
+      "network_4xx_5xx": [],
+      "final_url": "http://192.168.10.39:8041/search",
+      "redirected": false,
+      "duration_ms": 2079,
+      "status": "PASS",
+      "note": ""
     }
   ],
   "summary": {
-    "PASS": 0,
+    "PASS": 22,
     "FAIL": 0,
     "PARTIAL": 0,
-    "LOGIN_FAILED": 25
-  }
+    "LOGIN_FAILED": 0
+  },
+  "finished_at": "2026-05-13 00:47:07"
 }

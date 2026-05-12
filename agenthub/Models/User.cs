@@ -25,7 +25,20 @@ public class User
     public string? PhoneNumber { get; set; }
 
     [MaxLength(100)]
+    [Obsolete("트랙 #88 — DepartmentId FK 로 정규화. 2026-06-11 DROP 예정.")]
     public string? Department { get; set; }
+
+    /// <summary>
+    /// 트랙 #88 — 소속 부서 FK (Departments.DepartmentId). NULL 허용 (미배정 사용자).
+    /// 기존 Department string 컬럼은 deprecate 후 30일 read-only 유예.
+    /// </summary>
+    public int? DepartmentId { get; set; }
+
+    /// <summary>
+    /// 트랙 #88 — DocUtil tb_users.id (uuid) 와의 매핑. NULL 허용 (DocUtil 미사용 사용자).
+    /// UNIQUE 제약 — 한 AgentHub User 는 한 DocUtil 사용자에만 매핑.
+    /// </summary>
+    public Guid? OriginalDocutilUuid { get; set; }
 
     [MaxLength(500)]
     public string? Bio { get; set; }
@@ -65,6 +78,9 @@ public class User
     public DateTime? PasswordResetTokenExpiry { get; set; }
 
     // Navigation properties
+    [ForeignKey("DepartmentId")]
+    public virtual Department? DepartmentRef { get; set; }
+
     public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public virtual ICollection<ChatConversation> ChatConversations { get; set; } = new List<ChatConversation>();
     public virtual ICollection<ApiQuota> ApiQuotas { get; set; } = new List<ApiQuota>();

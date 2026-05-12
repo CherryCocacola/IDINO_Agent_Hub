@@ -46,72 +46,31 @@ def shot_full(page, name: str) -> str:
 
 
 def docutil_login(page, email: str, password: str) -> tuple[bool, str]:
-    """DocUtil 로그인 — 다양한 selector 시도."""
+    """DocUtil 로그인 — 정확한 selector (id=username, id=password)."""
     page.goto(f"{DOCUTIL_NGINX}/login", timeout=30_000, wait_until="domcontentloaded")
-    time.sleep(2.0)  # Next.js hydration 대기
+    time.sleep(3.0)  # Next.js hydration 대기
 
-    # email/username 입력
-    email_filled = False
-    for sel in [
-        'input[type="email"]',
-        'input[name="email"]',
-        'input[placeholder*="이메일"]',
-        'input[placeholder*="email" i]',
-        'input[name="username"]',
-        'input[placeholder*="아이디"]',
-        'input[type="text"]:nth-of-type(1)',
-    ]:
-        try:
-            el = page.query_selector(sel)
-            if el:
-                el.fill(email)
-                email_filled = True
-                print(f"  [email] selector OK: {sel}")
-                break
-        except Exception:
-            pass
-    if not email_filled:
-        return False, "email input not found"
+    username_input = page.query_selector('input#username')
+    password_input = page.query_selector('input#password')
+    if not username_input or not password_input:
+        return False, "login form inputs not found"
 
-    # password 입력
-    pw_filled = False
-    for sel in [
-        'input[type="password"]',
-        'input[name="password"]',
-    ]:
-        try:
-            el = page.query_selector(sel)
-            if el:
-                el.fill(password)
-                pw_filled = True
-                print(f"  [password] selector OK: {sel}")
-                break
-        except Exception:
-            pass
-    if not pw_filled:
-        return False, "password input not found"
+    username_input.fill("")
+    username_input.fill(email)
+    password_input.fill("")
+    password_input.fill(password)
+    print(f"  [fill] username={email}, password=*** (len={len(password)})")
 
-    # submit 버튼
-    clicked = False
-    for sel in [
-        'button[type="submit"]',
-        'button:has-text("로그인")',
-        'button:has-text("Login")',
-        'button:has-text("Sign in")',
-    ]:
-        try:
-            btn = page.query_selector(sel)
-            if btn and btn.is_visible():
-                btn.click()
-                clicked = True
-                print(f"  [submit] selector OK: {sel}")
-                break
-        except Exception:
-            pass
-    if not clicked:
+    submit = page.query_selector('button[type="submit"]')
+    if not submit:
         return False, "submit button not found"
+    submit.click()
 
-    page.wait_for_load_state("networkidle", timeout=20_000)
+    # API 응답 + dashboard redirect 대기 (충분히 길게)
+    try:
+        page.wait_for_url(lambda url: "/login" not in url, timeout=15_000)
+    except Exception:
+        pass
     time.sleep(2.0)
     final_url = page.url
     success = "/login" not in final_url
