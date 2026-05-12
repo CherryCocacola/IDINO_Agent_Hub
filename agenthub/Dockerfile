@@ -35,10 +35,16 @@ RUN dotnet publish AIAgentManagement.csproj -c Release -o /app/publish --no-rest
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 
-# 헬스체크용 curl + CA 번들. LibreOffice/한글 폰트는 시연 범위 밖이라 미설치
+# 헬스체크용 curl + CA 번들 + Python 3 (ScriptToolExecutor 가 python/javascript 스크립트
+# 실행 시 호스트 python3 를 호출하므로 runtime 이미지에 포함). pip 는 사용자 정의 도구가
+# 외부 라이브러리를 사용할 가능성에 대비. LibreOffice/한글 폰트는 시연 범위 밖이라 미설치
 # (PPTX↔PDF 변환을 사용하려면 별도 stage 또는 추가 apt 설치 필요).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates \
+ && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    python3 \
+    python3-pip \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

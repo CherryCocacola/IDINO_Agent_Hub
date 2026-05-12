@@ -154,8 +154,32 @@ public class AgentsController : ControllerBase
                 return Unauthorized(ErrorResponseDto.Unauthorized());
             }
 
+            // ── ServiceId FK 사전 검증 ──────────────────────────────────────
+            // Phase 3.x PG 전환 이후 ApiServices 시드 누락/오타로 잘못된 ServiceId 가
+            // 전달되면 SaveChangesAsync 단계에서 DbUpdateException → 500 으로 떨어진다.
+            // 컨트롤러에서 사전 SELECT 로 400 응답으로 매핑하여 운영자가 시드 데이터를
+            // 확인하도록 안내한다. (트랙 #84-2 진단 결과 — 운영 매치 0 이지만 future-proof)
+            var serviceExists = await _context.ApiServices
+                .AsNoTracking()
+                .AnyAsync(s => s.ServiceId == request.ServiceId);
+            if (!serviceExists)
+            {
+                _logger.LogWarning("Agent creation rejected: ServiceId {ServiceId} not found in ApiServices.", request.ServiceId);
+                return BadRequest(ErrorResponseDto.BadRequest(
+                    "선택한 API 서비스가 존재하지 않습니다. ApiServices 시드 데이터를 확인하세요.",
+                    new { request.ServiceId }));
+            }
+
             var agent = await _agentService.CreateAgentAsync(request, userId);
             return CreatedAtAction(nameof(GetAgent), new { id = agent.AgentId }, agent);
+        }
+        catch (DbUpdateException ex)
+        {
+            // 이중 안전망: 동시성 race 로 인해 사전 검증 통과 후 ApiServices row 가
+            // 사라지는 경우를 대비. FK 위반은 400 으로 매핑.
+            _logger.LogError(ex, "Error creating agent: DbUpdateException (FK violation suspected). {Message}", ex.InnerException?.Message ?? ex.Message);
+            return BadRequest(ErrorResponseDto.BadRequest(
+                "에이전트 생성에 실패했습니다. 외래키 제약 위반이 발생했습니다. 입력 값(특히 ServiceId)을 확인하세요."));
         }
         catch (Exception ex)
         {

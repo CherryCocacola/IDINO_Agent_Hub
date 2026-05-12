@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using AIAgentManagement.DTOs;
+using AIAgentManagement.Exceptions;
 using AIAgentManagement.Services;
 
 namespace AIAgentManagement.Controllers;
@@ -218,6 +219,18 @@ public class ToolsController : ControllerBase
 
             var execution = await _toolExecutionService.ExecuteToolAsync(id, request, userId);
             return Ok(execution);
+        }
+        catch (ToolNotFoundException ex)
+        {
+            // 도구 자체가 없거나 비활성 — 404
+            _logger.LogWarning(ex, "Tool execution rejected: tool not found. ToolId={ToolId}", id);
+            return NotFound(ErrorResponseDto.NotFound(ex.Message));
+        }
+        catch (ToolVersionNotActiveException ex)
+        {
+            // 활성 ToolVersion 미등록 — 400 (운영 데이터 결손, 운영자가 버전 등록 필요)
+            _logger.LogWarning(ex, "Tool execution rejected: no active version. ToolId={ToolId}", id);
+            return BadRequest(ErrorResponseDto.BadRequest(ex.Message));
         }
         catch (Exception ex)
         {

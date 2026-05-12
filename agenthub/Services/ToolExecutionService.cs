@@ -1,5 +1,6 @@
 using AIAgentManagement.Data;
 using AIAgentManagement.DTOs;
+using AIAgentManagement.Exceptions;
 using AIAgentManagement.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,7 +36,9 @@ public class ToolExecutionService : IToolExecutionService
 
         if (tool == null)
         {
-            throw new InvalidOperationException($"Tool {toolId} not found or inactive");
+            // 도메인 예외로 분리하여 컨트롤러가 404 로 매핑하도록 한다.
+            // (기존 InvalidOperationException → catch (Exception) → 500 흐름 방지)
+            throw new ToolNotFoundException(toolId);
         }
 
         // 활성 버전 가져오기
@@ -45,7 +48,9 @@ public class ToolExecutionService : IToolExecutionService
 
         if (version == null)
         {
-            throw new InvalidOperationException($"No active version found for tool {toolId}");
+            // 활성 ToolVersion 미등록 = 운영 데이터 결손. 500 이 아니라 400 으로 안내한다.
+            // 운영자가 /api/tools/{id}/versions POST + activate 를 먼저 호출해야 한다.
+            throw new ToolVersionNotActiveException(toolId);
         }
 
         // 실행 기록 생성
