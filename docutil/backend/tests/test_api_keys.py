@@ -180,3 +180,51 @@ async def test_api_keys_requires_admin(rbac_client, member_headers):
         )
 
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# 트랙 #69 — Deprecation 헤더 회귀 테스트
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_api_keys_responses_include_deprecation_headers(client):
+    """모든 api-keys endpoint 응답이 Deprecation 표준 헤더를 포함하는지 검증.
+
+    트랙 #69 (Phase 7 R2): RFC 8594 + IETF deprecation header draft 준수.
+    클라이언트가 deprecation 신호를 감지하여 successor-version 으로
+    이전할 수 있도록 한다.
+    """
+    rows = [_api_key_db_row()]
+
+    with patch("app.modules.api_keys.router.ApiKeyService") as MockService:
+        MockService.get_api_keys = AsyncMock(return_value=(rows, 1))
+        MockService.create_api_key = AsyncMock(return_value=_api_key_db_row())
+        MockService.delete_api_key = AsyncMock(return_value=None)
+        MockService.verify_api_key = AsyncMock(return_value=MagicMock(is_valid=True, message="ok"))
+
+        # GET /api-keys
+        list_resp = await client.get("/api/v1/api-keys")
+        # POST /api-keys
+        create_resp = await client.post(
+            "/api/v1/api-keys",
+            json={"llm_name": "openai", "api_key": "sk-test-deprecate"},
+        )
+        # POST /api-keys/{id}/verify
+        verify_resp = await client.post(f"/api/v1/api-keys/{KEY_ID}/verify")
+        # DELETE /api-keys/{id}
+        delete_resp = await client.delete(f"/api/v1/api-keys/{KEY_ID}")
+
+    for resp, label in [
+        (list_resp, "GET /api-keys"),
+        (create_resp, "POST /api-keys"),
+        (verify_resp, "POST /api-keys/{id}/verify"),
+        (delete_resp, "DELETE /api-keys/{id}"),
+    ]:
+        assert resp.headers.get("Deprecation") == "true", f"{label}: Deprecation 헤더 누락 (트랙 #69 회귀)"
+        assert "successor-version" in resp.headers.get("Link", ""), (
+            f"{label}: Link successor-version 누락 (트랙 #69 회귀)"
+        )
+        assert resp.headers.get("X-Deprecation-Track") == "track-69-phase-7-r2", (
+            f"{label}: X-Deprecation-Track 누락 (트랙 #69 회귀)"
+        )

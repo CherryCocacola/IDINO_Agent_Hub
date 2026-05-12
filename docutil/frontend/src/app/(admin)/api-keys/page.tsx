@@ -198,13 +198,33 @@ export default function ApiKeysPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-foreground text-2xl font-bold">API 키</h1>
-          <p className="text-muted-foreground mt-1 text-sm">LLM API 키를 등록하고 관리합니다</p>
+          <h1 className="text-foreground text-2xl font-bold">
+            API 키 <span className="text-muted-foreground text-base font-normal">(deprecated)</span>
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            LLM API 키를 등록하고 관리합니다 — Phase 7 R2 이후 AgentHub 운영자 콘솔로 이전 권장
+          </p>
         </div>
         <Button onClick={openRegister} className="bg-primary hover:bg-primary/90">
           <Plus className="mr-2 h-4 w-4" />키 등록
         </Button>
       </div>
+
+      {/* Deprecation Banner — 트랙 #69 (Phase 7 R2) */}
+      <WarningBanner title="이 페이지는 Phase 7 R2 이후 deprecate 되었습니다 (트랙 #69)">
+        DocUtil 의 LLM 호출은 AgentHub 의 단일 진입점(`/v1/chat/completions`)을 위임 호출하므로,
+        운영자 키 발급/검증/회전은 <strong>AgentHub 운영자 콘솔</strong> (
+        <a
+          href="https://agenthub.idino.local/admin/api-keys"
+          className="underline decoration-yellow-700 underline-offset-2 hover:text-yellow-900"
+          target="_blank"
+          rel="noreferrer"
+        >
+          /admin/api-keys
+        </a>
+        ) 로 이전하세요. 본 화면은 운영 데이터 보존 목적으로만 유지되며, 신규 키 등록은 권장되지
+        않습니다. 자세한 사항은 <code>user_mig/TECHSPEC.md §16</code> 참조.
+      </WarningBanner>
 
       {/* Warning Banner */}
       <WarningBanner title="API 키 보안 안내" dismissible>
