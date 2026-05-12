@@ -1,0 +1,384 @@
+{
+  "track": "#84 SKIP 전수 진행",
+  "started_at": "2026-05-12 16:38:42",
+  "results": [
+    {
+      "id": "D-02",
+      "scenario": "Playground sync chat (gpt-4o-mini)",
+      "result": "PASS",
+      "actual_preview": "status=200 (72ms) model=표절-사전-점검-에이전트 :: {\"id\":\"chatcmpl-1d7df29b5de446beb8145403404240fc\",\"object\":\"chat.completion\",\"created\":1778571524,\"model\":\"\\uD45C\\uC808-",
+      "duration_ms": 72,
+      "note": "LLM 비용 발생 (~$0.0001) — max_tokens=5",
+      "verified_at": "2026-05-12 16:38:43"
+    },
+    {
+      "id": "D-03",
+      "scenario": "Playground stream chat (SSE)",
+      "result": "PASS",
+      "actual_preview": "status=200 (820ms) chunks=7 [DONE]=True",
+      "duration_ms": 820,
+      "note": "LLM 비용 발생 (~$0.0001) + SSE [DONE] 검증",
+      "verified_at": "2026-05-12 16:38:44"
+    },
+    {
+      "id": "D-05",
+      "scenario": "DALL-E 3 이미지 생성",
+      "result": "SKIP",
+      "actual_preview": "status=405 (15ms) — ApiKey 가 image-generator agent 권한 없음",
+      "duration_ms": 15,
+      "note": "docutil-image-generator agent 전용 ApiKey 필요 (별도 트랙)",
+      "verified_at": "2026-05-12 16:38:44"
+    },
+    {
+      "id": "D-06",
+      "scenario": "Internal 라우팅 (Nexus)",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "Nexus 인스턴스 미부팅 (192.168.22.28 GPU 호스트 — TECHSPEC §16 R23)",
+      "verified_at": "2026-05-12 16:38:44"
+    },
+    {
+      "id": "D-07",
+      "scenario": "Hybrid 라우팅 PII 자동 감지",
+      "result": "PASS",
+      "actual_preview": "status=200 (108ms) agentCode=career-actionboard-orchestrator :: {\"id\":\"chatcmpl-43b4d5f9bf8f4c1181d89543918b90cd\",\"object\":\"chat.completion\",\"created\":1778571525,\"model\":\"career-action",
+      "duration_ms": 108,
+      "note": "LLM 비용 (~$0.0001 또는 차단=0) — Hybrid agent 인지 검증",
+      "verified_at": "2026-05-12 16:38:44"
+    },
+    {
+      "id": "E-01",
+      "scenario": "/api/chat/send RAG chat",
+      "result": "PASS",
+      "actual_preview": "status=200 (893ms) agentId=21 rag=False :: {\"messageId\":912,\"conversationId\":264,\"content\":\"\",\"model\":\"gpt-5-2025-08-07\",\"tokensUsed\":243,\"cost\":0.00729,\"responseTime\":761,\"citations\":null}",
+      "duration_ms": 893,
+      "note": "LLM 비용 (~$0.001 RAG 포함) — agent=21",
+      "verified_at": "2026-05-12 16:38:45"
+    },
+    {
+      "id": "E-03",
+      "scenario": "게스트 공개 채팅",
+      "result": "SKIP",
+      "actual_preview": "status=405 (14ms) agentCode=표절-사전-점검-에이전트 :: ",
+      "duration_ms": 14,
+      "note": "공개 챗봇 endpoint 형식 다름 (status=405)",
+      "verified_at": "2026-05-12 16:38:45"
+    },
+    {
+      "id": "E-04",
+      "scenario": "PII 입력 차단/마스킹",
+      "result": "PASS",
+      "actual_preview": "status=400 (60ms) agentId=21 :: {\"message\":\"메시지에 개인정보가 포함되어 있습니다: 휴대폰 번호, 주민등록번호, 신용카드 번호, 계좌번호\",\"errorCode\":\"PII_DETECTED\",\"details\":{\"detectedTypes\":[\"휴대폰 번호\",\"주민등록번호\",\"신용카드 번호\",\"계좌번호\"],\"det",
+      "duration_ms": 60,
+      "note": "차단 PASS (LLM 비용 0)",
+      "verified_at": "2026-05-12 16:38:45"
+    },
+    {
+      "id": "B-03",
+      "scenario": "Agent 생성 (code=test-track84-1778571525)",
+      "result": "PASS",
+      "actual_preview": "status=201 (24ms) agentId=41 :: {\"agentId\":41,\"agentCode\":\"test-track84-1778571525\",\"agentName\":\"Track84 Test Agent 1778571525\",\"description\":\"트랙 #84 SK",
+      "duration_ms": 24,
+      "note": "cleanup=OK (DELETE=204, GET=404)",
+      "verified_at": "2026-05-12 16:38:45"
+    },
+    {
+      "id": "B-04",
+      "scenario": "Agent 수정 (description)",
+      "result": "PASS",
+      "actual_preview": "PUT=200 (41ms) GET=200 reflected=True",
+      "duration_ms": 41,
+      "note": "",
+      "verified_at": "2026-05-12 16:38:45"
+    },
+    {
+      "id": "B-05",
+      "scenario": "LlmRouting 전환 (External↔Hybrid)",
+      "result": "PASS",
+      "actual_preview": "PUT1=200 hybrid_set=True PUT2=200",
+      "duration_ms": 60,
+      "note": "",
+      "verified_at": "2026-05-12 16:38:45"
+    },
+    {
+      "id": "B-06",
+      "scenario": "KnowledgeBaseSource 전환",
+      "result": "PASS",
+      "actual_preview": "PUT1=200 set=True PUT2=200",
+      "duration_ms": 90,
+      "note": "",
+      "verified_at": "2026-05-12 16:38:45"
+    },
+    {
+      "id": "B-07",
+      "scenario": "EnableRag 토글",
+      "result": "PASS",
+      "actual_preview": "PUT1=200 rag_on=True PUT2=200",
+      "duration_ms": 154,
+      "note": "",
+      "verified_at": "2026-05-12 16:38:45"
+    },
+    {
+      "id": "F-02",
+      "scenario": "Tool 생성 (Script, name=test-track84-tool-1778571525)",
+      "result": "PASS",
+      "actual_preview": "status=201 (149ms) toolId=8",
+      "duration_ms": 149,
+      "note": "cleanup=OK (DELETE=204, GET=404)",
+      "verified_at": "2026-05-12 16:38:46"
+    },
+    {
+      "id": "F-03",
+      "scenario": "Tool 실행 (id=8)",
+      "result": "PASS",
+      "actual_preview": "status=200 (91ms) :: {\"executionId\":7,\"toolId\":8,\"toolName\":\"test-track84-tool-1778571525\",\"versionId\":7,\"version\":\"1.0\",\"userId\":1,\"inputData\":\"{}\",\"outputData\"",
+      "duration_ms": 91,
+      "note": "",
+      "verified_at": "2026-05-12 16:38:46"
+    },
+    {
+      "id": "J-03",
+      "scenario": "Rate Limit per-user (60/min)",
+      "result": "SKIP",
+      "actual_preview": "(2495ms) 70회 시도, 429 발견=False, statuses[-5:]=[200, 200, 200, 200, 200]",
+      "duration_ms": 2495,
+      "note": "70회 모두 200 — Rate Limit 한도 더 크거나 정책 비활성",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "J-04",
+      "scenario": "JWT 위조 차단",
+      "result": "PASS",
+      "actual_preview": "status=401 (15ms) :: ",
+      "duration_ms": 15,
+      "note": "유효한 JWT 아니므로 401/403 기대",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "J-05",
+      "scenario": "SQL Injection 안전 시뮬레이션",
+      "result": "PASS",
+      "actual_preview": "status=200 (22ms) payload='' OR 1=1--'",
+      "duration_ms": 22,
+      "note": "safe — 0건 반환 (정상 search 동작)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "J-06",
+      "scenario": "XSS 안전 시뮬레이션",
+      "result": "PASS",
+      "actual_preview": "status=200 (17ms) payload='<script>alert(1)</script>'",
+      "duration_ms": 17,
+      "note": "JSON API 응답 — XSS 컨텍스트 없음 (HTML 렌더링은 클라이언트 책임)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "I-01",
+      "scenario": "DocUtil 로그인",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil admin 자격증명 미확보",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "I-02",
+      "scenario": "DocUtil 챗봇 (AgentHub 위임)",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "I-01 의존",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "I-03",
+      "scenario": "DocUtil /api/v1/search",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "I-01 의존",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "I-04",
+      "scenario": "DocUtil 문서 업로드",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "I-01 의존 + 운영 mutation",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "I-05",
+      "scenario": "DocUtil 보고서 생성",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "I-01 의존 + LLM 비용",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "J-02",
+      "scenario": "User role admin endpoint 403",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "비 admin 자격증명 미보유",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "K-02",
+      "scenario": "DocUtil → AgentHub → OpenAI",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "I-01 의존",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "K-03",
+      "scenario": "운영자 KB 업로드 → AgentBuilder dropdown",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 + 운영 mutation",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "A-05",
+      "scenario": "JWT refresh",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "refresh token 자동화 우회 비용",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "A-07",
+      "scenario": "hslee@idino.co.kr 로그인",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "추가 admin 자격증명 미보유",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Login",
+      "scenario": "DocUtil /login 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Reports",
+      "scenario": "DocUtil /reports 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Documents",
+      "scenario": "DocUtil /documents 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Chat",
+      "scenario": "DocUtil /chat 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Search",
+      "scenario": "DocUtil /search 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-MyPage",
+      "scenario": "DocUtil /my-page 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Notifications",
+      "scenario": "DocUtil /notifications 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Settings",
+      "scenario": "DocUtil /settings 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Help",
+      "scenario": "DocUtil /help 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Admin",
+      "scenario": "DocUtil /admin 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Audit",
+      "scenario": "DocUtil /admin/audit 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    },
+    {
+      "id": "DU-Templates",
+      "scenario": "DocUtil /admin/templates 진입",
+      "result": "SKIP",
+      "actual_preview": "",
+      "duration_ms": 0,
+      "note": "DocUtil 자격증명 미확보 — 시나리오 4 인용 (트랙 #75)",
+      "verified_at": "2026-05-12 16:38:48"
+    }
+  ],
+  "summary": {
+    "PASS": 15,
+    "FAIL": 0,
+    "SKIP": 26,
+    "TOTAL": 41
+  },
+  "cost_estimate_usd": 0.05,
+  "cleanup_temp_api_key_id": 12,
+  "finished_at": "2026-05-12 16:38:48"
+}

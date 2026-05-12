@@ -80,7 +80,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+// ↓ anti-patterns.md §11 — JWT 자동 부착 + 401 토큰 갱신을 위해 공통 api 인스턴스 사용
+import api from '@/services/api'
 
 const router = useRouter()
 const tools = ref<any[]>([])
@@ -106,7 +107,8 @@ const filteredTools = computed(() => {
 
 const loadTools = async () => {
   try {
-    const response = await axios.get('/api/tools')
+    // baseURL=/api 가 인터셉터에 의해 자동 적용되므로 경로는 `/tools` 만 전달
+    const response = await api.get('/tools')
     tools.value = response.data
   } catch (error) {
     console.error('Error loading tools:', error)
