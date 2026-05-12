@@ -171,7 +171,7 @@
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
 ### 2026-05-12 (트랙 #64 — DocUtil ENCRYPTION_KEY 회전, 옵션 B Bulk Re-encrypt, 운영 라이브 회귀 완료)
-- **운영 commit**: (본 entry 직후 commit). workspace 코드 변경 0 — 운영 호스트 (`192.168.10.39`) `.env` + DB(`document_utilization.tb_llm_api_keys`) + 3 컨테이너 재시작만 수행. 작업 스크립트는 `tmp/track64_enckey/` (`.gitignore`, 미커밋).
+- **운영 commit**: `e203f6a` (`[infra/docutil] 트랙 #64 — DocUtil ENCRYPTION_KEY 회전 (옵션 B Bulk Re-encrypt)`). workspace 코드 변경 0 — 운영 호스트 (`192.168.10.39`) `.env` + DB(`document_utilization.tb_llm_api_keys`) + 3 컨테이너 재시작만 수행. 작업 스크립트는 `tmp/track64_enckey/` (`.gitignore`, 미커밋).
 - **목적**: 트랙 #56 (G.1 분석) 에서 발견된 약한 ENCRYPTION_KEY 회전. 옛 키 `0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef` (64자 hex, 16자 4회 반복, 추정 엔트로피 ≈ 64bit) → 강한 키 `secrets.token_hex(32)` (64자 hex, 256bit 진정 난수). 사용자 명시 기조 ("시연은 신경쓰지 말고 제대로 확실히 완벽히") + autonomous-loop 자율 진행으로 옵션 B (Bulk Re-encrypt — 키만 교체, OpenAI 평문 키 보존) 채택.
 - **사전 분석 (step1_inspect.py, read-only)**:
   - SSH paramiko (`192.168.10.39 / idino / 비번`) → `docutil-api` healthy + `docutil-postgres` healthy 확인
