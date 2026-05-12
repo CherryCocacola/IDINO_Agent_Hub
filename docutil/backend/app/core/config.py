@@ -8,9 +8,10 @@ Loads all service URLs, secrets, and tunables from environment variables
 from __future__ import annotations
 
 import math
+import re
 from collections import Counter
 from functools import lru_cache
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -233,6 +234,58 @@ class Settings(BaseSettings):
         return self.jwt_algorithm
 
     # ── validators ───────────────────────────────────────────────────────
+
+    # PG identifier 규칙 (간이): 첫 글자는 알파 또는 `_`, 이후 알파/숫자/`_`,
+    # 최대 63자 (PostgreSQL NAMEDATALEN 기본값). Unicode/quoted identifier 는
+    # 의도적으로 거부 — schema 명은 안전하고 단순한 ASCII 식별자만 허용.
+    # ClassVar 명시: pydantic v2 BaseSettings 가 env-bound 필드로 오해석하지 않도록.
+    _PG_IDENT_RE: ClassVar[re.Pattern[str]] = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$")
+
+    @field_validator("db_schema")
+    @classmethod
+    def _validate_db_schema(cls, v: str) -> str:
+        """DB_SCHEMA env 검증 — 트랙 #66 시나리오 D 차단.
+
+        Phase 4.1 ADR-5 (스키마 격리): DocUtil 의 모든 테이블은
+        `document_utilization` schema 안에 있어야 한다. 환경변수가 빈 값 /
+        공백 / `public` / 비유효 식별자로 주입되면 alembic 의 5중 안전장치
+        (env.py: version_table_schema/include_schemas/CREATE SCHEMA/
+        SET LOCAL search_path/connect_args server_settings) 가 다른
+        schema 에 객체를 만들거나 격리 원칙을 우회할 위험이 있다.
+
+        본 validator 는 FastAPI 부팅 시점에 약한 값을 reject 하여 운영
+        반영 전 발견되도록 한다.
+
+        검증 항목:
+        1. 빈 값 / 공백 only → reject
+        2. `public` (대소문자 무시) → reject — 격리 원칙 위반
+        3. PostgreSQL 식별자 규칙 위반 (알파/숫자/`_`, 첫 글자 알파/`_`,
+           최대 63자) → reject — SQL 인젝션 / 따옴표 식별자 회피
+
+        본 validator 범위 외:
+        - 시나리오 C (alembic 외부 경로 적용): 운영 절차 문제로,
+          코드 레이어에서 차단 불가. `docs/DB_MIGRATION.md` §10.2 규칙 4
+          "alembic 외부 적용 금지" + §10.4 운영 체크리스트로 대응한다.
+        """
+        if not v or not v.strip():
+            raise ValueError("db_schema must be non-empty")
+
+        v = v.strip()
+
+        if v.lower() == "public":
+            raise ValueError(
+                "db_schema must not be 'public' — Phase 4.1 ADR-5 격리 원칙 위반. "
+                "운영: 'document_utilization', 테스트: 'document_utilization' "
+                "또는 외부 격리 schema."
+            )
+
+        if not cls._PG_IDENT_RE.match(v):
+            raise ValueError(
+                f"db_schema '{v}' is not a valid PostgreSQL identifier "
+                "(alpha/digit/underscore, max 63 chars, first must be alpha or underscore)."
+            )
+
+        return v
 
     @field_validator("encryption_key")
     @classmethod

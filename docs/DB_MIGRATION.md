@@ -374,6 +374,180 @@ dotnet ef database update
 | 일자 | 작업 | 파일 |
 |---|---|---|
 | 2026-05-05 | 본 가이드 v1.0 초안 작성 (Phase 2 산출) | `infra/db/init.sql`, `docs/DB_MIGRATION.md` |
+| 2026-05-12 | v1.1 — §10 운영 사고 이력 + db_schema validator + 재발 방지 체크리스트 추가 (트랙 #63/#64/#65/#67 통합 반영) | `docs/DB_MIGRATION.md`, `docutil/backend/app/core/config.py`, `docutil/backend/tests/test_config_validator.py` |
+
+---
+
+## 10. 운영 사고 이력 + 재발 방지 (v1.1 추가)
+
+### 10.0 개요
+
+Phase 4.1 ADR-5 (스키마 격리) 가 알고리즘적으로 보장되도록 다층 안전장치를 적용하고, 운영 사고 이력을 기록하여 재발을 방지한다. 본 절은 트랙 #63 (schema 정합 복구) / #64 (ENCRYPTION_KEY 회전) / #65 (encryption_key validator) / #67 (db_schema validator + 본 절 신설) 의 결과를 통합한다.
+
+### 10.1 DocUtil alembic 5중 안전 메커니즘
+
+`docutil/backend/alembic/env.py` 가 모든 마이그레이션을 `document_utilization` schema 안에 강제하기 위해 적용한 5단 방어 (Phase 4.1 도입):
+
+| # | 위치 | 메커니즘 | 목적 |
+|---|---|---|---|
+| 1 | `env.py:100, 118` | `version_table_schema=settings.db_schema` | `alembic_version` 테이블을 격리된 schema 에 둠 |
+| 2 | `env.py:101, 119` | `include_schemas=True` | autogenerate 가 다른 schema 객체와 비교 시 schema 인식 |
+| 3 | `env.py:132` | `CREATE SCHEMA IF NOT EXISTS "<schema>"` (transaction 내) | schema 부재 시 자동 생성 (idempotent) |
+| 4 | `env.py:133-135` | `SET LOCAL search_path TO "<schema>", public` | 마이그레이션 SQL 의 unqualified identifier 가 본 schema 로 향함 |
+| 5 | `env.py:144-156` | `connect_args={"server_settings":{"search_path": ...}}` | asyncpg connect 직후부터 schema 격리 적용 (이중 안전) |
+
+→ 마이그레이션 파일 자체는 **schema-agnostic** 으로 작성한다. 다음 §10.2 의 규칙을 따른다.
+
+### 10.2 마이그레이션 작성 규칙
+
+새 alembic 마이그레이션 파일 작성 시 준수 사항:
+
+1. **schema 인자 명시 금지**
+   ```python
+   # GOOD — env.py 의 search_path 가 자동으로 document_utilization 적용
+   op.create_table("tb_x", sa.Column("id", sa.UUID(), primary_key=True))
+
+   # BAD — schema 가 하드코딩되면 R3 격리 위반 + 다른 환경 호환성 깨짐
+   op.create_table("tb_x", sa.Column("id", sa.UUID()), schema="document_utilization")
+   ```
+
+2. **raw SQL 도 unqualified identifier**
+   ```python
+   # GOOD
+   op.execute("DROP INDEX IF EXISTS idx_x")
+   op.execute("CREATE INDEX idx_x ON tb_x (col_a)")
+
+   # BAD — schema-qualified identifier 는 격리 우회
+   op.execute("DROP INDEX document_utilization.idx_x")
+   ```
+
+3. **새 마이그레이션 후 schema 누설 검증**
+   ```bash
+   docker exec docutil-api alembic upgrade head
+   docker exec docutil-postgres psql -U docutil -d docutil \
+     -c "\dt document_utilization.*" -c "\dt public.*"
+   # 기대: document_utilization 에 모든 신규 테이블, public 누설 0건
+   ```
+
+4. **alembic 외부 적용 금지** — §10.3 트랙 #63 사고의 추정 원인. SQL 덤프를 `psql -f` 로 직접 import 하면 env.py 의 5중 안전장치가 우회되어 `public` schema 에 적재될 수 있다.
+   - **운영 마이그레이션은 `alembic upgrade head` 로만 적용**한다.
+   - 백업/복구는 §10.5 절차를 따른다.
+
+### 10.3 운영 사고 이력
+
+#### 트랙 #63 — DocUtil DB schema 정합 복구 (2026-05-12, commit `857d323` / `823346f`)
+
+- **사고**: 운영 `docutil-postgres` 의 `docutil` DB 에서 28개 테이블이 `document_utilization` schema 가 아닌 `public` schema 에 적재됨. `document_utilization` schema 자체 부재.
+- **원인 추정**: 시나리오 C (alembic 외부 경로 적용). SQL 덤프를 운영 DB 에 `psql -f` 직접 import 하여 env.py 의 search_path 보호 우회.
+- **복구 (옵션 B — SET SCHEMA 이전)**:
+  1. `CREATE SCHEMA IF NOT EXISTS document_utilization`
+  2. `GRANT ALL ON SCHEMA document_utilization TO docutil`
+  3. `ALTER ROLE docutil SET search_path TO document_utilization, public`
+  4. `ALTER TABLE public.<X> SET SCHEMA document_utilization;` × 28
+  5. `alembic_version` 도 동일 이전
+  6. docutil-api / celery-worker / celery-beat 재시작
+- **결과**: 데이터 mutation 0건, row count 무변경, 다운타임 33.7초.
+- **상세**: `user_mig/progress.md` §"2026-05-12 (트랙 #63)" 참조.
+
+#### 트랙 #64 — DocUtil ENCRYPTION_KEY 회전 (2026-05-12, commit `e203f6a` / `bc8d833`)
+
+- **약점**: 운영 ENCRYPTION_KEY 가 `0123456789abcdef` × 4 형태 (~64bit 추정 엔트로피) 데모 키였음.
+- **회전 (옵션 B — Bulk Re-encrypt)**:
+  1. 새 키 `secrets.token_hex(32)` (256bit)
+  2. `tb_llm_api_keys` 1행: 옛 키 복호화 → 새 키 재암호화 → UPDATE (단일 트랜잭션, SELECT FOR UPDATE)
+  3. `.env` atomic 갱신 (`rename(2)`)
+  4. 3 컨테이너 force-recreate
+- **결과**: AESGCM round-trip PASS, 운영 평문 OpenAI API 키 무손상 (사전/사후 SHA-256 일치, plain_len 164 동일), 다운타임 47초.
+- **상세**: `user_mig/progress.md` §"2026-05-12 (트랙 #64)" 참조.
+
+#### 트랙 #65 — ENCRYPTION_KEY validator 강화 (2026-05-12, commit `6a37557`)
+
+`docutil/backend/app/core/config.py` 의 `encryption_key` field_validator 가 약한 키 부팅을 차단한다 (4 조건):
+
+1. 64자 hex (32바이트) 길이 강제
+2. 16/32자 hex 반복 패턴 차단 (트랙 #64 실제 데모 키 시나리오)
+3. distinct byte ≥ 16 — 패턴화된 키 차단
+4. Shannon entropy ≥ 4.5 bits/byte — 저엔트로피 키 차단
+
+단위 테스트 12건 PASS (`docutil/backend/tests/test_config_validator.py`). 약한 키가 환경변수로 주입되면 FastAPI 부팅이 실패하여 운영 반영 전 발견된다.
+
+#### 트랙 #67 — db_schema validator + 본 §10 신설 (2026-05-12)
+
+`config.py` 의 `db_schema` field_validator 신설 — 시나리오 D (DB_SCHEMA env 누락/오타/`public` 주입) 차단:
+
+1. 빈 값 / 공백 only → reject (`non-empty`)
+2. `public` (대소문자 무시) → reject (격리 원칙 위반)
+3. PostgreSQL 식별자 규칙 위반 → reject (알파/숫자/`_`, 첫 글자 알파/`_`, 최대 63자)
+
+단위 테스트 10건 추가 (총 22건 PASS). 본 §10 신설로 운영 사고 이력 + 재발 방지 체크리스트 + alembic 외부 적용 금지 규칙 codify.
+
+> **본 validator 범위 외**: 시나리오 C (alembic 외부 경로 적용) 는 운영 절차 문제로 코드 레이어에서 차단 불가. §10.2 규칙 4 의 운영 절차 + §10.4 체크리스트로 대응한다.
+
+### 10.4 재발 방지 체크리스트
+
+#### 새 alembic 마이그레이션 작성 시
+
+- [ ] `op.create_table("tb_x")` — `schema=` 인자 없음 (§10.2 규칙 1)
+- [ ] `op.execute("...")` — schema-qualified identifier 없음 (§10.2 규칙 2)
+- [ ] 로컬 환경에서 `alembic upgrade head` 후 `psql \dt document_utilization.*` + `\dt public.*` 비교
+- [ ] `public` schema 누설 0건 확인 (§10.2 규칙 3)
+- [ ] commit 메시지에 schema 정합 검증 결과 명시 (예: `28 tables in document_utilization, 0 in public`)
+
+#### 운영 환경 마이그레이션 적용 시
+
+- [ ] 사전 백업: `pg_dump --schema=document_utilization -h <host> -U <u> -d <db>` (custom format `-Fc` 권장)
+- [ ] `alembic upgrade head` 만 사용 (psql -f 직접 import 금지 — §10.2 규칙 4)
+- [ ] 다운타임 진입 (트래픽 차단 — nginx 또는 LB 단)
+- [ ] 적용 후 검증 SELECT — schema 위치 / row count / alembic_version 확인
+- [ ] 회복 절차 (`pg_restore -d <db> backup.dump`) 사전 점검
+- [ ] 검증 PASS 후 트래픽 복구
+
+#### 환경변수 / 시크릿 변경 시
+
+- [ ] `ENCRYPTION_KEY`: `secrets.token_hex(32)` 로 생성, 반복 패턴 / 데모 키 금지 — config.py validator (트랙 #65) 가 거부
+- [ ] `DB_SCHEMA`: 빈 값 / `public` / 비유효 식별자 금지 — config.py validator (트랙 #67) 가 거부
+- [ ] AGENT_HUB role 비밀번호 변경 시: §7 시크릿 정책 + 모든 시스템 connection string 동시 갱신
+- [ ] 환경변수 atomic 갱신 (`rename(2)`) — 컨테이너 재시작 중 partial read 방지
+
+### 10.5 운영 사고 발생 시 회복 절차
+
+#### Schema 누설 발견 (시나리오 C 재현 시)
+
+```sql
+-- 1. 현재 상태 진단
+\c <db_name>
+SELECT schemaname, tablename FROM pg_tables WHERE schemaname IN ('public', 'document_utilization') ORDER BY 1, 2;
+
+-- 2. (다운타임 진입 후) public → document_utilization SET SCHEMA 이전
+BEGIN;
+CREATE SCHEMA IF NOT EXISTS document_utilization;
+GRANT ALL ON SCHEMA document_utilization TO <db_user>;
+ALTER ROLE <db_user> SET search_path TO document_utilization, public;
+
+-- 트랙 #63 패턴: 누설된 모든 테이블을 SET SCHEMA
+ALTER TABLE public.<table_a> SET SCHEMA document_utilization;
+-- ... (각 누설 테이블 반복)
+ALTER TABLE public.alembic_version SET SCHEMA document_utilization;
+
+-- 3. 검증
+SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'tb_%';
+-- 기대: 0
+COMMIT;
+
+-- 4. 컨테이너 재시작 (env.py 의 search_path 가 신규 connection 부터 적용됨)
+```
+
+#### ENCRYPTION_KEY 약한 키 적재 발견 (시나리오 트랙 #64 재현 시)
+
+→ `user_mig/progress.md` 트랙 #64 의 옵션 B Bulk Re-encrypt 절차 참조. 본 문서 §10.3 트랙 #64 항목.
+
+### 10.6 관련 ADR / TECHSPEC
+
+- ADR-5 (Schema 격리): 4 서브프로젝트가 단일 DB 공유, 각자 자기 schema 만 read/write, cross-schema 조인 금지
+- ADR-4 (단일 PG): AGENT_HUB DB 통합
+- ADR-11 (Nexus DB 별도): 에어갭 격리
+- TECHSPEC §16 R3 (스키마 격리 위험): 누설 시 격리 의미 소실
+- TECHSPEC §13.2 (Vault 정책): 시크릿 관리
 
 ---
 

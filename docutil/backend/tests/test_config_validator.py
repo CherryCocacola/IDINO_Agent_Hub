@@ -169,3 +169,68 @@ def test_encryption_key_error_message_includes_token_hex_hint() -> None:
     with pytest.raises(ValidationError) as excinfo:
         _make_settings(weak_key)
     assert "secrets.token_hex(32)" in str(excinfo.value)
+
+
+# ---------------------------------------------------------------------------
+# 트랙 #67 — DB_SCHEMA validator 단위 테스트
+# ---------------------------------------------------------------------------
+# `app.core.config.Settings.db_schema` validator 가 시나리오 D (DB_SCHEMA env
+# 누락/오타/`public` 주입) 를 차단하는지 검증. Phase 4.1 ADR-5 스키마 격리
+# 원칙 보호 회귀 테스트.
+class TestDbSchemaValidator:
+    """DB_SCHEMA validator — 시나리오 D 차단."""
+
+    # ── 통과 케이스 ──────────────────────────────────────────────────────
+    def test_strong_schema_passes(self) -> None:
+        """기본값 `document_utilization` 통과."""
+        s = Settings(db_schema="document_utilization", encryption_key=secrets.token_hex(32))
+        assert s.db_schema == "document_utilization"
+
+    def test_underscore_first_allowed(self) -> None:
+        """첫 글자가 언더스코어인 식별자 허용 (PG 표준)."""
+        s = Settings(db_schema="_test_schema", encryption_key=secrets.token_hex(32))
+        assert s.db_schema == "_test_schema"
+
+    def test_max_length_63_allowed(self) -> None:
+        """PG NAMEDATALEN 한계인 63자까지 허용."""
+        name = "a" * 63
+        s = Settings(db_schema=name, encryption_key=secrets.token_hex(32))
+        assert s.db_schema == name
+
+    # ── 거부 케이스 — 빈 값 / 공백 ───────────────────────────────────────
+    def test_empty_rejected(self) -> None:
+        """빈 문자열 거부."""
+        with pytest.raises(ValidationError, match="non-empty"):
+            Settings(db_schema="", encryption_key=secrets.token_hex(32))
+
+    def test_whitespace_only_rejected(self) -> None:
+        """공백 only 거부 (validator 가 strip 후 빈 값으로 판단)."""
+        with pytest.raises(ValidationError, match="non-empty"):
+            Settings(db_schema="   ", encryption_key=secrets.token_hex(32))
+
+    # ── 거부 케이스 — public schema 차단 ─────────────────────────────────
+    def test_public_rejected(self) -> None:
+        """`public` 거부 — ADR-5 격리 원칙 위반."""
+        with pytest.raises(ValidationError, match="must not be 'public'"):
+            Settings(db_schema="public", encryption_key=secrets.token_hex(32))
+
+    def test_public_case_insensitive(self) -> None:
+        """대문자 `PUBLIC` 도 거부 — 대소문자 무시."""
+        with pytest.raises(ValidationError, match="must not be 'public'"):
+            Settings(db_schema="PUBLIC", encryption_key=secrets.token_hex(32))
+
+    # ── 거부 케이스 — 식별자 규칙 위반 ────────────────────────────────────
+    def test_invalid_chars_rejected(self) -> None:
+        """`-` 등 PG 식별자에 허용되지 않는 문자 거부."""
+        with pytest.raises(ValidationError, match="valid PostgreSQL identifier"):
+            Settings(db_schema="my-schema", encryption_key=secrets.token_hex(32))
+
+    def test_starts_with_digit_rejected(self) -> None:
+        """숫자로 시작하는 식별자 거부."""
+        with pytest.raises(ValidationError, match="valid PostgreSQL identifier"):
+            Settings(db_schema="9schema", encryption_key=secrets.token_hex(32))
+
+    def test_too_long_rejected(self) -> None:
+        """64자 이상 거부 (PG NAMEDATALEN 초과)."""
+        with pytest.raises(ValidationError, match="valid PostgreSQL identifier"):
+            Settings(db_schema="a" * 64, encryption_key=secrets.token_hex(32))
