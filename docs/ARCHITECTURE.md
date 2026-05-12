@@ -220,6 +220,12 @@ CreatedBy, CreatedAt, IsActive
 | DB | **단일 PostgreSQL `AGENT_HUB`** | 192.168.10.39:5440, 4개 schema |
 | MSSQL → PostgreSQL | **EF Core Provider 교체 + 데이터 이전** | Npgsql, Hangfire.PostgreSql, baseline 마이그레이션 |
 | 시크릿 | **환경변수 + .gitignore** | `appsettings.Development.json`, `.env` 모두 비커밋 |
+| ApiKey 암호화 | **AES-256-GCM + per-record 12B nonce + 별도 운영 키** (ADR-16) | `Encryption:ApiKeyAesKey` 32B raw. Phase 9 이관 시 legacy CBC + 고정 IV 1행 GCM 재암호화. JWT-derived 키 폴백 분리 |
+| ENCRYPTION_KEY validator | **3중 검증** (ADR-17) | 16자/32자 반복 차단 + distinct ≥ 16/32 + Shannon entropy ≥ 4.5. 약한 키 부팅 거부 (트랙 #65) |
+| db_schema validator | **4중 검증** (ADR-17) | 빈 값 / `public` / 비알파 reject. Phase 4.1 ADR-5 schema 격리 우회 차단 (트랙 #67) |
+| alembic 마이그레이션 | **schema-agnostic** (ADR-18) | env.py 5중 안전 (`version_table_schema` / `include_schemas` / `CREATE SCHEMA` / `SET LOCAL search_path` / `connect_args`) 에 일임. CI 게이트 18/18 PASS (트랙 #70) |
+| 운영 임시 secrets | **적용 후 즉시 shred + rm** (ADR-19) | `.env.bak.*` (0600) 만 회복 경로. 별도 평문 파일은 lateral move 위험 (트랙 #62) |
+| DocUtil tb_llm_api_keys | **Phase 7 R2 deprecate** | AgentHub `/v1/*` 위임 단일 권위. 옵션 A 적용: 모델/라우터/서비스 docstring + 헤더 `Deprecation: true` + 프론트 WarningBanner (트랙 #69) |
 
 ---
 
