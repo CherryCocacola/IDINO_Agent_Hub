@@ -1,0 +1,52 @@
+name: DocUtil alembic schema-agnostic check
+
+# ADR-18: alembic 마이그레이션은 schema-agnostic 작성
+# - env.py 5중 안전 (CREATE SCHEMA + SET LOCAL search_path + asyncpg server_settings + version_table_schema + include_schemas)
+# - 마이그레이션 파일에 `schema=` 인자 또는 qualified identifier 가 들어가면 CI 차단
+# - 참조: docs/DB_MIGRATION.md v1.1 §10.2, TECHSPEC ADR-18, 트랙 #66 + #67 + #70
+
+on:
+  pull_request:
+    paths:
+      - 'docutil/backend/alembic/versions/**'
+      - 'docutil/backend/tests/test_alembic_schema_agnostic.py'
+      - '.github/workflows/alembic-schema-check.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docutil/backend/alembic/versions/**'
+      - 'docutil/backend/tests/test_alembic_schema_agnostic.py'
+
+jobs:
+  schema-agnostic:
+    name: alembic schema-agnostic regex 검증
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 3.12 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 의존성 설치 (pytest 만, 가벼움)
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: alembic schema-agnostic 검증 (pytest 게이트, 18+ PASS 목표)
+        run: |
+          cd docutil/backend
+          python -m pytest tests/test_alembic_schema_agnostic.py -v --tb=short
+
+      - name: 차단 안내 (실패 시)
+        if: failure()
+        run: |
+          echo "::error::ADR-18 위반: alembic 마이그레이션이 schema-agnostic 규칙을 깼습니다."
+          echo "::error::env.py 5중 안전(SET LOCAL search_path 등)에 schema 격리를 일임하고,"
+          echo "::error::마이그레이션 파일은 op.create_table('tb_X') 만 사용 (schema= 인자 + qualified DDL 금지)."
+          echo "::error::참조: docs/DB_MIGRATION.md v1.1 §10.2 마이그레이션 작성 규칙"
+          exit 1
