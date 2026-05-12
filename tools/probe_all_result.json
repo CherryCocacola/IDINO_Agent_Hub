@@ -1,0 +1,850 @@
+{
+  "started_at": "2026-05-12 13:44:58",
+  "cases": [
+    {
+      "id": "A-01",
+      "scenario": "admin 로그인",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": [
+        200
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjEiLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L",
+      "duration_ms": 439,
+      "result": "PASS"
+    },
+    {
+      "id": "A-02",
+      "scenario": "로그인 실패 (잘못된 비번)",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": [
+        400,
+        401,
+        422
+      ],
+      "actual_status": 401,
+      "actual_preview": "{\"message\":\"Invalid email or password\",\"errorCode\":\"UNAUTHORIZED\",\"details\":null,\"timestamp\":\"2026-05-12T04:45:00.2545467Z\"}",
+      "duration_ms": 328,
+      "result": "PASS"
+    },
+    {
+      "id": "A-03",
+      "scenario": "anonymous /api/agents 401",
+      "method": "GET",
+      "path": "/api/agents",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 0,
+      "result": "PASS"
+    },
+    {
+      "id": "A-04",
+      "scenario": "JWT 발급 후 /api/agents 200",
+      "method": "GET",
+      "path": "/api/agents",
+      "expected": [
+        200
+      ],
+      "actual_status": 200,
+      "actual_preview": "[{\"agentId\":21,\"agentCode\":\"표절-사전-점검-에이전트\",\"agentName\":\"표절 사전 점검 에이전트\",\"description\":\"제출 전 논문·과제물의 표절 위험 구절을 사전 탐지하고 수정 방법까지 안내합니다. CopyKiller 제출 전 자체 점검 용도에 최적화됩니다.\",\"serviceId\":17,\"serviceName\":\"Cha",
+      "duration_ms": 53,
+      "result": "PASS"
+    },
+    {
+      "id": "A-05",
+      "scenario": "JWT 만료 → refresh token",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation 회피 — 별도 토큰 발급 부담"
+    },
+    {
+      "id": "A-06",
+      "scenario": "로그아웃 (POST)",
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "expected": [
+        200,
+        204,
+        404,
+        405
+      ],
+      "actual_status": 415,
+      "actual_preview": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.16\",\"title\":\"Unsupported Media Type\",\"status\":415,\"traceId\":\"00-2228f487063da7eb6cb89113ce6e5024-d9d9e88eab6e9628-00\"}",
+      "duration_ms": 12,
+      "result": "FAIL"
+    },
+    {
+      "id": "A-07",
+      "scenario": "hslee@idino.co.kr 로그인",
+      "result": "SKIP",
+      "actual_preview": "추가 자격증명 미보유, 사용자 결정 필요"
+    },
+    {
+      "id": "B-01",
+      "scenario": "GET /api/agents (목록)",
+      "method": "GET",
+      "path": "/api/agents",
+      "expected": [
+        200
+      ],
+      "actual_status": 200,
+      "actual_preview": "[{\"agentId\":21,\"agentCode\":\"표절-사전-점검-에이전트\",\"agentName\":\"표절 사전 점검 에이전트\",\"description\":\"제출 전 논문·과제물의 표절 위험 구절을 사전 탐지하고 수정 방법까지 안내합니다. CopyKiller 제출 전 자체 점검 용도에 최적화됩니다.\",\"serviceId\":17,\"serviceName\":\"Cha",
+      "duration_ms": 43,
+      "result": "PASS"
+    },
+    {
+      "id": "B-02",
+      "scenario": "GET /api/agents/{id}",
+      "result": "SKIP",
+      "actual_preview": "agentId 추출 실패"
+    },
+    {
+      "id": "B-03",
+      "scenario": "POST /api/agents (신규 생성)",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation 위험, 사용자 결정 필요"
+    },
+    {
+      "id": "B-04",
+      "scenario": "PUT /api/agents/{id}",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation 위험"
+    },
+    {
+      "id": "B-05",
+      "scenario": "Agent.LlmRouting 전환",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation 위험"
+    },
+    {
+      "id": "B-06",
+      "scenario": "KnowledgeBaseSource 전환",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation 위험"
+    },
+    {
+      "id": "B-07",
+      "scenario": "EnableRag 토글",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation 위험"
+    },
+    {
+      "id": "C-01",
+      "scenario": "GET /api/api-keys (목록)",
+      "method": "GET",
+      "path": "/api/api-keys",
+      "expected": [
+        200
+      ],
+      "actual_status": 200,
+      "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
+      "duration_ms": 17,
+      "result": "PASS"
+    },
+    {
+      "id": "C-02",
+      "scenario": "POST /api/api-keys (발급)",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation — 신규 키 발급 위험"
+    },
+    {
+      "id": "C-03",
+      "scenario": "ApiKey 회수/비활성화",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation"
+    },
+    {
+      "id": "C-04",
+      "scenario": "X-API-Key /v1/models",
+      "result": "SKIP",
+      "actual_preview": "fullKey 미노출 — 발급된 키 평문 불가 (보안 정책)"
+    },
+    {
+      "id": "D-01",
+      "scenario": "GET /v1/models (anonymous 401)",
+      "method": "GET",
+      "path": "/v1/models",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "{\"message\":\"API Key is required\",\"hint\":\"X-API-Key 헤더 또는 Authorization: Bearer <key> 헤더를 포함해주세요.\"}",
+      "duration_ms": 28,
+      "result": "PASS"
+    },
+    {
+      "id": "D-02",
+      "scenario": "POST /v1/chat/completions sync (1회 비용)",
+      "result": "SKIP",
+      "actual_preview": "운영 LLM 비용 발생 — 사용자 명시 후 1회 실행 권장"
+    },
+    {
+      "id": "D-03",
+      "scenario": "POST /v1/chat/completions stream=true SSE",
+      "result": "SKIP",
+      "actual_preview": "운영 LLM 비용 발생"
+    },
+    {
+      "id": "D-04",
+      "scenario": "POST /v1/embeddings",
+      "result": "SKIP",
+      "actual_preview": "운영 LLM 비용 발생 — 1회 발생 권장"
+    },
+    {
+      "id": "D-05",
+      "scenario": "POST /v1/images/generations",
+      "result": "SKIP",
+      "actual_preview": "DALL-E 비용 발생 — 사용자 결정"
+    },
+    {
+      "id": "D-06",
+      "scenario": "Internal 라우팅 (Nexus)",
+      "result": "SKIP",
+      "actual_preview": "Nexus 인스턴스 가용성 의존 — 별도 환경"
+    },
+    {
+      "id": "D-07",
+      "scenario": "Hybrid 라우팅 PII",
+      "result": "SKIP",
+      "actual_preview": "PII 시드 데이터 입력 부담"
+    },
+    {
+      "id": "E-01",
+      "scenario": "/api/chat/send",
+      "result": "SKIP",
+      "actual_preview": "운영 LLM 비용 발생"
+    },
+    {
+      "id": "E-02",
+      "scenario": "SignalR /hubs/notification GET (HTTP 협상 일부)",
+      "method": "GET",
+      "path": "/hubs/notification/negotiate",
+      "expected": [
+        200,
+        400,
+        401,
+        404
+      ],
+      "actual_status": 405,
+      "actual_preview": "",
+      "duration_ms": 15,
+      "result": "FAIL"
+    },
+    {
+      "id": "E-03",
+      "scenario": "게스트 채팅 Rate Limit",
+      "result": "SKIP",
+      "actual_preview": "운영 LLM 비용"
+    },
+    {
+      "id": "E-04",
+      "scenario": "PII 입력 차단",
+      "result": "SKIP",
+      "actual_preview": "운영 LLM 비용"
+    },
+    {
+      "id": "F-01",
+      "scenario": "GET /api/tools",
+      "method": "GET",
+      "path": "/api/tools",
+      "expected": [
+        200,
+        404
+      ],
+      "actual_status": 200,
+      "actual_preview": "[]",
+      "duration_ms": 16,
+      "result": "PASS"
+    },
+    {
+      "id": "F-02",
+      "scenario": "POST /api/tools",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation"
+    },
+    {
+      "id": "F-03",
+      "scenario": "Tool 실행 (Tool Calling)",
+      "result": "SKIP",
+      "actual_preview": "LLM 비용 + side effect"
+    },
+    {
+      "id": "F-04",
+      "scenario": "GET /api/workflows",
+      "method": "GET",
+      "path": "/api/workflows",
+      "expected": [
+        200,
+        404
+      ],
+      "actual_status": 200,
+      "actual_preview": "[]",
+      "duration_ms": 31,
+      "result": "PASS"
+    },
+    {
+      "id": "F-05",
+      "scenario": "Workflow 실행",
+      "result": "SKIP",
+      "actual_preview": "side effect 위험"
+    },
+    {
+      "id": "G-01a",
+      "scenario": "users anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/users",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 18,
+      "result": "PASS"
+    },
+    {
+      "id": "G-01b",
+      "scenario": "users admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/users",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"items\":[{\"id\":\"52ff0252-d940-4357-8b19-6a1bda9b4cb3\",\"username\":\"이동건\",\"email\":\"dglee@idino.co.kr\",\"role\":\"member\",\"status\":\"active\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"departmen",
+      "duration_ms": 22,
+      "result": "PASS"
+    },
+    {
+      "id": "G-02a",
+      "scenario": "departments anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/departments",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 21,
+      "result": "PASS"
+    },
+    {
+      "id": "G-02b",
+      "scenario": "departments admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/departments",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "[{\"id\":\"37673e37-ce1e-498e-b493-e3435ffd25ee\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"parentId\":null,\"name\":\"TestDept7\",\"depth\":0,\"path\":\"/37673e37-ce1e-498e-b493-e3435ffd25ee/\",\"crea",
+      "duration_ms": 15,
+      "result": "PASS"
+    },
+    {
+      "id": "G-03a",
+      "scenario": "projects anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/projects",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 15,
+      "result": "PASS"
+    },
+    {
+      "id": "G-03b",
+      "scenario": "projects admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/projects",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"items\":[{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"description\":\"연구과제 문서 관리\",\"allowOriginalDownload\":false,\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"createdBy\":\"de358",
+      "duration_ms": 0,
+      "result": "PASS"
+    },
+    {
+      "id": "G-04a",
+      "scenario": "dashboard summary anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/dashboard/summary",
+      "expected": [
+        401
+      ],
+      "actual_status": 200,
+      "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
+      "duration_ms": 17,
+      "result": "FAIL"
+    },
+    {
+      "id": "G-04b",
+      "scenario": "dashboard summary admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/dashboard/summary",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
+      "duration_ms": 15,
+      "result": "PASS"
+    },
+    {
+      "id": "G-05a",
+      "scenario": "audit-logs anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/audit-logs",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 2,
+      "result": "PASS"
+    },
+    {
+      "id": "G-05b",
+      "scenario": "audit-logs admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/audit-logs",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"items\":[{\"id\":\"37e46a26-f216-4b60-8538-eaf4145a8ddd\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"userId\":\"bafe866b-b7e2-4d26-8165-af62295e62f0\",\"action\":\"auth.login\",\"resourceType\":\"aut",
+      "duration_ms": 25,
+      "result": "PASS"
+    },
+    {
+      "id": "G-06a",
+      "scenario": "search-scopes anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/search-scopes",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 16,
+      "result": "PASS"
+    },
+    {
+      "id": "G-06b",
+      "scenario": "search-scopes admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/search-scopes",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"items\":[{\"id\":\"8a0f9f0f-c195-4a96-822c-f3fd7173e4b3\",\"name\":\"기본 범위 TEST\",\"description\":\"default\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"createdBy\":\"de3587d2-600a-4248-b2dc-25ad1335",
+      "duration_ms": 15,
+      "result": "PASS"
+    },
+    {
+      "id": "G-07a",
+      "scenario": "evaluation anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/evaluation",
+      "expected": [
+        401
+      ],
+      "actual_status": 200,
+      "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
+      "duration_ms": 16,
+      "result": "FAIL"
+    },
+    {
+      "id": "G-07b",
+      "scenario": "evaluation admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/evaluation",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
+      "duration_ms": 15,
+      "result": "PASS"
+    },
+    {
+      "id": "G-08a",
+      "scenario": "faq anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/faq",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 18,
+      "result": "PASS"
+    },
+    {
+      "id": "G-08b",
+      "scenario": "faq admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/faq",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"items\":[],\"total\":0,\"page\":1,\"size\":20}",
+      "duration_ms": 26,
+      "result": "PASS"
+    },
+    {
+      "id": "G-09a",
+      "scenario": "reports anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/reports",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 16,
+      "result": "PASS"
+    },
+    {
+      "id": "G-09b",
+      "scenario": "reports admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/reports",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"items\":[{\"id\":\"b2af009f-9018-43f5-9aac-44d5320a8ed3\",\"templateId\":null,\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"title\":\"회의록_양식\",\"status\":\"completed\",\"outputFormat\":\"docx\",\"outputStor",
+      "duration_ms": 16,
+      "result": "PASS"
+    },
+    {
+      "id": "G-10a",
+      "scenario": "templates anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/templates",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 32,
+      "result": "PASS"
+    },
+    {
+      "id": "G-10b",
+      "scenario": "templates admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/templates",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"items\":[{\"id\":\"b1a2264a-24a1-48a8-8ef4-57ba47378a70\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"회의록_양식\",\"description\":null,\"templateType\":\"회의록\",\"tone\":\"formal\",\"outputFormat\":\"d",
+      "duration_ms": 25,
+      "result": "PASS"
+    },
+    {
+      "id": "G-11a",
+      "scenario": "api-keys anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/api-keys",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 16,
+      "result": "PASS"
+    },
+    {
+      "id": "G-11b",
+      "scenario": "api-keys admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/api-keys",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"items\":[{\"id\":\"ae43f053-2279-48b7-85ea-56ba9c4bfabd\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"llmName\":\"openai\",\"apiKeyPrefix\":\"sk-proj-****\",\"isVerified\":true,\"registeredBy\":\"000000",
+      "duration_ms": 24,
+      "result": "PASS"
+    },
+    {
+      "id": "G-12a",
+      "scenario": "agents anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/agents",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 11,
+      "result": "PASS"
+    },
+    {
+      "id": "G-12b",
+      "scenario": "agents admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/agents",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"items\":[{\"id\":\"e90df318-70de-4137-b1ba-ea15cb54c52a\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"회의록 작성 AI\",\"description\":null,\"agentType\":\"minutes\",\"systemPrompt\":\"정확하고 체계적인 회의록",
+      "duration_ms": 15,
+      "result": "PASS"
+    },
+    {
+      "id": "G-13a",
+      "scenario": "documents-v2 anonymous 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/documents-v2",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 17,
+      "result": "PASS"
+    },
+    {
+      "id": "G-13b",
+      "scenario": "documents-v2 admin Bearer read",
+      "method": "GET",
+      "path": "/api/admin/docutil/documents-v2",
+      "expected": [
+        200,
+        404,
+        502,
+        503
+      ],
+      "actual_status": 200,
+      "actual_preview": "{\"items\":[{\"id\":\"becafc95-f07f-4f8c-984d-ba83481257b9\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"generatedByUserId\":\"00000000-0000-4000-a000-000000000002\",\"agentId\":null,\"templateId\":nu",
+      "duration_ms": 43,
+      "result": "PASS"
+    },
+    {
+      "id": "H-01",
+      "scenario": "GET /api/analytics/usage",
+      "method": "GET",
+      "path": "/api/analytics/usage",
+      "expected": [
+        200,
+        404
+      ],
+      "actual_status": 200,
+      "actual_preview": "[{\"serviceId\":17,\"serviceName\":\"ChatGPT\",\"date\":\"2026-05-10T00:00:00Z\",\"requestCount\":1,\"totalTokens\":559,\"totalCost\":0.0168,\"averageResponseTime\":7170},{\"serviceId\":17,\"serviceName\":\"ChatGPT\",\"date\":",
+      "duration_ms": 16,
+      "result": "PASS"
+    },
+    {
+      "id": "H-02",
+      "scenario": "GET /api/quota",
+      "method": "GET",
+      "path": "/api/quota",
+      "expected": [
+        200,
+        404
+      ],
+      "actual_status": 200,
+      "actual_preview": "[{\"quotaId\":4,\"userId\":1,\"userEmail\":\"admin@example.com\",\"serviceId\":20,\"serviceName\":\"Copilot\",\"monthlyLimit\":2000,\"monthlyTokenLimit\":null,\"dailyLimit\":200,\"costLimit\":200.00,\"currentUsage\":0,\"curre",
+      "duration_ms": 187,
+      "result": "PASS"
+    },
+    {
+      "id": "H-03",
+      "scenario": "GET /api/audit",
+      "method": "GET",
+      "path": "/api/audit",
+      "expected": [
+        200,
+        404
+      ],
+      "actual_status": 200,
+      "actual_preview": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <link rel=\"icon\" href=\"/favicon.ico\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI ",
+      "duration_ms": 16,
+      "result": "PASS"
+    },
+    {
+      "id": "I-01",
+      "scenario": "DocUtil 자체 로그인",
+      "result": "SKIP",
+      "actual_preview": "DocUtil 사용자 비번 미보유"
+    },
+    {
+      "id": "I-02",
+      "scenario": "DocUtil 챗봇 (AgentHubClient 위임)",
+      "result": "SKIP",
+      "actual_preview": "LLM 비용"
+    },
+    {
+      "id": "I-03",
+      "scenario": "DocUtil /api/v1/search",
+      "result": "SKIP",
+      "actual_preview": "DocUtil 인증 필요"
+    },
+    {
+      "id": "I-04",
+      "scenario": "DocUtil 문서 업로드",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation + 저장공간"
+    },
+    {
+      "id": "I-05",
+      "scenario": "DocUtil 보고서 생성",
+      "result": "SKIP",
+      "actual_preview": "LLM 비용"
+    },
+    {
+      "id": "J-01a",
+      "scenario": "anonymous /api/* 401",
+      "method": "GET",
+      "path": "/api/agents",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 16,
+      "result": "PASS"
+    },
+    {
+      "id": "J-01b",
+      "scenario": "anonymous /api/admin/* 401",
+      "method": "GET",
+      "path": "/api/admin/docutil/users",
+      "expected": [
+        401
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 18,
+      "result": "PASS"
+    },
+    {
+      "id": "J-02",
+      "scenario": "User role admin endpoint 403",
+      "result": "SKIP",
+      "actual_preview": "비 admin 계정 미보유"
+    },
+    {
+      "id": "J-03",
+      "scenario": "Rate Limit (60/min 등)",
+      "result": "SKIP",
+      "actual_preview": "운영 부하 회피 — 별도 환경"
+    },
+    {
+      "id": "J-04",
+      "scenario": "JWT 위조 검증",
+      "method": "GET",
+      "path": "/api/agents",
+      "expected": [
+        401,
+        403
+      ],
+      "actual_status": 401,
+      "actual_preview": "",
+      "duration_ms": 14,
+      "result": "PASS"
+    },
+    {
+      "id": "J-05",
+      "scenario": "SQL Injection 방어",
+      "result": "SKIP",
+      "actual_preview": "운영 DB 영향 가능성 — 별도 환경"
+    },
+    {
+      "id": "J-06",
+      "scenario": "XSS 방어",
+      "result": "SKIP",
+      "actual_preview": "UI 의존"
+    },
+    {
+      "id": "J-07",
+      "scenario": "CORS preflight OPTIONS",
+      "method": "OPTIONS",
+      "path": "/api/agents",
+      "expected": [
+        200,
+        204,
+        401,
+        405
+      ],
+      "actual_status": 204,
+      "actual_preview": "",
+      "duration_ms": 15,
+      "result": "PASS"
+    },
+    {
+      "id": "K-01",
+      "scenario": "RAG round-trip (chat/send → DocUtil)",
+      "result": "SKIP",
+      "actual_preview": "LLM 비용 + DocUtil 연동 — 사용자 명시 후 1회 실행"
+    },
+    {
+      "id": "K-02",
+      "scenario": "DocUtil 챗봇 → AgentHub /v1/chat → OpenAI",
+      "result": "SKIP",
+      "actual_preview": "LLM 비용"
+    },
+    {
+      "id": "K-03",
+      "scenario": "KB 업로드 → AgentBuilder dropdown",
+      "result": "SKIP",
+      "actual_preview": "운영 mutation"
+    }
+  ],
+  "summary": {
+    "PASS": 40,
+    "FAIL": 4,
+    "SKIP": 35,
+    "TOTAL": 79
+  },
+  "finished_at": "2026-05-12 13:45:00"
+}
