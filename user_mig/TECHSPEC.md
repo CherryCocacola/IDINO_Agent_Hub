@@ -1726,6 +1726,10 @@ M1 ─┐
 | ADR-13 | **공유 시크릿 인증 (AgentHub-Nexus)** | mTLS | 단순성, LAN 격리에 추가하는 1차 방어 |
 | ADR-14 | **포트 8000 충돌 해결: career ai-service 제거** | 다른 포트 재할당 | Phase 7 목표가 ai-service 제거이므로 자연 해결 |
 | ADR-15 | **`progress.md` 자동 갱신 규칙** | 별도 트래킹 도구 | git commit 단위로 진행 상황 명확화 |
+| ADR-16 | **AES-GCM + per-record 12바이트 nonce + 별도 운영 키** (트랙 #64 후, 2026-05-12) | JWT-derived 키 + CBC + 고정 IV (Phase 9 이전) | TECHSPEC §16 C1/C2 보강, 키 강도 256bit, 회전 재발 방지 위해 validator 강화(ADR-17) |
+| ADR-17 | **DocUtil ENCRYPTION_KEY validator 강화 + db_schema validator** (트랙 #65/#67, 2026-05-12) | 길이만 검증 | 약한 키(엔트로피<64bit, 반복 패턴) 부팅 차단 + Phase 4.1 ADR-5 schema 격리 우회 차단. 단위 테스트 22건 PASS |
+| ADR-18 | **DocUtil alembic 마이그레이션은 schema-agnostic** (트랙 #66/#67, 2026-05-12) | `op.create_table(..., schema="...")` 명시 | env.py 의 5중 안전(`version_table_schema`/`include_schemas`/`CREATE SCHEMA`/`SET LOCAL search_path`/`connect_args`)에 일임. 마이그레이션 파일은 `op.create_table("tb_X")` 만, schema-qualified identifier 도 금지. `docs/DB_MIGRATION.md v1.1 §10` 참조 |
+| ADR-19 | **운영 임시 secrets 파일은 적용 후 즉시 삭제** (트랙 #62, 2026-05-12) | 회복용 보관 | `.env` 백업(`.env.bak.*` 0600)이 회복 경로 제공. 평문 키 별도 보관은 lateral move 위험 |
 
 ---
 
@@ -1873,6 +1877,13 @@ M1 ─┐
 - 시드: AgentHub 13개 Agent + 4개 Tool + Agent별 ApiKey 발급
 - 환경변수: `AGENTHUB_URL`, `AGENTHUB_API_KEY` (각 시스템)
 - 삭제: 각 시스템의 `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` 등
+
+### B.4 자율 트랙 변경 (2026-05-12, ADR-16~19)
+- 신규 파일: `docs/DB_MIGRATION.md v1.1 §10` (운영 사고 이력 + 재발 방지), `docutil/backend/tests/test_config_validator.py` (22 단위 테스트), `infra/db/seeds/phase5_phase7_seeds.sql` (시드 reproducibility, 트랙 #47)
+- 변경 파일: `docutil/backend/app/core/config.py` (validator 강화: ENCRYPTION_KEY 3중 + db_schema 4중), `docutil/backend/tests/conftest.py` (테스트용 강한 키), `agenthub/Controllers/OpenAICompatController.cs` (POST /v1/images/generations, 트랙 DU-14), `agenthub/Exceptions/DocUtilUpstreamException.cs` (신규, Reports 410 deprecation), `agenthub/Services/{IDocUtilClient, DocUtilClient, DocUtilTokenProvider}.cs` (R2 잔여 7건 보강 + 95 BFF endpoint 누적), Phase 10.1a~10.2e 운영자 BFF 13 Vue 메뉴
+- 운영 변경: 트랙 #63 `ALTER TABLE public.<X> SET SCHEMA document_utilization` 28회 + alembic_version + ALTER ROLE search_path / 트랙 #64 ENCRYPTION_KEY 회전 (Bulk Re-encrypt, tb_llm_api_keys 1행) / 트랙 #62 임시 secrets 파일 shred + rm 3개 / Phase 7 코드 배포 (docutil-api/celery 3 컨테이너) / 5 서비스 비번 강화 (Redis/RabbitMQ/MinIO/Flower/Grafana) / JWT_SECRET_KEY 강화 (256bit) / docutil .env 에 AGENTHUB_URL + AGENTHUB_API_KEY 추가
+- 삭제: `docutil/backend/app/integrations/llm/{claude_client, gemini_client}.py` (806 LOC dead code, anti-patterns §1)
+- 시드: AgentHub Phase 7.1 15 Agent + Phase 2.x 16 ApiServices `infra/db/seeds/phase5_phase7_seeds.sql` codify (idempotent)
 
 ---
 
