@@ -273,6 +273,31 @@
 
 - **후속 트랙 권장**:
   - **#90 (i18n 본문 전수 확산)**: Dashboard + Help 외 30+ view 의 한국어 하드코딩을 i18n 키로 추출. 추정 400~500 키, 10 영업일 분량. 별도 트랙.
+  - **#91 (ApiKeyPoolService DB 통합)** — H6 후속, 사용자 선택 C′:
+    - **현황 문제** (2026-05-13 트랙 #89 진행 중 발견):
+      - `ApiKeyPoolService` Singleton 이 부팅 시 `appsettings.json` 의 `AiApiSettings:{Provider}:ApiKey` / `ApiKeys` 만 로드 (`ApiKeyPoolService.cs:33-52`).
+      - DB 의 `ApiKeys` 테이블은 **외부 노출용 키 (사용자 발급 `ak-...` 키)** 전용 — 외부 LLM 호출 풀과 무관.
+      - 즉 외부 LLM 키 회전 = **컨테이너 재시작 필요**. 운영자 콘솔(/api-keys)에서 등록해도 외부 LLM 호출은 갱신 안 됨.
+      - H6 (Gemini API key invalid) 의 진단에서 `.env` 의 `GEMINI_API_KEY` 가 무효한 키임이 확인 — 새 키 주입 = `.env` 수정 + 재시작 외 방법 없음.
+    - **설계 (2~3 영업일 추정)**:
+      1. **데이터 모델**: 옵션 (a) `ApiKey` 모델에 `KeyType` enum 컬럼 추가 (`External` 외부 노출 / `Provider` 외부 LLM 풀용) + 격리. 옵션 (b) 별도 `LlmApiKey` 테이블 신설. **권장 (a)** — 기존 인증/감사 인프라 재사용. EF 마이그레이션 1건.
+      2. **`ApiKeyPoolService` 재설계**:
+         - 부팅 시 `appsettings` + DB (KeyType='Provider' AND IsActive=true) 모두 로드.
+         - DB 변경 감지: 5분 주기 폴링 또는 운영자 등록 시 `IHubContext` 로 풀 갱신 신호.
+         - 라운드로빈 + 냉각 + 우선순위 (DB > appsettings 폴백).
+         - 다중 인스턴스 시 풀 일관성: Redis 분산 락 또는 DB CreatedAt 정렬로 결정적 순서.
+      3. **운영자 콘솔 UI**:
+         - `/admin/llm-api-keys` 신규 (또는 기존 `/api-keys` 에 탭 추가).
+         - CRUD + 활성/비활성 토글 + 우선순위 + 즉시 유효성 검증 ("테스트" 버튼 → ListModels 호출 → 200/4xx 표시).
+         - 라운드로빈 통계 / 냉각 상태 모니터링 (`GetPoolStats` 확장 + WebSocket 또는 폴링).
+         - 비밀번호 패턴 키 입력 (`<input type="password">` + 등록 후 마스킹).
+      4. **시크릿 보관**: AES-GCM 암호화 (기존 ApiKey 패턴 재사용 — `EncryptedKey`/`KeyIv`/`KeyTag`/`KeyHash` 4 컬럼). 평문 보관 금지.
+    - **위험**:
+      - 기존 외부 노출용 ApiKey 와의 격리 명확화 — `KeyType` 분기 누락 시 인증 핫패스 오염.
+      - 다중 인스턴스 (수평 확장 시) 풀 동기화 — 본 트랙 단일 인스턴스 가정으로 출발, 후속 트랙으로 분산 락.
+      - 운영 중 키 회전 시 in-flight 요청 영향 (냉각 + 재시도 인프라 활용).
+    - **즉시 해소 옵션** (본 트랙 #91 작업 전 임시):
+      - 새 Gemini 키 발급 (Google AI Studio https://aistudio.google.com/app/apikey) → 호스트 192.168.10.39 SSH → `/home/idino/agenthub/.env` 의 `GEMINI_API_KEY=` 값 교체 → `docker compose up -d --force-recreate agenthub`. 사용자 권한.
   - **T1**: `CallOpenAiAsync` (비스트리밍) 와 `StreamOpenAiChunksAsync` (스트리밍) 의 vision 변환 로직 통합.
   - **T2**: Claude/Gemini/Perplexity/Mistral native streaming + vision 지원.
   - **T3**: 멀티채팅 `inputMessage` 채팅별 분리 (현재 단일 ref 공유).
