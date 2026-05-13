@@ -1737,5 +1737,59 @@
       "api": "API 문서",
       "troubleshooting": "문제 해결"
     }
+  },
+  "apiKeys": {
+    "tabs": {
+      "providerPool": "외부 LLM 키 풀(운영자)"
+    },
+    "provider": {
+      "list": {
+        "title": "외부 LLM 키 목록",
+        "subtitle": "ApiKeyPoolService 풀에 로드되는 운영자 키",
+        "empty": "등록된 외부 LLM 키가 없습니다. + 새 외부 LLM 키 등록 으로 추가하세요.",
+        "addButton": "+ 새 외부 LLM 키 등록",
+        "test": "테스트",
+        "edit": "수정",
+        "delete": "삭제",
+        "expiresIn": "만료 D-{days}",
+        "expiredAlready": "만료됨",
+        "neverUsed": "사용 이력 없음",
+        "lastUsed": "마지막 사용 {time}"
+      },
+      "stats": {
+        "title": "풀 통계",
+        "subtitle": "DB/설정/냉각 출처별 키 수",
+        "refresh": "새로고침",
+        "totalLabel": "Total",
+        "fromDb": "DB",
+        "fromAppsettings": "설정",
+        "coolingDown": "냉각",
+        "lastRefreshedAt": "마지막 갱신: {time}",
+        "noProviders": "—"
+      },
+      "modal": {
+        "title": "외부 LLM 키 등록",
+        "keyName": "키 별칭",
+        "keyNamePlaceholder": "예: Prod Gemini Primary",
+        "serviceCode": "프로바이더",
+        "selectProvider": "프로바이더를 선택하세요",
+        "apiKey": "API 키",
+        "apiKeyHint": "키는 AES-GCM 으로 암호화 저장됩니다. 등록 후 평문은 즉시 폐기됩니다.",
+        "description": "설명",
+        "expiresAt": "만료일",
+        "validateOnCreate": "등록 직후 즉시 검증 (제공사 ping)",
+        "submit": "등록"
+      },
+      "toast": {
+        "created": "외부 LLM 키 등록 완료",
+        "createFailed": "외부 LLM 키 등록에 실패했습니다",
+        "testPass": "검증 PASS",
+        "testFail": "검증 실패",
+        "testNetworkError": "검증 네트워크 오류",
+        "deleted": "외부 LLM 키가 삭제되었습니다",
+        "deleteFailed": "외부 LLM 키 삭제에 실패했습니다"
+      },
+      "confirmDelete": "\"{name}\" 외부 LLM 키를 삭제하시겠습니까? 풀에서 즉시 제외됩니다."
+    }
   }
 }

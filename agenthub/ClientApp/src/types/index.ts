@@ -219,6 +219,9 @@ export interface ApiKeyDto {
   scopes?: string
   rateLimitPerMinute?: number
   rateLimitPerDay?: number
+  // 트랙 #91 (2026-05-13): KeyType 으로 외부 노출 키(External) 와 외부 LLM 풀 키(Provider) 격리.
+  // 백엔드 ApiKey.KeyType 컬럼 (string, default "External") 과 1:1 매핑. 구버전 응답 호환을 위해 optional.
+  keyType?: 'External' | 'Provider'
 }
 
 export interface PiiProtectionSettings {
@@ -287,6 +290,76 @@ export interface UpdateApiKeyRequestDto {
   scopes?: string
   rateLimitPerMinute?: number
   rateLimitPerDay?: number
+}
+
+/**
+ * 트랙 #91 (2026-05-13): 외부 LLM 키(KeyType='Provider') 등록 요청 DTO.
+ *
+ * 백엔드 CreateProviderApiKeyRequestDto.cs 와 정렬. 운영자(Admin/SuperAdmin)만 호출 가능.
+ * apiKey 는 평문이며 클라이언트는 등록 응답 수신 직후 메모리에서 즉시 폐기한다.
+ * (백엔드는 AES-GCM 으로 암호화 저장 + KeyHash SHA-256 으로 중복 검사)
+ */
+export interface CreateProviderApiKeyRequestDto {
+  /** 운영자 별칭. 풀 통계/목록 표시용. (예: "Prod Gemini Primary") */
+  keyName: string
+  /** 프로바이더 코드. ApiKeyPoolService 의 NormalizeServiceCode 화이트리스트와 정렬. */
+  serviceCode: string
+  /** LLM 제공사 평문 키. 등록 후 즉시 메모리 폐기 권장. */
+  apiKey: string
+  /** 운영자 설명 (선택). */
+  description?: string | null
+  /** 만료 시각 (ISO 8601). 미설정 시 무기한. RefreshAsync 시 자동 제외. */
+  expiresAt?: string | null
+  /** 등록 직후 제공사별 ping 으로 즉시 유효성 검증 여부. 기본 true. */
+  validateOnCreate: boolean
+}
+
+/**
+ * 트랙 #91 (2026-05-13): API 키 즉시 유효성 검증 응답.
+ *
+ * 백엔드 TestApiKeyResponseDto.cs 와 정렬. Gemini/OpenAI/Claude/Perplexity/Mistral 등
+ * 제공사별 가벼운 GET (ListModels 등) 결과를 표시한다.
+ */
+export interface TestApiKeyResponseDto {
+  /** 200 응답 + 유효 키 여부. */
+  success: boolean
+  /** 사용자 표시 메시지 (한국어). 실패 시 원인 포함. */
+  message: string
+  /** 정규화된 프로바이더 이름. null 이면 키 자체를 식별 못함. */
+  provider: string | null
+  /** 라운드트립 시간 (ms). 운영자의 외부망 상태 판단에 사용. */
+  latencyMs: number
+}
+
+/**
+ * 트랙 #91 (2026-05-13): 풀 통계 — 프로바이더별 한 행.
+ *
+ * 백엔드 ProviderPoolStatDto.cs 와 정렬. DB/appsettings 출처 분리로
+ * 운영자가 키 회전 후에도 어디서 가져온 키인지 즉시 파악할 수 있게 한다.
+ */
+export interface ProviderPoolStatDto {
+  /** 정규화된 프로바이더 코드 (예: "gemini", "openai"). */
+  serviceCode: string
+  /** 풀에 살아있는 키 총개수. */
+  totalCount: number
+  /** appsettings.json 에서 로드된 키 수 (정적, 컨테이너 재시작 시점 고정). */
+  fromAppsettings: number
+  /** DB 에서 로드된 키 수 (운영자 GUI 등록). */
+  fromDb: number
+  /** 현재 Rate Limit 쿨다운 상태인 키 수 (호출 일시 정지). */
+  coolingDownCount: number
+}
+
+/**
+ * 트랙 #91 (2026-05-13): 풀 통계 응답 — `GET /api/apikeys/pool-stats`.
+ *
+ * 백엔드 PoolStatsResponseDto.cs 와 정렬. Admin/SuperAdmin 전용.
+ */
+export interface PoolStatsResponseDto {
+  /** 프로바이더별 통계 행. 미등록 프로바이더는 미포함 — UI 에서 — 로 표시. */
+  providers: ProviderPoolStatDto[]
+  /** 마지막 RefreshAsync 완료 시각 (ISO 8601 UTC). 5분 RecurringJob 또는 즉시 트리거. */
+  lastRefreshedAt: string
 }
 
 export interface CreateAgentApiKeyRequestDto {

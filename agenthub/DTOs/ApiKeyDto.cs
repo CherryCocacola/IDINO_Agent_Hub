@@ -7,6 +7,12 @@ public class ApiKeyDto
     public string KeyName { get; set; } = string.Empty;
     public string ServiceCode { get; set; } = string.Empty;
     public string? ServiceName { get; set; }
+
+    /// <summary>
+    /// API 키 분류 — 트랙 #91. `"External"`(외부 노출 ak- 키) | `"Provider"`(외부 LLM 풀 키).
+    /// </summary>
+    public string KeyType { get; set; } = "External";
+
     public int? AgentId { get; set; }
     public string? Description { get; set; }
     public DateTime? ExpiresAt { get; set; }
@@ -42,6 +48,12 @@ public class CreateApiKeyRequestDto
     public string? Scopes { get; set; }
     public int? RateLimitPerMinute { get; set; }
     public int? RateLimitPerDay { get; set; }
+
+    /// <summary>
+    /// (옵셔널) API 키 분류 — 트랙 #91. 미지정 시 `"External"` 적용. 운영자가 외부 LLM 풀 키를 등록할 때만
+    /// `"Provider"` 지정. 일반적인 외부 노출 키 등록 흐름과의 호환성을 위해 nullable.
+    /// </summary>
+    public string? KeyType { get; set; }
 }
 
 public class UpdateApiKeyRequestDto

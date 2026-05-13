@@ -139,6 +139,14 @@ public class AIAgentManagementDbContext : DbContext
             .HasIndex(k => k.KeyHash)
             .IsUnique();
 
+        // ApiKey.(KeyType, IsActive, ServiceCode) 복합 인덱스 — 트랙 #91 (ApiKeyPoolService DB 통합).
+        // `IApiKeyPoolService.RefreshAsync()` 가 5분 주기로 `WHERE KeyType='Provider' AND IsActive=true AND ServiceCode=...`
+        // 형태로 외부 LLM 풀 키만 조회하므로 좌측 prefix 최적화를 위해 (KeyType → IsActive → ServiceCode) 순서로 정렬.
+        // External 키 인증 핫패스(KeyHash UNIQUE 단건 조회)와 영향 무관.
+        modelBuilder.Entity<ApiKey>()
+            .HasIndex(k => new { k.KeyType, k.IsActive, k.ServiceCode })
+            .HasDatabaseName("IX_ApiKeys_KeyType_IsActive_ServiceCode");
+
         // TeamMember unique constraint (활성 멤버만)
         modelBuilder.Entity<TeamMember>()
             .HasIndex(tm => new { tm.TeamId, tm.UserId })

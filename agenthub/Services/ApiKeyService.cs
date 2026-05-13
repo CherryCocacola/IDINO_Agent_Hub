@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using AIAgentManagement.Data;
@@ -24,14 +26,34 @@ public class ApiKeyService : IApiKeyService
     private readonly ILogger<ApiKeyService> _logger;
     private readonly byte[] _aesKey;
     private readonly bool _usingFallbackKey;
+    private readonly IApiKeyPoolService _apiKeyPool;
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    // 외부 LLM 키 등록 시 허용되는 ServiceCode 화이트리스트 (트랙 #91).
+    // ApiKeyPoolService.NormalizeServiceCode 와 동기화 유지.
+    private static readonly HashSet<string> SupportedProviderServiceCodes =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "openai", "chatgpt",
+            "claude",
+            "gemini", "google", "gemini-image", "imagen4",
+            "perplexity",
+            "mistral",
+            "azureopenai",
+            "copilot"
+        };
 
     public ApiKeyService(
         AIAgentManagementDbContext context,
         ILogger<ApiKeyService> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IApiKeyPoolService apiKeyPool,
+        IHttpClientFactory httpClientFactory)
     {
         _context = context;
         _logger = logger;
+        _apiKeyPool = apiKeyPool;
+        _httpClientFactory = httpClientFactory;
         (_aesKey, _usingFallbackKey) = LoadAesKey(configuration, logger);
     }
 
@@ -62,11 +84,16 @@ public class ApiKeyService : IApiKeyService
         var (ciphertext, iv, tag) = EncryptApiKey(request.ApiKey);
         var keyHash = ComputeKeyHash(request.ApiKey);
 
+        // 트랙 #91 — KeyType 미지정 시 "External" 기본값. 운영자가 Provider 키 등록 시에는
+        // 전용 endpoint(`CreateProviderApiKeyAsync`)를 사용하므로 본 메서드 사용자는 일반적으로 External.
+        var keyType = string.IsNullOrWhiteSpace(request.KeyType) ? "External" : request.KeyType.Trim();
+
         var apiKey = new ApiKey
         {
             UserId            = userId,
             KeyName           = request.KeyName,
             ServiceCode       = request.ServiceCode,
+            KeyType           = keyType,
             EncryptedKey      = Convert.ToBase64String(ciphertext),
             KeyIv             = iv,
             KeyTag            = tag,
@@ -85,8 +112,8 @@ public class ApiKeyService : IApiKeyService
         _context.ApiKeys.Add(apiKey);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("API 키 생성: UserId={UserId}, ServiceCode={ServiceCode}, KeyName={KeyName}",
-            userId, request.ServiceCode, request.KeyName);
+        _logger.LogInformation("API 키 생성: UserId={UserId}, ServiceCode={ServiceCode}, KeyName={KeyName}, KeyType={KeyType}",
+            userId, request.ServiceCode, request.KeyName, keyType);
 
         return await MapToDtoAsync(apiKey);
     }
@@ -160,6 +187,7 @@ public class ApiKeyService : IApiKeyService
             UserId            = userId,
             KeyName           = keyName,
             ServiceCode       = "agent-api",
+            KeyType           = "External", // Agent API 키도 외부 노출 ak- 키 → External 카테고리.
             AgentId           = agentId,
             EncryptedKey      = Convert.ToBase64String(ciphertext),
             KeyIv             = iv,
@@ -286,6 +314,7 @@ public class ApiKeyService : IApiKeyService
             UserId             = apiKey.UserId,
             KeyName            = apiKey.KeyName,
             ServiceCode        = apiKey.ServiceCode,
+            KeyType            = apiKey.KeyType,
             AgentId            = apiKey.AgentId,
             Description        = apiKey.Description,
             ExpiresAt          = apiKey.ExpiresAt,
@@ -449,6 +478,293 @@ public class ApiKeyService : IApiKeyService
         using var sr = new StreamReader(cs);
         return sr.ReadToEnd();
     }
+
+    // ── 트랙 #91 — ApiKeyPoolService DB 통합 ─────────────────────────────────
+
+    /// <summary>
+    /// 외부 LLM 풀 키(`KeyType="Provider"`) 등록.
+    /// 등록 후 즉시 `IApiKeyPoolService.RefreshAsync` 를 트리거하여 다음 LLM 호출부터 신규 키 사용 가능.
+    /// `ValidateOnCreate=true` 인 경우 등록 후 한 번 ping 검증을 수행하지만, 검증 실패가 등록 실패로 이어지진 않는다
+    /// (운영자가 의도적으로 미사용 키 등록할 수 있음 — 결과는 응답 메시지로 안내).
+    /// </summary>
+    public async Task<ApiKeyDto> CreateProviderApiKeyAsync(
+        CreateProviderApiKeyRequestDto request,
+        int operatorUserId,
+        CancellationToken ct = default)
+    {
+        // 1) 입력 검증 — ServiceCode 화이트리스트.
+        if (string.IsNullOrWhiteSpace(request.KeyName))
+            throw new ArgumentException("키 이름은 필수 입력 항목입니다.", nameof(request));
+
+        if (string.IsNullOrWhiteSpace(request.ApiKey) || request.ApiKey.Length < 10)
+            throw new ArgumentException("ApiKey 는 10자 이상이어야 합니다.", nameof(request));
+
+        if (string.IsNullOrWhiteSpace(request.ServiceCode)
+            || !SupportedProviderServiceCodes.Contains(request.ServiceCode))
+        {
+            throw new ArgumentException(
+                $"지원하지 않는 ServiceCode 입니다: '{request.ServiceCode}'. " +
+                $"허용 값: {string.Join(", ", SupportedProviderServiceCodes)}",
+                nameof(request));
+        }
+
+        // 2) KeyHash 중복 검사 — 같은 키 재등록 차단 (UNIQUE 인덱스 위반 방지 + 명확한 한국어 응답).
+        var keyHash = ComputeKeyHash(request.ApiKey);
+        var duplicate = await _context.ApiKeys
+            .AsNoTracking()
+            .AnyAsync(k => k.KeyHash == keyHash, ct);
+        if (duplicate)
+        {
+            throw new InvalidOperationException("이미 등록된 API 키입니다. 다른 키를 사용하세요.");
+        }
+
+        // 3) AES-GCM 암호화 + DB INSERT (KeyType="Provider" 강제).
+        var (ciphertext, iv, tag) = EncryptApiKey(request.ApiKey);
+
+        var apiKey = new ApiKey
+        {
+            UserId            = operatorUserId,
+            KeyName           = request.KeyName.Trim(),
+            ServiceCode       = request.ServiceCode.Trim().ToLowerInvariant(),
+            KeyType           = "Provider", // 트랙 #91 — 풀 키 전용 분류.
+            EncryptedKey      = Convert.ToBase64String(ciphertext),
+            KeyIv             = iv,
+            KeyTag            = tag,
+            KeyHash           = keyHash,
+            Description       = NormalizeNullable(request.Description),
+            ExpiresAt         = request.ExpiresAt,
+            // Provider 키는 외부 노출되지 않으므로 AllowedIps / Scopes / RateLimit 미사용.
+            IsActive          = true,
+            CreatedAt         = DateTime.UtcNow,
+            UpdatedAt         = DateTime.UtcNow
+        };
+
+        _context.ApiKeys.Add(apiKey);
+        await _context.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "[Provider ApiKey] 등록 완료: ApiKeyId={ApiKeyId}, ServiceCode={ServiceCode}, OperatorUserId={UserId}",
+            apiKey.ApiKeyId, apiKey.ServiceCode, operatorUserId);
+
+        // 4) 풀 즉시 갱신 — 다음 LLM 호출부터 신규 키 사용 가능.
+        try
+        {
+            await _apiKeyPool.RefreshAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            // 풀 갱신 실패가 등록 실패로 이어지면 안 됨 — 5분 주기 다음 RefreshAsync 가 메꿔준다.
+            _logger.LogError(ex,
+                "[Provider ApiKey] 등록 직후 풀 갱신 실패 — 다음 주기 갱신을 기다림. ApiKeyId={ApiKeyId}",
+                apiKey.ApiKeyId);
+        }
+
+        return await MapToDtoAsync(apiKey);
+    }
+
+    /// <summary>
+    /// 외부 LLM 키 유효성 검증 — 제공사별 가벼운 GET endpoint 1회 호출 (10초 타임아웃).
+    /// </summary>
+    public async Task<TestApiKeyResponseDto> TestApiKeyAsync(
+        int apiKeyId,
+        int operatorUserId,
+        CancellationToken ct = default)
+    {
+        // 1) DB 에서 키 조회 (모든 사용자 — 운영자 콘솔 권한이므로 본인 소유 제약 없음).
+        var apiKey = await _context.ApiKeys
+            .FirstOrDefaultAsync(k => k.ApiKeyId == apiKeyId, ct);
+
+        if (apiKey == null)
+        {
+            return new TestApiKeyResponseDto(false, "지정한 API 키를 찾을 수 없습니다.", null, 0);
+        }
+
+        if (!apiKey.IsActive)
+        {
+            return new TestApiKeyResponseDto(false, "비활성화된 API 키는 검증할 수 없습니다.", apiKey.ServiceCode, 0);
+        }
+
+        // 2) 평문 복호화. LastUsedAt 미갱신 변종 사용.
+        var plaintext = await DecryptForPoolAsync(apiKeyId);
+        if (string.IsNullOrWhiteSpace(plaintext))
+        {
+            return new TestApiKeyResponseDto(false, "API 키 복호화에 실패했습니다.", apiKey.ServiceCode, 0);
+        }
+
+        // 3) 정규화된 제공사 코드.
+        var provider = ApiKeyPoolService.NormalizeServiceCode(apiKey.ServiceCode);
+        if (provider == null)
+        {
+            return new TestApiKeyResponseDto(
+                false,
+                $"지원하지 않는 ServiceCode 입니다: '{apiKey.ServiceCode}'",
+                apiKey.ServiceCode,
+                0);
+        }
+
+        // 4) 제공사별 ping. 10초 강제 타임아웃 — 운영자 UI 응답성 보장.
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            return provider switch
+            {
+                "openai"       => await PingOpenAiAsync(plaintext, stopwatch, timeoutCts.Token),
+                "claude"       => await PingClaudeAsync(plaintext, stopwatch, timeoutCts.Token),
+                "gemini"       => await PingGeminiAsync(plaintext, stopwatch, timeoutCts.Token),
+                "perplexity"   => await PingPerplexityAsync(plaintext, stopwatch, timeoutCts.Token),
+                "mistral"      => await PingMistralAsync(plaintext, stopwatch, timeoutCts.Token),
+                "azureopenai"  => new TestApiKeyResponseDto(false,
+                                    "AzureOpenAI 키 자동 검증은 본 트랙에서 미지원입니다. 별도 endpoint URL 이 필요합니다.",
+                                    provider, stopwatch.ElapsedMilliseconds),
+                "copilot"      => new TestApiKeyResponseDto(false,
+                                    "Copilot 키 자동 검증은 본 트랙에서 미지원입니다.",
+                                    provider, stopwatch.ElapsedMilliseconds),
+                _              => new TestApiKeyResponseDto(false,
+                                    "지원하지 않는 제공사입니다.", provider, stopwatch.ElapsedMilliseconds)
+            };
+        }
+        catch (TaskCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+        {
+            return new TestApiKeyResponseDto(false,
+                "검증 타임아웃 (10초 초과). 외부 LLM 서비스 상태를 확인하세요.",
+                provider, stopwatch.ElapsedMilliseconds);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex,
+                "[Provider ApiKey Test] 외부 LLM 호출 실패. ApiKeyId={ApiKeyId}, Provider={Provider}",
+                apiKeyId, provider);
+            return new TestApiKeyResponseDto(false,
+                $"외부 LLM 서비스 연결 실패: {ex.Message}",
+                provider, stopwatch.ElapsedMilliseconds);
+        }
+    }
+
+    /// <summary>
+    /// 풀 갱신 전용 복호화 변종 — LastUsedAt / UsageCount 미갱신.
+    /// `IApiKeyPoolService.RefreshAsync` 가 5분마다 호출하므로 사용량 카운터 오염을 차단한다.
+    /// </summary>
+    public async Task<string?> DecryptForPoolAsync(int apiKeyId)
+    {
+        var apiKey = await _context.ApiKeys
+            .AsNoTracking()
+            .FirstOrDefaultAsync(k => k.ApiKeyId == apiKeyId);
+
+        if (apiKey == null || !apiKey.IsActive)
+            return null;
+
+        if (apiKey.ExpiresAt.HasValue && apiKey.ExpiresAt.Value < DateTime.UtcNow)
+            return null;
+
+        try
+        {
+            // GCM 신규 형식: KeyIv + KeyTag 가 모두 채워진 경우 → AEAD 복호화
+            // Legacy(CBC) 형식: 폴백 분기로 복호화 — DB 백필은 GetDecryptedApiKeyAsync 핫패스에서만 수행.
+            //   본 메서드는 AsNoTracking 이므로 SaveChanges 의도하지 않음 (사용량 카운터 오염 방지).
+            if (apiKey.KeyIv is { Length: 12 } iv && apiKey.KeyTag is { Length: 16 } tag)
+            {
+                return DecryptApiKey(Convert.FromBase64String(apiKey.EncryptedKey), iv, tag);
+            }
+
+            return DecryptLegacyCbc(apiKey.EncryptedKey);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // AuthenticationTagMismatchException 으로부터 변환된 무결성 실패 등.
+            _logger.LogError(ex, "[DecryptForPool] API 키 복호화 실패: ApiKeyId={ApiKeyId}", apiKeyId);
+            return null;
+        }
+        catch (FormatException ex)
+        {
+            _logger.LogError(ex, "[DecryptForPool] base64 디코딩 실패: ApiKeyId={ApiKeyId}", apiKeyId);
+            return null;
+        }
+    }
+
+    // ── 제공사별 ping 헬퍼 (트랙 #91) ─────────────────────────────────────
+
+    /// <summary>OpenAI: GET https://api.openai.com/v1/models — 200 이면 키 유효.</summary>
+    private async Task<TestApiKeyResponseDto> PingOpenAiAsync(string apiKey, Stopwatch sw, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient(); // 기본 HttpClient — 외부 URL 직접 호출용.
+        using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.openai.com/v1/models");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        using var resp = await client.SendAsync(req, ct);
+        sw.Stop();
+        return BuildPingResult(resp, sw.ElapsedMilliseconds, "openai");
+    }
+
+    /// <summary>Claude: GET https://api.anthropic.com/v1/models — 200 이면 키 유효.</summary>
+    private async Task<TestApiKeyResponseDto> PingClaudeAsync(string apiKey, Stopwatch sw, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient();
+        using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.anthropic.com/v1/models");
+        req.Headers.Add("x-api-key", apiKey);
+        req.Headers.Add("anthropic-version", "2023-06-01");
+        using var resp = await client.SendAsync(req, ct);
+        sw.Stop();
+        return BuildPingResult(resp, sw.ElapsedMilliseconds, "claude");
+    }
+
+    /// <summary>Gemini: GET https://generativelanguage.googleapis.com/v1beta/models?key={key} — 200 이면 키 유효.</summary>
+    private async Task<TestApiKeyResponseDto> PingGeminiAsync(string apiKey, Stopwatch sw, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient();
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models?key={Uri.EscapeDataString(apiKey)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        using var resp = await client.SendAsync(req, ct);
+        sw.Stop();
+        return BuildPingResult(resp, sw.ElapsedMilliseconds, "gemini");
+    }
+
+    /// <summary>Perplexity: GET https://api.perplexity.ai/models — 200 이면 키 유효.</summary>
+    private async Task<TestApiKeyResponseDto> PingPerplexityAsync(string apiKey, Stopwatch sw, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient();
+        using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.perplexity.ai/models");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        using var resp = await client.SendAsync(req, ct);
+        sw.Stop();
+        return BuildPingResult(resp, sw.ElapsedMilliseconds, "perplexity");
+    }
+
+    /// <summary>Mistral: GET https://api.mistral.ai/v1/models — 200 이면 키 유효.</summary>
+    private async Task<TestApiKeyResponseDto> PingMistralAsync(string apiKey, Stopwatch sw, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient();
+        using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.mistral.ai/v1/models");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        using var resp = await client.SendAsync(req, ct);
+        sw.Stop();
+        return BuildPingResult(resp, sw.ElapsedMilliseconds, "mistral");
+    }
+
+    /// <summary>HTTP 응답을 사용자(운영자) 친화 한국어 메시지로 변환.</summary>
+    private static TestApiKeyResponseDto BuildPingResult(HttpResponseMessage resp, long latencyMs, string provider)
+    {
+        var status = (int)resp.StatusCode;
+        if (resp.IsSuccessStatusCode)
+        {
+            return new TestApiKeyResponseDto(true, $"검증 PASS · {provider} 응답 {status} · {latencyMs}ms", provider, latencyMs);
+        }
+
+        var detail = status switch
+        {
+            401 => "인증 실패 (401) — API 키가 유효하지 않습니다.",
+            403 => "권한 거부 (403) — API 키에 해당 endpoint 접근 권한이 없습니다.",
+            404 => "검증 endpoint 를 찾을 수 없습니다 (404).",
+            429 => "Rate limit 초과 (429) — 잠시 후 다시 시도하세요.",
+            >= 500 => $"외부 LLM 서버 오류 ({status}).",
+            _ => $"검증 실패 ({status})."
+        };
+
+        return new TestApiKeyResponseDto(false, $"{provider}: {detail}", provider, latencyMs);
+    }
+
+    // ── 기존 유틸 ───────────────────────────────────────────────────────
 
     /// <summary>
     /// Legacy CBC 행을 GCM 으로 즉시 재암호화하고 KeyHash 를 백필한다.

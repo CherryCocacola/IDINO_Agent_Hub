@@ -19,6 +19,20 @@ public class ApiKey
     [MaxLength(50)]
     public string ServiceCode { get; set; } = string.Empty; // chatgpt, claude, gemini, agent-api, etc.
 
+    /// <summary>
+    /// API 키 분류 (트랙 #91 — ApiKeyPoolService DB 통합).
+    /// <list type="bullet">
+    /// <item><c>"External"</c> — 외부 노출용 키. 사용자가 외부 시스템(OpenAI SDK 등)에서 AgentHub <c>/v1/*</c>
+    /// 또는 <c>/api/agents/{id}/chat</c> 을 호출할 때 사용하는 <c>ak-...</c> 형식 키 (`ApiKeyAuthService` 인증 대상).</item>
+    /// <item><c>"Provider"</c> — 외부 LLM 키 풀(`IApiKeyPoolService`) 용 키. 운영자가 콘솔에서 등록한
+    /// OpenAI/Claude/Gemini 등 외부 LLM 호출용 평문 키. AgentHub 내부 `AiProxyService` 가 풀에서 라운드로빈으로 꺼내 사용.</item>
+    /// </list>
+    /// 두 종류를 같은 `ApiKeys` 테이블에 두되 `KeyType` 으로 격리하여 인증 핫패스(External) 와 풀 갱신(Provider) 을 분리.
+    /// </summary>
+    [Required]
+    [MaxLength(20)]
+    public string KeyType { get; set; } = "External";
+
     public int? AgentId { get; set; } // Agent 전용 API Key인 경우
 
     [Required]

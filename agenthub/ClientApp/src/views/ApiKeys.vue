@@ -11,8 +11,14 @@
         <button v-if="activeTab === 'service'" class="btn btn-primary btn-sm" @click="showAddModal = true">
           <i class="bi bi-plus-circle me-1"></i>새 API 키 추가
         </button>
-        <button v-else class="btn btn-primary btn-sm" @click="openAgentKeyModal" :disabled="!selectedAgentId">
+        <button v-else-if="activeTab === 'agent'" class="btn btn-primary btn-sm"
+          @click="openAgentKeyModal" :disabled="!selectedAgentId">
           <i class="bi bi-plus-circle me-1"></i>Agent API 키 발급
+        </button>
+        <!-- 트랙 #91: 탭 3 운영자 전용 외부 LLM 키 등록 -->
+        <button v-else-if="activeTab === 'provider-pool' && isAdmin" class="btn btn-primary btn-sm"
+          @click="openProviderModal">
+          <i class="bi bi-plus-circle me-1"></i>{{ t('apiKeys.provider.list.addButton') }}
         </button>
       </div>
     </div>
@@ -30,6 +36,14 @@
         <i class="bi bi-robot" aria-hidden="true"></i>
         <span>Agent API 키</span>
         <span class="ak-tab-badge" v-if="agentApiKeys.length">{{ agentApiKeys.length }}</span>
+      </button>
+      <!-- 트랙 #91: 운영자(Admin/SuperAdmin) 전용 외부 LLM 키 풀 탭 -->
+      <button v-if="isAdmin" type="button" role="tab" class="ak-tab"
+        :class="{ active: activeTab === 'provider-pool' }"
+        :aria-selected="activeTab === 'provider-pool'" @click="activeTab = 'provider-pool'">
+        <i class="bi bi-shield-lock" aria-hidden="true"></i>
+        <span>{{ t('apiKeys.tabs.providerPool') }}</span>
+        <span class="ak-tab-badge" v-if="providerKeys.length">{{ providerKeys.length }}</span>
       </button>
     </div>
 
@@ -373,6 +387,280 @@
     </div>
 
     <!-- ════════════════════════════════════════
+         탭 3 (트랙 #91): 외부 LLM 키 풀(운영자)
+         - 운영자(Admin/SuperAdmin) 전용
+         - 좌측: KeyType='Provider' 키 목록 + 액션 (테스트/삭제)
+         - 우측: 풀 통계 카드 (DB/설정/냉각 출처 분리)
+    ════════════════════════════════════════ -->
+    <div v-show="activeTab === 'provider-pool' && isAdmin" class="row g-4">
+
+      <!-- 좌측: 외부 LLM 키 목록 -->
+      <div class="col-lg-8">
+        <div class="card aiuiux-card">
+          <div class="card-header bg-transparent border-bottom d-flex align-items-center justify-content-between">
+            <div>
+              <h5 class="card-title mb-0">{{ t('apiKeys.provider.list.title') }}</h5>
+              <p class="card-subtitle mb-0 mt-1">{{ t('apiKeys.provider.list.subtitle') }}</p>
+            </div>
+            <span class="badge bg-primary-subtle text-primary fs-7">{{ providerKeys.length }}개</span>
+          </div>
+          <div class="card-body p-0">
+
+            <!-- 빈 상태 -->
+            <div v-if="providerKeys.length === 0" class="ak-empty-state">
+              <div class="ak-empty-icon"><i class="bi bi-shield-lock"></i></div>
+              <p class="ak-empty-title">{{ t('apiKeys.provider.list.empty') }}</p>
+              <button class="btn btn-primary btn-sm" @click="openProviderModal">
+                <i class="bi bi-plus-circle me-1"></i>{{ t('apiKeys.provider.list.addButton') }}
+              </button>
+            </div>
+
+            <!-- 키 목록 -->
+            <div v-else class="ak-key-list">
+              <div v-for="key in providerKeys" :key="key.apiKeyId" class="ak-key-row"
+                :class="{
+                  'ak-key-row--inactive': !key.isActive,
+                  'ak-key-row--expired': key.expiresAt && isExpired(key.expiresAt)
+                }">
+
+                <!-- 헤더 영역 -->
+                <div class="ak-key-head">
+                  <div class="ak-key-icon-wrap">
+                    <i class="bi" :class="getServiceIcon(key.serviceCode)"></i>
+                  </div>
+                  <div class="ak-key-info">
+                    <span class="ak-key-name">{{ key.keyName }}</span>
+                    <span class="ak-key-service font-monospace">{{ key.maskedKey || 'sk-***...***' }}</span>
+                  </div>
+                  <div class="ak-key-badges ms-auto d-flex align-items-center gap-2">
+                    <!-- 프로바이더 색상 배지 -->
+                    <span class="badge" :class="getProviderBadgeClass(key.serviceCode)">{{ key.serviceCode }}</span>
+                    <!-- 만료 상태 배지 -->
+                    <span v-if="key.expiresAt && isExpired(key.expiresAt)" class="badge bg-danger-subtle text-danger">
+                      {{ t('apiKeys.provider.list.expiredAlready') }}
+                    </span>
+                    <span v-else-if="key.expiresAt && isExpiringSoon(key.expiresAt)" class="badge bg-warning-subtle text-warning">
+                      {{ t('apiKeys.provider.list.expiresIn', { days: daysUntilExpiry(key.expiresAt) ?? 0 }) }}
+                    </span>
+                    <!-- 활성 상태 -->
+                    <span class="badge" :class="key.isActive ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'">
+                      <i class="bi" :class="key.isActive ? 'bi-circle-fill' : 'bi-circle'"></i>
+                      {{ key.isActive ? '활성' : '비활성' }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- 설명 -->
+                <p v-if="key.description" class="ak-key-desc">{{ key.description }}</p>
+
+                <!-- 메타 정보 -->
+                <div class="ak-key-meta">
+                  <span v-if="key.lastUsedAt">
+                    <i class="bi bi-clock-history"></i>
+                    {{ t('apiKeys.provider.list.lastUsed', { time: formatDate(key.lastUsedAt) }) }}
+                  </span>
+                  <span v-else>
+                    <i class="bi bi-clock-history"></i>
+                    {{ t('apiKeys.provider.list.neverUsed') }}
+                  </span>
+                  <span>
+                    <i class="bi bi-calendar-plus"></i>
+                    {{ formatDate(key.createdAt) }} 등록
+                  </span>
+                  <span v-if="key.expiresAt"
+                    :class="isExpired(key.expiresAt) ? 'text-danger' : (isExpiringSoon(key.expiresAt) ? 'text-warning' : '')">
+                    <i class="bi bi-calendar-x"></i>
+                    {{ formatDate(key.expiresAt) }} 만료
+                  </span>
+                </div>
+
+                <!-- 액션 버튼 -->
+                <div class="ak-key-actions">
+                  <button class="btn btn-sm btn-outline-primary"
+                    @click="testProviderKey(key)"
+                    :disabled="testingKeys[key.apiKeyId] || !key.isActive">
+                    <span v-if="testingKeys[key.apiKeyId]" class="spinner-border spinner-border-sm me-1"></span>
+                    <i v-else class="bi bi-lightning-charge me-1"></i>
+                    {{ t('apiKeys.provider.list.test') }}
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary" @click="editKey(key)" :disabled="!key.isActive">
+                    <i class="bi bi-pencil me-1"></i>{{ t('apiKeys.provider.list.edit') }}
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" @click="deleteProviderKey(key)">
+                    <i class="bi bi-trash me-1"></i>{{ t('apiKeys.provider.list.delete') }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- 우측: 풀 통계 카드 -->
+      <div class="col-lg-4 d-flex flex-column gap-4">
+        <div class="card aiuiux-card">
+          <div class="card-header bg-transparent border-bottom d-flex align-items-center justify-content-between">
+            <div>
+              <h5 class="card-title mb-0">
+                <i class="bi bi-bar-chart-line me-2 text-primary"></i>{{ t('apiKeys.provider.stats.title') }}
+              </h5>
+              <p class="card-subtitle mb-0 mt-1">{{ t('apiKeys.provider.stats.subtitle') }}</p>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" @click="loadPoolStats" :disabled="loadingPoolStats" :title="t('apiKeys.provider.stats.refresh')">
+              <span v-if="loadingPoolStats" class="spinner-border spinner-border-sm"></span>
+              <i v-else class="bi bi-arrow-clockwise"></i>
+            </button>
+          </div>
+          <div class="card-body">
+            <!-- 통계 행 — 백엔드에서 받은 프로바이더 목록 -->
+            <div v-if="!poolStats || poolStats.providers.length === 0" class="text-center py-3">
+              <i class="bi bi-info-circle text-muted"></i>
+              <p class="small text-muted mb-0 mt-2">{{ t('apiKeys.provider.stats.noProviders') }}</p>
+            </div>
+            <template v-else>
+              <div v-for="p in poolStats.providers" :key="p.serviceCode" class="ak-pool-row">
+                <div class="ak-pool-head">
+                  <span class="badge" :class="getProviderBadgeClass(p.serviceCode)">{{ p.serviceCode }}</span>
+                  <span class="ak-pool-total ms-auto">
+                    {{ t('apiKeys.provider.stats.totalLabel') }} <strong>{{ p.totalCount }}</strong>
+                  </span>
+                </div>
+                <div class="ak-pool-detail">
+                  <span :class="p.fromDb > 0 ? 'text-primary' : 'text-muted'">
+                    {{ t('apiKeys.provider.stats.fromDb') }} {{ p.fromDb }}
+                  </span>
+                  <span class="ak-pool-sep">·</span>
+                  <span :class="p.fromAppsettings > 0 ? 'text-info' : 'text-muted'">
+                    {{ t('apiKeys.provider.stats.fromAppsettings') }} {{ p.fromAppsettings }}
+                  </span>
+                  <span class="ak-pool-sep">·</span>
+                  <span :class="p.coolingDownCount > 0 ? 'text-warning' : 'text-muted'">
+                    {{ t('apiKeys.provider.stats.coolingDown') }} {{ p.coolingDownCount }}
+                  </span>
+                </div>
+              </div>
+            </template>
+            <!-- 마지막 갱신 시각 -->
+            <div v-if="poolStats?.lastRefreshedAt" class="ak-pool-footer">
+              <i class="bi bi-clock"></i>
+              {{ t('apiKeys.provider.stats.lastRefreshedAt', { time: formatRefreshTime(poolStats.lastRefreshedAt) }) }}
+            </div>
+          </div>
+        </div>
+
+        <!-- 운영자 안내 -->
+        <div class="card aiuiux-card border-info-subtle">
+          <div class="card-header bg-info-subtle border-bottom border-info-subtle">
+            <h5 class="card-title mb-0 text-info">
+              <i class="bi bi-info-circle me-2"></i>운영자 안내
+            </h5>
+          </div>
+          <div class="card-body">
+            <ul class="ak-security-list">
+              <li><i class="bi bi-arrow-repeat text-primary"></i>등록/삭제 시 풀에 즉시 반영됩니다</li>
+              <li><i class="bi bi-shield-check text-success"></i>키는 AES-GCM 으로 암호화 저장됩니다</li>
+              <li><i class="bi bi-lightning-charge text-warning"></i>[테스트] 버튼으로 제공사 ping 검증 가능</li>
+              <li><i class="bi bi-stopwatch text-info"></i>Hangfire 5분 주기로 자동 동기화됩니다</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         모달: 외부 LLM 키 등록 (탭 3 전용)
+    ════════════════════════════════════════ -->
+    <div class="modal fade" :class="{ show: showProviderModal, 'd-block': showProviderModal }" tabindex="-1" v-if="showProviderModal">
+      <div class="modal-dialog">
+        <div class="modal-content aiuiux-modal">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="bi bi-shield-lock me-2 text-primary"></i>{{ t('apiKeys.provider.modal.title') }}
+            </h5>
+            <button type="button" class="btn-close" @click="closeProviderModal"></button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="submitProviderKey">
+              <div class="mb-3">
+                <label class="form-label fw-medium">
+                  {{ t('apiKeys.provider.modal.keyName') }} <span class="text-danger">*</span>
+                </label>
+                <input type="text" class="form-control" v-model="providerForm.keyName"
+                  :placeholder="t('apiKeys.provider.modal.keyNamePlaceholder')"
+                  required maxlength="100">
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-medium">
+                  {{ t('apiKeys.provider.modal.serviceCode') }} <span class="text-danger">*</span>
+                </label>
+                <select class="form-select" v-model="providerForm.serviceCode" required>
+                  <option value="">{{ t('apiKeys.provider.modal.selectProvider') }}</option>
+                  <option value="openai">OpenAI / ChatGPT</option>
+                  <option value="claude">Anthropic Claude</option>
+                  <option value="gemini">Google Gemini</option>
+                  <option value="gemini-image">Google Gemini Image</option>
+                  <option value="imagen4">Google Imagen 4</option>
+                  <option value="perplexity">Perplexity</option>
+                  <option value="mistral">Mistral</option>
+                  <option value="azureopenai">Azure OpenAI</option>
+                  <option value="copilot">GitHub Copilot</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-medium">
+                  {{ t('apiKeys.provider.modal.apiKey') }} <span class="text-danger">*</span>
+                </label>
+                <input type="password" class="form-control font-monospace"
+                  v-model="providerForm.apiKey"
+                  required minlength="10" autocomplete="off" spellcheck="false"
+                  placeholder="sk-... / AIza... / ...">
+                <div class="form-text">
+                  <i class="bi bi-lock me-1"></i>{{ t('apiKeys.provider.modal.apiKeyHint') }}
+                </div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-medium">
+                  {{ t('apiKeys.provider.modal.description') }}
+                  <span class="text-muted fw-normal">({{ t('common.optional') }})</span>
+                </label>
+                <textarea class="form-control" rows="2" maxlength="500"
+                  v-model="providerForm.description" placeholder="이 키의 용도를 설명하세요"></textarea>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-medium">
+                  {{ t('apiKeys.provider.modal.expiresAt') }}
+                  <span class="text-muted fw-normal">({{ t('common.optional') }})</span>
+                </label>
+                <input type="date" class="form-control" v-model="providerForm.expiresAt">
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox"
+                  v-model="providerForm.validateOnCreate" id="validateOnCreate">
+                <label class="form-check-label" for="validateOnCreate">
+                  <i class="bi bi-lightning-charge text-warning me-1"></i>
+                  {{ t('apiKeys.provider.modal.validateOnCreate') }}
+                </label>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" @click="closeProviderModal">
+              {{ $t('common.cancel') }}
+            </button>
+            <button type="button" class="btn btn-primary"
+              :disabled="submittingProvider" @click="submitProviderKey">
+              <span v-if="submittingProvider" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-check-lg me-1"></i>
+              {{ t('apiKeys.provider.modal.submit') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-backdrop fade" :class="{ show: showProviderModal }" v-if="showProviderModal" @click="closeProviderModal"></div>
+
+    <!-- ════════════════════════════════════════
          모달: 서비스 API 키 추가
     ════════════════════════════════════════ -->
     <div class="modal fade" :class="{ show: showAddModal, 'd-block': showAddModal }" tabindex="-1" v-if="showAddModal">
@@ -619,19 +907,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import { apiKeyService } from '@/services/apiKeyService'
+import { useAuthStore } from '@/stores/auth'
 import type {
   ApiKeyDto,
   CreateApiKeyRequestDto,
   UpdateApiKeyRequestDto,
   CreateAgentApiKeyRequestDto,
   CreateAgentApiKeyResponseDto,
-  AgentDto
+  AgentDto,
+  CreateProviderApiKeyRequestDto,
+  PoolStatsResponseDto,
+  ProviderPoolStatDto
 } from '@/types'
 
+// 트랙 #91 (2026-05-13): i18n 사용 — 신규 탭 3 (외부 LLM 키 풀) 의 한국어/영어 라벨 동기화.
+// 기존 탭 1/2 의 한국어 하드코딩은 회귀 위험을 피하기 위해 그대로 유지한다.
+const { t, locale } = useI18n()
+
+// 관리자 가드 (Dashboard.vue 의 isAdmin 패턴 동일).
+const authStore = useAuthStore()
+const isAdmin = computed<boolean>(() => {
+  const roles = authStore.user?.roles ?? []
+  return roles.includes('Admin') || roles.includes('SuperAdmin')
+})
+
 // ─── 상태 ──────────────────────────────────────────────
-const activeTab = ref<'service' | 'agent'>('service')
+// 트랙 #91 (2026-05-13): 'provider-pool' 추가 — 운영자(Admin/SuperAdmin) 전용 외부 LLM 키 풀 탭.
+const activeTab = ref<'service' | 'agent' | 'provider-pool'>('service')
 const loading = ref(false)
 const apiKeys = ref<ApiKeyDto[]>([])
 const revealedKeys = ref<Record<number, string>>({})
@@ -694,6 +1000,29 @@ const selectedAgentName = computed(() => {
   if (!selectedAgentId.value) return ''
   return myAgents.value.find(a => a.agentId === selectedAgentId.value)?.agentName || ''
 })
+
+// ─── 트랙 #91 — 외부 LLM 키 풀 (탭 3) 상태 ────────────────────────────────
+// KeyType='Provider' 키 목록 (좌측 카드)
+const providerKeys = ref<ApiKeyDto[]>([])
+// 풀 통계 응답 (우측 카드) — 백엔드 RefreshAsync 의 in-memory 스냅샷
+const poolStats = ref<PoolStatsResponseDto | null>(null)
+// 등록 모달 표시 여부
+const showProviderModal = ref(false)
+// 등록 폼 (reactive 로 두 way 바인딩)
+const providerForm = reactive<CreateProviderApiKeyRequestDto>({
+  keyName: '',
+  serviceCode: '',
+  apiKey: '',
+  description: '',
+  expiresAt: '',
+  validateOnCreate: true
+})
+// 폼 제출 중 spinner 표시용
+const submittingProvider = ref(false)
+// 풀 통계 로딩 중 표시용
+const loadingPoolStats = ref(false)
+// 키별 [테스트] 버튼 진행 상태 (apiKeyId -> boolean)
+const testingKeys = reactive<Record<number, boolean>>({})
 
 // ─── 수명주기 ───────────────────────────────────────────
 onMounted(() => {
@@ -980,6 +1309,192 @@ const isExpiringSoon = (expiresAt: string | Date | null | undefined) => {
   soon.setDate(soon.getDate() + 7)
   return exp > new Date() && exp < soon
 }
+
+// ─── 트랙 #91 — 외부 LLM 키 풀 (탭 3) 핸들러 ─────────────────────────
+/**
+ * 만료까지 남은 일수. 만료된 키는 0 미만, 무기한 키는 null.
+ * 운영자 콘솔에서 "만료 D-N" 표시에 사용.
+ */
+const daysUntilExpiry = (expiresAt: string | Date | null | undefined): number | null => {
+  if (!expiresAt) return null
+  const exp = new Date(expiresAt).getTime()
+  const now = Date.now()
+  return Math.ceil((exp - now) / (24 * 60 * 60 * 1000))
+}
+
+/**
+ * 프로바이더 코드 → Bootstrap badge 색상 매핑.
+ * 운영자가 한눈에 프로바이더를 구분할 수 있도록 색상으로 구분.
+ */
+const getProviderBadgeClass = (serviceCode: string): string => {
+  const palette: Record<string, string> = {
+    gemini: 'bg-success-subtle text-success',
+    'gemini-image': 'bg-success-subtle text-success',
+    imagen4: 'bg-success-subtle text-success',
+    openai: 'bg-primary-subtle text-primary',
+    chatgpt: 'bg-primary-subtle text-primary',
+    claude: 'bg-warning-subtle text-warning',
+    perplexity: 'bg-info-subtle text-info',
+    mistral: 'bg-danger-subtle text-danger',
+    azureopenai: 'bg-primary-subtle text-primary',
+    copilot: 'bg-secondary-subtle text-secondary'
+  }
+  return palette[serviceCode] || 'bg-secondary-subtle text-secondary'
+}
+
+/**
+ * lastRefreshedAt(ISO 8601 UTC) → "2026-05-13 19:34:21 UTC" 한국어 친화 표기.
+ * 시간대를 명시해 운영자가 컨테이너 시계와 비교할 수 있게 함.
+ */
+const formatRefreshTime = (iso: string): string => {
+  const d = new Date(iso)
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  const h = String(d.getUTCHours()).padStart(2, '0')
+  const min = String(d.getUTCMinutes()).padStart(2, '0')
+  const s = String(d.getUTCSeconds()).padStart(2, '0')
+  return `${y}-${m}-${day} ${h}:${min}:${s} UTC`
+}
+
+/** 외부 LLM 키 목록 로드 — KeyType='Provider' 필터링은 도메인 래퍼가 담당. */
+const loadProviderKeys = async () => {
+  try {
+    providerKeys.value = await apiKeyService.listProviderKeys()
+  } catch (e: any) {
+    console.error('외부 LLM 키 목록 로드 실패:', e)
+    toast(e.response?.data?.message ?? 'API 키 목록을 불러오는데 실패했습니다.', 'error')
+  }
+}
+
+/** 풀 통계 로드 — 백엔드 in-memory 스냅샷이므로 빠른 응답. */
+const loadPoolStats = async () => {
+  loadingPoolStats.value = true
+  try {
+    poolStats.value = await apiKeyService.getPoolStats()
+  } catch (e: any) {
+    console.error('풀 통계 로드 실패:', e)
+    toast(e.response?.data?.message ?? '풀 통계를 불러오는데 실패했습니다.', 'error')
+  } finally {
+    loadingPoolStats.value = false
+  }
+}
+
+/** 등록 모달 열기 — 폼 초기화. */
+const openProviderModal = () => {
+  providerForm.keyName = ''
+  providerForm.serviceCode = ''
+  providerForm.apiKey = ''
+  providerForm.description = ''
+  providerForm.expiresAt = ''
+  providerForm.validateOnCreate = true
+  showProviderModal.value = true
+}
+
+/** 등록 모달 닫기 — 평문 키를 메모리에서 즉시 폐기. */
+const closeProviderModal = () => {
+  // 평문 키 메모리 보존 시간 최소화 — 모달 닫는 즉시 폐기.
+  providerForm.apiKey = ''
+  showProviderModal.value = false
+}
+
+/**
+ * 등록 폼 제출 핸들러.
+ * - validateOnCreate=true 이면 백엔드가 등록 직후 ping → 실패 시 등록 거부.
+ * - 등록 성공 → 풀 즉시 트리거 → 목록 + 통계 재로드.
+ * - apiKey 평문은 응답 후 즉시 메모리 폐기.
+ */
+const submitProviderKey = async () => {
+  // 클라이언트 사이드 가벼운 검증 (백엔드도 다시 검증함).
+  if (!providerForm.keyName || !providerForm.serviceCode || !providerForm.apiKey) {
+    toast('필수 항목을 모두 입력해주세요.', 'error')
+    return
+  }
+  if (providerForm.apiKey.length < 10) {
+    toast('API 키는 10자 이상이어야 합니다.', 'error')
+    return
+  }
+
+  submittingProvider.value = true
+  try {
+    const payload: CreateProviderApiKeyRequestDto = {
+      keyName: providerForm.keyName.trim(),
+      serviceCode: providerForm.serviceCode,
+      apiKey: providerForm.apiKey,
+      description: providerForm.description || null,
+      // 빈 문자열 -> null, "YYYY-MM-DD" -> ISO 8601 (시간은 UTC 자정으로 정규화)
+      expiresAt: providerForm.expiresAt ? new Date(providerForm.expiresAt).toISOString() : null,
+      validateOnCreate: providerForm.validateOnCreate
+    }
+
+    const created = await apiKeyService.createProviderKey(payload)
+    // 등록 직후 평문 키 즉시 폐기 (보존 시간 최소화)
+    providerForm.apiKey = ''
+    toast(`${t('apiKeys.provider.toast.created')}: ${created.keyName}`, 'success')
+
+    closeProviderModal()
+    await Promise.all([loadProviderKeys(), loadPoolStats()])
+  } catch (e: any) {
+    const msg = e.response?.data?.message ?? t('apiKeys.provider.toast.createFailed')
+    // 백엔드 ping 실패 메시지를 그대로 노출하기 위해 토스트 표시 시간을 늘림.
+    toast(msg, 'error', 8000)
+  } finally {
+    submittingProvider.value = false
+  }
+}
+
+/**
+ * 키별 [테스트] 버튼 — 제공사별 ping.
+ * 결과는 토스트로 표시. testingKeys 로 동시 호출 차단.
+ */
+const testProviderKey = async (key: ApiKeyDto) => {
+  if (testingKeys[key.apiKeyId]) return
+  testingKeys[key.apiKeyId] = true
+  try {
+    const r = await apiKeyService.testKey(key.apiKeyId)
+    const label = r.success ? t('apiKeys.provider.toast.testPass') : t('apiKeys.provider.toast.testFail')
+    toast(`${label}: ${r.message} (${r.latencyMs}ms)`,
+          r.success ? 'success' : 'error', 5000)
+  } catch (e: any) {
+    toast(`${t('apiKeys.provider.toast.testNetworkError')}: ${e.response?.data?.message ?? e.message}`, 'error')
+  } finally {
+    testingKeys[key.apiKeyId] = false
+  }
+}
+
+/**
+ * 키 삭제 — 풀에서 즉시 제외됨 (백엔드 트리거).
+ * 운영자 콘솔이므로 confirm 으로 명시적 확인.
+ */
+const deleteProviderKey = async (key: ApiKeyDto) => {
+  if (!confirm(t('apiKeys.provider.confirmDelete', { name: key.keyName }))) return
+  try {
+    await apiKeyService.deleteKey(key.apiKeyId)
+    toast(t('apiKeys.provider.toast.deleted'), 'success')
+    await Promise.all([loadProviderKeys(), loadPoolStats()])
+  } catch (e: any) {
+    toast(e.response?.data?.message ?? t('apiKeys.provider.toast.deleteFailed'), 'error')
+  }
+}
+
+/**
+ * 풀 통계 우측 카드에서 단일 프로바이더 행 찾기 — undefined 면 미등록.
+ */
+const findProviderStat = (serviceCode: string): ProviderPoolStatDto | undefined => {
+  return poolStats.value?.providers?.find(p => p.serviceCode === serviceCode)
+}
+
+// 탭 전환 감시 — provider-pool 탭 진입 시 데이터 로드 (운영자만).
+// 일반 사용자는 isAdmin=false 이므로 탭 자체가 노출되지 않음 — 추가 가드는 백엔드 403.
+watch(activeTab, async (tab) => {
+  if (tab === 'provider-pool' && isAdmin.value) {
+    await Promise.all([loadProviderKeys(), loadPoolStats()])
+  }
+})
+
+// locale 변경 시 별도 리렌더 트리거 불필요 — vue-i18n 의 reactive translation 이 처리.
+// 단, 향후 locale 별 다른 데이터가 필요해지면 여기서 reload 추가.
+void locale
 </script>
 
 <style scoped>
@@ -1114,6 +1629,40 @@ const isExpiringSoon = (expiresAt: string | Date | null | undefined) => {
 .ak-stat-label { color: #6c757d; }
 .ak-stat-value { font-weight: 700; font-size: 1rem; }
 .ak-stat-bar { border-radius: 99px; overflow: hidden; }
+
+/* ── 트랙 #91: 외부 LLM 키 풀 통계 ───────────────────── */
+.ak-pool-row {
+  padding: 0.6rem 0;
+  border-bottom: 1px dashed var(--ai-border, #e9ecef);
+}
+.ak-pool-row:last-child { border-bottom: none; }
+.ak-pool-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+.ak-pool-total { font-size: 0.85rem; color: #495057; }
+.ak-pool-total strong { font-size: 1rem; color: #212529; }
+.ak-pool-detail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-family: var(--bs-font-monospace, monospace);
+}
+.ak-pool-sep { color: #adb5bd; }
+.ak-pool-footer {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--ai-border, #e9ecef);
+  font-size: 0.75rem;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
 
 /* ── 보안/주의 목록 ──────────────────────────────────── */
 .ak-security-list { list-style: none; padding: 0; margin: 0; }

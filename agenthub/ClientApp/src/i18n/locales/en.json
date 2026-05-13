@@ -1737,5 +1737,59 @@
       "api": "API Documentation",
       "troubleshooting": "Troubleshooting"
     }
+  },
+  "apiKeys": {
+    "tabs": {
+      "providerPool": "Provider Key Pool (Admin)"
+    },
+    "provider": {
+      "list": {
+        "title": "Provider LLM Keys",
+        "subtitle": "Admin keys loaded into ApiKeyPoolService",
+        "empty": "No provider LLM keys registered. Click + Register New Provider Key to add one.",
+        "addButton": "+ Register New Provider Key",
+        "test": "Test",
+        "edit": "Edit",
+        "delete": "Delete",
+        "expiresIn": "Expires in {days}d",
+        "expiredAlready": "Expired",
+        "neverUsed": "Never used",
+        "lastUsed": "Last used {time}"
+      },
+      "stats": {
+        "title": "Pool Statistics",
+        "subtitle": "Key count by DB/appsettings/cooling source",
+        "refresh": "Refresh",
+        "totalLabel": "Total",
+        "fromDb": "DB",
+        "fromAppsettings": "Config",
+        "coolingDown": "Cooling",
+        "lastRefreshedAt": "Last refreshed: {time}",
+        "noProviders": "—"
+      },
+      "modal": {
+        "title": "Register Provider LLM Key",
+        "keyName": "Key Alias",
+        "keyNamePlaceholder": "e.g. Prod Gemini Primary",
+        "serviceCode": "Provider",
+        "selectProvider": "Select a provider",
+        "apiKey": "API Key",
+        "apiKeyHint": "The key is encrypted at rest with AES-GCM. The plaintext is discarded immediately after submission.",
+        "description": "Description",
+        "expiresAt": "Expires At",
+        "validateOnCreate": "Validate immediately after creation (provider ping)",
+        "submit": "Register"
+      },
+      "toast": {
+        "created": "Provider LLM key registered",
+        "createFailed": "Failed to register provider LLM key",
+        "testPass": "Validation passed",
+        "testFail": "Validation failed",
+        "testNetworkError": "Validation network error",
+        "deleted": "Provider LLM key deleted",
+        "deleteFailed": "Failed to delete provider LLM key"
+      },
+      "confirmDelete": "Delete provider LLM key \"{name}\"? It will be removed from the pool immediately."
+    }
   }
 }

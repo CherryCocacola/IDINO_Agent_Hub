@@ -99,6 +99,8 @@ builder.Services.AddMemoryCache();
 // Hangfire services
 builder.Services.AddScoped<QuotaResetJob>();
 builder.Services.AddScoped<ReportGenerationJob>();
+// 트랙 #91 — 외부 LLM 키 풀 5분 주기 갱신 잡.
+builder.Services.AddScoped<ApiKeyPoolRefreshJob>();
 
 // JWT 인증 설정
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -674,7 +676,14 @@ try
             () => scope.ServiceProvider.GetRequiredService<ReportGenerationJob>().GenerateMonthlyReport(),
             Cron.Monthly(1, 2) // On the 1st at 2 AM
         );
-        
+
+        // 트랙 #91 — 외부 LLM 키 풀 5분 주기 갱신.
+        // DB 의 KeyType="Provider" 행과 appsettings 폴백을 합쳐 풀을 원자적으로 교체.
+        recurringJobManager.AddOrUpdate<ApiKeyPoolRefreshJob>(
+            "api-key-pool-refresh",
+            j => j.RefreshAsync(),
+            "*/5 * * * *");
+
         logger.LogInformation("Hangfire jobs scheduled successfully");
     }
 }
@@ -705,6 +714,25 @@ var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
 startupLogger.LogInformation("=== 애플리케이션 시작 ===");
 startupLogger.LogInformation($"Environment: {app.Environment.EnvironmentName}");
 startupLogger.LogInformation("애플리케이션이 요청을 수신할 준비가 되었습니다.");
+
+// 트랙 #91 — 부팅 직후 1회 외부 LLM 키 풀 즉시 적재 (DB Provider 키 + appsettings 합산).
+// Hangfire 5분 주기를 기다리지 않고 첫 요청부터 신규 키를 사용 가능하게 한다.
+// 백그라운드 Task.Run 으로 격리 — 풀 로드 실패가 앱 기동 실패로 이어지지 않게 함 (P10 / anti-pattern #10 의도된 격리).
+app.Lifetime.ApplicationStarted.Register(() => Task.Run(async () =>
+{
+    using var startupScope = app.Services.CreateScope();
+    var pool = startupScope.ServiceProvider.GetRequiredService<IApiKeyPoolService>();
+    var poolLogger = startupScope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        await pool.RefreshAsync();
+        poolLogger.LogInformation("[ApiKeyPool] 부팅 직후 초기 풀 로드 완료");
+    }
+    catch (Exception ex)
+    {
+        poolLogger.LogError(ex, "[ApiKeyPool] 부팅 직후 초기 풀 로드 실패 — 5분 후 Hangfire 잡이 재시도");
+    }
+}));
 
 try
 {
