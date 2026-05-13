@@ -170,6 +170,83 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-13 (트랙 #91 — ApiKeyPoolService DB 통합 완료: KeyType 컬럼 + Hangfire 5분 폴링 + 운영자 콘솔 + 운영 배포 + e2e 65/0/22 PASS)
+
+- **commit**: `988f36c` (`[agenthub/track91] ApiKeyPoolService DB 통합 — 운영자 콘솔에서 외부 LLM 키 회전 가능`). 21 files / +4268 / -52. push 보류 (secret leak 미해결, 시연 종료 후 별도 sanitize 트랙).
+
+- **사용자 명시 / 승인된 plan**: `C:\Users\IDINO_USER\.claude\plans\jazzy-dancing-sphinx.md` (트랙 #89 H6 진단 중 발견된 ApiKeyPoolService Singleton 의 appsettings-only 로드 결함 해소).
+
+- **배경 / 문제**:
+  - `Services/ApiKeyPoolService.cs:33-52` Singleton 이 부팅 시 `appsettings.json` 만 로드. DB 미참조.
+  - DB `ApiKeys` 테이블 (ServiceCode 컬럼 보유) 은 외부 노출용 `ak-...` 키 전용으로 운영 — 외부 LLM 키 풀과 미연결.
+  - 외부 LLM 키 회전 = 컨테이너 재시작 필요. 운영자가 GUI 로 관리 불가 → H6 같은 키 무효화 시점에 시연 차질.
+
+- **설계 (Plan 의 핵심 결정)**:
+  - `ApiKey.KeyType` string 컬럼 추가 (`"External"` 외부 노출 / `"Provider"` 외부 LLM 풀). 격리.
+  - `ApiKeyPoolService` 가 `IServiceScopeFactory` 로 매 RefreshAsync 시 Scoped DbContext 생성 → AES-GCM 복호화 → 풀 머지 + 원자적 교체 (`ConcurrentDictionary`).
+  - appsettings 폴백 유지 (회귀 차단).
+  - Hangfire `*/5 * * * *` RecurringJob + 부팅 직후 1회 즉시 실행 + 운영자 등록/수정/삭제 시 즉시 트리거.
+  - 운영자 콘솔 `/api-keys` 에 탭 3 "외부 LLM 키 풀(운영자)" 신설 (`v-if="isAdmin"`).
+
+- **수정 (21 파일 = 백엔드 16 + 프론트 5)**:
+
+  **백엔드 수정 9 + 신규 7**:
+  - `agenthub/Models/ApiKey.cs` — `+KeyType` (Required, MaxLength=20, default `"External"`) + 한국어 XML 주석.
+  - `agenthub/Data/AIAgentManagementDbContext.cs` — `+HasIndex(KeyType, IsActive, ServiceCode)` 복합 인덱스.
+  - `agenthub/Migrations/20260513102231_Track091_ApiKeyKeyType.cs` + `.Designer.cs` (신규) — idempotent SQL (`DO $$ ... IF NOT EXISTS`) 트랙 #89 패턴 답습. 컬럼 추가 → 기존 1건 `'External'` 백필 → NOT NULL + DEFAULT → 복합 인덱스. Down: `DROP IF EXISTS`.
+  - `agenthub/Migrations/AIAgentManagementDbContextModelSnapshot.cs` — KeyType + HasIndex 자동 갱신.
+  - `agenthub/DTOs/ApiKeyDto.cs` — `ApiKeyDto.+KeyType`, `CreateApiKeyRequestDto.+KeyType?`.
+  - `agenthub/DTOs/CreateProviderApiKeyRequestDto.cs` (신규) — KeyName/ServiceCode/ApiKey/Description?/ExpiresAt?/ValidateOnCreate.
+  - `agenthub/DTOs/TestApiKeyResponseDto.cs` (신규) — record(Success, Message, Provider, LatencyMs).
+  - `agenthub/DTOs/PoolStatsResponseDto.cs` (신규) — Providers + LastRefreshedAt + ProviderPoolStatDto(ServiceCode, TotalCount, FromAppsettings, FromDb, CoolingDownCount).
+  - `agenthub/Services/IApiKeyPoolService.cs` — `+RefreshAsync(ct)`, `+GetPoolStatsWithSource()`, `+PoolStatEntry` record.
+  - `agenthub/Services/ApiKeyPoolService.cs` — **재설계**. 생성자에 `IServiceScopeFactory` 주입, `Dictionary→ConcurrentDictionary`, `KeyEntry.Source` 필드 (`"appsettings"`/`"db"`), `RefreshAsync` (Scoped DbContext 명시 생성 → AES-GCM 복호화 → `NormalizeServiceCode` 매핑 → 원자적 풀 교체), `NormalizeServiceCode` 정적 헬퍼 (chatgpt→openai / gemini-image/imagen4→gemini / azureopenai/copilot 그대로).
+  - `agenthub/Services/IApiKeyService.cs` — `+CreateProviderApiKeyAsync`, `+TestApiKeyAsync`, `+DecryptForPoolAsync` (LastUsedAt/UsageCount 미갱신 변종).
+  - `agenthub/Services/ApiKeyService.cs` — 생성자에 `IApiKeyPoolService` + `IHttpClientFactory` 주입. `CreateProviderApiKeyAsync` (화이트리스트 + KeyHash UNIQUE 검사 + AES-GCM + DB INSERT + 즉시 RefreshAsync 트리거). `TestApiKeyAsync` (제공사별 ping 5종: openai/claude/gemini/perplexity/mistral — `IHttpClientFactory` + 10초 강제 timeout + Stopwatch). `DecryptForPoolAsync` (AsNoTracking). 기존 `CreateApiKeyAsync` / `GenerateAgentApiKeyAsync` 에 `KeyType="External"` 기본값 자동 부여.
+  - `agenthub/Controllers/ApiKeysController.cs` — 신규 endpoint 3건 모두 `[Authorize(Roles = "Admin,SuperAdmin")]`: `POST /api/apikeys/provider`, `POST /api/apikeys/{id}/test`, `GET /api/apikeys/pool-stats`. 기존 endpoint 의 KeyType 기본값 처리.
+  - `agenthub/BackgroundJobs/ApiKeyPoolRefreshJob.cs` (신규) — `[DisableConcurrentExecution(60)]` + try/catch.
+  - `agenthub/Program.cs` — `+AddScoped<ApiKeyPoolRefreshJob>`, Hangfire `AddOrUpdate("api-key-pool-refresh", j => j.RefreshAsync(), "*/5 * * * *")`, `app.Lifetime.ApplicationStarted.Register(...)` 부팅 직후 1회 즉시 실행 (`Task.Run` 격리).
+
+  **프론트엔드 수정 4 + 신규 1**:
+  - `agenthub/ClientApp/src/types/index.ts` — `ApiKeyDto.+keyType?`, `+CreateProviderApiKeyRequestDto/+TestApiKeyResponseDto/+PoolStatsResponseDto/+ProviderPoolStatDto`.
+  - `agenthub/ClientApp/src/services/apiKeyService.ts` (신규) — 도메인 래퍼 5 메서드 (`createProviderKey/testKey/getPoolStats/listProviderKeys/deleteKey`). `@/services/api` 만 사용 (anti-pattern #11).
+  - `agenthub/ClientApp/src/views/ApiKeys.vue` — 탭 3 신설 (`v-if="isAdmin"`). 좌측 외부 LLM 키 목록 (Provider 배지 + maskedKey + 만료 D-? + 마지막 사용 + `[테스트]/[수정]/[삭제]`) + 우측 풀 통계 카드 (DB/설정/냉각 분리, `[새로고침]`, `lastRefreshedAt` UTC). 등록 모달 (9개 Provider 드롭다운 + `type=password` + 만료 + `validateOnCreate`).
+  - `agenthub/ClientApp/src/i18n/locales/ko.json` + `en.json` — `apiKeys.tabs.providerPool` + `apiKeys.provider.*` (list/stats/modal/toast/confirmDelete) 39개 키 ko/en 동기화.
+
+- **빌드 검증**:
+  - `cd agenthub && dotnet build` — 오류 0 / 신규 경고 0 (기존 pre-existing 16건 유지).
+  - `cd agenthub/ClientApp && npm run build:check` — vue-tsc 오류 0 + vite 4.32s + 신규 청크 `ApiKeys-DMjbjc-b.js` 49.76kB(gzip 12.91kB) + @ts-nocheck 0건.
+
+- **운영 배포 (`tmp/deploy_track91.py` paramiko SFTP)**:
+  - SFTP 업로드 21 파일 / 588,398 B.
+  - `docker compose build agenthub` **98.9초** (트랙 #89 캐시 활용으로 7m32s → 1m38s).
+  - `docker compose up -d --force-recreate agenthub` — 5초 만에 healthy.
+  - 부팅 시 `MigrateAsync` 가 `Track091_ApiKeyKeyType` 자동 적용.
+
+- **운영 회귀 검증 PASS (스모크 7/7)**:
+  - [1] admin 로그인 — JWT 555 chars PASS.
+  - [2] `KeyType` 컬럼: `character varying NOT NULL DEFAULT 'External'::character varying` PASS.
+  - [3] `IX_ApiKeys_KeyType_IsActive_ServiceCode` 복합 인덱스 PASS.
+  - [4] 부팅 ApiKeyPool 로그: `[ApiKeyPool] openai/gemini/perplexity: appsettings API 키 1개 로드 완료` + `[ApiKeyPool] DB 갱신 완료. 7개 제공사. DB 복호화 실패=0.` + `[ApiKeyPool] 부팅 직후 초기 풀 로드 완료` PASS.
+  - [5] `GET /api/apikeys/pool-stats` 응답: gemini/openai/perplexity 각 `totalCount=1 / fromAppsettings=1 / fromDb=0 / coolingDownCount=0` + `lastRefreshedAt` UTC PASS.
+  - [6] Hangfire DB `recurring-jobs` set 에 `api-key-pool-refresh` 등록 PASS.
+  - [7] 기존 `/api/apikeys` (외부 노출 키 인증 핫패스) 200 회귀 없음 PASS.
+
+- **e2e 회귀 (`tools/ui_e2e/full/live_runner.py`)**:
+  - 87 케이스 → **PASS 65 / FAIL 0 / SKIP 22(docutil 자격증명 미확보)**. 트랙 #89 동일 결과. **운영 결함 0**.
+
+- **운영 사용자 권한 잔존 (코드 변경 0, H6 즉시 해소 가능)**:
+  - 운영자가 `/api-keys` 탭 3 "외부 LLM 키 풀" 진입 → [+ 새 외부 LLM 키 등록] → Provider=`gemini` + 새 키 + `validateOnCreate=true` → 등록 직후 ApiKeyPool 즉시 트리거 + 검증 통과 시 토스트 PASS.
+  - 또는 SSH 로 `.env GEMINI_API_KEY=` 교체 + `docker compose up -d --force-recreate` (기존 방식, 컨테이너 재시작 필요).
+
+- **후속 트랙 권장**:
+  - **#92 (Redis 분산 락)**: 다중 컨테이너 확장 시 RefreshAsync 중복 방지. 1일.
+  - **#93 (PostgreSQL LISTEN/NOTIFY)**: 5분 폴링 → 이벤트 기반 즉시 갱신, 폴링 부하 0. 1.5일.
+  - **#94 (ApiKey 만료 알림)**: Hangfire 일 1회 D-7 키 → 운영자 이메일/Slack. 0.5일.
+  - **#95 (키별 사용량 대시보드)**: `ApiUsage` × `ApiKey` 조인 → Chart.js. 1일.
+  - **#96 (Phase 3.6 Legacy CBC 백필 완료)**: `KeyIv`/`KeyTag` NOT NULL + Legacy 분기 제거. 1일.
+  - **AgentHub `ApiKey.UserId` Nullable**: 시스템 전역 키의 운영자-non-bound 표현 정식화. 별도 결정 트랙.
+
 ### 2026-05-13 (트랙 #89 — 3자 시연 결함 17건 일괄 해소: Critical 3 + High 7 + Medium 6 + Low 1, 운영 배포 + e2e 회귀 PASS)
 
 - **commit**: `d540a16` (`[agenthub/track89] 3자 테스트 결함 17건 일괄 해소 — 운영 배포 + e2e 87/0 PASS`). 33 files / +4438 / -367. push 보류 (secret leak 미해결, 시연 종료 후 별도 sanitize 트랙).
