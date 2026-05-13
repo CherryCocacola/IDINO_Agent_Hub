@@ -3,6 +3,8 @@ using AIAgentManagement.DTOs;
 using AIAgentManagement.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using System.Globalization;
+using System.Text;
 
 namespace AIAgentManagement.Services;
 
@@ -34,7 +36,10 @@ public class BannedWordService : IBannedWordService
 
         try
         {
-            var messageLower = message.ToLowerInvariant();
+            // 입력 텍스트와 금칙어 양쪽을 동일하게 정규화한다.
+            // 공백/제로너비/제어/구두점/기호 제거 + NFKC 정규화로 우회 시도("비 밀 번 호" 등)를 차단.
+            // 원본 message 는 변경하지 않으므로 LLM 전송/DB 저장 흐름에는 영향 없음.
+            var normalizedMessage = NormalizeForMatch(message);
             var blockedWords = new List<string>();
 
             // 전역 금칙어 조회 (캐시 사용)
@@ -50,10 +55,12 @@ public class BannedWordService : IBannedWordService
             // 모든 금칙어 통합
             var allBannedWords = globalBannedWords.Concat(agentBannedWords).Distinct().ToList();
 
-            // 메시지에서 금칙어 검사 (대소문자 구분 없이 부분 일치)
+            // 메시지에서 금칙어 검사 (정규화 후 부분 일치)
             foreach (var bannedWord in allBannedWords)
             {
-                if (messageLower.Contains(bannedWord.ToLowerInvariant()))
+                var normalizedBanned = NormalizeForMatch(bannedWord);
+                if (string.IsNullOrEmpty(normalizedBanned)) continue; // 빈 단어 방어
+                if (normalizedMessage.Contains(normalizedBanned, StringComparison.Ordinal))
                 {
                     blockedWords.Add(bannedWord);
                 }
@@ -110,6 +117,57 @@ public class BannedWordService : IBannedWordService
 
         _cache.Set(cacheKey, words, CacheExpiration);
         return words;
+    }
+
+    /// <summary>
+    /// 금칙어 매칭용 텍스트 정규화. 입력과 금칙어 양쪽에 동일하게 적용한다.
+    /// </summary>
+    /// <remarks>
+    /// 우회 방어 목적이다.
+    /// - 공백 삽입 "비 밀 번 호"
+    /// - 제로너비 삽입 "비​밀​번​호"
+    /// - 전각 영문 "ＡＢＣ"
+    /// - 구두점 삽입 "A.B.C", "A-B-C"
+    /// 위 케이스를 모두 같은 매칭 결과로 만든다.
+    ///
+    /// 처리 순서:
+    /// 1) NFKC 정규화 — 호환 분해 + 정준 합성. 전각/반각, 호환 합성 차이 흡수.
+    /// 2) WhiteSpace / Control / Format(제로너비 류) 제거.
+    /// 3) 모든 Punctuation 카테고리 제거 — 매칭 회피용 구두점 삽입 차단.
+    /// 4) ToLowerInvariant — 대소문자 무시.
+    ///
+    /// 원본 message 자체는 변경하지 않으므로 LLM 전송 / DB 저장에 영향 없음.
+    /// </remarks>
+    private static string NormalizeForMatch(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return string.Empty;
+
+        var nfkc = input.Normalize(NormalizationForm.FormKC);
+        var sb = new StringBuilder(nfkc.Length);
+
+        foreach (var ch in nfkc)
+        {
+            if (char.IsWhiteSpace(ch)) continue;
+            if (char.IsControl(ch)) continue;
+
+            var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+
+            // 제로너비/포맷 문자 (ZWSP/ZWJ/ZWNJ/BOM 등)
+            if (category == UnicodeCategory.Format) continue;
+
+            // 모든 구두점 카테고리 제거 — 매칭 회피용 삽입 차단
+            if (category == UnicodeCategory.ConnectorPunctuation) continue;
+            if (category == UnicodeCategory.DashPunctuation) continue;
+            if (category == UnicodeCategory.OpenPunctuation) continue;
+            if (category == UnicodeCategory.ClosePunctuation) continue;
+            if (category == UnicodeCategory.InitialQuotePunctuation) continue;
+            if (category == UnicodeCategory.FinalQuotePunctuation) continue;
+            if (category == UnicodeCategory.OtherPunctuation) continue;
+
+            sb.Append(ch);
+        }
+
+        return sb.ToString().ToLowerInvariant();
     }
 
     public void InvalidateCache()

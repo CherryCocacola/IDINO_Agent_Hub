@@ -12,16 +12,34 @@ public class AuthService : IAuthService
     private readonly AIAgentManagementDbContext _context;
     private readonly IJwtService _jwtService;
     private readonly ILogger<AuthService> _logger;
-
     private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
 
-    public AuthService(AIAgentManagementDbContext context, IJwtService jwtService, ILogger<AuthService> logger, IEmailService emailService)
+    public AuthService(
+        AIAgentManagementDbContext context,
+        IJwtService jwtService,
+        ILogger<AuthService> logger,
+        IEmailService emailService,
+        IConfiguration configuration)
     {
         _context = context;
         _jwtService = jwtService;
         _logger = logger;
         _emailService = emailService;
+        _configuration = configuration;
     }
+
+    /// <summary>
+    /// JWT (access token) 만료 분. JwtSettings:ExpirationInMinutes (default 60).
+    /// </summary>
+    private int AccessTokenExpirationMinutes
+        => _configuration.GetValue<int>("JwtSettings:ExpirationInMinutes", 60);
+
+    /// <summary>
+    /// Refresh token (UserSession.ExpiresAt) 만료 일. JwtSettings:RefreshTokenExpirationInDays (default 7).
+    /// </summary>
+    private int RefreshTokenExpirationDays
+        => _configuration.GetValue<int>("JwtSettings:RefreshTokenExpirationInDays", 7);
 
     public async Task<LoginResponseDto?> LoginAsync(LoginRequestDto request)
     {
@@ -67,7 +85,9 @@ public class AuthService : IAuthService
         user.LastLoginAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        // Create session
+        // Create session — 트랙 #89 C2: ExpiresAt 설정으로 60분 무알림 강제 로그아웃 결함 해소
+        var now = DateTime.UtcNow;
+        var refreshTokenExpiresAt = now.AddDays(RefreshTokenExpirationDays);
         var sessionToken = _jwtService.GenerateRefreshToken();
         var session = new UserSession
         {
@@ -76,10 +96,11 @@ public class AuthService : IAuthService
             DeviceInfo = request.DeviceInfo,
             IpAddress = request.IpAddress,
             UserAgent = request.UserAgent,
-            LoginAt = DateTime.UtcNow,
-            LastActivityAt = DateTime.UtcNow,
+            LoginAt = now,
+            LastActivityAt = now,
+            ExpiresAt = refreshTokenExpiresAt,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = now
         };
         _context.UserSessions.Add(session);
         await _context.SaveChangesAsync();
@@ -89,11 +110,14 @@ public class AuthService : IAuthService
 
         // Generate JWT token
         var jwtToken = _jwtService.GenerateToken(user.UserId, user.Email, roles);
+        var accessTokenExpiresAt = now.AddMinutes(AccessTokenExpirationMinutes);
 
         return new LoginResponseDto
         {
             Token = jwtToken,
             RefreshToken = sessionToken,
+            TokenExpiresAt = new DateTimeOffset(accessTokenExpiresAt, TimeSpan.Zero),
+            RefreshTokenExpiresAt = new DateTimeOffset(refreshTokenExpiresAt, TimeSpan.Zero),
             User = new UserDto
             {
                 UserId = user.UserId,
@@ -162,27 +186,77 @@ public class AuthService : IAuthService
 
     public async Task<RefreshTokenResponseDto?> RefreshTokenAsync(string refreshToken)
     {
+        // 트랙 #89 C2 — Refresh token 만료 검사 + 회전(rotation):
+        // 1) 만료된 세션은 자동 비활성화하고 null 반환 → 클라이언트는 재로그인 유도
+        // 2) 유효한 세션이면 새 SessionToken 발급 + 기존 세션 비활성화 + 새 UserSession row 생성
+        // 3) 새 access/refresh token 의 만료 시각을 응답에 포함하여 클라이언트 사전 갱신 지원
         var session = await _context.UserSessions
             .Include(s => s.User)
                 .ThenInclude(u => u.UserRoles)
                     .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(s => s.SessionToken == refreshToken && s.IsActive);
 
-        if (session == null || !session.User.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+        if (session == null)
         {
+            _logger.LogWarning("[AuthService] RefreshToken 실패 — 세션을 찾을 수 없거나 이미 비활성화됨");
             return null;
         }
 
-        // Update last activity
-        session.LastActivityAt = DateTime.UtcNow;
+        if (!session.User.Status.Equals("Active", StringComparison.OrdinalIgnoreCase) || session.User.IsDeleted)
+        {
+            _logger.LogWarning("[AuthService] RefreshToken 실패 — 사용자 비활성/삭제 상태 (UserId={UserId})", session.UserId);
+            session.IsActive = false;
+            session.LogoutAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return null;
+        }
+
+        var now = DateTime.UtcNow;
+        if (session.ExpiresAt < now)
+        {
+            _logger.LogInformation(
+                "[AuthService] RefreshToken 실패 — 세션 만료 (UserId={UserId}, ExpiresAt={ExpiresAt:o})",
+                session.UserId, session.ExpiresAt);
+            session.IsActive = false;
+            session.LogoutAt = now;
+            await _context.SaveChangesAsync();
+            return null;
+        }
+
+        // 기존 세션 비활성화 (회전)
+        session.IsActive = false;
+        session.LogoutAt = now;
+        session.LastActivityAt = now;
+
+        // 새 세션 생성 — 동일 디바이스 정보 승계
+        var newSessionToken = _jwtService.GenerateRefreshToken();
+        var newRefreshExpiresAt = now.AddDays(RefreshTokenExpirationDays);
+        var newSession = new UserSession
+        {
+            UserId = session.UserId,
+            SessionToken = newSessionToken,
+            DeviceInfo = session.DeviceInfo,
+            IpAddress = session.IpAddress,
+            UserAgent = session.UserAgent,
+            LoginAt = session.LoginAt,        // 최초 로그인 시각 유지
+            LastActivityAt = now,
+            ExpiresAt = newRefreshExpiresAt,
+            IsActive = true,
+            CreatedAt = now
+        };
+        _context.UserSessions.Add(newSession);
         await _context.SaveChangesAsync();
 
         var roles = session.User.UserRoles.Select(ur => ur.Role.RoleName).ToList();
-        var newToken = _jwtService.GenerateToken(session.User.UserId, session.User.Email, roles);
+        var newAccessToken = _jwtService.GenerateToken(session.User.UserId, session.User.Email, roles);
+        var newAccessExpiresAt = now.AddMinutes(AccessTokenExpirationMinutes);
 
         return new RefreshTokenResponseDto
         {
-            Token = newToken
+            Token = newAccessToken,
+            RefreshToken = newSessionToken,
+            TokenExpiresAt = new DateTimeOffset(newAccessExpiresAt, TimeSpan.Zero),
+            RefreshTokenExpiresAt = new DateTimeOffset(newRefreshExpiresAt, TimeSpan.Zero)
         };
     }
 

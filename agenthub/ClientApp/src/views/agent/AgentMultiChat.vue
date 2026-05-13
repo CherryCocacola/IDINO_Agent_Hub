@@ -430,7 +430,7 @@
 <script setup lang="ts">
 // 후속 트랙 B-1 (2026-05-08) 완료: 인라인 ConversationDto / ApiService 인터페이스를
 // 백엔드 C# Models/DTOs (ConversationDto.cs / ApiServiceDto.cs) 와 정렬 후 `@ts-nocheck` 해제.
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import api from '@/services/api'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -445,6 +445,21 @@ import 'prismjs/components/prism-typescript'
 import 'prismjs/components/prism-css'
 import 'prismjs/components/prism-markup'
 import './AgentMultiChat.css'
+import {
+  safeGetSessionStorage,
+  safeSetSessionStorage,
+  safeRemoveSessionStorage
+} from '@/utils/storage'
+
+// 트랙 #88 H2 (2026-05-13) — 멀티채팅 첨부 보존
+// 사용자가 멀티채팅에서 이미지를 첨부한 뒤 이미지 생성 페이지 등 다른 라우트로 이동했다가
+// 돌아오는 경우 컴포넌트가 unmount → 재mount 되면서 로컬 ref(pendingAttachments)는 소실된다.
+// 이를 막기 위해 sessionStorage(탭 단위 휘발)에 첨부 메타데이터(백엔드에 이미 업로드된 영구 URL,
+// 파일명, 타입)를 영속화한다. 탭을 닫으면 자동으로 비워지므로 다른 사용자 세션 간 누수 없음.
+//
+// 주의: preview(blob: URL)는 다음 mount 시 무효하므로 저장하지 않는다.
+// 재mount 시 이미지 표시는 백엔드 url을 직접 사용한다(이미 업로드 완료된 상태).
+const ATTACH_STORAGE_KEY = 'agenthub.multiChat.pendingAttachments'
 
 // 후속 트랙 B-1: ApiServiceDto 의 defaultModel 필드를 인라인 인터페이스에도 미러링.
 interface ApiService {
@@ -513,6 +528,9 @@ interface ChatSession {
   language?: string // 'ko', 'en', 'auto'
   enableRag?: boolean
   enableWebSearch?: boolean
+  // H4(5-4) — 채팅 슬롯별 진행 상태. 같은 ChatGPT Agent 의 서로 다른 채팅을 동시에 호출할 수 있도록
+  // 전역 `loading` ref 대신 슬롯 단위 플래그로 분리한다.
+  loading?: boolean
 }
 
 interface Message {
@@ -848,6 +866,10 @@ const selectChat = async (chatId: string) => {
   currentChatId.value = chatId
   const chat = chats.value.find(c => c.id === chatId)
   if (!chat) return
+
+  // H4(5-4) — 활성 채팅 전환 시 입력창 비활성/스피너 표시를 그 채팅의 진행 상태로 동기화.
+  // (다른 채팅이 백그라운드에서 진행 중이어도 현재 채팅이 idle 이면 입력 가능)
+  loading.value = chat.loading === true
   
   // 채팅의 서비스 정보가 없으면 services에서 다시 찾기 (conversationId가 있는 경우)
   if (!chat.service && chat.conversationId) {
@@ -977,33 +999,74 @@ const selectChat = async (chatId: string) => {
   setupCitationClickHandlers()
 }
 
-// 채팅 삭제
+// 트랙 #88 H1 (2026-05-13) — 채팅 삭제 견고화
+// 기존 결함: 삭제 버튼을 눌러도 UI가 갱신되지 않거나 silent fail 로 사용자가 인지하지 못함.
+// 해결:
+//   1) confirm 메시지에 채팅 제목을 노출하여 사용자가 어느 채팅을 지우는지 명확히 인지
+//   2) 백엔드 DELETE 성공 후 loadConversations 로 서버 상태와 동기화 → reactive 미반영 결함 차단
+//   3) 404 응답은 "이미 삭제됨"으로 간주하고 로컬에서도 제거(서버/UI 불일치 자가복구)
+//   4) 401/403/5xx 응답 시 한국어 안내 alert 로 사용자 통지
+//   5) 삭제 성공 시 한국어 confirm 안내 alert (정식 toast 도입 전까지 alert 사용)
 const deleteChat = async (chatId: string) => {
-  if (!confirm('이 채팅을 삭제하시겠습니까?')) return
-  
   const chat = chats.value.find(c => c.id === chatId)
-  if (!chat) return
+  if (!chat) {
+    // 이미 화면에서 사라진 채팅(이중 클릭 등) — silent return
+    return
+  }
 
-  // conversationId가 있으면 서버에서 삭제
+  const titleForPrompt = chat.title?.trim() || '새 채팅'
+  if (!confirm(`"${titleForPrompt}" 채팅을 삭제하시겠습니까?\n삭제된 채팅과 대화 내용은 복구할 수 없습니다.`)) {
+    return
+  }
+
+  // 1단계: 서버 측 삭제 (conversationId 가 있을 때만 — 아직 저장되지 않은 로컬 채팅은 서버 호출 불필요)
+  let serverDeleteSucceeded = true
   if (chat.conversationId) {
     try {
       await api.delete(`/chat/conversations/${chat.conversationId}`)
-    } catch (error) {
-      console.error('Error deleting conversation:', error)
-      alert('채팅 삭제 중 오류가 발생했습니다.')
-      return
+    } catch (error: any) {
+      const status = error?.response?.status
+      if (status === 404) {
+        // 서버에는 이미 없는 대화 — 로컬에서만 제거되면 일관성 회복
+        console.warn(`[MultiChat] Conversation ${chat.conversationId} 가 서버에 이미 없음(404) — 로컬에서만 제거합니다.`)
+      } else if (status === 401 || status === 403) {
+        // 인증/권한 문제 — 인터셉터가 401 처리하므로 여기서는 403 만 별도 안내
+        alert('이 채팅을 삭제할 권한이 없습니다.')
+        return
+      } else {
+        console.error('[MultiChat] 채팅 삭제 실패:', error)
+        alert('채팅 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')
+        return
+      }
+      serverDeleteSucceeded = false
     }
   }
 
-  // 로컬에서 제거
+  // 2단계: 로컬 상태에서 제거 + 다음 선택 채팅 결정
   const index = chats.value.findIndex(c => c.id === chatId)
   if (index !== -1) {
     chats.value.splice(index, 1)
-    if (currentChatId.value === chatId) {
-      currentChatId.value = chats.value.length > 0 ? chats.value[0].id : null
-      if (!currentChatId.value) {
-        createNewChat()
-      }
+  }
+
+  // 현재 보고 있는 채팅이 삭제된 경우 — 다음 채팅 선택 또는 새 채팅 생성
+  if (currentChatId.value === chatId) {
+    if (chats.value.length > 0) {
+      currentChatId.value = chats.value[0].id
+      await selectChat(chats.value[0].id)
+    } else {
+      currentChatId.value = null
+      createNewChat()
+    }
+  }
+
+  // 3단계: 서버에 실제로 저장되어 있던 대화면, 서버 목록과 재동기화하여
+  // Vue reactive 미반영 또는 다중 탭 사이 불일치를 해소한다.
+  if (chat.conversationId && serverDeleteSucceeded) {
+    try {
+      await loadConversations()
+    } catch (e) {
+      // loadConversations 자체가 실패해도 위에서 로컬 splice 는 끝났으므로 UX 영향 없음
+      console.warn('[MultiChat] 삭제 후 목록 재동기화 실패:', e)
     }
   }
 }
@@ -1038,7 +1101,9 @@ const handleSubmit = (e?: Event | KeyboardEvent) => {
 }
 
 const sendMessage = async () => {
-  if (!inputMessage.value.trim() || loading.value) return
+  // H4(5-4) — 채팅별 진행 상태를 사용해 같은 ChatGPT Agent 의 다른 채팅을 병렬 호출 가능하게 한다.
+  // 전역 loading.value 는 입력창 비활성/스피너 표시용으로만 유지하고, 동시 호출 차단은 chat.loading 로 한다.
+  if (!inputMessage.value.trim()) return
 
   // 현재 채팅이 없으면 새로 생성
   if (!currentChatId.value) {
@@ -1048,6 +1113,11 @@ const sendMessage = async () => {
   const chat = chats.value.find(c => c.id === currentChatId.value)
   if (!chat || !chat.service) {
     alert('AI 서비스를 선택해주세요.')
+    return
+  }
+
+  // 동일 채팅에 동시 호출은 차단(이전 응답이 끝나야 다음 질문). 다른 채팅은 영향 없음.
+  if (chat.loading) {
     return
   }
 
@@ -1065,7 +1135,8 @@ const sendMessage = async () => {
   inputMessage.value = ''
   charCount.value = 0
   pendingAttachments.value = []
-  loading.value = true
+  chat.loading = true
+  loading.value = true // 현재 활성 채팅에 대한 입력창 비활성/스피너 표시
 
   // 채팅 제목 자동 생성 (첫 메시지인 경우)
   if (chat.messages.length === 1) {
@@ -1081,8 +1152,17 @@ const sendMessage = async () => {
 
     // conversationId가 있으면 기존 conversation에 메시지 전송
     if (chat.conversationId) {
-      // 기존 conversation에 메시지 전송
-      const imageUrls = attachmentsCopy.filter(a => a.type === 'image').map(a => a.url)
+      // H3(5-3) — 첨부 이미지를 vision payload(MessageContentDto 배열) 형식으로 보낸다.
+      // 기존: JSON.stringify(이미지 URL[]) → backend SendMessageRequestDto 에 필드 없어 무시 → LLM 미전달.
+      // 신규: attachments: [{type:'image_url', imageUrl:'data:...' | 'https://...'}] → ChatService 가
+      // 마지막 user 메시지의 Contents 로 결합하여 AiProxyService(OpenAI/Claude/Gemini) 의 vision payload 로 변환.
+      const imageAttachments = attachmentsCopy
+        .filter(a => a.type === 'image' && !!a.url)
+        .map(a => ({
+          type: 'image_url' as const,
+          imageUrl: a.url,
+          fileName: a.name
+        }))
       const response = await api.post(`/chat/conversations/${chat.conversationId}/messages`, {
         message: messageText,
         stream: streamResponse.value,
@@ -1090,7 +1170,7 @@ const sendMessage = async () => {
         enableRag: enableRag.value,
         ragTopK: 5,
         language: responseLanguage.value,
-        attachments: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined
+        attachments: imageAttachments.length > 0 ? imageAttachments : undefined
       })
 
       assistantMessage = {
@@ -1103,12 +1183,32 @@ const sendMessage = async () => {
     } else {
       // 새로운 conversation 생성
       // 이전 대화 이력 포함
+      // H3(5-3) — 마지막 user 메시지에 첨부 이미지가 있으면 OpenAI Vision 호환의 multimodal contents
+      // 배열 형식으로 전송한다. 이전 메시지(이미 답변 완료된 history)는 텍스트만 전송.
       const requestMessages = chat.messages
         .filter(m => m.role !== 'system')
-        .map(m => ({
-          role: m.role,
-          content: m.content
-        }))
+        .map((m, idx, arr): { role: string; content?: string; contents?: Array<{ type: string; text?: string; imageUrl?: string; fileName?: string }> } => {
+          const isLastUser = m.role === 'user' && idx === arr.length - 1
+          // 이번 턴에 보낼 첨부는 attachmentsCopy 에 있다(이미 pendingAttachments 에서 분리됨).
+          if (isLastUser && attachmentsCopy.length > 0) {
+            const imageParts = attachmentsCopy
+              .filter(a => a.type === 'image' && !!a.url)
+              .map(a => ({
+                type: 'image_url' as const,
+                imageUrl: a.url,
+                fileName: a.name
+              }))
+            if (imageParts.length > 0) {
+              const contents: Array<{ type: string; text?: string; imageUrl?: string; fileName?: string }> = []
+              if (m.content && m.content.length > 0) {
+                contents.push({ type: 'text', text: m.content })
+              }
+              contents.push(...imageParts)
+              return { role: m.role, content: m.content, contents }
+            }
+          }
+          return { role: m.role, content: m.content }
+        })
 
       // 시스템 프롬프트 추가
       if (systemPrompt.value) {
@@ -1152,8 +1252,9 @@ const sendMessage = async () => {
           conversationId: chat.conversationId || null
         })
 
-        // 로딩 상태 즉시 해제
-        loading.value = false
+        // 로딩 상태 즉시 해제 (이미지 생성은 응답이 즉시 와도 후속 처리가 길 수 있음)
+        chat.loading = false
+        loading.value = chats.value.some(c => c.loading === true)
         await nextTick()
 
         // 이미지 생성 응답을 메시지로 표시
@@ -1246,7 +1347,9 @@ const sendMessage = async () => {
     }
     chat.messages.push(errorMessage)
   } finally {
-    loading.value = false
+    chat.loading = false
+    // 전역 loading 은 "다른 채팅이 동시 진행 중이면 true 유지, 아니면 false". 입력창/스피너 표시용.
+    loading.value = chats.value.some(c => c.loading === true)
     await scrollToBottom()
     await nextTick()
     setupCitationClickHandlers()
@@ -1662,7 +1765,54 @@ const updateCharCount = () => {
 // ── 파일 첨부 ──────────────────────────────────────────────────
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const uploadingFile = ref(false)
-const pendingAttachments = ref<Array<{ type: 'image' | 'file'; url: string; name: string; preview?: string }>>([])
+
+// 트랙 #88 H2 — 첨부 영속화
+// 컴포넌트 unmount 와 무관하게 탭 동안 유지되도록 sessionStorage 와 동기화한다.
+// `preview` 필드는 blob:// URL 이라 다음 mount 시 무효하므로 직렬화에서 제외한다.
+interface PendingAttachment {
+  type: 'image' | 'file'
+  url: string
+  name: string
+  preview?: string
+}
+
+/** sessionStorage 에서 초기 첨부 목록을 복원한다. 파싱 실패 시 빈 배열. */
+const loadPendingAttachments = (): PendingAttachment[] => {
+  const raw = safeGetSessionStorage(ATTACH_STORAGE_KEY)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    // 백엔드 영구 URL 만 신뢰. preview 같은 휘발성 필드는 무시한다.
+    return parsed
+      .filter((a: any) => a && typeof a.url === 'string' && a.url.length > 0)
+      .map((a: any): PendingAttachment => ({
+        type: a.type === 'file' ? 'file' : 'image',
+        url: String(a.url),
+        name: String(a.name || '첨부 파일')
+      }))
+  } catch (e) {
+    console.warn('[MultiChat] pendingAttachments 복원 실패:', e)
+    return []
+  }
+}
+
+/** 현재 첨부 목록을 sessionStorage 에 저장. preview 는 직렬화 제외. */
+const persistPendingAttachments = (list: PendingAttachment[]): void => {
+  if (list.length === 0) {
+    safeRemoveSessionStorage(ATTACH_STORAGE_KEY)
+    return
+  }
+  const minimal = list.map(a => ({ type: a.type, url: a.url, name: a.name }))
+  safeSetSessionStorage(ATTACH_STORAGE_KEY, JSON.stringify(minimal))
+}
+
+const pendingAttachments = ref<PendingAttachment[]>(loadPendingAttachments())
+
+// 첨부 목록 변경 시 자동으로 sessionStorage 에 동기화 (deep watch)
+watch(pendingAttachments, (list) => {
+  persistPendingAttachments(list)
+}, { deep: true })
 
 const attachFile = () => {
   fileInputRef.value?.click()
@@ -1743,6 +1893,22 @@ onMounted(async () => {
     currentChatId.value = firstChat.id
     // selectChat을 통해 서비스 및 모델 설정
     await selectChat(firstChat.id)
+  }
+})
+
+// 트랙 #88 H2 — 컴포넌트 unmount 시 blob URL 메모리 누수 방지.
+// pendingAttachments 자체는 sessionStorage 에 영속화되어 있어 재mount 시 복원되지만,
+// 이전 mount 에서 만든 blob: preview 는 OS 측에 묶여 있어 명시적으로 revokeObjectURL 호출이 필요하다.
+// (sessionStorage 에는 preview 가 저장되지 않으므로, blob 해제로 인해 다른 곳의 표시가 깨지지 않는다.)
+onBeforeUnmount(() => {
+  for (const att of pendingAttachments.value) {
+    if (att.preview?.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(att.preview)
+      } catch (e) {
+        // 이미 해제된 경우 등은 무시
+      }
+    }
   }
 })
 </script>

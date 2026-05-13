@@ -331,7 +331,8 @@ You are a professional and helpful AI assistant.
     /// - 본 메서드는 RAG / 웹검색 / DeepResearch 를 처리하지 않습니다(SendChatMessageAsync 의 흐름과 미동기화).
     ///   현재 streaming이 활성화되면 RAG 컨텍스트 주입이 누락됩니다.
     ///   Phase 5에서 RAG 컨텍스트 주입을 streaming 진입 직전 별도 단계로 분리하여 양 경로에서 공유할 예정.
-    /// - 멀티모달(image_url 등)은 단순 messages 변환만 수행하므로 vision 모델 streaming 시 attachments 손실 가능.
+    /// - 멀티모달(image_url): H3(5-3) 해소 — Contents 가 있으면 OpenAI Vision payload(content parts 배열)
+    ///   로 변환하여 streaming 모델도 이미지를 인식하도록 한다. CallOpenAiAsync 와 동일한 변환 로직 사용.
     /// </summary>
     private async IAsyncEnumerable<ChatChunk> StreamOpenAiChunksAsync(
         ApiService service,
@@ -350,11 +351,10 @@ You are a professional and helpful AI assistant.
 
         // 언어 지시 추가 (CallOpenAiAsync 와 동일 흐름)
         var messagesWithLanguage = AddLanguageInstruction(request.Messages.ToList(), request.Language);
-        var messages = messagesWithLanguage.Select(m => new
-        {
-            role = m.Role,
-            content = m.Content ?? string.Empty
-        }).Cast<object>().ToList();
+
+        // H3(5-3) — Contents(멀티모달) 가 있는 메시지는 OpenAI Vision payload 로 변환.
+        // 없으면 기존처럼 단일 텍스트 string content 로 유지(토큰/회귀 최소화).
+        var messages = BuildOpenAiMessagesWithVision(messagesWithLanguage, model);
 
         var modelLower = model.ToLowerInvariant();
         var usesCompletionTokens = modelLower.StartsWith("o1") || modelLower.StartsWith("o3") || modelLower.StartsWith("gpt-5");
@@ -527,6 +527,109 @@ You are a professional and helpful AI assistant.
                 Role = "system",
                 Content = instruction
             });
+        }
+
+        return messages;
+    }
+
+    /// <summary>
+    /// H3(5-3) — OpenAI Chat Completions 의 messages 페이로드를 멀티모달(Vision) 형식으로 빌드한다.
+    /// - 메시지에 Contents(이미지 등) 가 없으면 단일 텍스트 string content 로 유지(기존 호환).
+    /// - Contents 가 있으면 OpenAI Vision content parts 배열 형식으로 변환:
+    ///     [ {"type":"text","text":"..."}, {"type":"image_url","image_url":{"url":"..."}} ]
+    /// - 비-vision 모델에 image 가 포함된 경우 경고 로그를 남기되 호출은 그대로 진행(사용자 선택 모델 존중).
+    /// CallOpenAiAsync(비스트리밍) / StreamOpenAiChunksAsync(스트리밍) 양 경로에서 공유한다.
+    /// </summary>
+    private List<object> BuildOpenAiMessagesWithVision(List<ChatMessageDto> messagesWithLanguage, string model)
+    {
+        // 이미지 포함 여부 사전 점검 → 비-vision 모델 경고
+        var hasImage = messagesWithLanguage.Any(m =>
+            m.Contents != null && m.Contents.Any(c =>
+                string.Equals(c.Type, "image_url", StringComparison.OrdinalIgnoreCase)));
+        if (hasImage)
+        {
+            var visionModels = new[] { "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4o", "gpt-4o-mini" };
+            var modelLower = model.ToLowerInvariant();
+            if (!visionModels.Any(vm => modelLower.Contains(vm.Replace("-", "")) || modelLower == vm))
+            {
+                _logger.LogWarning(
+                    "Image detected but model {Model} may not support vision. Consider using gpt-4o or gpt-5.",
+                    model);
+            }
+        }
+
+        var messages = new List<object>();
+        foreach (var m in messagesWithLanguage)
+        {
+            // Contents 가 비어있으면 기존 단일 텍스트 content 로 유지
+            if (m.Contents == null || m.Contents.Count == 0)
+            {
+                messages.Add(new { role = m.Role, content = m.Content ?? string.Empty });
+                continue;
+            }
+
+            // Contents 가 있는 경우 — vision content parts 배열로 변환
+            var contentList = new List<object>();
+            var textParts = new List<string>();
+            var hasImageInMsg = false;
+
+            foreach (var c in m.Contents)
+            {
+                var contentType = (c.Type ?? string.Empty).ToLowerInvariant();
+                if (contentType == "text" && !string.IsNullOrEmpty(c.Text))
+                {
+                    textParts.Add(c.Text!);
+                }
+                else if (contentType == "image_url" && !string.IsNullOrEmpty(c.ImageUrl))
+                {
+                    var imageUrl = c.ImageUrl!;
+                    // OpenAI Vision 은 data: 또는 http(s):// URL 만 허용
+                    if (!imageUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+                        && !imageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                        && !imageUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogWarning(
+                            "Invalid image URL format (not data: or http(s)://) — skipped. Preview={Preview}",
+                            imageUrl.Length > 100 ? imageUrl.Substring(0, 100) + "..." : imageUrl);
+                        continue;
+                    }
+                    contentList.Add(new { type = "image_url", image_url = new { url = imageUrl } });
+                    hasImageInMsg = true;
+                }
+                else if (contentType == "audio_url")
+                {
+                    textParts.Add($"[Audio: {c.AudioUrl ?? string.Empty}]");
+                }
+                else if (contentType == "file")
+                {
+                    if (!string.IsNullOrEmpty(c.FileName))
+                    {
+                        textParts.Add($"[첨부 파일: {c.FileName}]");
+                    }
+                }
+            }
+
+            // 텍스트 부분은 가장 앞에 합쳐서 단일 text part 로 추가(OpenAI 권장 패턴)
+            if (textParts.Count > 0)
+            {
+                var combinedText = string.Join("\n", textParts);
+                contentList.Insert(0, new { type = "text", text = combinedText });
+            }
+
+            if (contentList.Count == 0)
+            {
+                // Contents 가 있으나 유효한 part 가 없는 경우 → 텍스트 폴백
+                messages.Add(new { role = m.Role, content = m.Content ?? string.Empty });
+            }
+            else if (contentList.Count == 1 && !hasImageInMsg && textParts.Count > 0)
+            {
+                // 텍스트 한 덩어리만 있으면 단일 string content 로 (배열 직렬화 오버헤드 절약)
+                messages.Add(new { role = m.Role, content = string.Join("\n", textParts) });
+            }
+            else
+            {
+                messages.Add(new { role = m.Role, content = contentList });
+            }
         }
 
         return messages;

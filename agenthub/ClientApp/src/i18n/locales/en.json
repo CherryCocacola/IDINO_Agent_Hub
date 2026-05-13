@@ -142,7 +142,11 @@
     "forgotPassword": "Forgot password?",
     "loginSuccess": "Login successful",
     "loginError": "Login failed",
-    "invalidCredentials": "Invalid email or password"
+    "invalidCredentials": "Invalid email or password",
+    "session": {
+      "expired": "Your session has expired. Please sign in again.",
+      "noRefreshToken": "No login session found. Please sign in again."
+    }
   },
   "quota": {
     "title": "Quota",
@@ -1660,5 +1664,78 @@
     "validationJobIdRequired": "job_id is empty.",
     "errorBoundary": "An error occurred while loading DocUtil Documents V2.",
     "errorUnknown": "An error occurred while processing the request."
+  },
+  "dashboard": {
+    "title": "System Dashboard",
+    "subtitle": "Get a quick overview of your AI management system",
+    "viewUsageHistory": "Usage History",
+    "totalUsers": "Total Users",
+    "activeSubscriptions": "Active Subscriptions",
+    "todayApiCalls": "Today's API Calls",
+    "thisMonthCost": "This Month's Cost",
+    "recentActivity": "Recent Activity",
+    "recentActivitySubtitle": "API usage history (last 7 days)",
+    "viewAll": "View All",
+    "loading": "Loading...",
+    "loadingData": "Loading data...",
+    "adminOnlyActivities": "Administrator privileges are required to view recent activities.",
+    "noData": "No data available",
+    "closeAlert": "Close",
+    "loadStatsFailed": "Failed to load dashboard statistics.",
+    "loadActivitiesFailed": "Failed to load recent activities.",
+    "table": {
+      "datetime": "Date / Time",
+      "user": "User",
+      "serviceModel": "Service / Model",
+      "prompt": "Prompt",
+      "tokens": "Tokens",
+      "responseTime": "Response Time",
+      "cost": "Cost",
+      "status": "Status",
+      "success": "Success",
+      "failure": "Failed"
+    },
+    "footer": {
+      "recentCount": "Recent {count} entries",
+      "totalCount": "(Total {total})",
+      "viewAllUsage": "View All Usage History"
+    }
+  },
+  "help": {
+    "title": "Help Center",
+    "subtitle": "How can we help you?",
+    "searchPlaceholder": "Search questions...",
+    "searchButton": "Search",
+    "noResults": "No results found",
+    "searchResultsCount": "Found {count} result(s)",
+    "mainCategories": "Main Categories",
+    "faqTitle": "Frequently Asked Questions (FAQ)",
+    "quickLinksTitle": "Quick Links",
+    "supportTitle": "Support",
+    "supportDesc": "Need more help?",
+    "emailSupport": "Email Support",
+    "categories": {
+      "gettingStarted": {
+        "title": "Getting Started",
+        "description": "Basic usage and setup"
+      },
+      "agents": {
+        "title": "Using Agents",
+        "description": "Create and manage agents"
+      },
+      "api": {
+        "title": "API Integration",
+        "description": "API keys and development"
+      },
+      "troubleshooting": {
+        "title": "Troubleshooting",
+        "description": "Errors and troubleshooting"
+      }
+    },
+    "quickLinks": {
+      "gettingStarted": "Getting Started Guide",
+      "api": "API Documentation",
+      "troubleshooting": "Troubleshooting"
+    }
   }
 }

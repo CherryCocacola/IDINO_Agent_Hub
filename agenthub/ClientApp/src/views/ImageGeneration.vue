@@ -112,14 +112,22 @@
               </div>
 
               <!-- 생성 버튼 -->
+              <!-- 트랙 #88 H5 (2026-05-13): 버튼에 경과 시간 노출 + 스피너 아이콘 — 사용자가 무한 대기 상태로 느끼지 않도록 -->
               <button
                 type="submit"
                 class="btn btn-primary w-100 ic-submit-btn"
                 :class="{ 'ic-generating': loading }"
                 :disabled="loading || !request.prompt || !selectedServiceId"
               >
-                <i class="bi bi-magic me-2"></i>
-                <span>{{ loading ? $t('imageGeneration.generating') : $t('imageGeneration.generate') }}</span>
+                <span
+                  v-if="loading"
+                  class="spinner-border spinner-border-sm me-2"
+                  role="status"
+                  aria-hidden="true"
+                ></span>
+                <i v-else class="bi bi-magic me-2"></i>
+                <span v-if="loading">{{ $t('imageGeneration.generating') }} ({{ elapsedSec }}초)</span>
+                <span v-else>{{ $t('imageGeneration.generate') }}</span>
               </button>
             </form>
           </div>
@@ -150,6 +158,7 @@
             </div>
 
             <!-- Loading state -->
+            <!-- 트랙 #88 H5 (2026-05-13): 진행률 UI 보강 — 경과 시간 카운터 + 예상 대기 시간 안내 + 단계 표시 -->
             <div v-if="loading" class="ic-loading-state">
               <div class="ic-loading-spinner">
                 <div class="ic-spinner-ring"></div>
@@ -160,7 +169,14 @@
               <div class="ic-loading-bar-wrap">
                 <div class="ic-loading-bar"></div>
               </div>
-              <small class="ic-loading-hint">AI가 프롬프트를 분석하고 이미지를 그리고 있어요</small>
+              <p class="ic-loading-elapsed">
+                <i class="bi bi-clock-history me-1"></i>경과 시간: {{ elapsedSec }}초
+              </p>
+              <small class="ic-loading-hint">{{ loadingHintText }}</small>
+              <small class="ic-loading-hint mt-2 d-block">
+                <i class="bi bi-info-circle me-1"></i>
+                이미지 생성은 일반적으로 10~30초, 모델에 따라 최대 60초까지 걸릴 수 있습니다.
+              </small>
             </div>
 
             <!-- Error -->
@@ -287,6 +303,18 @@ const selectedImageUrl = ref('')
 const estimatedCost = ref<number | null>(null)
 const loadingEstimate = ref(false)
 
+// 트랙 #88 H5 (2026-05-13): 이미지 생성 진행률 표시 — 경과 시간 카운터.
+// 사용자가 무한 대기 상태로 느끼지 않도록 1초마다 갱신.
+const elapsedSec = ref(0)
+let elapsedTimer: number | null = null
+
+const loadingHintText = computed(() => {
+  if (elapsedSec.value < 10) return 'AI가 프롬프트를 분석하고 이미지를 그리고 있어요'
+  if (elapsedSec.value < 30) return '고품질 이미지를 그리는 중입니다. 잠시만 기다려 주세요'
+  if (elapsedSec.value < 60) return '생성에 평소보다 시간이 소요되고 있습니다. 거의 다 되었습니다'
+  return '생성이 오래 걸리고 있습니다. 네트워크 또는 서비스 상태에 따라 지연될 수 있습니다'
+})
+
 const isDalleService = computed(() => {
   if (!selectedServiceId.value) return false
   const service = imageServices.value.find(s => s.serviceId === selectedServiceId.value)
@@ -392,6 +420,23 @@ const onServiceChange = async () => {
   }
 }
 
+const startElapsedTimer = () => {
+  elapsedSec.value = 0
+  if (elapsedTimer !== null) {
+    window.clearInterval(elapsedTimer)
+  }
+  elapsedTimer = window.setInterval(() => {
+    elapsedSec.value += 1
+  }, 1000)
+}
+
+const stopElapsedTimer = () => {
+  if (elapsedTimer !== null) {
+    window.clearInterval(elapsedTimer)
+    elapsedTimer = null
+  }
+}
+
 const generateImage = async () => {
   if (!request.value.prompt || !selectedServiceId.value) {
     error.value = '프롬프트와 서비스를 선택해주세요.'
@@ -401,6 +446,7 @@ const generateImage = async () => {
   loading.value = true
   error.value = null
   response.value = null
+  startElapsedTimer()
 
   try {
     const requestData = {
@@ -432,6 +478,7 @@ const generateImage = async () => {
       message: errorMessage
     })
   } finally {
+    stopElapsedTimer()
     loading.value = false
     if (!error.value && response.value) {
       toastText.value = '이미지가 생성되었습니다.'
@@ -557,6 +604,8 @@ watch(() => selectedImageUrl.value, async (url) => {
 onUnmounted(() => {
   Object.values(proxyImageUrls.value).forEach(u => { if (u?.startsWith('blob:')) URL.revokeObjectURL(u) })
   if (lightboxImageSrc.value?.startsWith('blob:')) URL.revokeObjectURL(lightboxImageSrc.value)
+  // 트랙 #88 H5 (2026-05-13): 진행 중 페이지 이탈 시 타이머 누수 방지
+  stopElapsedTimer()
 })
 
 const handleImageError = (event: Event) => {

@@ -34,14 +34,22 @@
               ></textarea>
               <div class="qi-char-row"><span>{{ (prompt || '').length }}</span> / 1000</div>
               <div class="mt-3 d-flex flex-wrap gap-3 align-items-center">
+                <!-- 트랙 #88 H5 (2026-05-13): 버튼에 경과 시간 노출 + 스피너 아이콘 -->
                 <button
                   type="button"
                   class="btn btn-primary qi-submit-btn"
                   :disabled="loading || !prompt.trim()"
                   @click="generate"
                 >
-                  <i class="bi bi-magic me-2"></i>
-                  <span>{{ loading ? $t('agentChat.quickImage.generating') : $t('agentChat.quickImage.generate') }}</span>
+                  <span
+                    v-if="loading"
+                    class="spinner-border spinner-border-sm me-2"
+                    role="status"
+                    aria-hidden="true"
+                  ></span>
+                  <i v-else class="bi bi-magic me-2"></i>
+                  <span v-if="loading">{{ $t('agentChat.quickImage.generating') }} ({{ elapsedSec }}초)</span>
+                  <span v-else>{{ $t('agentChat.quickImage.generate') }}</span>
                 </button>
                 <small class="text-muted qi-model-hint">{{ $t('agentChat.quickImage.modelHint') }}</small>
               </div>
@@ -78,6 +86,7 @@
               </div>
 
               <!-- Loading state -->
+              <!-- 트랙 #88 H5 (2026-05-13): 진행률 UI 보강 — 경과 시간 + 예상 대기 시간 안내 -->
               <div v-else-if="loading" class="qi-loading-state">
                 <div class="qi-loading-inner">
                   <div class="qi-loading-icon">
@@ -90,7 +99,14 @@
                   <div class="qi-loading-bar-wrap">
                     <div class="qi-loading-bar"></div>
                   </div>
-                  <small class="qi-loading-hint">Gemini 2.5 Flash Image가 이미지를 그리고 있어요</small>
+                  <p class="qi-loading-elapsed">
+                    <i class="bi bi-clock-history me-1"></i>경과 시간: {{ elapsedSec }}초
+                  </p>
+                  <small class="qi-loading-hint">{{ loadingHintText }}</small>
+                  <small class="qi-loading-hint mt-2 d-block">
+                    <i class="bi bi-info-circle me-1"></i>
+                    이미지 생성은 일반적으로 10~30초, 최대 60초까지 걸릴 수 있습니다.
+                  </small>
                 </div>
               </div>
 
@@ -122,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import api from '@/services/api'
 import type { ApiServiceDto, ImageGenerationRequestDto, ImageGenerationResponseDto } from '@/types'
 import './QuickImageGeneration.css'
@@ -139,6 +155,39 @@ const geminiServiceId = ref<number | null>(null)
 const serviceReady = ref(false)
 const showToast = ref(false)
 const toastText = ref('완료')
+
+// 트랙 #88 H5 (2026-05-13): 이미지 생성 진행률 — 경과 시간 카운터.
+const elapsedSec = ref(0)
+let elapsedTimer: number | null = null
+
+const loadingHintText = computed(() => {
+  if (elapsedSec.value < 10) return 'Gemini 2.5 Flash Image가 이미지를 그리고 있어요'
+  if (elapsedSec.value < 30) return '고품질 이미지를 그리는 중입니다. 잠시만 기다려 주세요'
+  if (elapsedSec.value < 60) return '생성에 평소보다 시간이 소요되고 있습니다. 거의 다 되었습니다'
+  return '생성이 오래 걸리고 있습니다. 네트워크 또는 서비스 상태에 따라 지연될 수 있습니다'
+})
+
+const startElapsedTimer = () => {
+  elapsedSec.value = 0
+  if (elapsedTimer !== null) {
+    window.clearInterval(elapsedTimer)
+  }
+  elapsedTimer = window.setInterval(() => {
+    elapsedSec.value += 1
+  }, 1000)
+}
+
+const stopElapsedTimer = () => {
+  if (elapsedTimer !== null) {
+    window.clearInterval(elapsedTimer)
+    elapsedTimer = null
+  }
+}
+
+onUnmounted(() => {
+  // 트랙 #88 H5 (2026-05-13): 진행 중 페이지 이탈 시 타이머 누수 방지
+  stopElapsedTimer()
+})
 
 onMounted(async () => {
   try {
@@ -166,6 +215,7 @@ async function generate() {
   loading.value = true
   error.value = null
   response.value = null
+  startElapsedTimer()
 
   try {
     const requestData: ImageGenerationRequestDto = {
@@ -189,6 +239,7 @@ async function generate() {
     error.value =
       e.response?.data?.message || e.message || '이미지 생성에 실패했습니다.'
   } finally {
+    stopElapsedTimer()
     loading.value = false
   }
 }

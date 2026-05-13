@@ -1136,6 +1136,16 @@ const saveAgent = async () => {
       editingAgentId.value = response.data?.agentId || null
       alert('Agent가 성공적으로 생성되었습니다!')
     }
+    // 결함 트랙 #89 M4 (2026-05-13): 정식 저장 성공 시 임시저장(draft) clear.
+    // 종전: saveDraft() 로 'agent_draft' 에 보관된 데이터가 정식 저장 후에도 남아
+    // 다음 신규 진입(/agents/builder) 시 onMounted 의 draft 로드 분기에서 폼이 복원되는 결함.
+    // 수정: PUT/POST 성공 후 동일 키를 즉시 제거하여 "저장 완료 = 임시저장 정리" 의미를 보장.
+    try {
+      localStorage.removeItem('agent_draft')
+    } catch (e) {
+      // localStorage 접근 차단 환경(시크릿 모드 등) 에서도 저장 흐름 자체는 성공한 것으로 처리.
+      console.warn('[AgentBuilder] draft clear 실패 — 다음 진입 시 잔존 가능:', e)
+    }
     step5Tab.value = 'share'
   } catch (error: any) {
     console.error('Error saving agent:', error)

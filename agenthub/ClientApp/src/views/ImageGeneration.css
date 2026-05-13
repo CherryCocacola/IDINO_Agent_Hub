@@ -334,6 +334,15 @@
   color: var(--ai-text-muted);
 }
 
+/* 트랙 #88 H5 (2026-05-13): 이미지 생성 경과 시간 카운터 */
+.ic-loading-elapsed {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ai-primary);
+  margin-top: 4px;
+  margin-bottom: 10px;
+}
+
 /* Image card */
 .ic-img-card {
   border: 1px solid var(--ai-border);

@@ -21,6 +21,21 @@ export interface LoginResponseDto {
   token: string
   refreshToken: string
   user: UserDto
+  // 트랙 #88 C2 (2026-05-13): 만료 임박 사전 갱신을 위한 만료 시각 (ISO 8601 UTC)
+  // 백엔드 LoginResponseDto.cs 에 추가되는 필드와 1:1 매핑. 없으면 undefined.
+  tokenExpiresAt?: string
+  refreshTokenExpiresAt?: string
+}
+
+/**
+ * 트랙 #88 C2 (2026-05-13): /api/auth/refresh 응답.
+ * 백엔드가 회전(rotation)된 refreshToken 과 새 만료 시각을 함께 반환한다.
+ */
+export interface RefreshTokenResponseDto {
+  token: string
+  refreshToken: string
+  tokenExpiresAt?: string
+  refreshTokenExpiresAt?: string
 }
 
 export interface AgentDto {

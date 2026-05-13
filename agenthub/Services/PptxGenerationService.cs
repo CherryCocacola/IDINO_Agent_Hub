@@ -70,15 +70,15 @@ public class PptxGenerationService
 
                 // 슬라이드 크기 설정 (Phase 1: 4:3, 16:9, 16:10)
                 var (slideW, slideH) = GetSlideDimensions(presentation.SlideSize);
-                pres.SlideSize = new P.SlideSize { Cx = (int)slideW, Cy = (int)slideH };
 
-                // ViewProperties 추가 (필수)
-                pres.AppendChild(new P.ViewProperties());
-
-                // TextStyles 추가 (필수)
-                pres.AppendChild(new P.TextStyles());
-
-                // 슬라이드 ID 리스트 초기화
+                // ECMA-376 §19.2.1.26 p:presentation 자식 순서:
+                //   sldMasterIdLst → sldIdLst → sldSz → notesSz → defaultTextStyle
+                // 슬라이드 ID 리스트는 마스터 ID 리스트 다음에 오며, SlideSize 는
+                // 그 뒤에 위치해야 한다. ViewProperties / TextStyles 는 p:presentation
+                // 의 직접 자식이 아니므로 절대 AppendChild 하면 안 된다 (PowerPoint
+                // 가 "읽을 수 없는 콘텐츠" 로 인식하는 손상 원인 #1).
+                //   - ViewProperties: 별도 ViewPropertiesPart 로 관리 (필수 아님)
+                //   - TextStyles: SlideMaster 의 자식. Presentation 레벨은 DefaultTextStyle 사용
                 pres.SlideIdList = new P.SlideIdList();
 
                 // 슬라이드가 없는 경우 빈 슬라이드 하나 추가
@@ -114,6 +114,21 @@ public class PptxGenerationService
                     });
                     slideId++;
                 }
+
+                // ECMA-376 자식 순서: sldMasterIdLst → sldIdLst → sldSz → notesSz → defaultTextStyle
+                // SlideSize / NotesSize / DefaultTextStyle 는 반드시 SlideIdList 이후에 위치.
+                // (속성 setter 가 아닌 AppendChild 로 추가해 EF/OpenXml 의 child collection 에
+                //  명시적으로 마지막에 붙도록 한다. 속성 setter 는 schema 가 정의한 위치에
+                //  자동 정렬되지만, 명시 AppendChild 가 결정론적이라 디버깅에 유리.)
+                pres.SlideSize = new P.SlideSize { Cx = (int)slideW, Cy = (int)slideH };
+
+                // NotesSize 는 일부 PowerPoint 버전이 누락 시 손상으로 인식. 기본 노트 크기
+                // (6858000 x 9144000 EMU = 7.5 x 10 인치, 세로 방향) 를 명시.
+                pres.NotesSize = new P.NotesSize { Cx = 6858000L, Cy = 9144000L };
+
+                // DefaultTextStyle 은 presentation 전역 기본 텍스트 스타일. 빈 ListStyle 로도
+                // 충분하며, 없으면 일부 환경에서 복구 경고가 발생.
+                pres.AppendChild(new P.DefaultTextStyle());
 
                 presentationPart.Presentation = pres;
                 presentationPart.Presentation.Save();
@@ -262,21 +277,45 @@ public class PptxGenerationService
     private P.SlideMaster CreateSlideMaster(PresentationThemeConfig? themeConfig)
     {
         var slideMaster = new P.SlideMaster();
-        
+
         var commonSlideData = new P.CommonSlideData();
+        // ECMA-376 §19.3.1.45 p:spTree: ShapeTree 의 첫 두 자식은 반드시
+        //   1) NonVisualGroupShapeProperties (p:nvGrpSpPr)
+        //   2) GroupShapeProperties (p:grpSpPr)
+        // 이후에야 Shape / Pic / GraphicFrame / GroupShape 등이 올 수 있다.
+        // 이 두 요소가 없으면 PowerPoint 가 "PPTX 가 손상되어 읽을 수 없습니다"
+        // 메시지를 띄운다 (손상 원인 #2).
         var shapeTree = new P.ShapeTree();
-        
+        AppendShapeTreeHeader(shapeTree);
+
         commonSlideData.Background = CreateBackground(themeConfig);
-        
+
         commonSlideData.ShapeTree = shapeTree;
         slideMaster.CommonSlideData = commonSlideData;
-        
-        // ColorMap 추가 (필수)
-        slideMaster.ColorMap = new P.ColorMap();
-        
+
+        // ColorMap 은 12 개 속성이 모두 필수 (ECMA-376 §19.3.1.6 p:clrMap).
+        // 누락 시 PowerPoint 가 스킴 컬러를 해석하지 못해 "복구가 필요" 또는
+        // "읽을 수 없음" 메시지가 발생한다 (손상 원인 #3).
+        // bg1 ↔ lt1, tx1 ↔ dk1, bg2 ↔ lt2, tx2 ↔ dk2 가 PowerPoint 기본 매핑.
+        slideMaster.ColorMap = new P.ColorMap
+        {
+            Background1 = A.ColorSchemeIndexValues.Light1,
+            Text1 = A.ColorSchemeIndexValues.Dark1,
+            Background2 = A.ColorSchemeIndexValues.Light2,
+            Text2 = A.ColorSchemeIndexValues.Dark2,
+            Accent1 = A.ColorSchemeIndexValues.Accent1,
+            Accent2 = A.ColorSchemeIndexValues.Accent2,
+            Accent3 = A.ColorSchemeIndexValues.Accent3,
+            Accent4 = A.ColorSchemeIndexValues.Accent4,
+            Accent5 = A.ColorSchemeIndexValues.Accent5,
+            Accent6 = A.ColorSchemeIndexValues.Accent6,
+            Hyperlink = A.ColorSchemeIndexValues.Hyperlink,
+            FollowedHyperlink = A.ColorSchemeIndexValues.FollowedHyperlink
+        };
+
         // SlideLayoutIdList 초기화
         slideMaster.SlideLayoutIdList = new P.SlideLayoutIdList();
-        
+
         // TextStyles 추가 (제목 및 본문 스타일 정의)
         slideMaster.TextStyles = new P.TextStyles(
             new P.TitleStyle(
@@ -293,12 +332,41 @@ public class PptxGenerationService
         return slideMaster;
     }
 
+    /// <summary>
+    /// ShapeTree 의 필수 헤더(NonVisualGroupShapeProperties + GroupShapeProperties)를
+    /// 주어진 ShapeTree 에 추가한다. 모든 ShapeTree(SlideMaster / SlideLayout / Slide) 는
+    /// 이 헤더로 시작해야 OOXML schema 가 유효해진다. ECMA-376 §19.3.1.45 (CT_GroupShape) 참조.
+    /// 헤더가 없으면 PowerPoint 가 "PPTX 가 손상되어 읽을 수 없습니다" 를 띄운다.
+    /// </summary>
+    private static void AppendShapeTreeHeader(P.ShapeTree shapeTree)
+    {
+        // NonVisualGroupShapeProperties: 그룹 도형의 메타 정보. ID=1 은 spTree root 의 관용 ID.
+        shapeTree.AppendChild(new P.NonVisualGroupShapeProperties(
+            new P.NonVisualDrawingProperties { Id = 1U, Name = "" },
+            new P.NonVisualGroupShapeDrawingProperties(),
+            new P.ApplicationNonVisualDrawingProperties()
+        ));
+
+        // GroupShapeProperties: 빈 변환 (offset 0, extent 0) — 그룹 자체에 별도 변환이 없음.
+        shapeTree.AppendChild(new P.GroupShapeProperties(
+            new A.TransformGroup(
+                new A.Offset { X = 0L, Y = 0L },
+                new A.Extents { Cx = 0L, Cy = 0L },
+                new A.ChildOffset { X = 0L, Y = 0L },
+                new A.ChildExtents { Cx = 0L, Cy = 0L }
+            )
+        ));
+    }
+
     /// <summary>Blank 레이아웃. Placeholder 없음. 슬라이드가 커스텀 Shape만 사용하므로 마스터-레이아웃 불일치 방지. 배경 상속 체인 명시.</summary>
     private P.SlideLayout CreateSlideLayout(PresentationThemeConfig? themeConfig)
     {
         var slideLayout = new P.SlideLayout();
         var commonSlideData = new P.CommonSlideData();
         var shapeTree = new P.ShapeTree();
+        // ShapeTree 필수 헤더 (NonVisualGroupShapeProperties + GroupShapeProperties).
+        // 자세한 내용은 BuildShapeTreeHeader() 주석 참조.
+        AppendShapeTreeHeader(shapeTree);
         commonSlideData.Background = CreateBackground(themeConfig);
         // Placeholder 제거 - 슬라이드 Shape ID(1~)와 충돌 방지 및 복구 메시지 원인 제거
         commonSlideData.ShapeTree = shapeTree;
@@ -348,7 +416,10 @@ public class PptxGenerationService
         var slide = new P.Slide();
         var commonSlideData = new P.CommonSlideData();
         var shapeTree = new P.ShapeTree();
-        uint shapeId = 1;
+        // ShapeTree 필수 헤더(NonVisualGroupShapeProperties + GroupShapeProperties).
+        // 헤더는 ID=1 을 점유하므로 슬라이드의 사용자 도형 ID 는 2 부터 시작한다.
+        AppendShapeTreeHeader(shapeTree);
+        uint shapeId = 2;
 
         switch (layout)
         {

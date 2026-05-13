@@ -33,6 +33,14 @@ public class UserSession
 
     public DateTime? LogoutAt { get; set; }
 
+    /// <summary>
+    /// 세션(refresh token) 만료 시각 (UTC).
+    /// 트랙 #89 C2 — 만료 시 RefreshTokenAsync 가 새 토큰 발급을 거부하여 60분 무알림 강제 로그아웃을 방지.
+    /// 기본값: LoginAt + JwtSettings:RefreshTokenExpirationInDays (default 7일).
+    /// </summary>
+    [Required]
+    public DateTime ExpiresAt { get; set; }
+
     [Required]
     public bool IsActive { get; set; } = true;
 

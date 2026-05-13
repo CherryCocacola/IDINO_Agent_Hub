@@ -185,10 +185,17 @@ async function handleLogin() {
   error.value = ''
 
   try {
-    const result = await authStore.login({
-      email: email.value,
-      password: password.value
-    })
+    // 트랙 #88 C2 (2026-05-13):
+    // "로그인 상태 유지" 체크 여부를 store 에 전달.
+    //   - true  → localStorage 영구 보관 (브라우저 재시작 후에도 자동 로그인)
+    //   - false → sessionStorage (탭/창 닫으면 로그아웃)
+    const result = await authStore.login(
+      {
+        email: email.value,
+        password: password.value
+      },
+      rememberMe.value
+    )
     // 로그인 전 진입하려던 페이지가 있으면 그 페이지로, 없으면 기본 경로로
     const redirectPath = (route.query.redirect as string) || (result.user?.roles?.some((r: string) => r.toLowerCase() === 'admin') ? '/' : '/agents')
     await router.push(redirectPath)

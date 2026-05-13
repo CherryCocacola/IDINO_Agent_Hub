@@ -404,28 +404,16 @@ public class PresentationController : ControllerBase
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("LibreOffice") || ex.Message.Contains("PDF 변환"))
         {
-            _logger.LogWarning(ex, "PDF conversion failed, falling back to PPTX");
-            try
-            {
-                var pptxStream = await _presentationService.ExportToPptxFromDtoAsync(presentation);
-                byte[] pptxBytes;
-                using (var ms = new MemoryStream())
-                {
-                    await pptxStream.CopyToAsync(ms);
-                    pptxBytes = ms.ToArray();
-                }
-                pptxStream.Dispose();
-                var title = presentation.Title ?? "presentation";
-                var safeTitle = System.Text.RegularExpressions.Regex.Replace(title, @"[\x00-\x1F\x7F-\x9F]", "").Replace(" ", "_").Replace("\"", "").Replace("\\", "").Replace("/", "").Replace(":", "").Replace("*", "").Replace("?", "").Replace("<", "").Replace(">", "").Replace("|", "");
-                var pptxFilename = $"{safeTitle}_{DateTime.UtcNow:yyyyMMddHHmmss}.pptx";
-                Response.Headers.Append("X-Pdf-Fallback-Pptx", "true");
-                return File(pptxBytes, "application/vnd.openxmlformats-officedocument.presentationml.presentation", pptxFilename);
-            }
-            catch (Exception fallbackEx)
-            {
-                _logger.LogError(fallbackEx, "PPTX fallback also failed");
-                return BadRequest(ErrorResponseDto.BadRequest(ex.Message, new { suggestion = "LibreOffice를 설치하거나 appsettings.json에 LibreOfficePath를 설정해주세요. PPTX 다운로드 후 수동으로 PDF로 변환할 수 있습니다." }));
-            }
+            // 사용자가 PDF 를 요청했는데 PPTX 를 응답으로 돌려주면 확장자/내용이 일치하지
+            // 않아 운영자가 혼란을 겪고 보안 검수에서도 실패한다. 따라서 자동 fallback 을
+            // 사용하지 않고 503 으로 명확히 실패 신호를 보낸다. 사용자는 별도 메뉴에서
+            // PPTX 다운로드를 직접 선택할 수 있다.
+            _logger.LogWarning(ex, "PDF conversion unavailable (LibreOffice missing or conversion error)");
+            return StatusCode(503, new ErrorResponseDto(
+                "PDF 변환 서비스를 일시적으로 사용할 수 없습니다. PPTX 다운로드를 이용해 주세요.",
+                "PDF_CONVERSION_UNAVAILABLE",
+                null
+            ));
         }
         catch (Exception ex)
         {
@@ -469,28 +457,16 @@ public class PresentationController : ControllerBase
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("LibreOffice") || ex.Message.Contains("PDF 변환"))
         {
-            _logger.LogWarning(ex, "PDF conversion failed for presentation {PresentationId}, falling back to PPTX", id);
-            try
-            {
-                var pptxStream = await _presentationService.ExportToPptxAsync(id, userId, themeId);
-                var presentation = await _presentationService.GetPresentationAsync(id, userId);
-                byte[] pptxBytes;
-                using (var ms = new MemoryStream())
-                {
-                    await pptxStream.CopyToAsync(ms);
-                    pptxBytes = ms.ToArray();
-                }
-                pptxStream.Dispose();
-                var safeTitle = System.Text.RegularExpressions.Regex.Replace(presentation.Title ?? "presentation", @"[\x00-\x1F\x7F-\x9F]", "").Replace(" ", "_").Replace("\"", "").Replace("\\", "").Replace("/", "").Replace(":", "").Replace("*", "").Replace("?", "").Replace("<", "").Replace(">", "").Replace("|", "");
-                var pptxFilename = $"{safeTitle}_{DateTime.UtcNow:yyyyMMddHHmmss}.pptx";
-                Response.Headers.Append("X-Pdf-Fallback-Pptx", "true");
-                return File(pptxBytes, "application/vnd.openxmlformats-officedocument.presentationml.presentation", pptxFilename);
-            }
-            catch (Exception fallbackEx)
-            {
-                _logger.LogError(fallbackEx, "PPTX fallback failed for presentation {PresentationId}", id);
-                return BadRequest(ErrorResponseDto.BadRequest(ex.Message, new { suggestion = "LibreOffice를 설치하거나 appsettings.json에 LibreOfficePath를 설정해주세요. PPTX 다운로드 후 수동으로 PDF로 변환할 수 있습니다." }));
-            }
+            // 사용자가 PDF 를 요청했는데 PPTX 를 응답으로 돌려주면 확장자/내용이 일치하지
+            // 않아 운영자가 혼란을 겪고 보안 검수에서도 실패한다. 따라서 자동 fallback 을
+            // 사용하지 않고 503 으로 명확히 실패 신호를 보낸다. 사용자는 별도 메뉴에서
+            // PPTX 다운로드를 직접 선택할 수 있다.
+            _logger.LogWarning(ex, "PDF conversion unavailable for presentation {PresentationId} (LibreOffice missing or conversion error)", id);
+            return StatusCode(503, new ErrorResponseDto(
+                "PDF 변환 서비스를 일시적으로 사용할 수 없습니다. PPTX 다운로드를 이용해 주세요.",
+                "PDF_CONVERSION_UNAVAILABLE",
+                null
+            ));
         }
         catch (InvalidOperationException ex)
         {

@@ -37,15 +37,29 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 
 # 헬스체크용 curl + CA 번들 + Python 3 (ScriptToolExecutor 가 python/javascript 스크립트
 # 실행 시 호스트 python3 를 호출하므로 runtime 이미지에 포함). pip 는 사용자 정의 도구가
-# 외부 라이브러리를 사용할 가능성에 대비. LibreOffice/한글 폰트는 시연 범위 밖이라 미설치
-# (PPTX↔PDF 변환을 사용하려면 별도 stage 또는 추가 apt 설치 필요).
+# 외부 라이브러리를 사용할 가능성에 대비.
+#
+# LibreOffice + 한국어 폰트 (PPTX → PDF 변환용):
+#   - libreoffice-impress: PPTX 변환 엔진 (소프트웨어 추천 의존성 제외해 이미지 크기 최소화)
+#   - libreoffice-l10n-ko: 한국어 로케일 (UI/날짜 포맷 한글 처리)
+#   - fonts-noto-cjk: CJK(한중일) 통합 Noto 폰트 — 한글 본문 렌더링 표준
+#   - fonts-nanum / fonts-nanum-coding / fonts-nanum-extra: 나눔고딕 계열
+#     ("맑은 고딕"이 Linux 컨테이너에 없을 때 fallback 한글 폰트로 사용됨)
+# 한글 폰트 미설치 시 LibreOffice 가 한글을 □ 박스로 렌더링하여 PDF 가 깨진다.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     python3 \
     python3-pip \
- && rm -rf /var/lib/apt/lists/*
+    libreoffice-impress \
+    libreoffice-l10n-ko \
+    fonts-noto-cjk \
+    fonts-nanum \
+    fonts-nanum-coding \
+    fonts-nanum-extra \
+ && rm -rf /var/lib/apt/lists/* \
+ && fc-cache -fv
 
 WORKDIR /app
 COPY --from=build /app/publish ./

@@ -142,7 +142,11 @@
     "forgotPassword": "비밀번호를 잊으셨나요?",
     "loginSuccess": "로그인 성공",
     "loginError": "로그인 실패",
-    "invalidCredentials": "이메일 또는 비밀번호가 올바르지 않습니다"
+    "invalidCredentials": "이메일 또는 비밀번호가 올바르지 않습니다",
+    "session": {
+      "expired": "세션이 만료되어 다시 로그인합니다.",
+      "noRefreshToken": "로그인 정보가 없습니다. 다시 로그인해 주세요."
+    }
   },
   "quota": {
     "title": "할당량",
@@ -1660,5 +1664,78 @@
     "validationJobIdRequired": "job_id 가 비어 있습니다.",
     "errorBoundary": "DocUtil 문서 V2 데이터를 불러오는 중 오류가 발생했습니다.",
     "errorUnknown": "처리 중 오류가 발생했습니다."
+  },
+  "dashboard": {
+    "title": "시스템 대시보드",
+    "subtitle": "AI 통합관리시스템 현황을 한눈에 확인하세요",
+    "viewUsageHistory": "사용 기록",
+    "totalUsers": "총 사용자",
+    "activeSubscriptions": "활성 구독",
+    "todayApiCalls": "오늘 API 호출",
+    "thisMonthCost": "이번 달 비용",
+    "recentActivity": "최근 활동",
+    "recentActivitySubtitle": "API 사용 내역 (최근 7일)",
+    "viewAll": "전체 보기",
+    "loading": "로딩 중...",
+    "loadingData": "데이터를 불러오는 중...",
+    "adminOnlyActivities": "최근 활동을 보려면 관리자 권한이 필요합니다.",
+    "noData": "데이터가 없습니다",
+    "closeAlert": "닫기",
+    "loadStatsFailed": "대시보드 통계를 불러오지 못했습니다.",
+    "loadActivitiesFailed": "최근 활동을 불러오지 못했습니다.",
+    "table": {
+      "datetime": "일시",
+      "user": "사용자",
+      "serviceModel": "서비스/모델",
+      "prompt": "프롬프트",
+      "tokens": "토큰",
+      "responseTime": "응답시간",
+      "cost": "비용",
+      "status": "상태",
+      "success": "성공",
+      "failure": "실패"
+    },
+    "footer": {
+      "recentCount": "최근 {count}건",
+      "totalCount": "(전체 {total}건)",
+      "viewAllUsage": "사용 기록 전체 보기"
+    }
+  },
+  "help": {
+    "title": "도움말 센터",
+    "subtitle": "무엇을 도와드릴까요?",
+    "searchPlaceholder": "질문을 검색하세요...",
+    "searchButton": "검색",
+    "noResults": "검색 결과가 없습니다",
+    "searchResultsCount": "{count}건의 결과를 찾았습니다",
+    "mainCategories": "주요 카테고리",
+    "faqTitle": "자주 묻는 질문 (FAQ)",
+    "quickLinksTitle": "빠른 링크",
+    "supportTitle": "지원 문의",
+    "supportDesc": "더 도움이 필요하신가요?",
+    "emailSupport": "이메일 지원",
+    "categories": {
+      "gettingStarted": {
+        "title": "시작하기",
+        "description": "기본 사용법 및 설정"
+      },
+      "agents": {
+        "title": "Agent 사용",
+        "description": "Agent 생성 및 관리"
+      },
+      "api": {
+        "title": "API 연동",
+        "description": "API 키 및 개발"
+      },
+      "troubleshooting": {
+        "title": "문제 해결",
+        "description": "오류 및 트러블슈팅"
+      }
+    },
+    "quickLinks": {
+      "gettingStarted": "시작하기 가이드",
+      "api": "API 문서",
+      "troubleshooting": "문제 해결"
+    }
   }
 }

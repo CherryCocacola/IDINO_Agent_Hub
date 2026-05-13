@@ -298,12 +298,27 @@ public class ChatService : IChatService
             }
         }
 
+        // H3(5-3) — 첨부 이미지를 사용자 메시지의 Attachments(JSON) 컬럼에 저장하여
+        // 이후 페이지 재진입/대화 재로드 시에도 thumbnails 가 보존되도록 한다.
+        // 저장 형식: 이미지 URL 목록(JSON string[]) — GetMessagesAsync 의 기존 로더와 호환.
+        string? attachmentsJsonForDb = null;
+        var imageAttachments = request.Attachments?
+            .Where(a => string.Equals(a.Type, "image_url", StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrWhiteSpace(a.ImageUrl))
+            .ToList();
+        if (imageAttachments != null && imageAttachments.Count > 0)
+        {
+            var imageUrls = imageAttachments.Select(a => a.ImageUrl!).ToList();
+            attachmentsJsonForDb = System.Text.Json.JsonSerializer.Serialize(imageUrls);
+        }
+
         // Save user message (마스킹된 메시지 저장)
         var userMessage = new Models.ChatMessage
         {
             ConversationId = conversationId,
             Role = "user",
             Content = messageToProcess, // 마스킹된 메시지 사용
+            Attachments = attachmentsJsonForDb, // 이미지 URL 목록(JSON) — 첨부가 있으면 보존
             CreatedAt = DateTime.UtcNow
         };
         _context.ChatMessages.Add(userMessage);
@@ -324,6 +339,39 @@ public class ChatService : IChatService
             Role = m.Role,
             Content = m.Content
         }).ToList();
+
+        // H3(5-3) — 마지막 user 메시지(방금 저장한 것)에 멀티모달 Contents 결합.
+        // OpenAI/Claude/Gemini 등 vision 분기는 AiProxyService 가 Contents 를 보면 멀티모달 payload 로 전환한다.
+        if (request.Attachments != null && request.Attachments.Count > 0)
+        {
+            var lastUserDto = messages.LastOrDefault(m => m.Role == "user");
+            if (lastUserDto != null)
+            {
+                var contents = new List<MessageContentDto>();
+                // 텍스트 부분(원본 마스킹된 메시지)을 명시적으로 첫 번째 part 로 추가
+                if (!string.IsNullOrWhiteSpace(lastUserDto.Content))
+                {
+                    contents.Add(new MessageContentDto
+                    {
+                        Type = "text",
+                        Text = lastUserDto.Content
+                    });
+                }
+                // 첨부 항목을 그대로 부착(image_url / audio_url / file 모두 허용)
+                foreach (var att in request.Attachments)
+                {
+                    if (string.IsNullOrWhiteSpace(att.Type)) continue;
+                    contents.Add(att);
+                }
+                lastUserDto.Contents = contents;
+                // Content 는 그대로 두어 텍스트만 보는 분기(예: 일부 비-vision 폴백)도 정상 동작.
+
+                _logger.LogInformation("멀티모달 첨부 적용: ConversationId={ConversationId}, ImageCount={ImageCount}, OtherCount={OtherCount}",
+                    conversationId,
+                    request.Attachments.Count(a => string.Equals(a.Type, "image_url", StringComparison.OrdinalIgnoreCase)),
+                    request.Attachments.Count(a => !string.Equals(a.Type, "image_url", StringComparison.OrdinalIgnoreCase)));
+            }
+        }
 
         // Add system prompt if exists
         if (!string.IsNullOrEmpty(conversation.SystemPrompt))

@@ -7,7 +7,7 @@
           <i class="bi bi-robot"></i>
           <span v-if="!sidebarCollapsed">{{ $t('common.appName') }}</span>
         </router-link>
-        <button class="btn btn-link sidebar-toggle" @click="sidebarCollapsed = !sidebarCollapsed">
+        <button class="btn btn-link sidebar-toggle" @click="toggleSidebar" :title="sidebarCollapsed ? $t('common.next') : $t('common.previous')">
           <i class="bi" :class="sidebarCollapsed ? 'bi-chevron-right' : 'bi-chevron-left'"></i>
         </button>
       </div>
@@ -220,14 +220,22 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
-import { safeSetLocalStorage } from '@/utils/storage'
+import { safeGetLocalStorage, safeSetLocalStorage } from '@/utils/storage'
+// 트랙 #88 C2: 만료 5분 전 사전 토큰 갱신 — 무알림 강제 로그아웃 방지
+import { useTokenAutoRefresh } from '@/composables/useTokenAutoRefresh'
+
+useTokenAutoRefresh()
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const { locale, t } = useI18n()
 
-const sidebarCollapsed = ref(false)
+// 결함 트랙 #89 M6 (2026-05-13): 사이드바 축소/확장 상태를 localStorage 에 영속화.
+// 종전: 매 새로고침마다 false 로 초기화 → 사용자가 축소 후 새로고침하면 다시 확장됨.
+// 또한 토글 후 카테고리 expand 상태가 깨져 보이는 결함의 근본 원인 중 하나.
+const SIDEBAR_COLLAPSED_KEY = 'sidebar_collapsed'
+const sidebarCollapsed = ref<boolean>(safeGetLocalStorage(SIDEBAR_COLLAPSED_KEY) === 'true')
 const mobileSidebarOpen = ref(false)
 const expandedCategories = ref<Record<string, boolean>>({
   dashboard: true,
@@ -239,6 +247,35 @@ const expandedCategories = ref<Record<string, boolean>>({
   admin: false,
   settings: false
 })
+
+// 결함 트랙 #89 M6 (2026-05-13): 토글 핸들러 일원화.
+// 축소 → 확장 으로 돌아갈 때, 현재 활성 라우트가 속한 카테고리는 반드시 펼친다.
+// 종전: 축소 상태에서는 expandedCategories 와 무관하게 menu-items 가 v-if 의 OR 분기로 표시되는데,
+// 다시 확장하면 expandedCategories[id] = false 인 카테고리는 즉시 닫혀 사용자가 "메뉴가 사라졌다"
+// 고 느낌. 활성 카테고리만이라도 확장 보장하여 일관된 UX 확보.
+const toggleSidebar = () => {
+  const next = !sidebarCollapsed.value
+  sidebarCollapsed.value = next
+  safeSetLocalStorage(SIDEBAR_COLLAPSED_KEY, String(next))
+
+  // 축소 → 확장 전환 시 현재 활성 라우트의 카테고리를 보장 확장.
+  if (!next) {
+    ensureActiveCategoryExpanded()
+  }
+}
+
+// 현재 라우트가 속한 카테고리를 expandedCategories 에서 true 로 보장.
+const ensureActiveCategoryExpanded = () => {
+  const currentPath = route.path
+  for (const category of menuCategories.value) {
+    for (const item of category.items) {
+      if (currentPath === item.path || currentPath.startsWith(item.path + '/')) {
+        expandedCategories.value[category.id] = true
+        return
+      }
+    }
+  }
+}
 
 interface MenuItem {
   name: string
