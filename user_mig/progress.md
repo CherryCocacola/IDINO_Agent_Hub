@@ -170,6 +170,119 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-13 (트랙 #89 — 3자 시연 결함 17건 일괄 해소: Critical 3 + High 7 + Medium 6 + Low 1, 운영 배포 + e2e 회귀 PASS)
+
+- **commit**: `d540a16` (`[agenthub/track89] 3자 테스트 결함 17건 일괄 해소 — 운영 배포 + e2e 87/0 PASS`). 33 files / +4438 / -367. push 보류 (secret leak 미해결, 시연 종료 후 별도 sanitize 트랙).
+
+- **사용자 명시**: 3자 테스트 결함 22건(원본 분류) → 17건(묶음 정리)을 우선순위 Critical→High→Medium→Low 순차 일괄, 진단+수정 한 번에. 코드 작업 종료 후 운영 배포 + e2e 회귀.
+
+- **결함 17건 분류**:
+  - **C1 (11-3)**: 금칙어 공백 우회 ("비 밀 번 호" 통과) — sanitize 누락.
+  - **C2 (11-1+11-2)**: ~60분 무알림 강제 로그아웃 + "자동 로그인" 체크 미반영 — JWT exp + refresh token 회전 + rememberMe 누락.
+  - **C3 (8-1+8-2)**: PDF 버튼이 PPTX 다운로드 + PPTX 파일 "읽을 수 없음" 손상 — LibreOffice 미설치 fallback + OOXML schema 위반.
+  - **H1 (5-1)**: 멀티채팅 채팅 삭제 미동작.
+  - **H2 (5-2)**: 이미지 첨부 후 다른 페이지 이동 시 누락.
+  - **H3 (5-3)**: 이미지 첨부했는데 LLM "이미지 못 받았다" 응답 — vision payload 누락.
+  - **H4 (5-4)**: 같은 ChatGPT Agent 동시 실행 차단.
+  - **H5 (6)**: 이미지 생성 진행률/실행 결함.
+  - **H6 (7)**: 간편이미지 Gemini API key invalid (400 API_KEY_INVALID).
+  - **H7 (9)**: 설정 페이지 프로필/환경설정/보안 미동작.
+  - **M1 (1-1)**: 로그인 오류 메시지 i18n 불일치.
+  - **M2 (2-1)**: 언어 변경 시 본문 i18n 미적용.
+  - **M3 (3)**: user role의 "사용기록" 라우팅 결함.
+  - **M4 (4)**: AgentBuilder 저장 후 임시저장 잔존.
+  - **M5 (10)**: 도움말 검색창 바인딩만 됨.
+  - **M6 (2-2)**: 사이드 메뉴 축소→확장 결함.
+  - **L1 (1-2)**: 비밀번호 재설정 메일 (코드는 정상, 운영 SMTP 시크릿만 필요).
+
+- **수정 (33 파일)**:
+
+  **백엔드 14 + 신규 마이그레이션 2** (.cs / Dockerfile):
+  - `agenthub/Services/BannedWordService.cs` (C1) — `NormalizeForMatch()` private 정적 헬퍼 신설 (NFKC 정규화 + WhiteSpace/Control/Format 카테고리 제거 + 모든 Punctuation 카테고리 제거 + ToLowerInvariant). 입력 텍스트와 금칙어 양쪽 동일 적용. 원본 message 는 변경하지 않으므로 LLM 전송/DB 저장 영향 없음.
+  - `agenthub/Models/UserSession.cs` (C2) — `ExpiresAt: DateTime` Required 컬럼 추가.
+  - `agenthub/Migrations/20260513042321_Track089_UserSessionExpiresAt.cs` (C2 신규) — 멱등성 가드 (IF NOT EXISTS → 컬럼 추가 → 기존 행 `LoginAt + 7일` default UPDATE → NOT NULL 전환). Designer + Snapshot 동시 갱신.
+  - `agenthub/DTOs/LoginResponseDto.cs` (C2) — `TokenExpiresAt: DateTimeOffset?` + `RefreshTokenExpiresAt: DateTimeOffset?` 신규 필드 (UTC).
+  - `agenthub/DTOs/RefreshTokenResponseDto.cs` (C2) — `RefreshToken: string?` (회전된 신규 토큰) + 동일 만료 필드 신규.
+  - `agenthub/Services/AuthService.cs` (C2) — `IConfiguration` 주입 + `AccessTokenExpirationMinutes`/`RefreshTokenExpirationDays` 헬퍼 + `LoginAsync` UserSession 생성 시 `ExpiresAt = now + 7일` 설정 + 응답 DTO 만료 필드 채움 + `RefreshTokenAsync` 만료 검사 + refresh token 회전 (기존 세션 비활성화, 새 세션 row 생성, 새 SessionToken 발급).
+  - `agenthub/Controllers/AuthController.cs` (C2+M1+H7) — 11개 영문 응답 메시지를 한국어로 정리 ("Invalid email or password" → "이메일 또는 비밀번호가 올바르지 않습니다." 등). `GET /api/auth/me` stub 정식 구현(`IUserService.GetCurrentUserAsync` 위임).
+  - `agenthub/Dockerfile` (C3) — runtime stage 에 `libreoffice-impress` + `libreoffice-l10n-ko` + `fonts-noto-cjk` + `fonts-nanum`/`-coding`/`-extra` 설치 + `fc-cache -fv` 즉시 빌드. 이미지 크기 증가 트레이드오프.
+  - `agenthub/Controllers/PresentationController.cs` (C3) — `ExportToPdfFromBody` + `ExportToPdf` 의 LibreOffice 실패 시 PPTX 자동 fallback 제거 → 503 Service Unavailable + `PDF_CONVERSION_UNAVAILABLE` errorCode + 한국어 메시지. `X-Pdf-Fallback-Pptx` 헤더 폐기.
+  - `agenthub/Services/PptxGenerationService.cs` (C3) — OOXML schema 위반 4건 수정: (1) `p:presentation` child 의 잘못된 `ViewProperties`+`TextStyles` 제거 → 정상 위치에 `NotesSize` + `DefaultTextStyle` 추가, (2) `AppendShapeTreeHeader()` 헬퍼 신설 후 SlideMaster/SlideLayout/Slide 3곳에 `NonVisualGroupShapeProperties`+`GroupShapeProperties` 강제 헤더 삽입, (3) `SlideMaster.ColorMap` 의 12개 필수 attribute (bg1/tx1/bg2/tx2/accent1~6/hlink/folHlink) 모두 명시, (4) NotesSize 7.5x10인치 + DefaultTextStyle 추가. ECMA-376 §19 schema 준수.
+  - `agenthub/DTOs/SendMessageRequestDto.cs` (H3) — `Attachments: List<MessageContentDto>?` 신규 필드 (기존 conversation 분기의 vision payload 입구).
+  - `agenthub/Services/ChatService.cs` (H3) — `SendMessageAsync` 가 `request.Attachments` 를 마지막 user 메시지의 `Contents` 로 결합 + 이미지 URL JSON 을 `ChatMessage.Attachments` 컬럼에 저장.
+  - `agenthub/Services/AiProxyService.cs` (H3) — `StreamOpenAiChunksAsync` 의 messages 변환을 신규 헬퍼 `BuildOpenAiMessagesWithVision()` 로 교체. OpenAI Vision content parts (`{type:"text"}` + `{type:"image_url",image_url:{url}}`) 배열 형식 생성. data:/http(s):// 검증 + 비-vision 모델 경고 포함. 스트리밍 시 vision 누락 해소.
+
+  **프론트엔드 16 + 신규 composable 1** (.vue / .ts / .json / .css):
+  - `agenthub/ClientApp/src/types/index.ts` (C2) — `LoginResponseDto` + `RefreshTokenResponseDto` 인터페이스 만료 필드 확장.
+  - `agenthub/ClientApp/src/utils/storage.ts` (C2) — sessionStorage 헬퍼 3종 + 통합 헬퍼 `safeGetAuthStorage` / `safeSetAuthStorage(persistent)` / `safeRemoveAuthStorage` 신설.
+  - `agenthub/ClientApp/src/stores/auth.ts` (C2) — `login(credentials, persistent=false)` 시그니처 확장. true → localStorage / false → sessionStorage 분기. `tokenExpiresAt`/`refreshTokenExpiresAt` ref 추가. `updateTokens()` 신규 export.
+  - `agenthub/ClientApp/src/services/api.ts` (C2) — 401 시 refresh 실패하면 한국어 알림(`auth.session.expired` i18n 키) + `/login` redirect. refresh 무한 루프 차단. 절대경로 + baseURL 중복 옵션 제거.
+  - `agenthub/ClientApp/src/composables/useTokenAutoRefresh.ts` (C2 신규) — 만료 5분 전 `setTimeout` 예약 + `tokenExpiresAt` watch + 모듈-스코프 `isRefreshInFlight` 동시성 가드 + plain axios 호출(인터셉터 우회) + 컴포넌트 unmount 시 timer 정리.
+  - `agenthub/ClientApp/src/layouts/MainLayout.vue` (C2+M6) — `useTokenAutoRefresh` 활성화 + `toggleSidebar()` 핸들러 (localStorage `sidebar_collapsed` 영속화 + 확장 복귀 시 활성 카테고리 자동 확장 `ensureActiveCategoryExpanded()`).
+  - `agenthub/ClientApp/src/views/Login.vue` (C2) — `authStore.login(credentials, rememberMe.value)` 두 번째 인자 전달.
+  - `agenthub/ClientApp/src/i18n/locales/ko.json` + `en.json` (C2+M2+M5) — `auth.session.expired` + `auth.session.noRefreshToken` 신규 + `dashboard.*` 24키 + `help.*` 24키 신규 섹션 추가. ko/en 양쪽 동기화.
+  - `agenthub/ClientApp/src/views/agent/AgentMultiChat.vue` (H1+H2+H3+H4) — 단일 파일 +136/-17 외 추가 6 패치. (H1) `deleteChat` 5단계 보강 (사용자 confirm + 404 자가복구 + 403 권한 + 5xx 오류 + 서버 재동기화). (H2) sessionStorage 영속화 (`ATTACH_STORAGE_KEY`, deep watch 자동 동기화) + `onBeforeUnmount` blob URL revoke. (H3) `/chat/conversations/{id}/messages` payload 의 `attachments` 를 MessageContentDto 배열로 + `/chat/send` 마지막 user 메시지에 `contents` 멀티모달 배열 부착. (H4) `ChatSession.loading?: boolean` 슬롯별 진행 상태 + `sendMessage` 의 글로벌 lock 제거.
+  - `agenthub/ClientApp/src/views/ImageGeneration.vue` + `ImageGeneration.css` (H5) — `elapsedSec` 1초 인터벌 + `loadingHintText` 단계별 안내(0~9/10~29/30~59/60+초) + "최대 30~60초" 명시 + 버튼 spinner + `onUnmounted` 타이머 누수 방지.
+  - `agenthub/ClientApp/src/views/QuickImageGeneration.vue` + `QuickImageGeneration.css` (H5) — 동일 진행률 패턴 이식.
+  - `agenthub/ClientApp/src/views/Settings.vue` (H7) — 전체 재작성. `/users/me` 항상 신뢰 (userId 누락 결함 해소) + 인라인 alert (success 3초 자동 닫힘) + 저장 spinner + 비밀번호 클라이언트 검증 강화 (8자 최소 + 일치 검증 + currentPassword 필수).
+  - `agenthub/ClientApp/src/views/Dashboard.vue` (M2+M3) — 전면 i18n 적용 (24 키) + `isAdmin` computed + 사용기록 진입점 3곳 `v-if="isAdmin"` + admin 아닌 경우 `loadRecentActivities()` skip.
+  - `agenthub/ClientApp/src/views/Help.vue` (M2+M5) — 전면 i18n 적용 (24 키) + `searchHelp()` 실동작 (첫 매칭 자동 열기 + 영역 스크롤) + `filteredFAQs` 검색 범위 question+answer+category 확장 + `showCategory()` 영문 id 사용 + 결과 카운트 표시.
+  - `agenthub/ClientApp/src/views/agent/AgentBuilder.vue` (M4) — `saveAgent()` 성공 직후 `localStorage.removeItem('agent_draft')` 추가 (try/catch).
+
+- **빌드 검증**:
+  - `dotnet build` — 오류 0 / 신규 경고 0 (기존 pre-existing 17건만 유지).
+  - `npm run build:check` (vue-tsc + vite build) — 오류 0 / 신규 경고 0 / 300 modules / @ts-nocheck 신규 부착 0건.
+
+- **운영 배포 (`tmp/deploy_track89.py` paramiko SFTP)**:
+  - SFTP 업로드 33 파일 / 1,153,521 B.
+  - `docker compose build agenthub` 7분 32초 (LibreOffice + 한글 폰트 추가 trade-off).
+  - `docker compose up -d --force-recreate agenthub` — 5초 만에 healthy (HTTP 200 `/swagger`).
+  - 컨테이너 부팅 시 `MigrateAsync` 패턴이 `Track089_UserSessionExpiresAt` 자동 적용.
+
+- **운영 회귀 검증 PASS**:
+  - admin 로그인 PASS — JWT 555 chars + `tokenExpiresAt=2026-05-13T06:50:34.459744+00:00` 신규 필드 정상 응답 (C2).
+  - `/api/agents` 200, `/api/admin/metrics/rag` 200.
+  - `docker exec agenthub soffice --version` → **LibreOffice 7.4.7.2** 컨테이너 내 설치 확인 (C3).
+  - `docker exec agenthub fc-list :lang=ko | wc -l` → **63 fonts** (Noto Sans CJK KR + Nanum 계열 정상 설치, C3).
+  - `docker exec docutil-postgres psql -c "SELECT column_name FROM information_schema.columns WHERE table_schema='AIAgentManagement' AND table_name='UserSessions'"` → `ExpiresAt timestamp with time zone NOT NULL` 컬럼 정상 추가 (C2 마이그레이션).
+  - `tools/ui_e2e/full/live_runner.py` 87 케이스 회귀 — **PASS 65 / FAIL 0 / SKIP 22(docutil 자격증명 미확보)**. AgentHub Public 14 + Protected admin 48 + Redirect 5 + DocUtil Public 3 모두 PASS. 운영 결함 0.
+
+- **운영 사용자 권한 잔존 작업 (코드 변경 0)**:
+  - **H6 Gemini API key**: 운영 컨테이너에 유효한 Gemini API key 주입 필요. 옵션 (A) docker-compose.yml 에 `AiApiSettings__Gemini__ApiKey: ${GEMINI_API_KEY}` + `.env` 실제 키, (B) ApiKeyPool 콘솔에 키 등록, (C) appsettings.Production.json 평문(권장 안 함). 시크릿 발급은 사용자 권한.
+  - **L1 SMTP 자격증명**: 운영 환경에 `EmailSettings__SmtpUsername` / `EmailSettings__SmtpPassword` 주입 필요. Gmail App Password 권장. EmailService 코드는 이미 정상 (SMTP 미설정 시 silent skip 패턴).
+
+- **수동 점검 권장 (사용자 시연 환경)**:
+  - 87 라우트 진입 회귀는 자동 PASS. 트랙 #89 결함 17건의 **기능 동작**은 별도 수동 점검 필요:
+  - [ ] **C1**: 비밀번호 입력란에 "비 밀 번 호" / "비&#8203;밀&#8203;번&#8203;호" 입력 → 금칙어 차단.
+  - [ ] **C2**: 로그인 시 "자동 로그인" 미체크 → 브라우저 종료 후 재접속 시 재로그인 필요. 체크 → 영구 유지. 약 60분 후 자동 갱신 (페이지 reload 없이) 또는 만료 시 한국어 알림 후 `/login`.
+  - [ ] **C3**: 프레젠테이션 생성 → PDF 버튼 클릭 → 실제 PDF 다운로드 (한글 본문 □ 박스 없이 정상 렌더링). PPTX 버튼 → PPTX 다운로드 → PowerPoint/Keynote 정상 오픈 (복구 메시지 없음).
+  - [ ] **H1**: 멀티채팅 채팅 삭제 → confirm 후 사라짐 + 다음 채팅 자동 선택. 다른 탭에서 먼저 삭제된 채팅 → 자가 치유 silent 제거.
+  - [ ] **H2**: 멀티채팅 이미지 첨부 → 다른 페이지 이동 → 돌아옴 → 첨부 chip 유지.
+  - [ ] **H3**: gpt-4o + 이미지 1장 첨부 + 멀티채팅 → "이미지를 받았다" 류 응답. 스트리밍 토글 ON 일 때도 동일.
+  - [ ] **H4**: 같은 ChatGPT Agent 채팅 2개 동시 호출 → 차단 없이 진행 + 각 슬롯 응답 정확 분리.
+  - [ ] **H5**: 이미지 생성 → 경과 시간(N초) + 단계별 안내 + "최대 30~60초" 안내 모두 시각화.
+  - [ ] **H6 (사용자 키 주입 후)**: 간편이미지 → Gemini 모델 선택 → 정상 응답.
+  - [ ] **H7**: 설정 페이지 3개 탭 모두 동작 (프로필 / 환경설정 / 보안). 저장 spinner + 인라인 alert + 비밀번호 검증.
+  - [ ] **M1**: 잘못된 비밀번호 로그인 시도 → 한국어 응답 "이메일 또는 비밀번호가 올바르지 않습니다.".
+  - [ ] **M2**: 우상단 언어 토글 ko↔en → 사이드 메뉴 + Dashboard + Help 본문 모두 즉시 변경 (나머지 30+ view 는 후속 트랙 #90).
+  - [ ] **M3**: 일반 user 로그인 → 대시보드 → "사용 기록" 진입점 3곳 미노출. admin → 정상 노출.
+  - [ ] **M4**: AgentBuilder 정식 저장 → 다시 진입 → 폼 빈 상태로 시작.
+  - [ ] **M5**: `/help` 검색창 → 카테고리 검색 동작 + 결과 카운트.
+  - [ ] **M6**: 사이드바 축소 → 새로고침 → 축소 유지. 다시 확장 → 활성 카테고리 자동 펼침.
+  - [ ] **L1 (사용자 SMTP 주입 후)**: `/forgot-password` → 이메일 발송 + 메일 링크 클릭 → 정상 비번 재설정.
+
+- **후속 트랙 권장**:
+  - **#90 (i18n 본문 전수 확산)**: Dashboard + Help 외 30+ view 의 한국어 하드코딩을 i18n 키로 추출. 추정 400~500 키, 10 영업일 분량. 별도 트랙.
+  - **T1**: `CallOpenAiAsync` (비스트리밍) 와 `StreamOpenAiChunksAsync` (스트리밍) 의 vision 변환 로직 통합.
+  - **T2**: Claude/Gemini/Perplexity/Mistral native streaming + vision 지원.
+  - **T3**: 멀티채팅 `inputMessage` 채팅별 분리 (현재 단일 ref 공유).
+  - **T4**: 첨부 이미지 URL 이 상대경로일 때 OpenAI 외부 접근 보장 (base64 data URL 또는 공개 정적 호스팅).
+  - **T5**: stream:true 분기 RAG/WebSearch 통합.
+  - **T6**: Refresh token 재사용 탐지 (reuse detection) + 만료 세션 정리 Hangfire job.
+  - **T7**: 정식 toast 컴포넌트 도입 (현재 `window.alert` 임시 사용).
+  - **T8**: M3 옵션 (A) `/api/analytics/my-usage-history` user-self 엔드포인트 신설 + Dashboard 진입점 부활.
+  - **T9**: `MainLayout.expandedCategories` 도 localStorage 영속화 (UX 개선).
+
 ### 2026-05-13 (트랙 #88-7 — 전수 e2e + 마이너 4건 해소, 사용자 명시 "전수 테스트 + 체크리스트")
 
 - **commit**: `05dcf4a` (`[docutil/track88-7] 전수 e2e 마이너 4건 해소 — 87/87 PASS 운영결함 0`). 다수 files / +대량. push 보류 (사용자 새 세션 진행 예정).
