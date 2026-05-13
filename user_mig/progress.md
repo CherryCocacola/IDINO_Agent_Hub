@@ -170,6 +170,76 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-13 (트랙 #92 — Nexus 통합 운영 적용 완료: HTTPS LAN(192.168.22.223:8443) self-signed 우회 + 환경변수 정정 + AgentId=30 Internal nexus e2e PASS)
+
+- **commit**: `fab65a8` (`[agenthub/track92] Nexus 통합 운영 적용 — HTTPS LAN(192.168.22.223:8443) self-signed 우회 + 환경변수 정정 + AgentId=30 e2e PASS`). 2 files / +23 / -3 (Program.cs + appsettings.json만 git 추적 — appsettings.Development/Production.json 은 .gitignore 대상이라 운영본만 SFTP 동기화). push 보류 (secret leak 미해결).
+
+- **배경 / 문제**:
+  - 트랙 #91 e2e 완료 후 사용자가 "Nexus 실제 부팅 이건 왜 필요하지?" 질문 → "현재 기동하고 있어" 정정.
+  - 운영 Nexus orchestrator(Machine A) 가 실제로는 `https://192.168.22.223:8443` 에서 가동 중이고, 기존 AgentHub 설정의 `http://192.168.22.28:8001` 은 별도의 vLLM(Machine B) 백엔드였음.
+  - vLLM 의 OpenAI 호환 `/v1/chat/completions` 은 있지만 Nexus 네이티브 `/v1/chat` 은 없으므로 옵션 B(ADR-1) 경로로 호출 시 404.
+  - LAN 격리(ADR-11 air-gap)로 Nexus 는 self-signed 인증서로 LAN 노출.
+
+- **진단 단계** (`tmp/track92_diag.py` + `tmp/track92_diag2.py`):
+  - **Nexus 자체 점검**: `/v1/models` → 3개 모델 정상(nexus-phase3 primary / exaone-7.8b auxiliary / multilingual-e5-large embedding), `/v1/tenants` → default 테넌트, `/openapi.json` → `/v1/chat`/`/v1/chat/stream`/`/v1/sessions` 모두 등록됨.
+  - **/v1/chat path 정상**: GET → 405 / POST 빈 body → 422 `body.message` Field required.
+  - **AgentHub 컨테이너 환경변수 검증**: `Nexus__BaseUrl=http://192.168.22.28:8001` 가 env 로 박혀 있어 appsettings.json 우선순위를 override (.NET Configuration 우선순위: env > appsettings.{Env}.json > appsettings.json).
+  - **출처 확인**: `/home/idino/agenthub/.env:7` 의 `NEXUS_BASE_URL=http://192.168.22.28:8001` + `docker-compose.yml:45` 의 `Nexus__BaseUrl: "${NEXUS_BASE_URL:-...}"` 합작.
+
+- **수정 (코드 3 파일)**:
+  - `agenthub/Program.cs` — nexus Named HttpClient 의 기본 BaseUrl `http://192.168.22.28:8001` → `https://192.168.22.223:8443`. `ConfigurePrimaryHttpMessageHandler` 추가하여 `Nexus:AcceptSelfSignedCert=true` 토글 시 `HttpClientHandler.ServerCertificateCustomValidationCallback = _,_,_,_ => true` 로 검증 우회 (LAN-only air-gap 환경 한정). 한국어 주석으로 외부망 노출 시 정식 cert 필요 명시.
+  - `agenthub/appsettings.json` — `Nexus.BaseUrl` 갱신 + `AcceptSelfSignedCert: true` 추가.
+  - `agenthub/appsettings.Development.json` — 동일 갱신.
+  - `agenthub/appsettings.Production.json` — Nexus 섹션 신규 추가 (Production 환경 우선이라 명시).
+
+- **빌드 검증**:
+  - `cd agenthub && dotnet build` — 오류 0 / 신규 경고 0 (기존 16 유지). 4.7초.
+
+- **운영 배포 (`tmp/deploy_track92.py` + `tmp/track92_envfix.py`)**:
+  - **1차 배포** (`deploy_track92.py`): SFTP 3 파일(39,339 B) → PG `ApiServices.nexus.ApiEndpoint='https://192.168.22.223:8443/v1/chat'` UPDATE 1 row(ServiceId=32) → `docker compose build agenthub` **100.1s** → `force-recreate` → healthy 5s. 스모크: 로그인 PASS, /v1/health 200, **/api/agents/30/chat FAIL 404** (옛 vLLM URL 로 호출됨 — env override 미해결 단계).
+  - **2차 환경변수 정정** (`track92_envfix.py`): `/home/idino/agenthub/.env` 의 `NEXUS_BASE_URL=http://192.168.22.28:8001` 삭제 + `NEXUS_BASE_URL`/`Nexus__BaseUrl`/`Nexus__AcceptSelfSignedCert` 3개 라인 신규 append. `docker-compose.yml:45` 의 fallback 도 새 URL 로 sed 치환. `force-recreate` 후 새 env 반영 확인.
+  - 백업: `.env.bak.track92_20260513_*` + `docker-compose.yml.bak.track92_20260513_*`.
+
+- **운영 회귀 검증 PASS**:
+  - [1] admin 로그인 — JWT 555 chars PASS.
+  - [2] `ApiServices.nexus.ApiEndpoint` = `https://192.168.22.223:8443/v1/chat` PASS.
+  - [3] **컨테이너 내부 `curl Nexus /health`** → 200 PASS (HTTPS + self-signed 인증서 우회 정상 동작).
+  - [4] **`POST /api/agents/30/chat` (career-chatbot Internal nexus)** → **PASS**.
+    - 응답 body: `{"messageId":988,"conversationId":272,"content":"안녕하세요. 저는 학생 진로 코칭 챗봇 Nexus입니다. 진로 고민과 감정적 어려움을 경청하고 공감하며, 위기 상황에서는 상담 센터 연결을 권유합니다.","model":"primary","tokensUsed":2143,"cost":0.0000,"responseTime":3424,"citations":null}`.
+    - 토큰 2143 / 비용 0 (사내 모델 — ApiUsage 비용 0 정책 유지) / responseTime 3424ms.
+  - [5] AgentHub 로그 확인: `라우팅 적용: AgentId=30, Reason=internal_routing, ServiceId 32 → 32 (ServiceCode=nexus)` + `Start processing HTTP request POST https://192.168.22.223:8443/v1/chat` + `Sending HTTP request POST https://192.168.22.223:8443/v1/chat` PASS.
+  - [6] 컨테이너 env 재검증 — `Nexus__BaseUrl=https://192.168.22.223:8443` + `Nexus__AcceptSelfSignedCert=true` 반영 PASS.
+  - [7] `/api/agents` 회귀 — code=200 (External 라우팅 회귀 없음).
+
+- **운영 효과**:
+  - **ADR-1 옵션 B 실효성 확립** — AgentHub 가 Nexus 의 네이티브 `/v1/chat` 을 직접 호출 (세션/멀티테넌시 강점 보존).
+  - **HybridRouter 진입로 확보** — career-chatbot(AgentId=30) Internal 라우팅 즉시 동작. Hybrid Agent 10개는 RoutingPolicyJson 비어 있어 현재는 external 폴백이지만, 후속 트랙에서 PII/cost 기반 분기 정책 시드 시 즉시 Nexus 분기 가능.
+  - **LAN-only air-gap 유지** — Nexus 자체 노출 없이 컨테이너 내부에서만 https 호출 (self-signed 인증서 + LAN 격리 이중 방어).
+  - **External 회귀 0건** — 기존 OpenAI/Claude 등 외부 LLM 호출은 ApiKeyPool 경로 영향 없음.
+
+- **운영 환경 변경 (백업 보존)**:
+  - PG `AIAgentManagement.ApiServices` ServiceId=32 `ApiEndpoint` UPDATE (`https://192.168.22.223:8443/v1/chat`).
+  - `/home/idino/agenthub/.env` 갱신 (`NEXUS_BASE_URL`/`Nexus__BaseUrl`/`Nexus__AcceptSelfSignedCert` 3개).
+  - `/home/idino/agenthub/docker-compose.yml:45` fallback URL sed 치환.
+  - agenthub 이미지 재빌드 + 컨테이너 force-recreate.
+
+- **후속 작업 권장**:
+  - **트랙 #93 (Nexus 스트리밍 e2e)**: `/api/agents/{id}/chat/stream` SSE 경로로 Nexus `/v1/chat/stream` 도 PASS 검증 (NexusClient.SendChatStreamAsync 는 이미 구현됨).
+  - **트랙 #94 (HybridRouter RoutingPolicyJson 시드)**: 현재 10개 Hybrid Agent 의 빈 RoutingPolicyJson 에 PII=internal / 비용 임계 / 데이터 라벨 매핑을 시드해 Internal 분기 활성화.
+  - **트랙 #95 (Nexus:SharedSecret 운영 적용)**: 현재 미설정 — LAN 격리에만 의존. ADR-13 공유 시크릿 적용 시점에 Nexus 측 인증 미들웨어 + AgentHub `.env` Nexus__SharedSecret 동기화.
+  - **트랙 #96 (Hangfire 모니터링)**: Nexus 호출 실패 시점에 Hangfire Recurring `nexus-health-probe` 등록하여 부팅 시점 + 5분 폴링 확인.
+
+- **commit 메시지(코드)**:
+  ```
+  [agenthub/track92] Nexus 통합 운영 적용 — HTTPS LAN(192.168.22.223:8443) self-signed 우회 + 환경변수 정정 + AgentId=30 e2e PASS
+
+  - Program.cs: nexus Named HttpClient 기본 BaseUrl 변경(http://192.168.22.28:8001 → https://192.168.22.223:8443) + ConfigurePrimaryHttpMessageHandler 추가하여 Nexus:AcceptSelfSignedCert=true 토글 시 self-signed 인증서 검증 우회 (LAN-only air-gap 환경 한정).
+  - appsettings.json / Development.json: Nexus.BaseUrl 갱신 + AcceptSelfSignedCert 추가.
+  - appsettings.Production.json: Nexus 섹션 신규 추가 (Production 우선).
+  - 운영 env 정정: /home/idino/agenthub/.env 의 NEXUS_BASE_URL/Nexus__BaseUrl/Nexus__AcceptSelfSignedCert 갱신, docker-compose.yml:45 fallback URL 변경, PG ApiServices.nexus.ApiEndpoint UPDATE.
+  - e2e: /api/agents/30/chat (career-chatbot Internal nexus, AgentId=30) → 한국어 응답 PASS (tokens=2143, cost=0, 3424ms).
+  ```
+
 ### 2026-05-13 (트랙 #91 — ApiKeyPoolService DB 통합 완료: KeyType 컬럼 + Hangfire 5분 폴링 + 운영자 콘솔 + 운영 배포 + e2e 65/0/22 PASS)
 
 - **commit**: `988f36c` (`[agenthub/track91] ApiKeyPoolService DB 통합 — 운영자 콘솔에서 외부 LLM 키 회전 가능`). 21 files / +4268 / -52. push 보류 (secret leak 미해결, 시연 종료 후 별도 sanitize 트랙).
