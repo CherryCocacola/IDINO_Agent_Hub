@@ -244,13 +244,32 @@ builder.Services.AddHttpClient("mistral",
 
 // Nexus(사내 LAN-only LLM) Named HttpClient — Phase 5.1, ADR-1 옵션 B.
 // BaseUrl 기본값은 LAN 의 Nexus FastAPI 인스턴스. SharedSecret 은 NexusClient 내부에서 헤더로 부착.
+//
+// 트랙 #92 보강:
+//   - 운영 Nexus orchestrator(Machine A) 는 HTTPS + self-signed 인증서로 LAN 노출(8443).
+//   - LAN 격리(ADR-11 air-gap) 환경이라 운영자가 `Nexus:AcceptSelfSignedCert=true` 토글 시
+//     인증서 검증을 우회한다. 외부망 노출 시점에는 정식 cert 또는 운영 trust store 등록 필요.
 builder.Services.AddHttpClient("nexus", client =>
 {
     var nexusBaseUrl = builder.Configuration["Nexus:BaseUrl"]
-                       ?? "http://192.168.22.28:8001"; // LAN-only Nexus 기본값
+                       ?? "https://192.168.22.223:8443"; // Machine A Nexus orchestrator(HTTPS LAN)
     client.BaseAddress = new Uri(nexusBaseUrl);
     client.Timeout = TimeSpan.FromSeconds(
         builder.Configuration.GetValue<int>("Nexus:DefaultTimeoutSeconds", 60));
+})
+.ConfigurePrimaryHttpMessageHandler(() =>
+{
+    var handler = new HttpClientHandler();
+
+    // LAN-only Nexus 의 self-signed 인증서 허용 옵션.
+    // 운영자가 명시적으로 `Nexus:AcceptSelfSignedCert=true` 설정한 경우에만 활성.
+    // 미설정 시 .NET 기본 검증(루트 CA 신뢰 체인) 적용.
+    var acceptSelfSigned = builder.Configuration.GetValue<bool>("Nexus:AcceptSelfSignedCert", false);
+    if (acceptSelfSigned)
+    {
+        handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+    }
+    return handler;
 });
 
 // ────────────────────────────────────────────────────────────────────────────
