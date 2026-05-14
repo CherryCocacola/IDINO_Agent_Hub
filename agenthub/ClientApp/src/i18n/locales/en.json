@@ -68,6 +68,11 @@
     "usageHistory": "Usage History",
     "auditLog": "Audit Log",
     "reports": "Reports",
+    "playground": "Playground",
+    "agentMarketplace": "Agent Marketplace",
+    "agentTemplates": "Agent Templates",
+    "tools": "Tools",
+    "workflows": "Workflows",
     "help": "Help",
     "logout": "Logout",
     "user": "User",
@@ -79,6 +84,7 @@
       "system": "System",
       "docutil": "DocUtil Operations",
       "admin": "Administration",
+      "myAccount": "My Account",
       "settings": "Settings"
     }
   },

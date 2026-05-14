@@ -170,6 +170,71 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-14 (트랙 #97-pre1 + #97-pre2 — DocUtil 운영자 UI 메뉴 표시 결함 fix + AgentHub 일반 사용자 UI 완전성 보강 + career 4 page.tsx 신설)
+
+- **사용자 명시 보고**: "DocUtil 도 ui 적으로 운영자 메뉴가 표시되지 않았어, 다시 한번 일반 사용자(실제 시스템 사용자 포함)가 ui 적으로도 기능적으로도 완벽하게 사용가능토록 진행해줘".
+
+- **진단 발견 1 (트랙 #97-pre1)**: `agenthub/wwwroot/assets/` 가 Phase 10.2a 스냅샷에 멈춰있어 Phase 10.2b~10.2e 의 8개 청크(SearchScopes / Evaluation / Faq / Reports / Templates / ApiKeys / DocAgents / DocumentsV2) 빌드 누락 → 메뉴 카테고리 자체가 옛 빌드로 렌더링되어 사용자 화면에 미노출. **코드는 5단(BFF + Vue + 라우트 + 메뉴 + i18n) 모두 정의되어 있었으나 빌드/배포 단계 누락**.
+
+- **진단 발견 2 (트랙 #97-pre2, frontend-specialist 인벤토리)**: AgentHub Vue 일반 사용자 라우트 41개 중 6 결함 발견.
+  - MainLayout 메뉴 누락 7건 — Playground / AgentMarketplace / AgentTemplates / Reports / DatabaseBackup / Tools / Workflows (URL 직접 입력만 가능)
+  - i18n 키 누락 5건 — `nav.playground` / `agentMarketplace` / `agentTemplates` / `tools` / `workflows`
+  - router `meta.role` 가드 미부착 10건 — Users / AuditLog / CostAnalysis / Reports / BannedWords / PiiProtection / Team / SystemHealth / DatabaseBackup / PresentationTemplateManagement (일반 user URL 직접 입력 차단 안 됨)
+  - admin 카테고리에 Quota / ApiKeys / Analytics / UsageHistory 묶여있어 **일반 user 본인 데이터 진입점 부재** (가장 결정적 결함)
+  - career frontend `(dashboard)` 라우트 4개 page.tsx 부재 — actions / alumni / competency / roadmap (학생 메뉴 진입 시 404)
+  - docutil `frontend/src/app/(admin)/` 잔존 — layout.tsx 가드는 강함(super_admin/admin/org_admin 외 차단), 운영자 영역 deprecate 는 트랙 #97 종료 후 별도 처리
+
+- **수정 (commit 대기)**:
+  - **agenthub Vue** (4 파일):
+    - `ClientApp/src/i18n/locales/{ko,en}.json` — nav 5 키 + `categories.myAccount` 추가
+    - `ClientApp/src/layouts/MainLayout.vue` — aiServices 확장(+5) + **myAccount 카테고리 신설**(Quota / ApiKeys / Analytics / UsageHistory 모든 사용자) + admin 카테고리 정리(운영자 전용만 + Reports / DatabaseBackup 등록)
+    - `ClientApp/src/router/index.ts` — 운영자 전용 라우트 10건 `meta: { requiresAuth: true, role: 'Admin' }` 가드 부착
+  - **career frontend** (4 신설):
+    - `app/(dashboard)/{alumni,competency,roadmap,actions}/page.tsx` — 각각 기존 Section 컴포넌트 사용(AlumniSection / CompetencySection / RoadmapSection), actions 는 정식 ActionsSection 신설 전까지 안내 카드. 한글 주석 의무 적용
+
+- **빌드 PASS**: `cd agenthub/ClientApp && npm run build:check` → vue-tsc + vite 4.01s. `dist/assets/` 에 AdminDocUtil 13개 청크 + MainLayout 신규(`MainLayout-DvPDjwrb.js`) + index 신규(`index-g2VQ4FVE.js`) 모두 생성. `cp -r dist/* wwwroot/` 로 로컬 동기화.
+
+- **운영 배포 PASS** (`tmp/deploy_track97_pre.py` paramiko, 192.168.10.39:64005):
+  - SFTP 4 파일 / 213,247 bytes 동기화 (각 파일 `.bak.track97pre_{ts}` 백업 동반)
+  - `docker compose build agenthub` (BuildKit cache + 컨테이너 내부 vite 빌드 16.89s)
+  - `docker compose up -d --force-recreate agenthub` → healthy 6초
+
+- **스모크 검증 (5/5)**:
+  - [1] admin 로그인 JWT 555 chars PASS
+  - [2] `/api/admin/metrics/rag` HTTP 200 PASS (Phase 4 회귀)
+  - [3] `/api/admin/docutil/users` **HTTP 502** — 본 트랙 무관 회귀. DocUtil 컨테이너 15개 모두 healthy 35h 가동 중. agenthub→DocUtil JWT 토큰/endpoint 정합성 별도 진단 필요 → **Task #9** 로 분리 등록
+  - [4] index.html entry fingerprint `index-CGjwV1fA.js` 신규 PASS (운영 호스트 컨테이너 내부 vite 빌드 결과 — 로컬 빌드와 다른 fingerprint)
+  - [5] `docker exec agenthub ls /app/wwwroot/assets/ | grep AdminDocUtil` **13건 매치 PASS** — DocUtil 운영자 13개 청크 모두 운영 컨테이너에 서빙 (옛 빌드 누락 결함 완전 해소)
+
+- **메모리 신규 등록 2건** (사용자 명시 피드백 반영):
+  - `feedback_techspec_completeness.md` — TECHSPEC 작성 시 도메인 × 통합 레이어 매트릭스(데이터/AI 호출/운영자 UI/RBAC/모니터링/마이그레이션) 강제. 운영자 UI 흡수가 누락된 결함 반복 방지
+  - `feedback_ui_verification.md` — UI 검증 5단(코드정의 / 빌드 / 배포 / 실측로그인 / e2e) 모두 통과해야 ✅ 완료. "정의됨" ≠ "표시됨" 구분
+
+- **R7 5단 검증 진행률**: 1~4단 PASS, **5단 사용자 측 브라우저 실측 확인 대기** (admin / user role 별 메뉴 표시 + 라우트 진입 + 권한 가드 동작).
+
+- **남은 작업 (Task 추적)**:
+  - **Task #1**: 트랙 #97 본격 진입 (Phase 11.0 Kong admin RBAC + auth/competency/skill admin endpoint 신설 + AgentHub service-to-service 인증, ~3영업일)
+  - **Task #2**: 트랙 #98 Phase 9 이관 스크립트 monorepo codify
+  - **Task #3**: 트랙 #99 career compose/env 통합 DB 진입점 갱신
+  - **Task #9**: DocUtil 502 별도 진단 (회귀, 시급)
+  - **Task #10**: career frontend 빌드 + 배포 (4 page.tsx — 운영 호스트 미확인)
+
+- **commit 메시지**:
+  ```
+  [agenthub/track97-pre + career/track97-pre] DocUtil 운영자 UI 빌드 누락 fix + 일반 사용자 UI 완전성 보강
+
+  agenthub Vue 4 파일:
+  - i18n/locales/{ko,en}.json: nav 5 키 + categories.myAccount
+  - layouts/MainLayout.vue: aiServices 확장 + myAccount 카테고리 신설 + admin 정리
+  - router/index.ts: 운영자 라우트 10건 meta.role='Admin' 가드 부착
+
+  career frontend 4 신설:
+  - app/(dashboard)/{alumni,competency,roadmap,actions}/page.tsx
+
+  운영 배포: npm build 16.89s + docker rebuild + force-recreate + healthy 6s
+  스모크 5/5 (DocUtil 502 1건 본 트랙 무관 회귀 → Task #9 분리)
+  ```
+
 ### 2026-05-13 (트랙 #92 — Nexus 통합 운영 적용 완료: HTTPS LAN(192.168.22.223:8443) self-signed 우회 + 환경변수 정정 + AgentId=30 Internal nexus e2e PASS)
 
 - **commit**: `fab65a8` (`[agenthub/track92] Nexus 통합 운영 적용 — HTTPS LAN(192.168.22.223:8443) self-signed 우회 + 환경변수 정정 + AgentId=30 e2e PASS`). 2 files / +23 / -3 (Program.cs + appsettings.json만 git 추적 — appsettings.Development/Production.json 은 .gitignore 대상이라 운영본만 SFTP 동기화). push 보류 (secret leak 미해결).

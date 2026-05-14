@@ -68,6 +68,11 @@
     "usageHistory": "사용 기록",
     "auditLog": "감사 로그",
     "reports": "보고서",
+    "playground": "Playground",
+    "agentMarketplace": "Agent 마켓플레이스",
+    "agentTemplates": "Agent 템플릿",
+    "tools": "도구",
+    "workflows": "워크플로우",
     "help": "도움말",
     "logout": "로그아웃",
     "user": "사용자",
@@ -79,6 +84,7 @@
       "system": "시스템",
       "docutil": "DocUtil 운영",
       "admin": "운영자",
+      "myAccount": "내 계정",
       "settings": "설정"
     }
   },

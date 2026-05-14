@@ -341,6 +341,63 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         name: t('nav.presentationBuilder'),
         path: '/presentation-builder',
         icon: 'bi bi-file-earmark-slides'
+      },
+      // 트랙 #97-pre2 (2026-05-14) — 일반 사용자 UI 완전성: 누락 메뉴 5건 등록.
+      // Playground/AgentMarketplace/AgentTemplates/Tools/Workflows 는 모든 사용자 대상.
+      {
+        name: t('nav.playground'),
+        path: '/playground',
+        icon: 'bi bi-controller'
+      },
+      {
+        name: t('nav.agentMarketplace'),
+        path: '/agents/marketplace',
+        icon: 'bi bi-shop'
+      },
+      {
+        name: t('nav.agentTemplates'),
+        path: '/agents/templates',
+        icon: 'bi bi-collection'
+      },
+      {
+        name: t('nav.tools'),
+        path: '/tools',
+        icon: 'bi bi-tools'
+      },
+      {
+        name: t('nav.workflows'),
+        path: '/workflows',
+        icon: 'bi bi-diagram-2'
+      }
+    ]
+  },
+  // 트랙 #97-pre2 (2026-05-14) — 일반 사용자 본인 데이터 진입점 분리.
+  // 본인 Quota / ApiKeys / Analytics / UsageHistory 는 모든 사용자 접근 — admin 카테고리에서 분리.
+  // 백엔드 컨트롤러는 user role 시 본인 데이터, admin role 시 전체 데이터 분기.
+  {
+    id: 'myAccount',
+    name: t('nav.categories.myAccount'),
+    icon: 'bi bi-person-circle',
+    items: [
+      {
+        name: t('nav.quota'),
+        path: '/quota',
+        icon: 'bi bi-bar-chart'
+      },
+      {
+        name: t('nav.apiKeys'),
+        path: '/api-keys',
+        icon: 'bi bi-key'
+      },
+      {
+        name: t('nav.analytics'),
+        path: '/analytics',
+        icon: 'bi bi-graph-up-arrow'
+      },
+      {
+        name: t('nav.usageHistory'),
+        path: '/usage-history',
+        icon: 'bi bi-clock-history'
       }
     ]
   },
@@ -477,18 +534,8 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         icon: 'bi bi-people-fill',
         roles: ['Admin']
       },
-      {
-        name: t('nav.quota'),
-        path: '/quota',
-        icon: 'bi bi-bar-chart',
-        roles: ['Admin']
-      },
-      {
-        name: t('nav.apiKeys'),
-        path: '/api-keys',
-        icon: 'bi bi-key',
-        roles: ['Admin']
-      },
+      // 트랙 #97-pre2 (2026-05-14): Quota/ApiKeys/Analytics/UsageHistory 는 myAccount 카테고리로 이동.
+      // 백엔드 컨트롤러는 user role 시 본인 데이터 / admin role 시 전체 데이터 분기 (라우트 동일).
       {
         name: t('nav.bannedWords'),
         path: '/banned-words',
@@ -501,13 +548,7 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         icon: 'bi bi-shield-lock',
         roles: ['Admin']
       },
-      // 기존 analytics 에서 이동
-      {
-        name: t('nav.analytics'),
-        path: '/analytics',
-        icon: 'bi bi-graph-up-arrow',
-        roles: ['Admin']
-      },
+      // 기존 analytics 에서 이동 — 운영자 전용 항목만 유지
       {
         name: t('nav.auditLog'),
         path: '/audit-log',
@@ -518,12 +559,6 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         name: t('nav.costAnalysis'),
         path: '/cost-analysis',
         icon: 'bi bi-currency-dollar',
-        roles: ['Admin']
-      },
-      {
-        name: t('nav.usageHistory'),
-        path: '/usage-history',
-        icon: 'bi bi-clock-history',
         roles: ['Admin']
       },
       // 기존 system 에서 이동
@@ -537,6 +572,19 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         name: t('nav.presentationTemplateManagement'),
         path: '/presentation-templates',
         icon: 'bi bi-file-earmark-slides',
+        roles: ['Admin']
+      },
+      // 트랙 #97-pre2 (2026-05-14): 누락된 운영자 메뉴 2건 등록 (라우트 존재했으나 메뉴 없음).
+      {
+        name: t('nav.reports'),
+        path: '/reports',
+        icon: 'bi bi-file-earmark-bar-graph',
+        roles: ['Admin']
+      },
+      {
+        name: t('nav.databaseBackup'),
+        path: '/database-backup',
+        icon: 'bi bi-hdd-stack',
         roles: ['Admin']
       }
     ]

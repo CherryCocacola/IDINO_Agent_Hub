@@ -73,7 +73,8 @@ const routes = [
       {
         path: 'users',
         name: 'Users',
-        component: () => import('@/views/Users.vue')
+        component: () => import('@/views/Users.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
       },
       {
         path: 'agents',
@@ -128,12 +129,14 @@ const routes = [
       {
         path: 'audit-log',
         name: 'AuditLog',
-        component: () => import('@/views/AuditLog.vue')
+        component: () => import('@/views/AuditLog.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
       },
       {
         path: 'cost-analysis',
         name: 'CostAnalysis',
-        component: () => import('@/views/CostAnalysis.vue')
+        component: () => import('@/views/CostAnalysis.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
       },
       {
         path: 'help',
@@ -263,7 +266,8 @@ const routes = [
       {
         path: 'reports',
         name: 'Reports',
-        component: () => import('@/views/Reports.vue')
+        component: () => import('@/views/Reports.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
       },
       {
         path: 'usage-history',
@@ -278,32 +282,38 @@ const routes = [
       {
         path: 'banned-words',
         name: 'BannedWords',
-        component: () => import('@/views/BannedWords.vue')
+        component: () => import('@/views/BannedWords.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
       },
       {
         path: 'pii-protection',
         name: 'PiiProtection',
-        component: () => import('@/views/PiiProtection.vue')
+        component: () => import('@/views/PiiProtection.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
       },
       {
         path: 'team',
         name: 'Team',
-        component: () => import('@/views/Team.vue')
+        component: () => import('@/views/Team.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
       },
       {
         path: 'system-health',
         name: 'SystemHealth',
-        component: () => import('@/views/SystemHealth.vue')
+        component: () => import('@/views/SystemHealth.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
       },
       {
         path: 'database-backup',
         name: 'DatabaseBackup',
-        component: () => import('@/views/DatabaseBackup.vue')
+        component: () => import('@/views/DatabaseBackup.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
       },
       {
         path: 'presentation-templates',
         name: 'PresentationTemplateManagement',
-        component: () => import('@/views/PresentationTemplateManagement.vue')
+        component: () => import('@/views/PresentationTemplateManagement.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
       },
       {
         path: 'image-generation',
