@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { safeGetLocalStorage } from '@/utils/storage'
+import { safeGetAuthStorage } from '@/utils/storage'
 import { useAuthStore } from '@/stores/auth'
 
 const routes = [
@@ -415,7 +415,12 @@ function hasRequiredRole(userRoles: string[], required: string[]): boolean {
 }
 
 router.beforeEach(async (to, _from, next) => {
-  const token = safeGetLocalStorage('token')
+  // 트랙 #97-pre2-2 (2026-05-14): safeGetLocalStorage → safeGetAuthStorage 로 교정.
+  // 트랙 #88 C2 의 "자동 로그인 유지" 분기에서 rememberMe=false 사용자는 sessionStorage 에
+  // 토큰이 저장된다. 그러나 본 가드가 localStorage 만 보면 sessionStorage 에 저장된 토큰을
+  // 못 찾아 token=null 로 인식하고 /login 으로 무한 redirect — 로그인 자체가 성공해도
+  // 화면이 그대로 머무는 결함이 발생한다. authStore 와 동일한 local→session 탐색 정책을 적용.
+  const token = safeGetAuthStorage('token')
 
   // 루트(/) 미로그인 → 랜딩 페이지 (requiresAuth 체크보다 먼저)
   if (to.path === '/' && !token) {

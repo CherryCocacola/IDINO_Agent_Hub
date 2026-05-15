@@ -170,6 +170,52 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-15 (트랙 #97-pre2-2 — i18n 메뉴 영문 결함 fix + 베트남어(vi) 추가 + Settings 3-way 언어 선택)
+
+- **사용자 명시 보고**: "메뉴명이 계속 영문이다가 SETTINGS 를 선택하면 한글로 변경되는건 아직 수정되지 않은 거 같아 메뉴명은 SETTING 에서 전체 메뉴 및 시스템 내부에서 사용하는 언어를 설정할 수 있도록 해줘 (영어/한글/베트남)"
+
+- **frontend-specialist 진단 (가설 A~E 검증) — root cause 확정**:
+  - **가설 E (1순위)**: `localStorage.i18n_locale` 에 사용자가 과거에 저장한 'en' 잔존 → `getDefaultLocale()` 가 우선시하여 영문 표시
+  - **가설 A (2순위)**: `Settings.vue` 의 `preferences.value.language` 초기값이 'ko' 하드코딩(L372) → `onMounted → loadPreferences()` 가 DB ko 가져와서 `locale.value = 'ko'` 강제 적용 → Settings 진입만으로 한글 전환 결함
+  - 가설 B/C/D 기각 (i18n init 시점/운영 빌드 캐시/메뉴 렌더링 모두 정상)
+
+- **수정 7 파일** (백엔드 변경 0건):
+  - **`i18n/index.ts`** — `SUPPORTED_LOCALES`/`isSupportedLocale`/`SupportedLocale` export, vi import, `vi-VN` 브라우저 감지, `missingWarn: false` (vi 누락 키 ko 폴백), validation `['ko','en','vi'].includes(saved)`
+  - **`i18n/locales/vi.json` (신규 1804 라인, 88KB)** — ko.json 구조 100% 동일, ko 기반 AI 번역. 685건 exactMap + 92건 패턴 치환 + 355건 인라인 부분 치환 + 514건 ko 폴백. 메뉴/공통 UI 8/10 품질, 전체 평균 6/10 (Admin 깊은 페이지는 ko 폴백)
+  - **`i18n/locales/{ko,en}.json`** — vi 토글 라벨 등 3 키 추가
+  - **`views/Settings.vue`** — L181~196 (select에 vi 옵션 + 라벨 3개 언어 병기), L371~378 (`preferences.language` 초기값 `locale.value` 사용 — **ko 하드코딩 제거, root cause fix**), L485~492 (DB 로드 시 `isSupportedLocale` 검사), L513~525 (localStorage 우선순위 + 불일치 시 i18n 갱신), L543~556 (`handleLanguageChange` 가드)
+  - **`layouts/MainLayout.vue`** — L96~117 (우상단 드롭다운에 Tiếng Việt 항목), L657~673 (`currentLanguageName` vi 분기, `changeLanguage` 시그니처 SupportedLocale 확장)
+  - **`router/index.ts`** — 부수 fix: `safeGetLocalStorage` → `safeGetAuthStorage` (rememberMe=false 사용자의 sessionStorage 토큰 fallback 적용으로 /login 무한 리다이렉트 결함 함께 해소)
+
+- **베트남어 번역 전략**:
+  - 도메인 용어 영어 유지: "Agent", "RAG", "API Key", "Markdown", "Tavily", "Knowledge Base", LLM 모델명/프로바이더명
+  - 베트남어 표기: `Tiếng Việt` (네이티브, diacritics 정확)
+  - vue-i18n `fallbackLocale: 'ko'` + `fallbackWarn: false` 로 vi 누락 키는 ko 자동 표시
+
+- **로컬 빌드 검증**: `npm run build:check` 6.70s, 0 TypeScript 에러.
+
+- **운영 배포 PASS** (`tmp/deploy_track97_pre2_2_i18n.py` SFTP 7 파일 + `tmp/verify_track97_pre2_2_only.py` force-recreate + 검증):
+  - SFTP 7 파일 동기화 (vi.json 신규, 6 파일 `.bak.track97_pre2_2_20260515_113848` 백업 동반)
+  - `docker compose build agenthub` 97.1s 빌드 exit 0 (BuildKit cache + 컨테이너 내부 npm install + vite build 자동, 302 modules transformed, ✓ built in 16.86s)
+  - `force-recreate` healthy 6초
+  - 검증 5/5 PASS:
+    - [1] admin 로그인 JWT 555 chars
+    - [2] `/api/admin/docutil/users` HTTP 200 (직전 트랙 #97-post 회귀 무)
+    - [3] `/api/admin/metrics/rag` HTTP 200
+    - [4] index entry fingerprint `index-BhdUDU6I.js` (신규 빌드)
+    - [6] **`Tiếng Việt` 라벨 컨테이너 직접 매치**: `/app/wwwroot/assets/MainLayout-CvJCYXRc.js` + `Settings-_SicBnpp.js` — vi 옵션 두 컴포넌트에 정확히 빌드
+
+- **5단 사용자 측 검증 필요 (브라우저 실측)**:
+  - `Ctrl+Shift+R` + `localStorage.removeItem('i18n_locale')` 후 첫 진입 → **한국어 메뉴** (R5 기본)
+  - 우상단 지구본 토글 → Tiếng Việt 클릭 → 메뉴/공통 라벨 베트남어 전환
+  - `/settings` → 환경 설정 → 언어 드롭다운 3개 옵션 (한국어/English/Tiếng Việt) + 변경 즉시 반영 + 새로고침 후 유지
+
+- **잠재 위험 / 후속 트랙**:
+  - 베트남어 텍스트 길이 ko 대비 1.3~1.5x → 사이드바 좁은 폭의 메뉴 라벨 overflow 가능성 (브라우저 실측 필요. 우려 시 `text-overflow: ellipsis` CSS 추가)
+  - Admin 깊은 페이지 (DocUtilTemplates/Evaluation/FAQ 등) vi 번역 30~40% 커버 → 1주 이내 사용자 피드백 기반 점진적 보완
+
+- **마지막 commit**: 본 작업 후 추가 예정 (placeholder).
+
 ### 2026-05-15 (트랙 #97-post — Task #9 DocUtil 502 운영 회복 + Task #10 career 4 page.tsx 로컬 빌드 검증)
 
 - **사용자 명시 보고**: 직전 트랙 #97-pre 의 사용자 요구 ①(DocUtil 운영자 메뉴 표시) + ②(일반 사용자 완벽 사용) 가 운영 단에서 미충족임을 지적. "에 대한 조치가 필요하지" → Task #9/#10/5단 검증 묶음 처리 결정.

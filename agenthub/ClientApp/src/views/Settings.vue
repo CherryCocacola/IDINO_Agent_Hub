@@ -176,8 +176,12 @@
               </div>
 
               <form @submit.prevent="handleSavePreferences">
+                <!--
+                  트랙 #97-pre2-2 (2026-05-15): 3개 언어 지원 (한국어/English/Tiếng Việt).
+                  변경 즉시 vue-i18n 적용 + localStorage 영구 저장 → MainLayout 메뉴/모든 t() 호출에 반영.
+                -->
                 <div class="mb-3">
-                  <label class="form-label">언어</label>
+                  <label class="form-label">언어 / Language / Ngôn ngữ</label>
                   <select
                     class="form-select"
                     v-model="preferences.language"
@@ -186,8 +190,9 @@
                   >
                     <option value="ko">한국어</option>
                     <option value="en">English</option>
+                    <option value="vi">Tiếng Việt</option>
                   </select>
-                  <small class="text-muted">언어 변경은 즉시 적용됩니다</small>
+                  <small class="text-muted">언어 변경은 즉시 전체 메뉴에 적용됩니다</small>
                 </div>
                 <div class="mb-3">
                   <label class="form-label">시간대</label>
@@ -324,6 +329,8 @@ import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import type { UserDto, UserPreferenceDto } from '@/types'
 import { safeGetLocalStorage, safeSetLocalStorage } from '@/utils/storage'
+// 트랙 #97-pre2-2 (2026-05-15): 지원 언어 검증을 i18n 모듈 단일 소스에서 가져옴 (ko/en/vi).
+import { isSupportedLocale, type SupportedLocale } from '@/i18n'
 
 /**
  * 설정 화면.
@@ -368,8 +375,13 @@ const profile = ref({
   bio: ''
 })
 
+// 트랙 #97-pre2-2 (2026-05-15) — Root cause fix:
+//   종전 초기값을 'ko' 로 하드코딩했더니 Settings 진입 onMounted → loadPreferences() 가
+//   DB 응답 전까지 잠깐 preferences.language='ko' 로 보이고, 이어 locale.value = preferences.language
+//   라인이 실행되며 영문 사용자도 한글로 강제 전환되던 결함이 있었음.
+//   현재 i18n locale 값으로 시작해, DB/저장값이 별도로 없으면 절대 언어를 임의 변경하지 않음.
 const preferences = ref({
-  language: 'ko' as 'ko' | 'en',
+  language: (locale.value as SupportedLocale) || 'ko',
   timezone: 'Asia/Seoul',
   theme: 'light' as 'light' | 'dark' | 'auto'
 })
@@ -483,7 +495,11 @@ const loadPreferences = async () => {
     // 데이터베이스에서 가져온 설정으로 preferences 초기화
     prefs.forEach((pref) => {
       if (pref.preferenceKey === 'language') {
-        preferences.value.language = (pref.preferenceValue as 'ko' | 'en') || 'ko'
+        // 트랙 #97-pre2-2 (2026-05-15): SUPPORTED_LOCALES 검사 → vi 포함.
+        // 미지원 값(legacy 데이터 또는 임의 입력) 이면 현재 locale 유지.
+        if (isSupportedLocale(pref.preferenceValue)) {
+          preferences.value.language = pref.preferenceValue
+        }
       } else if (pref.preferenceKey === 'timezone') {
         preferences.value.timezone = pref.preferenceValue || 'Asia/Seoul'
       } else if (pref.preferenceKey === 'theme') {
@@ -511,11 +527,18 @@ const loadPreferences = async () => {
     }
 
     // 언어 설정 적용 (localStorage 의 i18n_locale 이 우선)
+    // 트랙 #97-pre2-2 (2026-05-15): ko/en/vi 검증 → SUPPORTED_LOCALES 단일 소스 사용.
     const savedLocale = safeGetLocalStorage('i18n_locale')
-    if (savedLocale && (savedLocale === 'ko' || savedLocale === 'en')) {
+    if (isSupportedLocale(savedLocale)) {
       preferences.value.language = savedLocale
     }
-    locale.value = preferences.value.language
+    // 트랙 #97-pre2-2 (2026-05-15): locale.value 가 이미 preferences.value.language 와 같으면
+    //   no-op 이지만, 다를 경우(예: DB 에 'vi' 저장이지만 localStorage 가 'en') DB 값을 우선 적용.
+    //   사용자 의도(가장 최근 Settings 저장값)를 신뢰하는 정책.
+    if (locale.value !== preferences.value.language) {
+      locale.value = preferences.value.language
+      safeSetLocalStorage('i18n_locale', preferences.value.language)
+    }
   } catch (error) {
     console.error('Error loading preferences:', error)
     // 오프라인 폴백 — localStorage 만으로 동작
@@ -523,8 +546,12 @@ const loadPreferences = async () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
+        // 트랙 #97-pre2-2 (2026-05-15): vi 포함 검증 — 미지원 값은 현재 locale 유지.
+        const parsedLang = isSupportedLocale(parsed.language)
+          ? (parsed.language as SupportedLocale)
+          : (locale.value as SupportedLocale) || 'ko'
         preferences.value = {
-          language: parsed.language || 'ko',
+          language: parsedLang,
           timezone: parsed.timezone || 'Asia/Seoul',
           theme: parsed.theme || 'light'
         }
@@ -533,16 +560,26 @@ const loadPreferences = async () => {
       }
     }
     const savedLocale = safeGetLocalStorage('i18n_locale')
-    if (savedLocale && (savedLocale === 'ko' || savedLocale === 'en')) {
+    if (isSupportedLocale(savedLocale)) {
       preferences.value.language = savedLocale
       locale.value = savedLocale
     }
   }
 }
 
+/**
+ * 사용자가 언어 select 를 변경했을 때 호출.
+ * 트랙 #97-pre2-2 (2026-05-15): SUPPORTED_LOCALES (ko/en/vi) 검증 + localStorage 영구 저장.
+ * 즉시 vue-i18n locale 갱신 → MainLayout 의 computed menuCategories 가 reactive 하게 재평가됨.
+ */
 const handleLanguageChange = () => {
-  locale.value = preferences.value.language
-  safeSetLocalStorage('i18n_locale', preferences.value.language)
+  const next = preferences.value.language
+  if (!isSupportedLocale(next)) {
+    // 비정상 입력이면 무시 (UI 의 select 가 SUPPORTED_LOCALES 만 노출하므로 도달 불가 — 방어)
+    return
+  }
+  locale.value = next
+  safeSetLocalStorage('i18n_locale', next)
 }
 
 const handleSavePreferences = async () => {

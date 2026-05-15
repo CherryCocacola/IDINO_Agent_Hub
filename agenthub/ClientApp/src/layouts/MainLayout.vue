@@ -93,6 +93,10 @@
               <button class="topbar-btn" type="button" data-bs-toggle="dropdown" title="언어">
                 <i class="bi bi-globe"></i>
               </button>
+              <!--
+                트랙 #97-pre2-2 (2026-05-15): 우상단 언어 토글 3개 언어 (ko/en/vi) 지원.
+                토글 클릭 → vue-i18n locale 즉시 변경 + localStorage 저장 → 메뉴 reactive 재렌더.
+              -->
               <ul class="dropdown-menu dropdown-menu-end">
                 <li>
                   <a class="dropdown-item" href="#" @click.prevent="changeLanguage('ko')">
@@ -104,6 +108,12 @@
                   <a class="dropdown-item" href="#" @click.prevent="changeLanguage('en')">
                     <i class="bi bi-check me-2" v-if="currentLanguage === 'en'"></i>
                     <span class="me-2" v-else></span>{{ $t('chat.english') }}
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="#" @click.prevent="changeLanguage('vi')">
+                    <i class="bi bi-check me-2" v-if="currentLanguage === 'vi'"></i>
+                    <span class="me-2" v-else></span>Tiếng Việt
                   </a>
                 </li>
               </ul>
@@ -221,6 +231,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import { safeGetLocalStorage, safeSetLocalStorage } from '@/utils/storage'
+// 트랙 #97-pre2-2 (2026-05-15): 지원 언어 타입 단일 소스 (ko/en/vi).
+import type { SupportedLocale } from '@/i18n'
 // 트랙 #88 C2: 만료 5분 전 사전 토큰 갱신 — 무알림 강제 로그아웃 방지
 import { useTokenAutoRefresh } from '@/composables/useTokenAutoRefresh'
 
@@ -408,30 +420,16 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
   // Phase 10.1a (2026-05-10): DocUtil 운영 카테고리 신설 — Admin/SuperAdmin 전용.
   //   본 트랙(10.1a)에서 사용자 1개 항목 + Phase 10.1b 부서/할당량 항목 추가. 후속 10.1c(프로젝트)
   //   트랙에서 같은 카테고리에 항목이 추가됨.
+  // 트랙 #97-pre3 (2026-05-14) — DocUtil 운영자 메뉴 통합:
+  //   사용자/부서/프로젝트/LLM API 키 4개를 admin 카테고리로 이동(아래 admin 블록 참조).
+  //   본 docutil 카테고리에는 DocUtil 고유 기능 9개만 남김(대시보드/감사/검색범위/평가/FAQ/보고서/템플릿/챗봇 에이전트/문서 V2).
+  //   사용자 명시: "docutil 의 사용자/부서/프로젝트는 AgentHub 와 통합 관리 / LLM API 키도 AgentHub 통합 관리".
   {
     id: 'docutil',
     name: t('nav.categories.docutil'),
     icon: 'bi bi-database',
     roles: ['Admin', 'SuperAdmin'],
     items: [
-      {
-        name: t('nav.docutilUsers'),
-        path: '/admin/docutil-users',
-        icon: 'bi bi-people',
-        roles: ['Admin', 'SuperAdmin']
-      },
-      {
-        name: t('nav.docutilDepartments'),
-        path: '/admin/docutil-departments',
-        icon: 'bi bi-diagram-3',
-        roles: ['Admin', 'SuperAdmin']
-      },
-      {
-        name: t('nav.docutilProjects'),
-        path: '/admin/docutil-projects',
-        icon: 'bi bi-folder2-open',
-        roles: ['Admin', 'SuperAdmin']
-      },
       // Phase 10.2a (2026-05-10): DocUtil 대시보드 + 감사 로그 — 운영 모니터링.
       {
         name: t('nav.docutilDashboard'),
@@ -478,13 +476,6 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         icon: 'bi bi-file-earmark-code',
         roles: ['Admin', 'SuperAdmin']
       },
-      // Phase 10.2e (2026-05-11): DocUtil LLM API Key — 외부 프로바이더 키 등록/회수/검증.
-      {
-        name: t('nav.docutilApiKeys'),
-        path: '/admin/docutil-api-keys',
-        icon: 'bi bi-key',
-        roles: ['Admin', 'SuperAdmin']
-      },
       // Phase 10.2e (2026-05-11): DocUtil 자체 에이전트(챗봇용 페르소나) — AgentHub Agent 와 별개.
       {
         name: t('nav.docutilDocAgents'),
@@ -521,12 +512,32 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         icon: 'bi bi-graph-up-arrow',
         roles: ['Admin', 'SuperAdmin']
       },
-      // 기존 management 에서 이동
+      // 트랙 #97-pre3 (2026-05-14): DocUtil 운영자 메뉴 통합 — 사용자/부서/프로젝트/LLM API 키.
+      //   AgentHub Users(/users)는 이미 통합 PG Users 테이블(130 user + 2 admin + 1 dev, 트랙 #88) 을 표시.
+      //   부서/프로젝트/LLM 키는 DocUtil BFF 페이지를 운영자 카테고리에 노출.
       {
         name: t('nav.users'),
         path: '/users',
         icon: 'bi bi-people',
         roles: ['Admin']
+      },
+      {
+        name: t('nav.departments'),
+        path: '/admin/docutil-departments',
+        icon: 'bi bi-diagram-3',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      {
+        name: t('nav.projects'),
+        path: '/admin/docutil-projects',
+        icon: 'bi bi-folder2-open',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      {
+        name: t('nav.llmApiKeys'),
+        path: '/admin/docutil-api-keys',
+        icon: 'bi bi-key',
+        roles: ['Admin', 'SuperAdmin']
       },
       {
         name: t('nav.team'),
@@ -656,11 +667,19 @@ const toggleCategory = (categoryId: string) => {
 }
 
 const currentLanguage = computed(() => locale.value)
+// 트랙 #97-pre2-2 (2026-05-15): 베트남어 추가 — 우상단 토글 / 페이지 타이틀 등 표시용.
 const currentLanguageName = computed(() => {
-  return locale.value === 'ko' ? '한국어' : 'English'
+  if (locale.value === 'ko') return '한국어'
+  if (locale.value === 'vi') return 'Tiếng Việt'
+  return 'English'
 })
 
-const changeLanguage = (lang: 'ko' | 'en') => {
+/**
+ * 우상단 언어 드롭다운에서 호출.
+ * locale.value 변경 → MainLayout 의 computed menuCategories 가 reactive 재평가 → 메뉴 즉시 번역.
+ * localStorage 영구 저장으로 다음 진입에도 유지.
+ */
+const changeLanguage = (lang: SupportedLocale) => {
   locale.value = lang
   safeSetLocalStorage('i18n_locale', lang)
 }
