@@ -230,7 +230,7 @@
 
 - **메모리 활용**: `feedback_quality_over_demo.md`(완벽한 구현 우선) + `feedback_ui_verification.md`(5단 검증) 적용. tsconfig ES2017 부수 fix 도 본 트랙 범위 안으로 포함하여 빌드 완전 통과 추구.
 
-- **마지막 commit**: 본 작업 후 추가 예정 (placeholder — 본 entry 갱신 commit 직후 hash 갱신).
+- **마지막 commit**: `9191384` (`[agenthub/track97-post + career/track97-post] DocUtil 502 운영 회복 + career 4 page.tsx 빌드 검증`, +322/-31 LOC, 8 파일 변경). 직전 `055086e` (트랙 #97-pre1+pre2 DocUtil UI 빌드 누락 fix + 일반 사용자 UI 완전성 보강).
 
 ### 2026-05-14 (트랙 #97-pre1 + #97-pre2 — DocUtil 운영자 UI 메뉴 표시 결함 fix + AgentHub 일반 사용자 UI 완전성 보강 + career 4 page.tsx 신설)
 
