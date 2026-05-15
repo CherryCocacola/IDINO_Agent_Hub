@@ -1,6 +1,8 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AIAgentManagement.Exceptions;
 
 namespace AIAgentManagement.Services;
 
@@ -65,24 +67,43 @@ public sealed class DocUtilTokenProvider : IDocUtilTokenProvider
                 return _cachedAccessToken;
             }
 
-            // 2) appsettings:DocUtil:JwtToken — 캐시 미적재 상태에서만 적용
-            //    (한 번 적재되면 자동 갱신 흐름으로 넘어가서 stale 한 manual 토큰을 다시 읽지 않음)
-            if (string.IsNullOrEmpty(_cachedAccessToken))
+            // 2) appsettings:DocUtil:JwtToken — 만료 임박 시점마다 매번 재평가한다.
+            //
+            //    Phase 10.x Task #9 회귀 수정 (2026-05-15):
+            //      이전 구현은 `if (string.IsNullOrEmpty(_cachedAccessToken))` 가드 안에서만
+            //      manualJwt 를 읽었다. 결과적으로 한 번 캐시가 적재되면 manual 토큰을 다시
+            //      읽지 않아, 운영자가 .env 에 새 JwtToken 을 갱신해도 35시간 후(JWT exp
+            //      도래) refresh / ServiceAccount 폴백이 모두 실패할 때 stale 토큰을
+            //      그대로 반환하던 문제가 있었다 (DocUtil 측 502 회귀의 직접 원인).
+            //
+            //    수정: 캐시 만료 임박(RefreshSkew 5분) 으로 본 분기에 진입한 모든 경우에
+            //          .env 의 최신 JwtToken 을 재평가한다. 같은 토큰이라도 idempotent
+            //          이며, 새 토큰이라면 즉시 반영된다.
+            var manualJwt = _configuration["DocUtil:JwtToken"];
+            if (!string.IsNullOrWhiteSpace(manualJwt))
             {
-                var manualJwt = _configuration["DocUtil:JwtToken"];
-                if (!string.IsNullOrWhiteSpace(manualJwt))
+                var manualExp = TryDecodeJwtExp(manualJwt);
+                if (manualExp > DateTimeOffset.UtcNow.Add(RefreshSkew))
                 {
-                    var manualExp = TryDecodeJwtExp(manualJwt);
-                    if (manualExp > DateTimeOffset.UtcNow.Add(RefreshSkew))
+                    // 기존 캐시 값과 다르면 갱신, 같으면 idempotent 재적재.
+                    var isReload = !string.Equals(_cachedAccessToken, manualJwt, StringComparison.Ordinal);
+                    _cachedAccessToken = manualJwt;
+                    _expiresAt = manualExp;
+                    if (isReload)
                     {
-                        _cachedAccessToken = manualJwt;
-                        _expiresAt = manualExp;
-                        _logger.LogInformation("DocUtil 토큰 - appsettings:JwtToken 적재 (남은 {Min}분)",
+                        _logger.LogInformation(
+                            "DocUtil 토큰 - appsettings:JwtToken 재로드 (남은 {Min}분) — 환경변수 갱신 반영",
                             (int)(manualExp - DateTimeOffset.UtcNow).TotalMinutes);
-                        return _cachedAccessToken;
                     }
-                    _logger.LogWarning("DocUtil:JwtToken 만료 또는 임박 — refresh_token / ServiceAccount 폴백");
+                    else
+                    {
+                        _logger.LogDebug(
+                            "DocUtil 토큰 - appsettings:JwtToken 적재 (남은 {Min}분)",
+                            (int)(manualExp - DateTimeOffset.UtcNow).TotalMinutes);
+                    }
+                    return _cachedAccessToken;
                 }
+                _logger.LogWarning("DocUtil:JwtToken 만료 또는 임박 — refresh_token / ServiceAccount 폴백");
             }
 
             // 3) refresh_token 으로 갱신 시도
@@ -103,9 +124,12 @@ public sealed class DocUtilTokenProvider : IDocUtilTokenProvider
             // 4) ServiceAccount 로 재로그인
             var username = _configuration["DocUtil:ServiceUsername"];
             var password = _configuration["DocUtil:ServicePassword"];
-            if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
+            var hasServiceCredential = !string.IsNullOrWhiteSpace(username)
+                                       && !string.IsNullOrWhiteSpace(password);
+            var loginRejectedByDocUtil = false; // 401/403 응답 식별용
+            if (hasServiceCredential)
             {
-                var login = await TryLoginAsync(username, password, cancellationToken);
+                var login = await TryLoginAsync(username!, password!, cancellationToken);
                 if (login != null)
                 {
                     _cachedAccessToken = login.AccessToken;
@@ -115,18 +139,43 @@ public sealed class DocUtilTokenProvider : IDocUtilTokenProvider
                         username, (int)(_expiresAt - DateTimeOffset.UtcNow).TotalMinutes);
                     return _cachedAccessToken;
                 }
+                // null 반환은 1) 자격 거절(401/403) 2) 네트워크 장애 모두 포함하나,
+                // 보수적으로 "자격 거절" 가능성을 가정하여 운영자에게 분명한 신호를 보낸다.
+                loginRejectedByDocUtil = true;
             }
 
-            // 모두 실패 시: 캐시 유지 (이미 만료된 토큰을 반환하더라도 호출자가 401 받고
-            // 다음 호출 때 재시도 — 본 메서드를 호출하는 DocUtilClient.EnsureSuccessOrThrow 가
-            // 한국어 메시지로 안내). 캐시 자체가 비었으면 null 반환.
-            if (!string.IsNullOrEmpty(_cachedAccessToken))
+            // Phase 10.x Task #9 회귀 수정 (2026-05-15):
+            //   이전 구현은 갱신 모든 경로 실패 시 stale 캐시 토큰을 그대로 반환했다.
+            //   이렇게 되면 DocUtilClient 가 stale 토큰으로 HTTP 호출 → 401 5회 →
+            //   Polly Circuit Breaker OPEN(30s) → half-open → 401 → 재차단 사이클이
+            //   30초마다 반복되어 사용자에게 502 가 고착되었다.
+            //
+            //   수정: 폴백 모두 실패 시 stale 캐시를 반환하지 않고 즉시 한국어
+            //         DocUtilUpstreamException 을 던진다. ErrorCode 를 두 카테고리로
+            //         분류하여 운영자가 진단을 좁힐 수 있게 한다.
+            //     - 자격 자체가 비어있음 → DOCUTIL_TOKEN_MISSING (운영자: .env 확인 필요)
+            //     - 자격이 있었으나 거절됨 → DOCUTIL_TOKEN_FORBIDDEN (운영자: 비밀번호 회전 / 계정 잠금 의심)
+            //
+            //   본 예외는 DocUtil 측 HTTP 호출 자체를 시도하지 않으므로 Polly CB 카운터를
+            //   증가시키지 않는다 → 운영자가 ServiceAccount 자격을 정상화하면 즉시 회복.
+            if (loginRejectedByDocUtil)
             {
-                _logger.LogWarning("DocUtil 토큰 갱신 모든 경로 실패 — 만료된 캐시 토큰 반환");
-                return _cachedAccessToken;
+                _logger.LogError(
+                    "DocUtil 토큰 — ServiceAccount 로그인 거절(401/403 유력). 비밀번호 회전 또는 계정 잠금 의심.");
+                throw new DocUtilUpstreamException(
+                    HttpStatusCode.Forbidden,
+                    "/api/v1/auth/login",
+                    DocUtilUpstreamException.ErrorCodes.TokenForbidden,
+                    "DocUtil 운영자 자격이 거절되었습니다. ServiceAccount 비밀번호 회전 또는 계정 잠금 상태를 확인하세요.");
             }
-            _logger.LogWarning("DocUtil 토큰 미설정 — JwtToken / refresh_token / ServiceAccount / ApiKey 모두 비어있음");
-            return null;
+
+            _logger.LogError(
+                "DocUtil 토큰 미설정 — JwtToken / refresh_token / ServiceAccount / ApiKey 모두 비어있음");
+            throw new DocUtilUpstreamException(
+                HttpStatusCode.ServiceUnavailable,
+                "(token-provider)",
+                DocUtilUpstreamException.ErrorCodes.TokenMissing,
+                "DocUtil 인증 정보가 비어 있습니다. JwtToken / ServiceUsername+Password / ApiKey 중 하나를 설정하세요.");
         }
         finally
         {

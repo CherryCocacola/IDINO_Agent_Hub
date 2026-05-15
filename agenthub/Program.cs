@@ -324,7 +324,15 @@ static IAsyncPolicy<HttpResponseMessage> GetDocUtilRetryPolicy()
 static IAsyncPolicy<HttpResponseMessage> GetDocUtilCircuitBreakerPolicy()
 {
     // 5회 연속 실패 → 30초 차단(BrokenCircuitException 발생).
-    // 차단 중 호출은 즉시 예외 → DocUtilClient 의 InvalidOperationException 변환 → 502.
+    // 차단 중 호출은 즉시 예외 → DocUtilClient 의 DocUtilUpstreamException 변환 → 502/503.
+    //
+    // Phase 10.x Task #9 (2026-05-15) 주석 보강:
+    //   HandleTransientHttpError 는 5xx + HttpRequestException 만 처리 — 4xx(특히 401/403)
+    //   는 CB 카운터에 집계되지 않는다. 따라서 토큰 갱신 실패로 인한 401 무한 사이클은
+    //   본 CB 정책이 아니라 DocUtilTokenProvider 의 fail-fast 동작으로 차단된다:
+    //     - 토큰 갱신 모든 경로 실패 → DocUtilTokenProvider 가 DocUtilUpstreamException
+    //       (TOKEN_MISSING / TOKEN_FORBIDDEN) 을 즉시 throw → DocUtilClient 는 HTTP 호출
+    //       자체를 시도하지 않음 → CB 카운터 영향 없음 → 운영자가 자격 정상화하면 즉시 회복.
     return HttpPolicyExtensions
         .HandleTransientHttpError()
         .CircuitBreakerAsync(

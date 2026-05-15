@@ -170,6 +170,68 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-15 (트랙 #97-post — Task #9 DocUtil 502 운영 회복 + Task #10 career 4 page.tsx 로컬 빌드 검증)
+
+- **사용자 명시 보고**: 직전 트랙 #97-pre 의 사용자 요구 ①(DocUtil 운영자 메뉴 표시) + ②(일반 사용자 완벽 사용) 가 운영 단에서 미충족임을 지적. "에 대한 조치가 필요하지" → Task #9/#10/5단 검증 묶음 처리 결정.
+
+- **두 에이전트 병렬 진단 (backend-specialist + code-analysis-specialist)** — 합의된 root cause:
+  - `/api/admin/docutil/users` HTTP 502 = `AgentHub→DocUtil 업스트림 호출 실패`
+  - 운영 컨테이너의 `DocUtil:ServiceAccount` (jyj7970) 자격이 DocUtil 측 비번과 불일치 → HTTP 401 → `DocUtilTokenProvider` 모든 갱신 경로 차단 → `_cachedAccessToken` null → `org` claim 추출 실패 → `InvalidOperationException` → 502
+  - 35h 후 발현 메커니즘: JwtToken 1회성 적재 + 만료 후 재로드 부재 + Polly CB 5회 401 → 30s OPEN 사이클 → 영구 502 고착
+  - 회귀 시점 추정: 트랙 #62(2026-05-12 운영 secrets 회전) 또는 G.2(5 서비스 비번 강화) 시점에 jyj7970 비번이 회전되었으나 agenthub 환경변수 미동기화 — 직전 PASS 시점부터 잠복
+
+- **운영 호스트 실측 진단 (read-only 4건, `tmp/diagnose_task9_docutil_502.py`)**:
+  - 환경변수 5키 모두 셋업 (BaseUrl/ServiceUsername/ServicePassword 정상, JwtToken/ApiKey 빈문자열) → 가설 A(BaseUrl 누락) 기각
+  - 502 응답 body: `errorCode: DOCUTIL_UPSTREAM_ERROR`, `upstream: "DocUtil 운영자 토큰에서 organization_id 를 추출할 수 없습니다..."` → 가설 2(orgId null) 확정
+  - agenthub 로그 smoking gun 2건: `DocUtil login HTTP 401 — ServiceAccount 자격 확인 필요` + `DocUtil 토큰 미설정 — JwtToken / refresh_token / ServiceAccount / ApiKey 모두 비어있음`
+  - docutil-api `/api/v1/users` 진입 매치 0건 → DocUtil 측까지 도달 못함 확정
+
+- **Phase 1 — 전용 서비스 계정 `agenthub_bff` 발급 (사용자 결정: 옵션 C)** (`tmp/apply_task9_phase1_agenthub_bff.py`):
+  - DocUtil DB `tb_users` INSERT — id `b6d40352-7657-4305-85fa-a30f15700447`, username `agenthub_bff`, email `agenthub_bff@idino.internal`, role `admin`, status `active`, organization_id `00000000-0000-4000-a000-000000000001`(아이디노/default — jyj7970 동일), 비밀번호 bcrypt $2b$12$ 60chars
+  - agenthub `.env` 갱신 — `DOCUTIL_SERVICE_USERNAME=agenthub_bff`, `DOCUTIL_SERVICE_PASSWORD=<40chars ASCII>` (`.bak.task9_phase1_20260515_111554` 백업)
+  - `docker compose up -d --force-recreate agenthub` healthy 6초
+  - 재검증 PASS: `/api/admin/docutil/users` **HTTP 502 → 200**, body 에 agenthub_bff 본인 + jyj7970(이동건) 등 사용자 list 정상 반환, `lastLoginAt` 가 INSERT 13초 후 기록 → ServiceAccount login 실제 동작 증명
+
+- **Phase 2 — 결함 재발 방지 코드 보강 3건 (사용자 결정: 전체 3건, backend-specialist 위임)** (`tmp/deploy_task9_phase2.py`):
+  - **6 .cs 파일** 수정:
+    - `Services/DocUtilTokenProvider.cs` — manualJwt 1회성 적재 가드 제거(만료 5분 이내 매번 .env 재평가) + 갱신 모든 경로 실패 시 stale 캐시 반환 제거 + `DocUtilUpstreamException(TokenMissing/TokenForbidden)` throw
+    - `Exceptions/DocUtilUpstreamException.cs` — `ErrorCode` 속성 + 5 표준 상수(`UpstreamError`/`TokenMissing`/`TokenForbidden`/`UpstreamUnreachable`/`ValidationError`/`Deprecated`) + 4 생성자 오버로드
+    - `Services/DocUtilClient.cs` — `EnsureSuccessOrThrowKoreanAsync` 5 throw 지점에 ErrorCode 부착 (401/403→TokenForbidden, 410→Deprecated, 5xx→UpstreamUnreachable, 422→ValidationError, 기타→UpstreamError)
+    - `DTOs/ErrorResponseDto.cs` — `FromDocUtilUpstream(ex, userMessage)` 정적 팩토리 + `MapDocUtilUpstreamToStatusCode(ex)` (TOKEN_*→503, DEPRECATED→410, VALIDATION→422, 기타→502)
+    - `Controllers/AdminDocUtilUsersController.cs` — 4 catch 블록(ListUsers/GetUser/UpdateUserStatus/DeleteUser) `DocUtilUpstreamException` 우선 catch 구조
+    - `Program.cs` — CB 정책 주석 (토큰 갱신 실패는 CB 카운터 영향 없이 fail-fast)
+  - 운영 빌드: `docker compose build agenthub` exit 0, 99.8s, Warning 46건 모두 기존 `CS1998` (WorkflowEngine/FileParsingService — 본 트랙 외)
+  - force-recreate + healthy 6초
+  - 회귀 검증 4건 모두 PASS — admin 로그인 / `/api/admin/docutil/users` HTTP 200 (Phase 1 유지) / `/api/admin/docutil/departments` HTTP 200 / `/api/admin/metrics/rag` HTTP 200
+  - 잠재 위험 — 나머지 12개 `AdminDocUtil*Controller` 가 UsersController catch 패턴 미적용 → 새 errorCode 응답 미노출 (별도 트랙)
+
+- **Task #10 — career frontend 4 page.tsx 로컬 빌드 검증 (사용자 결정: 로컬 검증 만)**:
+  - 운영 호스트(192.168.10.39) 실측 — career 컨테이너/디렉토리 모두 부재 (career 운영화는 트랙 #99 별도)
+  - 로컬 검증: `cd career/frontend && npm install --legacy-peer-deps` (426 패키지) → `npx tsc --noEmit` 초기 3 에러 (`RoadmapSection.tsx` Set iteration) → 부수 결함 fix `tsconfig.json` 에 `"target": "ES2017"` 1줄 추가 (Next.js 14 표준 누락) → TSC PASS exit 0 → `npm run build` exit 0, **19 페이지 모두 정적 생성 PASS**
+  - 4 신설 page.tsx 정적 빌드 결과: `/actions` 1.67kB/113kB, `/alumni` 1.84kB/116kB, `/competency` 3.22kB/115kB, `/roadmap` 1.58kB/116kB
+
+- **5단 검증 (Task #1) 상태** — 1~4단 PASS, **5단 사용자 측 브라우저 실측 대기**:
+  - admin 로그인 → 운영자 메뉴 13개 카테고리 표시 + DocUtil 사용자 메뉴 클릭 시 데이터 표시 (502 → 200 회복 시각 확인)
+  - 일반 user 로그인 → myAccount 카테고리(Quota/ApiKeys/Analytics/UsageHistory) 진입점 표시
+  - admin 라우트 직접 URL 입력 시 차단(dashboard 리다이렉트)
+  - (선택) 의도적 401 유도 → DocUtil 메뉴 클릭 시 HTTP 503 + `errorCode: DOCUTIL_TOKEN_FORBIDDEN` 응답
+
+- **운영 변경 추적**:
+  - DocUtil DB: `agenthub_bff` 1 row INSERT (id `b6d40352-...`)
+  - agenthub 컨테이너: `.env` 2 키 갱신 + force-recreate (`.bak.task9_phase1_20260515_111554`)
+  - agenthub Docker 이미지: 6 .cs 변경 + force-recreate (`.bak.task9_phase2_20260515_*`)
+  - **보관 필요(사용자 측 vault)**: agenthub_bff PLAIN 비밀번호 40 chars — stdout 1회 노출 후 코드/git 어디에도 미저장
+
+- **로컬 코드 변경 (commit 대상)**:
+  - agenthub 6 .cs 파일 (위 Phase 2)
+  - career/frontend/tsconfig.json (target ES2017 1줄 추가)
+  - tmp/ 5 신규 paramiko 스크립트 (`diagnose_task9_docutil_502.py`, `inspect_agenthub_env.py`, `inspect_docutil_users_schema.py`, `apply_task9_phase1_agenthub_bff.py`, `deploy_task9_phase2.py`, `inspect_career_prod.py`)
+  - user_mig/progress.md 본 entry
+
+- **메모리 활용**: `feedback_quality_over_demo.md`(완벽한 구현 우선) + `feedback_ui_verification.md`(5단 검증) 적용. tsconfig ES2017 부수 fix 도 본 트랙 범위 안으로 포함하여 빌드 완전 통과 추구.
+
+- **마지막 commit**: 본 작업 후 추가 예정 (placeholder — 본 entry 갱신 commit 직후 hash 갱신).
+
 ### 2026-05-14 (트랙 #97-pre1 + #97-pre2 — DocUtil 운영자 UI 메뉴 표시 결함 fix + AgentHub 일반 사용자 UI 완전성 보강 + career 4 page.tsx 신설)
 
 - **사용자 명시 보고**: "DocUtil 도 ui 적으로 운영자 메뉴가 표시되지 않았어, 다시 한번 일반 사용자(실제 시스템 사용자 포함)가 ui 적으로도 기능적으로도 완벽하게 사용가능토록 진행해줘".

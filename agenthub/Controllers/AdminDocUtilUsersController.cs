@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AIAgentManagement.DTOs;
+using AIAgentManagement.Exceptions;
 using AIAgentManagement.Services;
 
 namespace AIAgentManagement.Controllers;
@@ -149,8 +150,22 @@ public class AdminDocUtilUsersController : ControllerBase
 
             return Ok(result);
         }
+        // Phase 10.x Task #9 (2026-05-15) — DocUtilUpstreamException 우선 catch.
+        // ErrorCode 별로 502/503/410/422 로 정확히 매핑된다.
+        // (InvalidOperationException 상속이므로 catch 순서 중요 — 구체 예외가 먼저)
+        catch (DocUtilUpstreamException ex)
+        {
+            _logger.LogError(ex,
+                "DocUtil 사용자 목록 조회 실패 - errorCode={ErrorCode}, status={Status}, page={Page}, size={Size}",
+                ex.ErrorCode, (int)ex.StatusCode, page, size);
+            return StatusCode(
+                ErrorResponseDto.MapDocUtilUpstreamToStatusCode(ex),
+                ErrorResponseDto.FromDocUtilUpstream(ex,
+                    "DocUtil 사용자 목록을 불러오지 못했습니다. " + ex.Message));
+        }
         catch (InvalidOperationException ex)
         {
+            // 분류 불가능한 InvalidOperationException — 기존 일반 카테고리 폴백.
             _logger.LogError(ex, "DocUtil 사용자 목록 조회 실패 (page={Page}, size={Size}, role={Role}, status={Status})",
                 page, size, role, status);
             return StatusCode(502, new ErrorResponseDto(
@@ -179,6 +194,16 @@ public class AdminDocUtilUsersController : ControllerBase
                 return NotFound(ErrorResponseDto.NotFound("해당 사용자를 찾을 수 없습니다."));
             }
             return Ok(detail);
+        }
+        catch (DocUtilUpstreamException ex)
+        {
+            _logger.LogError(ex,
+                "DocUtil 사용자 상세 조회 실패 - errorCode={ErrorCode}, status={Status}, id={Id}",
+                ex.ErrorCode, (int)ex.StatusCode, id);
+            return StatusCode(
+                ErrorResponseDto.MapDocUtilUpstreamToStatusCode(ex),
+                ErrorResponseDto.FromDocUtilUpstream(ex,
+                    "DocUtil 사용자 상세를 불러오지 못했습니다. " + ex.Message));
         }
         catch (InvalidOperationException ex)
         {
@@ -233,12 +258,22 @@ public class AdminDocUtilUsersController : ControllerBase
 
             return Ok(result);
         }
+        catch (DocUtilUpstreamException ex)
+        {
+            _logger.LogError(ex,
+                "DocUtil 사용자 상태 변경 실패 - errorCode={ErrorCode}, status={Status}, id={Id}, newStatus={NewStatus}",
+                ex.ErrorCode, (int)ex.StatusCode, id, request.Status);
+            // 실패 시에도 invalidate — DocUtil 측 상태가 부분 변경되었을 수 있어(예: 5xx 중간 단절),
+            // ghost 데이터가 GET 응답에 남는 일이 없도록 안전을 위해 캐시 무효화.
+            await InvalidateUsersCacheAsync();
+            return StatusCode(
+                ErrorResponseDto.MapDocUtilUpstreamToStatusCode(ex),
+                ErrorResponseDto.FromDocUtilUpstream(ex,
+                    "사용자 상태 변경에 실패했습니다. " + ex.Message));
+        }
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "DocUtil 사용자 상태 변경 실패 (id={Id}, status={Status})", id, request.Status);
-            // 실패 시에도 invalidate — DocUtil 측 상태가 부분 변경되었을 수 있어(예: 5xx 중간 단절),
-            // ghost 데이터가 GET 응답에 남는 일이 없도록 안전을 위해 캐시 무효화.
-            // (10.1c+ DeleteDepartment 의 동일 패턴 일관 적용)
             await InvalidateUsersCacheAsync();
             return StatusCode(502, new ErrorResponseDto(
                 "사용자 상태 변경에 실패했습니다.",
@@ -269,12 +304,22 @@ public class AdminDocUtilUsersController : ControllerBase
 
             return NoContent();
         }
+        catch (DocUtilUpstreamException ex)
+        {
+            _logger.LogError(ex,
+                "DocUtil 사용자 삭제 실패 - errorCode={ErrorCode}, status={Status}, id={Id}",
+                ex.ErrorCode, (int)ex.StatusCode, id);
+            // 실패 시에도 invalidate — 404(이미 DocUtil 측 삭제됨) / 5xx(부분 단절) 상황에서
+            // ghost 사용자가 GET 응답에 남는 일이 없도록 안전 차원에서 캐시 무효화.
+            await InvalidateUsersCacheAsync();
+            return StatusCode(
+                ErrorResponseDto.MapDocUtilUpstreamToStatusCode(ex),
+                ErrorResponseDto.FromDocUtilUpstream(ex,
+                    "사용자 삭제에 실패했습니다. " + ex.Message));
+        }
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "DocUtil 사용자 삭제 실패 (id={Id})", id);
-            // 실패 시에도 invalidate — 404(이미 DocUtil 측 삭제됨) / 5xx(부분 단절) 상황에서
-            // ghost 사용자가 GET 응답에 남는 일이 없도록 안전 차원에서 캐시 무효화.
-            // (DeleteDepartment 와 동일 패턴 일관 적용)
             await InvalidateUsersCacheAsync();
             return StatusCode(502, new ErrorResponseDto(
                 "사용자 삭제에 실패했습니다.",

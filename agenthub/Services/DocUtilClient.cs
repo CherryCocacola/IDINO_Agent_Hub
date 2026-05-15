@@ -4045,6 +4045,8 @@ public class DocUtilClient : IDocUtilClient
         var body = await SafeReadErrorBodyAsync(response, cancellationToken);
 
         // 인증 실패 — 운영자 토큰 누락/만료가 가장 흔한 시나리오.
+        // Phase 10.x Task #9 (2026-05-15): errorCode 를 TOKEN_FORBIDDEN 으로 세분화하여
+        //   운영자가 토큰 회전 문제임을 즉시 식별. Controller 가 503 으로 매핑.
         if (response.StatusCode == HttpStatusCode.Unauthorized
             || response.StatusCode == HttpStatusCode.Forbidden)
         {
@@ -4054,6 +4056,7 @@ public class DocUtilClient : IDocUtilClient
             throw new DocUtilUpstreamException(
                 response.StatusCode,
                 path,
+                DocUtilUpstreamException.ErrorCodes.TokenForbidden,
                 "DocUtil 인증 실패. JwtToken 또는 ApiKey 설정을 확인하세요.");
         }
 
@@ -4067,10 +4070,12 @@ public class DocUtilClient : IDocUtilClient
             throw new DocUtilUpstreamException(
                 response.StatusCode,
                 path,
+                DocUtilUpstreamException.ErrorCodes.Deprecated,
                 "이 기능은 DocUtil 측에서 deprecate 되었습니다. 신규 디자이너 워크플로(/admin/docutil-documents-v2) 를 사용하세요.");
         }
 
-        // 5xx — DocUtil 서비스 장애.
+        // 5xx — DocUtil 서비스 장애 / Polly CB OPEN 으로 인한 직접 폴백 5xx.
+        // Phase 10.x Task #9: errorCode 를 UPSTREAM_UNREACHABLE 로 세분화.
         if (status >= 500)
         {
             _logger.LogError(
@@ -4079,6 +4084,7 @@ public class DocUtilClient : IDocUtilClient
             throw new DocUtilUpstreamException(
                 response.StatusCode,
                 path,
+                DocUtilUpstreamException.ErrorCodes.UpstreamUnreachable,
                 $"DocUtil 응답 실패. 네트워크 또는 서비스 상태를 확인하세요. (HTTP {status})");
         }
 
@@ -4096,21 +4102,25 @@ public class DocUtilClient : IDocUtilClient
                 throw new DocUtilUpstreamException(
                     response.StatusCode,
                     path,
+                    DocUtilUpstreamException.ErrorCodes.ValidationError,
                     $"DocUtil 입력 검증에 실패했습니다 (HTTP 422): {hint}");
             }
             throw new DocUtilUpstreamException(
                 response.StatusCode,
                 path,
+                DocUtilUpstreamException.ErrorCodes.ValidationError,
                 "DocUtil 입력 검증에 실패했습니다 (HTTP 422). 운영자에게 문의하세요.");
         }
 
         // 그 외 4xx — 호출자 책임. 영문 body 는 로그에만 — 응답에는 status code 와 한국어 안내만.
+        // 분류 불가능한 일반 카테고리로 폴백.
         _logger.LogWarning(
             "DocUtil 호출 실패 - Path={Path}, Status={Status}, Body={Body}",
             path, status, body);
         throw new DocUtilUpstreamException(
             response.StatusCode,
             path,
+            DocUtilUpstreamException.ErrorCodes.UpstreamError,
             $"DocUtil 호출이 실패했습니다 (HTTP {status}). 입력값 또는 권한을 확인하세요.");
     }
 
