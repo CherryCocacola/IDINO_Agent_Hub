@@ -214,7 +214,7 @@
   - 베트남어 텍스트 길이 ko 대비 1.3~1.5x → 사이드바 좁은 폭의 메뉴 라벨 overflow 가능성 (브라우저 실측 필요. 우려 시 `text-overflow: ellipsis` CSS 추가)
   - Admin 깊은 페이지 (DocUtilTemplates/Evaluation/FAQ 등) vi 번역 30~40% 커버 → 1주 이내 사용자 피드백 기반 점진적 보완
 
-- **마지막 commit**: 본 작업 후 추가 예정 (placeholder).
+- **마지막 commit**: `381c1f7` (`[agenthub/i18n] 트랙 #97-pre2-2 — 메뉴 영문 결함 fix + 베트남어(vi) 추가 + Settings 3-way 언어 선택`, +1978/-52 LOC, 8 파일 변경(vi.json 1 신규 + 7 수정)). 직전 `04434af` (트랙 #97-post hash 갱신) / `9191384` (Task #9 + #10).
 
 ### 2026-05-15 (트랙 #97-post — Task #9 DocUtil 502 운영 회복 + Task #10 career 4 page.tsx 로컬 빌드 검증)
 
