@@ -161,4 +161,5 @@ nu_
 # 모든 *_state.json 패턴을 차단하여 향후 자동화 토큰 누설 방지.
 tools/ui_e2e/full/_admin_state.json
 tools/ui_e2e/full/*_state.json
+tools/ui_e2e/full/_state_*.json
 tools/ui_e2e/**/storage_state*.json

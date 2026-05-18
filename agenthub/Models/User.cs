@@ -41,6 +41,16 @@ public class User
     public Guid? OriginalDocutilUuid { get; set; }
 
     /// <summary>
+    /// 트랙 #99 hotfix (2026-05-18) — DocUtil tb_users.username 원본 영문 값 보존.
+    /// 트랙 #98 phase 3 VIEW 의 username alias 가 FullName(한국어) 으로 변질되는 결함 해소:
+    ///   VIEW username = COALESCE(DocutilUsername, FullName) → admin/user/agenthub_bff 등
+    ///   영문 short username 으로 DocUtil 로그인 시 정확 매칭 보장.
+    /// 12 파일 변경.
+    /// </summary>
+    [MaxLength(150)]
+    public string? DocutilUsername { get; set; }
+
+    /// <summary>
     /// 트랙 #98 (2026-05-18) — DocUtil tb_organizations.id 와 매핑되는 단일 조직 UUID.
     /// DocUtil tb_users VIEW 의 organization_id 컬럼을 채우는 데 사용.
     /// 현재 단일 조직 "아이디노" (00000000-0000-4000-a000-000000000001) 만 운영.

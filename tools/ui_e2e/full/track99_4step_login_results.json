@@ -1,0 +1,148 @@
+[
+  {
+    "label": "SuperAdmin",
+    "agenthub": {
+      "email": "admin@example.com",
+      "http": 200,
+      "jwt_len": 555,
+      "pass": true,
+      "jwt": "<redacted>",
+      "resp_preview": ""
+    },
+    "docutil": {
+      "candidates": [
+        {
+          "username": "admin@example.com",
+          "code": 401,
+          "jwt_len": 0,
+          "pass": false,
+          "resp_preview": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+        },
+        {
+          "username": "admin",
+          "code": 500,
+          "jwt_len": 0,
+          "pass": false,
+          "resp_preview": "Internal Server Error"
+        }
+      ],
+      "pass": false,
+      "username": "",
+      "jwt": ""
+    }
+  },
+  {
+    "label": "Admin (Developer)",
+    "agenthub": {
+      "email": "developer@example.com",
+      "http": 200,
+      "jwt_len": 565,
+      "pass": true,
+      "jwt": "<redacted>",
+      "resp_preview": ""
+    },
+    "docutil": {
+      "candidates": [
+        {
+          "username": "developer@example.com",
+          "code": 401,
+          "jwt_len": 0,
+          "pass": false,
+          "resp_preview": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+        },
+        {
+          "username": "developer",
+          "code": 200,
+          "jwt_len": 392,
+          "pass": true,
+          "resp_preview": "{\"access_token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NTlmOWJjNC05MTE2LTRiMDQtOTE3Ni0wYT"
+        }
+      ],
+      "pass": true,
+      "username": "developer",
+      "jwt": "<redacted>"
+    }
+  },
+  {
+    "label": "User",
+    "agenthub": {
+      "email": "user@example.com",
+      "http": 200,
+      "jwt_len": 552,
+      "pass": true,
+      "jwt": "<redacted>",
+      "resp_preview": ""
+    },
+    "docutil": {
+      "candidates": [
+        {
+          "username": "user@example.com",
+          "code": 401,
+          "jwt_len": 0,
+          "pass": false,
+          "resp_preview": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+        },
+        {
+          "username": "user",
+          "code": 500,
+          "jwt_len": 0,
+          "pass": false,
+          "resp_preview": "Internal Server Error"
+        }
+      ],
+      "pass": false,
+      "username": "",
+      "jwt": ""
+    }
+  },
+  {
+    "label": "Employee (hslee)",
+    "agenthub": {
+      "email": "hslee@idino.co.kr",
+      "http": 200,
+      "jwt_len": 556,
+      "pass": true,
+      "jwt": "<redacted>",
+      "resp_preview": ""
+    },
+    "docutil": {
+      "candidates": [
+        {
+          "username": "hslee",
+          "code": 200,
+          "jwt_len": 380,
+          "pass": true,
+          "resp_preview": "{\"access_token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNTRmNmM4MC04NWY0LTQ4MTAtYmY1YS1lY2"
+        }
+      ],
+      "pass": true,
+      "username": "hslee",
+      "jwt": "<redacted>"
+    }
+  },
+  {
+    "label": "Employee (shbaek)",
+    "agenthub": {
+      "email": "shbaek@idino.co.kr",
+      "http": 200,
+      "jwt_len": 557,
+      "pass": true,
+      "jwt": "<redacted>",
+      "resp_preview": ""
+    },
+    "docutil": {
+      "candidates": [
+        {
+          "username": "shbaek",
+          "code": 200,
+          "jwt_len": 381,
+          "pass": true,
+          "resp_preview": "{\"access_token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0MDgxMWNhOS1kODM4LTQ0NTctYThmZS1hOG"
+        }
+      ],
+      "pass": true,
+      "username": "shbaek",
+      "jwt": "<redacted>"
+    }
+  }
+]

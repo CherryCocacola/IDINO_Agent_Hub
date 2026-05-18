@@ -583,6 +583,97 @@ User-Agent: `"AgentHubClient/1.0 (docutil)"` / `"AgentHubClient/1.0 ({consumer_l
 
 **마지막 commit**: `dcee75d` (`[agenthub+infra/track98] DocUtil tb_users 진정한 단일 통합 + 회사 root 부서 + UserDto 부서 트리 노출`, +643/-29 LOC, 8 파일 변경 (5 코드 + 2 신규 SQL + progress.md)). push 보류.
 
+### 2026-05-18 (트랙 #99 — 5계정×2시스템 5단 e2e + Critical 14건 hotfix)
+
+**사용자 명시 보고**:
+"aiagent, docutil, idino career 세 시스템 모두 admin 포함 계정 5개로 모든 기능을 화면에서 테스트"
+
+**사용자 ADR**:
+- 5계정 = 권한 수준별 (SuperAdmin/Admin Developer/User/Employee hslee/Employee shbaek)
+- career 는 운영 배포 부재로 제외 (트랙 #99-career 별도)
+- "모든 기능" = 5단 완전 검증 (코드/빌드/배포/로그인/e2e 종단간)
+
+**5단 검증 매트릭스**:
+| 단계 | 결과 |
+|---|---|
+| 1단 (코드 정의) | AgentHub router: 8 public + 29 일반 + 28 Admin 가드 — 정합 |
+| 2단 (빌드) | dotnet build (warn 14, err 0) + vue-tsc (err 0) |
+| 3단 (배포 healthy) | AgentHub healthy + DocUtil 14 컨테이너 모두 healthy + HTTP / 200 |
+| 4단 (로그인 5계정×2) | **AgentHub 5/5 PASS, DocUtil 3/5 PASS** (admin/user 의 DocUtil 500 = MultipleResultsFound) |
+| 5단 (e2e Playwright) | **376/460 PASS (81%), 34 FAIL, 50 SKIP** (Phase A AH 268/285 94%, Phase A DU 75/75 100% / 50 SKIP, Phase B AH 21/35, Phase B DU 12/15) |
+
+**5단 발견 결함 카탈로그 (34건)**:
+- F1 (**Critical**, 14건): AgentHub→DocUtil BFF 5xx — `/api/admin/docutil/*` 14 endpoint 전부 502/503
+- F2 (High, 5건): Settings 부서 트리 미표시 (모든 5계정) — readonly input 있으나 키워드 없음
+- F3 (Medium, 3건): User 권한 가드 미동작 — /quota/usage-history/api-keys 진입 허용
+- F4 (Low, 4건): AdminDev 가드 일관성 — /users, /admin/docutil-departments 차단
+- F5 (Low, 3건): DocUtil /chat textarea 미발견
+- F6 (Medium, 2건): DocUtil admin/user 짧은 username 로그인 500 (4단 잔존)
+
+**F1 root cause 진단 (직접 docker logs 확인)**:
+- `agenthub/Services/DocUtilTokenProvider:165` — DocUtil `/api/v1/auth/login` 시도 → **HTTP 401**
+- AgentHub env: `DOCUTIL_SERVICE_USERNAME=agenthub_bff` + `DOCUTIL_SERVICE_PASSWORD=tLslM%o3=...`
+- **AgentHub.Users 에 agenthub_bff 시드 부재** (트랙 #88-6 가 11명만 이관, 시스템 계정 누락)
+- legacy 테이블에는 존재 (id=`b6d40352-...`, role='admin', password_hash=$2b$12$...)
+- 트랙 #98 phase 3 VIEW 의 username alias 결함 (username = FullName 한국어) 으로 영문 short username 검색 실패
+
+**F1 + F6 hotfix 통합 (트랙 #99 hotfix)**:
+- `infra/db/migration_099_hotfix_docutil_username.sql`:
+  1) AgentHub.Users 에 `DocutilUsername VARCHAR(150)` 컬럼 신규 추가
+  2) legacy 테이블에서 131명 원본 영문 username 복원 (UPDATE FROM legacy WHERE OriginalDocutilUuid=l.id)
+  3) agenthub_bff 시스템 계정 INSERT (legacy 의 password_hash + email 그대로 + FullName='AgentHub BFF (시스템)' + DocutilUsername='agenthub_bff' + Admin role)
+  4) VIEW DROP + 재생성 — username alias 를 `COALESCE(DocutilUsername, FullName)` 로 변경
+  5) INSTEAD OF INSERT/UPDATE/DELETE TRIGGER 3개 재생성
+  6) 검증 DO: agenthub_bff/admin/user VIEW 매칭 = 1/1/1, triggers=3
+- `agenthub/Models/User.cs`: `DocutilUsername` 컬럼 정의 추가
+
+**hotfix 적용 + restart + 재검증**:
+- pg_dump 사전 백업 `pre_track99_hotfix_20260518_175113.sql` (3.5MB)
+- migration 적용: agenthub_bff UserId=264 신규 INSERT + 131 UPDATE + VIEW 재생성 정상
+- DocUtil API restart healthy 12s + AgentHub restart healthy 12s
+- **재검증 결과**:
+  | 항목 | 이전 | hotfix 후 |
+  |---|---|---|
+  | DocUtil ServiceAccount(agenthub_bff) login | HTTP 401 | **HTTP 200 + JWT** |
+  | AgentHub BFF 14 endpoint | 14/14 5xx | **14/14 PASS HTTP 200** |
+  | DocUtil hslee/shbaek/developer login | PASS | PASS (영향 없음) |
+  | DocUtil admin/user login | HTTP 500 | HTTP 500 (잔존 — email LIKE 폴백 결함, 사용자 정리 영역) |
+
+**F6 잔존 분석**:
+- DocUtil auth/service.py 가 username = ? OR email LIKE 'username%' 폴백
+- 'admin' / 'user' → admin@docutil.local + admin@example.com 둘 다 매칭 (email LIKE) → MultipleResultsFound
+- VIEW 의 정확 매칭(admin → 1행)은 정상이나 application 폴백 로직이 추가 매칭
+- fix 방향: DocUtil auth/service.py 의 폴백 로직 제거 또는 limit 1 (사용자 코드 영역)
+
+**산출물**:
+- `tools/ui_e2e/full/verify_track99_5accounts_login_20260518.py` (4단 로그인 매트릭스)
+- `tools/ui_e2e/full/track99_5step_e2e_matrix.py` (608 LOC Playwright 통합 러너 — sdet-agent 위임 산출)
+- `tools/ui_e2e/full/track99_4step_login_results.json` (4단 결과)
+- `tools/ui_e2e/full/track99_5step_e2e_results.json` (207KB, 460 매트릭스 raw)
+- `tools/ui_e2e/full/track99_5step_summary.md` (한글 종합 요약)
+- `tools/ui_e2e/screenshots/track99_5step/*.png` (SuperAdmin 64 PNG)
+- `tools/ui_e2e/full/_state_track99_*.json` (8개 storage_state, .gitignore 차단)
+- `infra/db/migration_099_hotfix_docutil_username.sql` (hotfix SQL)
+- `tmp/diagnose_*` + `apply_track99_hotfix_*.py` (진단/적용 도구)
+- `agenthub/Models/User.cs` (+12 LOC — DocutilUsername 컬럼)
+- 진단 도구 6종 (verify_hslee/verify_schema/verify_org/verify_integration/verify_fk/verify_docutil_login/diagnose_service_account/diagnose_du_multiresult)
+- pg_dump 백업 2종: pre_track98_phase{12,3}_*.sql + pre_track99_hotfix_*.sql (각 3.5MB)
+
+**별도 fix 필요 (사용자 영역 또는 별도 트랙)**:
+| # | 항목 | 우선순위 | 위치/방향 |
+|---|---|---|---|
+| F2 | Settings 부서 트리 미표시 (5계정) | High | frontend authStore.user.departmentPath binding 확인 |
+| F3 | Router 가드 누락 3건 | High | `agenthub/ClientApp/src/router/index.ts` 의 /quota/usage-history/api-keys 에 meta.role='Admin' 부여 |
+| F4 | Admin vs SuperAdmin 권한 정책 명세 | High | RBAC 정책 문서 + router meta + UI 진입점 정합 |
+| F5 | DocUtil /chat textarea | Medium | `docutil/frontend/(user)/chat/page.tsx` |
+| F6 | DocUtil admin/user 시드 500 (잔존) | Medium | DocUtil `app/modules/auth/service.py` 의 email LIKE 폴백 제거 또는 limit 1 |
+
+**마지막 commit**: `dcee75d`. 본 트랙 commit 대기.
+
+### 2026-05-18 (트랙 #98 — DocUtil tb_users 진정한 단일 통합 + 회사 root 부서 + UserDto 부서 트리 노출)
+
+(중간 트랙 #98 섹션 — 트랙 #99 위로 이동됨)
+
 ### 2026-05-18 (트랙 #97-post8 — GPT/Nexus streaming 활성화 + Nexus event type 매핑 fix)
 
 **사용자 명시 보고 (속도 비교 + 추가)**:
