@@ -581,7 +581,7 @@ User-Agent: `"AgentHubClient/1.0 (docutil)"` / `"AgentHubClient/1.0 ({consumer_l
 - 7일 후 `tb_users_legacy_20260518` DROP (2026-05-25 예정)
 - AgentHub 의 일부 시드 사용자(admin) 가 DocUtil username 'admin' 으로 로그인 시 500 — 별개 시드 매핑 결함 (운영 영향 없음, 운영 사용자는 정상)
 
-**마지막 commit**: `ac66ec4`. 본 트랙 commit 대기.
+**마지막 commit**: `dcee75d` (`[agenthub+infra/track98] DocUtil tb_users 진정한 단일 통합 + 회사 root 부서 + UserDto 부서 트리 노출`, +643/-29 LOC, 8 파일 변경 (5 코드 + 2 신규 SQL + progress.md)). push 보류.
 
 ### 2026-05-18 (트랙 #97-post8 — GPT/Nexus streaming 활성화 + Nexus event type 매핑 fix)
 
