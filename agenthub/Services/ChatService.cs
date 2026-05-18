@@ -207,10 +207,50 @@ public class ChatService : IChatService
 
         if (conversation == null) return false;
 
-        _context.ChatConversations.Remove(conversation);
-        await _context.SaveChangesAsync();
+        // 트랙 #97-post6 (2026-05-18) — 멀티채팅 이전 대화 삭제 결함 fix.
+        //
+        // 기존 결함: ApiUsages.ConversationId FK 가 RESTRICT 정책이라
+        //   ChatConversations 삭제 시 PostgresException 23503 발생 → HTTP 500.
+        //   사용자는 "삭제 안 됨" 으로 인식. UI 는 confirm 후 silent 실패.
+        //
+        // fix 정책: ApiUsage 는 사용량/비용 감사 기록이므로 보존 가치 있음.
+        //   → ConversationId 만 NULL 로 nullify (Usage 자체는 보존, 어느 대화에서 발생했는지만 잊음).
+        //   ChatMessages 는 대화의 일부이므로 conversation 과 함께 cascade 삭제.
+        //
+        // 트랜잭션 안에서 처리 — 중간 실패 시 전부 롤백.
+        using var tx = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            // 1) ApiUsages.ConversationId = NULL (Usage 행은 보존, FK 위반 해소)
+            var usages = await _context.ApiUsages
+                .Where(u => u.ConversationId == conversationId)
+                .ToListAsync();
+            foreach (var u in usages)
+            {
+                u.ConversationId = null;
+            }
 
-        return true;
+            // 2) ChatMessages 는 대화의 본문 — 같이 삭제 (FK cascade 가 없다면 명시적으로)
+            var messages = await _context.ChatMessages
+                .Where(m => m.ConversationId == conversationId)
+                .ToListAsync();
+            if (messages.Count > 0)
+            {
+                _context.ChatMessages.RemoveRange(messages);
+            }
+
+            // 3) Conversation 본체 삭제
+            _context.ChatConversations.Remove(conversation);
+
+            await _context.SaveChangesAsync();
+            await tx.CommitAsync();
+            return true;
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<List<ChatMessageDto>> GetMessagesAsync(int conversationId, int userId)

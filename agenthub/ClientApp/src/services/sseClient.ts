@@ -19,7 +19,13 @@
  * - 새 npm 패키지 추가 없음 (fetch / ReadableStream / TextDecoder 모두 표준 브라우저 API)
  */
 
-import { safeGetLocalStorage, safeSetLocalStorage, safeRemoveLocalStorage } from '@/utils/storage'
+import {
+  safeGetAuthStorage,
+  safeGetLocalStorage,
+  safeSetAuthStorage,
+  safeRemoveAuthStorage
+} from '@/utils/storage'
+import { notifyAndRedirectToLogin } from '@/services/api'
 
 // ============================================================================
 // 타입 정의
@@ -180,19 +186,31 @@ function parseFrame(rawFrame: string): ChatStreamEvent | typeof DONE_MARKER | nu
 // ============================================================================
 
 /**
- * Refresh Token으로 신규 access token을 받아 localStorage에 저장한다.
- * 실패 시 토큰 제거 + /login 리다이렉트(axios 인터셉터와 동일).
+ * Refresh Token 으로 신규 access token 을 받아 저장한다.
+ *
+ * 트랙 #97-post3 fix-A:
+ * - 기존: safeRemoveLocalStorage 만 호출 → sessionStorage 토큰 잔존 →
+ *   /login 진입 시 router 가드(index.ts:438-441) 가 token 잔존 판정으로
+ *   `/` (Dashboard) 로 redirect → "Send 후 대시보드 이탈" 결함
+ * - 신규: safeRemoveAuthStorage(양쪽 청소) + notifyAndRedirectToLogin 호출
+ *   (axios 인터셉터와 동일 정책 — i18n 알림 + in-flight 가드 + 양쪽 storage 청소)
+ *
+ * 신규 access token 영속성:
+ * - 기존 token 이 localStorage 에 있었으면 영속(persistent=true) 모드 유지
+ * - sessionStorage 에 있었으면 휘발(persistent=false) 모드 유지
+ *   → safeSetAuthStorage 가 반대편 저장소를 자동 청소하므로 일관성 보장
  */
 async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = safeGetLocalStorage('refreshToken')
+  // refresh token 은 양쪽 저장소 어디든 (rememberMe 켰다 껐다 한 흔적 대응)
+  const refreshToken = safeGetAuthStorage('refreshToken')
   if (!refreshToken) {
-    safeRemoveLocalStorage('token')
-    safeRemoveLocalStorage('refreshToken')
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login'
-    }
+    // 양쪽 청소 + 사용자 알림 + /login 리다이렉트 (axios 인터셉터와 동일)
+    notifyAndRedirectToLogin('auth.session.noRefreshToken')
     return null
   }
+
+  // 현재 토큰의 저장 위치로 영속성 결정 (rememberMe 정책 유지)
+  const persistent = !!safeGetLocalStorage('token') || !!safeGetLocalStorage('refreshToken')
 
   try {
     const resp = await fetch('/api/auth/refresh', {
@@ -201,18 +219,18 @@ async function refreshAccessToken(): Promise<string | null> {
       body: JSON.stringify({ refreshToken })
     })
     if (!resp.ok) throw new Error(`refresh failed: ${resp.status}`)
-    const data = (await resp.json()) as { token?: string }
+    const data = (await resp.json()) as { token?: string; refreshToken?: string }
     if (!data.token) throw new Error('refresh response missing token')
 
-    safeSetLocalStorage('token', data.token)
+    safeSetAuthStorage('token', data.token, persistent)
+    // 신규 refreshToken 도 같이 회전되어 오면 갱신 (백엔드가 회전 정책일 때)
+    if (data.refreshToken) {
+      safeSetAuthStorage('refreshToken', data.refreshToken, persistent)
+    }
     return data.token
   } catch (err) {
     console.warn('[sseClient] Token refresh failed:', err)
-    safeRemoveLocalStorage('token')
-    safeRemoveLocalStorage('refreshToken')
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login'
-    }
+    notifyAndRedirectToLogin('auth.session.expired')
     return null
   }
 }

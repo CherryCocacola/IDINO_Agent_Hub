@@ -15,15 +15,81 @@ public class ApiServicesController : ControllerBase
     private readonly AIAgentManagementDbContext _context;
     private readonly ILogger<ApiServicesController> _logger;
     private readonly IAiProxyService _aiProxyService;
+    private readonly IApiKeyPoolService _apiKeyPool;
+    private readonly IConfiguration _configuration;
 
     public ApiServicesController(
-        AIAgentManagementDbContext context, 
+        AIAgentManagementDbContext context,
         ILogger<ApiServicesController> logger,
-        IAiProxyService aiProxyService)
+        IAiProxyService aiProxyService,
+        IApiKeyPoolService apiKeyPool,
+        IConfiguration configuration)
     {
         _context = context;
         _logger = logger;
         _aiProxyService = aiProxyService;
+        _apiKeyPool = apiKeyPool;
+        _configuration = configuration;
+    }
+
+    // ─── 트랙 #97-post4 (2026-05-18): ServiceCode → ApiKeyPool key 매핑 ───
+    // AiProxyService 의 switch 와 동일 — "chatgpt"/"openai" 는 같은 풀.
+    private static string MapPoolKey(string serviceCode) => serviceCode.ToLowerInvariant() switch
+    {
+        "chatgpt" or "openai" => "openai",
+        "azureopenai" => "azureopenai",
+        "claude" => "claude",
+        "gemini" or "google" => "gemini",
+        "perplexity" => "perplexity",
+        "mistral" => "mistral",
+        "copilot" => "copilot",
+        _ => serviceCode.ToLowerInvariant()
+    };
+
+    // ─── 트랙 #97-post4: ServiceCode → appsettings.json 섹션명 (환경변수 fallback) ───
+    private static readonly Dictionary<string, string> ConfigSectionMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["openai"] = "OpenAI", ["chatgpt"] = "OpenAI",
+        ["azureopenai"] = "AzureOpenAI",
+        ["claude"] = "Claude",
+        ["gemini"] = "Gemini", ["google"] = "Gemini",
+        ["perplexity"] = "Perplexity",
+        ["mistral"] = "Mistral",
+        ["copilot"] = "Copilot",
+        ["tavily"] = "Tavily",
+    };
+
+    /// <summary>
+    /// 트랙 #97-post4: ServiceCode 별 외부/내부 분류 + 활성 키 보유 여부 판정.
+    /// - Nexus → "internal", Nexus.BaseUrl 설정 시 활성
+    /// - 외부 LLM → "external", ApiKeyPool 카운트(>0) 또는 환경변수 키 보유 시 활성
+    /// 이미지 생성 등 매핑 없는 ServiceCode 는 매핑/카운트 모두 없으면 false (사용자 결정 — 키 없는 모델 우선 숨김).
+    /// </summary>
+    private (string category, bool hasKey) ClassifyService(string serviceCode)
+    {
+        var lower = serviceCode.ToLowerInvariant();
+        if (lower == "nexus")
+        {
+            var nexusUrl = _configuration["Nexus:BaseUrl"];
+            return ("internal", !string.IsNullOrWhiteSpace(nexusUrl));
+        }
+        // 외부 LLM — ApiKeyPool 우선
+        var poolKey = MapPoolKey(lower);
+        var poolStats = _apiKeyPool.GetPoolStats();
+        if (poolStats.TryGetValue(poolKey, out var count) && count > 0)
+        {
+            return ("external", true);
+        }
+        // 환경변수 fallback (ApiKeyPool 적재 전 timing 또는 카운트 0 보강)
+        if (ConfigSectionMap.TryGetValue(lower, out var section))
+        {
+            var configKey = _configuration[$"AiApiSettings:{section}:ApiKey"];
+            if (!string.IsNullOrWhiteSpace(configKey))
+            {
+                return ("external", true);
+            }
+        }
+        return ("external", false);
     }
 
     [HttpGet]
@@ -55,6 +121,14 @@ public class ApiServicesController : ControllerBase
                     ServiceType = s.ServiceType
                 })
                 .ToListAsync();
+
+            // 트랙 #97-post4 — 외부/내부 분류 + 활성 키 보유 여부 채움 (메모리 후처리, EF 쿼리 부하 없음)
+            foreach (var dto in services)
+            {
+                var (category, hasKey) = ClassifyService(dto.ServiceCode);
+                dto.ServiceCategory = category;
+                dto.HasActiveKey = hasKey;
+            }
 
             return Ok(services);
         }
@@ -89,6 +163,11 @@ public class ApiServicesController : ControllerBase
                 IsActive = service.IsActive,
                 ServiceType = service.ServiceType
             };
+
+            // 트랙 #97-post4 — 외부/내부 분류 + 활성 키
+            var (category, hasKey) = ClassifyService(dto.ServiceCode);
+            dto.ServiceCategory = category;
+            dto.HasActiveKey = hasKey;
 
             return Ok(dto);
         }

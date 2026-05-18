@@ -76,24 +76,59 @@
               </div>
             </div>
             
+            <!-- 트랙 #97-post4 (2026-05-18): 외부/내부 LLM 탭 분기 -->
+            <div class="mc-svc-tabs">
+              <button
+                type="button"
+                class="mc-svc-tab"
+                :class="{ 'mc-svc-tab-active': activeServiceTab === 'external' }"
+                @click="activeServiceTab = 'external'"
+                :title="$t('multiChat.externalLlmTitle') || '외부 인터넷 LLM (OpenAI / Claude / Gemini / Perplexity 등)'"
+              >
+                <i class="bi bi-globe me-1"></i>
+                <span>{{ $t('multiChat.externalLlm') || '외부 LLM' }}</span>
+                <span class="mc-svc-tab-badge">{{ externalActiveCount }}</span>
+              </button>
+              <button
+                type="button"
+                class="mc-svc-tab"
+                :class="{ 'mc-svc-tab-active': activeServiceTab === 'internal' }"
+                @click="activeServiceTab = 'internal'"
+                :title="$t('multiChat.internalLlmTitle') || '내부 LAN-only LLM (Project Nexus)'"
+              >
+                <i class="bi bi-hdd-network me-1"></i>
+                <span>{{ $t('multiChat.internalLlm') || '내부 LLM' }}</span>
+                <span class="mc-svc-tab-badge">{{ internalActiveCount }}</span>
+              </button>
+            </div>
             <div class="mc-svc-grid">
               <button
-                v-for="service in services"
+                v-for="service in filteredServices"
                 :key="service.serviceId"
                 type="button"
                 class="mc-svc-btn"
                 :class="{ 'mc-svc-active': currentChat?.service?.serviceId === service.serviceId }"
                 @click="switchService(service)"
                 :title="service.serviceName"
-                :style="currentChat?.service?.serviceId === service.serviceId ? { 
-                  borderColor: service.colorCode || 'var(--ai-primary)', 
-                  backgroundColor: service.colorCode || 'var(--ai-primary)', 
-                  color: '#fff' 
+                :style="currentChat?.service?.serviceId === service.serviceId ? {
+                  borderColor: service.colorCode || 'var(--ai-primary)',
+                  backgroundColor: service.colorCode || 'var(--ai-primary)',
+                  color: '#fff'
                 } : {}"
               >
                 <i :class="service.iconClass || 'bi bi-cpu'"></i>
                 <span class="ms-1">{{ service.serviceName }}</span>
               </button>
+              <!-- 빈 탭 안내 -->
+              <div v-if="filteredServices.length === 0" class="mc-svc-empty">
+                <i class="bi bi-info-circle me-1"></i>
+                <span v-if="activeServiceTab === 'external'">
+                  {{ $t('multiChat.noExternalLlm') || '사용 가능한 외부 LLM 이 없습니다. 운영자 콘솔에서 API 키를 등록해 주세요.' }}
+                </span>
+                <span v-else>
+                  {{ $t('multiChat.noInternalLlm') || '사용 가능한 내부 LLM 이 없습니다. (Nexus 미설정)' }}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -126,16 +161,18 @@
               <div
                 :class="['mc-msg', message.role === 'user' ? 'mc-msg-user' : 'mc-msg-assistant']"
               >
-                <div 
-                  v-if="message.role === 'assistant'" 
+                <!-- 트랙 #97-post5 — 발화 출처 영구 보존: 메시지의 originXxx 우선, 없으면 currentChat fallback -->
+                <div
+                  v-if="message.role === 'assistant'"
                   class="mc-msg-avatar"
-                  :style="{ backgroundColor: currentChat?.service?.colorCode || 'var(--ai-primary)' }"
+                  :style="{ backgroundColor: message.originColorCode || currentChat?.service?.colorCode || 'var(--ai-primary)' }"
                 >
-                  <i :class="currentChat?.service?.iconClass || 'bi bi-robot'"></i>
+                  <i :class="message.originIconClass || currentChat?.service?.iconClass || 'bi bi-robot'"></i>
                 </div>
                 <div class="mc-msg-content">
                   <div class="mc-msg-header">
-                    <strong>{{ message.role === 'user' ? '나' : (currentChat?.service?.serviceName || 'AI') }}</strong>
+                    <strong>{{ message.role === 'user' ? '나' : (message.originServiceName || currentChat?.service?.serviceName || 'AI') }}</strong>
+                    <small v-if="message.originModel" class="ms-2 text-muted" style="font-size: 11px;">{{ message.originModel }}</small>
                     <small class="ms-2">{{ formatTime(message.createdAt) }}</small>
                   </div>
                   <!-- 메시지 첨부파일 -->
@@ -432,6 +469,8 @@
 // 백엔드 C# Models/DTOs (ConversationDto.cs / ApiServiceDto.cs) 와 정렬 후 `@ts-nocheck` 해제.
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import api from '@/services/api'
+// 트랙 #97-post7 (2026-05-18) — 멀티채팅 SSE streaming 추가 (AgentChat 단일 패턴 이식)
+import { streamChat, type SendDirectMessageStreamRequest } from '@/services/sseClient'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import Prism from 'prismjs'
@@ -462,6 +501,8 @@ import {
 const ATTACH_STORAGE_KEY = 'agenthub.multiChat.pendingAttachments'
 
 // 후속 트랙 B-1: ApiServiceDto 의 defaultModel 필드를 인라인 인터페이스에도 미러링.
+// 트랙 #97-post4 (2026-05-18): ServiceCategory("external"/"internal") + HasActiveKey 추가.
+//   - 외부/내부 LLM 탭 분기용 + 키 미설정/만료 시 dropdown 에서 숨김.
 interface ApiService {
   serviceId: number
   serviceCode: string
@@ -471,6 +512,8 @@ interface ApiService {
   colorCode?: string
   defaultModel?: string
   serviceType?: 'Chat' | 'ImageGeneration' | 'VideoGeneration' | 'Both'
+  serviceCategory?: 'external' | 'internal'
+  hasActiveKey?: boolean
 }
 
 // 후속 트랙 B-1: ConversationDto 의 EnableRag / EnableWebSearch (백엔드 [Required] non-nullable bool) 미러링.
@@ -546,6 +589,17 @@ interface Message {
     name: string
     preview?: string
   }>
+  // 트랙 #97-post7 — SSE streaming 중 표시 (cursor 효과 등)
+  isStreaming?: boolean
+  // 트랙 #97-post5 (2026-05-18): 메시지 발화 출처 영구 보존
+  //   - 사용자가 service 를 변경해도 기존 응답의 provider(gpt/nexus/claude/...)
+  //     아이콘/색상/이름은 그대로 유지되어야 함 (대화 기록 일관성)
+  //   - assistant 메시지 생성 시 currentChat.service 의 스냅샷 + 백엔드 model 응답 저장
+  originServiceCode?: string
+  originServiceName?: string
+  originIconClass?: string
+  originColorCode?: string
+  originModel?: string
 }
 
 // Marked 설정 및 커스텀 렌더러
@@ -669,6 +723,8 @@ marked.setOptions({
 })
 
 const services = ref<ApiService[]>([])
+// 트랙 #97-post4 (2026-05-18): 외부/내부 LLM 탭 분기 + 키 없는 모델 숨김
+const activeServiceTab = ref<'external' | 'internal'>('external')
 const chats = ref<ChatSession[]>([])
 const currentChatId = ref<string | null>(null)
 const inputMessage = ref('')
@@ -680,14 +736,21 @@ const showImageModal = ref(false)
 const imageModalSrc = ref('')
 const imageModalTitle = ref('')
 const systemPrompt = ref('당신은 도움이 되고 친절한 AI 어시스턴트입니다.')
-const streamResponse = ref(false)
+// 트랙 #97-post8 (2026-05-18) — 결함 G fix: streaming 기본 활성화.
+//   기존: false → 비스트리밍 = 응답 전체 대기 = 10~20초 (GPT web 3초 대비 큰 격차).
+//   fix-A(SSE 401) + post7(신규 conv race) 로 원인 결함 해소 → streaming 기본 활성화 안전.
+const streamResponse = ref(true)
 const saveHistory = ref(true)
 
 // 전송 버튼 비활성화 여부
 const isButtonDisabled = ref(true)
 
 const modelSettings = ref({
-  model: 'gpt-4-turbo',
+  // 트랙 #97-post6 (2026-05-18) — 결함 E (gpt-4 응답 미표시) 회피:
+  //   기존 'gpt-4-turbo' 은 ApiServiceModels 카탈로그(gpt-5/o3/o3-mini/o1/o1-mini/gpt-4o/gpt-4o-mini)에 없는 obsolete 모델.
+  //   사용자가 카탈로그 API 응답 도착 전에 선택하면 백엔드는 응답하지만 frontend 처리에서 누락 가능.
+  //   카탈로그에 항상 존재하는 안전 모델로 변경.
+  model: 'gpt-4o-mini',
   temperature: 70,
   maxTokens: 2048
 })
@@ -696,7 +759,9 @@ const enableWebSearch = ref(false)
 const enableRag = ref(false)
 const responseLanguage = ref<string>('auto') // 'auto', 'ko', 'en'
 
-const availableModels = ref<string[]>(['gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'])
+// 트랙 #97-post6 — obsolete 하드코딩 모델 제거. 카탈로그 API(`/apiservices/{id}/models`) 응답이 우선.
+//   초기 빈 배열로 시작 → loadModels() 가 운영 카탈로그로 채움. 카탈로그에 없는 모델 사용자 선택 차단.
+const availableModels = ref<string[]>(['gpt-4o-mini'])
 
 const suggestedPrompts = [
   { icon: '👋', label: '인사하기', text: '안녕하세요! 오늘 어떤 도움이 필요하신가요?' },
@@ -714,6 +779,27 @@ const currentChat = computed(() => {
 const currentMessages = computed(() => {
   return currentChat.value?.messages || []
 })
+
+// 트랙 #97-post4 (2026-05-18): 활성 키 보유 외부/내부 LLM 필터
+//   - 백엔드(/api/apiservices) 가 ServiceCategory("external"/"internal") + HasActiveKey 채워서 응답
+//   - 키 미설정/만료(HasActiveKey=false) 인 provider 는 dropdown 에서 숨김 (사용자 결정: 우선 무시)
+//   - 향후 키 추가 시 ApiKeyPool 자동 갱신 → 백엔드 응답 변경 → 자동 노출
+//   - Chat 전용 (이미지 생성은 별도 화면)
+const filteredServices = computed(() => {
+  return services.value.filter(s =>
+    s.hasActiveKey === true &&
+    (s.serviceCategory ?? 'external') === activeServiceTab.value &&
+    (s.serviceType ?? 'Chat') === 'Chat'
+  )
+})
+
+// 각 탭의 활성 카운트 — 배지 표시용
+const externalActiveCount = computed(() =>
+  services.value.filter(s => s.hasActiveKey === true && (s.serviceCategory ?? 'external') === 'external' && (s.serviceType ?? 'Chat') === 'Chat').length
+)
+const internalActiveCount = computed(() =>
+  services.value.filter(s => s.hasActiveKey === true && s.serviceCategory === 'internal' && (s.serviceType ?? 'Chat') === 'Chat').length
+)
 
 // 서비스별 모델 목록 로드
 const loadModels = async (serviceId: number) => {
@@ -1072,7 +1158,33 @@ const deleteChat = async (chatId: string) => {
 }
 
 // 서비스 전환
+// 트랙 #97-post5 (2026-05-18) — 중대 결함 fix:
+//   기존 동작: chat.service 만 변경 (frontend) → conversationId 보유 채팅이면
+//   백엔드 `/api/chat/conversations/{id}/messages` 호출 시 body 에 serviceId 미전송 →
+//   백엔드는 conversation 의 원래 ServiceId(예: chatgpt) 그대로 사용 →
+//   사용자는 nexus 선택했는데 실제로는 chatgpt 응답 (ApiUsages 도 chatgpt 로 기록)
+//
+//   신규 동작: 기존 conversation 보유 채팅에서 service 변경 시 → 새 채팅 자동 생성.
+//   사용자 의도(다른 모델로 시도)가 곧 새 대화의 시작이므로 UX 자연스러움.
 const switchService = async (service: ApiService) => {
+  const existing = chats.value.find(c => c.id === currentChatId.value)
+
+  // 케이스 A — 기존 conversation 있고 다른 service 로 변경 → 새 채팅 자동 생성
+  if (existing?.conversationId && existing.service?.serviceId !== service.serviceId) {
+    createNewChat()
+    const fresh = chats.value.find(c => c.id === currentChatId.value)
+    if (fresh) {
+      fresh.service = service
+      await loadModels(service.serviceId)
+      if (availableModels.value.length > 0) {
+        modelSettings.value.model = availableModels.value[0]
+        fresh.model = modelSettings.value.model
+      }
+    }
+    return
+  }
+
+  // 케이스 B — 신규(conversationId 없음) 또는 같은 service 재선택
   if (!currentChatId.value) {
     createNewChat()
   }
@@ -1080,7 +1192,6 @@ const switchService = async (service: ApiService) => {
   if (chat) {
     chat.service = service
     await loadModels(service.serviceId)
-    // 서비스 변경 시 기본 모델 설정
     if (availableModels.value.length > 0) {
       modelSettings.value.model = availableModels.value[0]
       chat.model = modelSettings.value.model
@@ -1178,7 +1289,13 @@ const sendMessage = async () => {
         role: 'assistant',
         content: response.data.content || '응답이 없습니다.',
         createdAt: response.data.createdAt || new Date(),
-        citations: (response.data as any).citations || undefined
+        citations: (response.data as any).citations || undefined,
+        // 트랙 #97-post5 — 발화 출처 영구 보존 (service 변경 후에도 유지)
+        originServiceCode: chat.service?.serviceCode,
+        originServiceName: chat.service?.serviceName,
+        originIconClass: chat.service?.iconClass,
+        originColorCode: chat.service?.colorCode,
+        originModel: (response.data as any).model || chat.model
       }
     } else {
       // 새로운 conversation 생성
@@ -1274,22 +1391,113 @@ const sendMessage = async () => {
         // 이미지 생성 응답에서 conversationId가 오면 저장
         if (imageResponse.data?.conversationId) {
           const newConversationId = imageResponse.data.conversationId
-          const currentMessages = [...chat.messages] // 현재 메시지 백업
-          
+          // 트랙 #97-post7 (2026-05-18) — race fix:
+          //   기존 결함: currentMessages 백업이 assistantMessage push 전에 일어나 백업에 누락.
+          //   loadConversations 가 chats.value 통째 교체 → 옛 chat reference 는 chats.value 에 없음 →
+          //   updatedChat.messages = currentMessages (assistantMessage 없는 상태) → 화면 빈 응답 → F5 시 백엔드 로드로 표시.
+          //   fix: 백업에 assistantMessage 까지 포함 → updatedChat 에 완전한 메시지 배열 복원.
+          const currentMessages = [...chat.messages, assistantMessage]
+
           chat.conversationId = newConversationId
           chat.id = `conv-${newConversationId}`
-          
+
           // DB에 저장된 conversation이므로 목록을 다시 로드하여 최신 상태 반영
           await loadConversations()
-          
+
           // 로드 후 현재 채팅 찾기
           const updatedChat = chats.value.find(c => c.conversationId === newConversationId)
           if (updatedChat) {
             currentChatId.value = updatedChat.id
-            // 현재 작업 중인 메시지를 유지 (DB에서 로드한 메시지보다 최신)
+            // 작업 중 메시지 + assistantMessage 까지 영구 보존 (post7 fix)
             updatedChat.messages = currentMessages
+            updatedChat.updatedAt = new Date()
           }
         }
+      } else if (streamResponse.value) {
+        // ════════════════════════════════════════════════════════════
+        // 트랙 #97-post7 (2026-05-18) — SSE streaming 분기 (신규 conv)
+        //   AgentChat 단일 streamChat for-await 패턴 이식.
+        //   토큰 도착 즉시 화면에 점진 표시 (ChatGPT/Claude web 처럼).
+        //
+        //   payload 는 비스트리밍과 동일. stream:true 는 streamChat 내부에서 강제.
+        //   첫 'meta' event 의 conversationId 로 chat.conversationId 갱신 (in-place).
+        //   delta 마다 assistantMessage.content 누적 → Vue reactivity 가 자동 렌더.
+        // ════════════════════════════════════════════════════════════
+        const streamPayload: SendDirectMessageStreamRequest = {
+          serviceId: chat.service.serviceId,
+          model: modelSettings.value.model,
+          temperature: modelSettings.value.temperature / 100,
+          maxTokens: modelSettings.value.maxTokens,
+          messages: requestMessages,
+          enableWebSearch: enableWebSearch.value && (chat.service.serviceCode?.toLowerCase() === 'chatgpt' || chat.service.serviceCode?.toLowerCase() === 'openai'),
+          enableRag: enableRag.value,
+          ragTopK: 5,
+          language: responseLanguage.value
+        }
+
+        // streaming 메시지 미리 push — Vue reactivity 가 delta 마다 렌더링
+        const streamingMsg: Message = {
+          tempId: `streaming-${Date.now()}`,
+          role: 'assistant',
+          content: '',
+          createdAt: new Date(),
+          isStreaming: true,
+          originServiceCode: chat.service?.serviceCode,
+          originServiceName: chat.service?.serviceName,
+          originIconClass: chat.service?.iconClass,
+          originColorCode: chat.service?.colorCode,
+          originModel: chat.model
+        }
+        chat.messages.push(streamingMsg)
+        chat.updatedAt = new Date()
+
+        let firstDelta = false
+        try {
+          for await (const evt of streamChat(streamPayload)) {
+            switch (evt.type) {
+              case 'delta':
+                if (!firstDelta) {
+                  firstDelta = true
+                  chat.loading = false  // 첫 토큰 도착 = 로딩 인디케이터 제거
+                }
+                streamingMsg.content += evt.content ?? ''
+                await scrollToBottom()
+                break
+              case 'meta':
+                if (evt.conversationId && !chat.conversationId) {
+                  chat.conversationId = evt.conversationId
+                  chat.id = `conv-${evt.conversationId}`
+                }
+                if (evt.messageId) streamingMsg.messageId = evt.messageId
+                if (evt.model) streamingMsg.originModel = evt.model
+                break
+              case 'usage':
+                // 토큰/비용은 conv list 갱신 시 자연 반영
+                break
+              case 'error':
+                streamingMsg.content = evt.message || '오류가 발생했습니다.'
+                break
+            }
+          }
+        } catch (err: any) {
+          if (err?.name === 'AbortError') {
+            streamingMsg.content = (streamingMsg.content || '') + '\n\n_사용자가 중단했습니다_'
+          } else {
+            // 비스트리밍 catch 와 동일 정책으로 surface
+            streamingMsg.content = '오류가 발생했습니다: ' + (err?.message || '알 수 없는 오류')
+            streamingMsg.isStreaming = false
+            throw err
+          }
+        } finally {
+          streamingMsg.isStreaming = false
+          if (chat.loading) chat.loading = false
+        }
+
+        if (!streamingMsg.content || streamingMsg.content.trim() === '') {
+          streamingMsg.content = '응답이 없습니다.'
+        }
+        // streaming 분기는 이미 push 했으므로 후속 assistantMessage 처리 skip
+        assistantMessage = streamingMsg
       } else {
         const response = await api.post('/chat/send', {
           serviceId: chat.service.serviceId,
@@ -1297,7 +1505,7 @@ const sendMessage = async () => {
           temperature: modelSettings.value.temperature / 100,
           maxTokens: modelSettings.value.maxTokens,
           messages: requestMessages,
-          stream: streamResponse.value,
+          stream: false,
           enableWebSearch: enableWebSearch.value && (chat.service.serviceCode?.toLowerCase() === 'chatgpt' || chat.service.serviceCode?.toLowerCase() === 'openai'),
           enableRag: enableRag.value,
           ragTopK: 5,
@@ -1309,34 +1517,51 @@ const sendMessage = async () => {
           role: 'assistant',
           content: response.data.content || '응답이 없습니다.',
           createdAt: new Date(),
-          citations: response.data.citations || undefined
+          citations: response.data.citations || undefined,
+          // 트랙 #97-post5 — 발화 출처 영구 보존 (신규 conversation 분기)
+          originServiceCode: chat.service?.serviceCode,
+          originServiceName: chat.service?.serviceName,
+          originIconClass: chat.service?.iconClass,
+          originColorCode: chat.service?.colorCode,
+          originModel: (response.data as any).model || chat.model
         }
 
         // response에서 conversationId가 오면 저장
         // DirectSendMessageResponseDto에 conversationId가 포함되어 있음
         if ((response.data as any).conversationId) {
           const newConversationId = (response.data as any).conversationId
-          const currentMessages = [...chat.messages] // 현재 메시지 백업
-          
+          // 트랙 #97-post7 (2026-05-18) — race fix (Nexus 첫 응답 미표시 결함):
+          //   기존 결함: currentMessages 백업이 assistantMessage push 전에 일어나 백업에 누락.
+          //   loadConversations 가 `chats.value = [...convertedChats, ...existingLocalChats]` 통째 교체 →
+          //   옛 chat reference 는 chats.value 에 없음 (existingLocalChats 는 conversationId 없는 것만) →
+          //   updatedChat.messages = currentMessages (assistantMessage 누락) → 화면 빈 응답.
+          //   F5 시 selectChat → 백엔드 메시지 로드 → 표시 (사용자 보고와 일치).
+          //   fix: 백업에 assistantMessage 까지 포함하여 updatedChat 에 완전한 메시지 배열 복원.
+          const currentMessages = [...chat.messages, assistantMessage]
+
           chat.conversationId = newConversationId
           chat.id = `conv-${newConversationId}`
-          
+
           // DB에 저장된 conversation이므로 목록을 다시 로드하여 최신 상태 반영
           await loadConversations()
-          
+
           // 로드 후 현재 채팅 찾기
           const updatedChat = chats.value.find(c => c.conversationId === newConversationId)
           if (updatedChat) {
             currentChatId.value = updatedChat.id
-            // 현재 작업 중인 메시지를 유지 (DB에서 로드한 메시지보다 최신)
+            // 작업 중 메시지 + assistantMessage 까지 영구 보존 (post7 fix)
             updatedChat.messages = currentMessages
+            updatedChat.updatedAt = new Date()
           }
         }
       }
     }
 
-    chat.messages.push(assistantMessage)
-    chat.updatedAt = new Date()
+    // 트랙 #97-post7 — streaming 분기는 이미 push 했으므로 중복 push 방지
+    if (assistantMessage && !chat.messages.includes(assistantMessage)) {
+      chat.messages.push(assistantMessage)
+      chat.updatedAt = new Date()
+    }
   } catch (error: any) {
     console.error('Error sending message:', error)
     const errorMessage: Message = {

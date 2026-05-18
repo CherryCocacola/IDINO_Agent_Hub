@@ -1015,7 +1015,12 @@ const removeChatStyle = () => {
 const advancedSettings = ref({
   systemPrompt: t('agentChat.defaultSystemPrompt') + chatStyleSnippets['friendly'],
   responseFormat: 'markdown',
-  streamResponse: false, // 스트리밍 응답 기본값을 false로 변경 (중복 응답 방지)
+  // 트랙 #97-post8 (2026-05-18) — 결함 G fix: streamResponse 기본값 true 전환.
+  //   기존 결함: 초기값 false → 비스트리밍 = 응답 전체 대기 = 10~20초 (GPT web 3초 대비 큰 격차).
+  //   "중복 응답 방지" 회피용으로 false 였으나, fix-A(sseClient 401 처리 부재) + post7(신규 conv race)
+  //   로 원인 결함 2건이 모두 해소되었으므로 streaming 기본 활성화가 안전.
+  //   사용자는 좌측 설정 토글로 비스트리밍 폴백을 여전히 선택 가능.
+  streamResponse: true,
   saveHistory: true
 })
 

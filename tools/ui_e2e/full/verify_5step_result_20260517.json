@@ -1,0 +1,159 @@
+{
+  "track": "사용자 측 5단 검증 자동 시뮬레이션 — 2026-05-17",
+  "ts": "2026-05-17 23:15:14",
+  "results": [
+    {
+      "step": "S1-storage-cleanup",
+      "status": "PASS",
+      "note": "새 컨텍스트 = cookies/storage 자동 청소"
+    },
+    {
+      "step": "S2-login",
+      "status": "PASS",
+      "note": "localStorage 직접 저장 (ls=OK)",
+      "final_url": "http://192.168.10.39:64005/",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/verify_5step_20260517/S2_login.png"
+    },
+    {
+      "step": "S3-agentchat",
+      "status": "PASS",
+      "note": "응답 표시 OK",
+      "url_before": "http://192.168.10.39:64005/agents",
+      "url_after": "http://192.168.10.39:64005/agents/chat",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/verify_5step_20260517/S3_agentchat.png",
+      "new_console_errors": [],
+      "new_4xx_5xx": []
+    },
+    {
+      "step": "S4-multi-ChatGPT",
+      "status": "PASS",
+      "note": "응답 OK",
+      "url_before": "http://192.168.10.39:64005/agents/multi-chat",
+      "url_after": "http://192.168.10.39:64005/agents/multi-chat",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/verify_5step_20260517/S4_multi_chatgpt.png",
+      "new_console_errors": [
+        {
+          "type": "error",
+          "text": "Error sending message: TypeError: Failed to fetch\n    at Yt (http://192.168.10.39:64005/assets/AgentChat-CZcfm1aN.js:5:1400)\n    at Va (http://192.168.10.39:64005/assets/AgentChat-CZcfm1aN.js:5:872)\n    at Va.next (<anonymous>)\n    at yt (http://192.168.10.39:64005/assets/AgentChat-CZcfm1aN.js:31:10",
+          "ts": "2026-05-17 23:12:18"
+        }
+      ],
+      "new_4xx_5xx": []
+    },
+    {
+      "step": "S4-multi-Project Nexus",
+      "status": "PASS",
+      "note": "응답 OK",
+      "url_before": "http://192.168.10.39:64005/agents/multi-chat",
+      "url_after": "http://192.168.10.39:64005/agents/multi-chat",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/verify_5step_20260517/S4_multi_nexus.png",
+      "new_console_errors": [],
+      "new_4xx_5xx": []
+    },
+    {
+      "step": "V3-both-expired-fix-a-trigger",
+      "status": "FAIL",
+      "note": "예외: Page.evaluate: Execution context was destroyed, most likely because of a navigation",
+      "url_after": "http://192.168.10.39:64005/agents/chat",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/verify_5step_20260517/V3_both_expired_fix_a.png",
+      "new_console_errors": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "ts": "2026-05-17 23:14:46"
+        },
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "ts": "2026-05-17 23:14:51"
+        },
+        {
+          "type": "error",
+          "text": "Error sending message: Error: 인증이 만료되었습니다. 다시 로그인해 주세요.\n    at Va (http://192.168.10.39:64005/assets/AgentChat-CZcfm1aN.js:5:930)\n    at async yt (http://192.168.10.39:64005/assets/AgentChat-CZcfm1aN.js:31:1055)",
+          "ts": "2026-05-17 23:14:51"
+        }
+      ],
+      "new_4xx_5xx": [
+        {
+          "status": 401,
+          "method": "POST",
+          "url": "http://192.168.10.39:64005/api/chat/send/stream",
+          "body_preview": "",
+          "ts": "2026-05-17 23:14:51"
+        },
+        {
+          "status": 401,
+          "method": "POST",
+          "url": "http://192.168.10.39:64005/api/auth/refresh",
+          "body_preview": "",
+          "ts": "2026-05-17 23:14:51"
+        }
+      ]
+    },
+    {
+      "step": "V1-expired-access-only",
+      "status": "PASS",
+      "note": "만료 토큰 → /agents/chat (예상 외 라우팅)",
+      "url_after": "http://192.168.10.39:64005/agents/chat",
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/verify_5step_20260517/V1_expired_token.png",
+      "new_console_errors": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "ts": "2026-05-17 23:15:01"
+        }
+      ],
+      "new_4xx_5xx": [
+        {
+          "status": 401,
+          "method": "POST",
+          "url": "http://192.168.10.39:64005/api/chat/send/stream",
+          "body_preview": "",
+          "ts": "2026-05-17 23:15:01"
+        }
+      ]
+    },
+    {
+      "step": "V2-alert-dismiss-expired",
+      "status": "PASS",
+      "note": "alert dismiss → /agents/chat (dialog=0)",
+      "url_after": "http://192.168.10.39:64005/agents/chat",
+      "dismiss_count": 0,
+      "screenshot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/verify_5step_20260517/V2_alert_dismiss.png",
+      "new_console_errors": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "ts": "2026-05-17 23:15:10"
+        }
+      ],
+      "new_4xx_5xx": [
+        {
+          "status": 401,
+          "method": "POST",
+          "url": "http://192.168.10.39:64005/api/chat/send/stream",
+          "body_preview": "",
+          "ts": "2026-05-17 23:15:14"
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "console_errors": 6,
+    "network_4xx_5xx": 4,
+    "dialogs": 1
+  },
+  "all_dialogs": [
+    {
+      "type": "alert",
+      "message": "세션이 만료되어 다시 로그인합니다.",
+      "ts": "2026-05-17 23:14:51"
+    }
+  ],
+  "har_dir": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/full/verify_5step_har",
+  "counters": {
+    "PASS": 7,
+    "FAIL": 1,
+    "SKIP": 0
+  }
+}

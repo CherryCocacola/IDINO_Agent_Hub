@@ -4234,9 +4234,16 @@ You are a professional and helpful AI assistant.
         await foreach (var evt in _nexusClient.SendChatStreamAsync(nexusRequest, cancellationToken)
             .WithCancellation(cancellationToken))
         {
+            // 트랙 #97-post8 (2026-05-18) — Nexus 실제 SSE event type 매핑 fix.
+            //   기존 결함: "chunk"/"usage"/"done" 만 처리. Nexus 실제 type 은 text_delta /
+            //   message_start / message_stop / usage_update / stream_request_start/end →
+            //   모두 default 분기로 떨어져 delta 0 yield → frontend 화면 빈 응답.
+            //   직접 curl /v1/chat/stream 검증: text_delta event 가 토큰 단위로 정상 흘러나옴.
+            //   spec 검증 시점 차이로 misalignment.
             switch (evt.Type)
             {
                 case "chunk":
+                case "text_delta":  // Nexus 실제 토큰 delta event
                     if (!string.IsNullOrEmpty(evt.Text))
                     {
                         yield return ChatChunk.Delta(evt.Text);
@@ -4244,6 +4251,8 @@ You are a professional and helpful AI assistant.
                     break;
 
                 case "usage":
+                case "usage_update":  // Nexus 실제 usage event
+                case "message_stop":  // Nexus 의 종료 직전 usage 동봉
                     if (evt.Usage != null)
                     {
                         sawUsage = true;
@@ -4262,7 +4271,13 @@ You are a professional and helpful AI assistant.
                         evt.ErrorMessage ?? "Nexus 스트리밍 중 에러가 발생했습니다.");
 
                 case "done":
+                case "stream_request_end":  // Nexus 종료 신호
                     // Enumerator 자연 종료 신호 — 추가 처리 없음.
+                    break;
+
+                case "stream_request_start":
+                case "message_start":
+                    // 시작 메타데이터 — 화면 표시할 내용 없음, 무시.
                     break;
 
                 default:

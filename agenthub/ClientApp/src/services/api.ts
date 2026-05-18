@@ -55,7 +55,15 @@ api.interceptors.request.use(
  * 호출자가 race 로 여러 번 트리거하지 않도록 in-flight 가드를 둔다.
  */
 let isRedirectingToLogin = false
-function notifyAndRedirectToLogin(messageKey: 'auth.session.expired' | 'auth.session.noRefreshToken') {
+/**
+ * 세션 만료/refresh 실패 시 사용자 알림 + storage 양쪽 청소 + /login redirect.
+ *
+ * sseClient.ts (SSE 경로) 도 axios 인터셉터와 동일 정책을 적용해야 router 가드의
+ * "로그인 잔존 토큰" race 가 발생하지 않으므로 named export 하여 재사용한다.
+ * (트랙 #97-post3 — SSE 401 시 localStorage 만 청소되어 sessionStorage 토큰 잔존 →
+ * router 가드 index.ts:438-441 이 token 있다고 판정 → /login → / (Dashboard) 튕김 결함 해소)
+ */
+export function notifyAndRedirectToLogin(messageKey: 'auth.session.expired' | 'auth.session.noRefreshToken') {
   if (isRedirectingToLogin) return
   isRedirectingToLogin = true
 

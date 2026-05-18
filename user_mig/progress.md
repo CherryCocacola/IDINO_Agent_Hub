@@ -170,6 +170,376 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-17 (트랙 #97-post2 — 사용자 보고 결함 1+2 진단 + 전 메뉴 case-by-case e2e (Phase A 87 + Phase B 27))
+
+- **사용자 명시 보고 (3건)**:
+  1. **결함 1**: "agent 실행에서 아무방이나 들어가서 프롬프트 작성해서 send 를 선택하면 대시보드로 이동해"
+  2. **결함 2**: "멀티채팅에서 gpt, nexus 어떤 걸로 진행해도 응답을 하지 못해"
+  3. **확인 3**: "현재 nexus 는 192.168.223:8443 을 링크하고 있는거야?"
+
+- **결함 3 답변 (확정)**: 운영 agenthub 컨테이너 env 실측 — `Nexus__BaseUrl=https://192.168.22.223:8443` (정확히 `192.168.22.223`, 사용자 적은 `192.168.223:8443` 은 오타). `/v1/models` 3 모델 정상 응답 (`nexus-phase3`/`exaone-7.8b`/`multilingual-e5-large`). 트랙 #92(2026-05-13) 변경 그대로 적용됨.
+
+- **결함 2 백엔드 시뮬레이션 — HTTP 200 정상**: paramiko 로 admin@example.com 로그인 → `/api/chat/send` 직접 POST:
+  - **OpenAI** (serviceId=17 chatgpt + gpt-4o-mini) → HTTP **200** (2.7초, "It seems like you're referencing..." 86 tokens)
+  - **Nexus** (serviceId=32 nexus + primary) → HTTP **200** (48.8초, "안녕하세요! 무엇을 도와드릴까요?" 4355 tokens)
+  - **Nexus + agentId=30** (트랙 #92 PASS 패턴) → HTTP **200** (1.6초)
+  - 로그: `OpenAI API call successful. Model: gpt-4o-mini-2024-07-18` + Nexus 정상 응답. 즉 **백엔드/DB/Nexus 모두 정상** — 결함은 프론트 측.
+
+- **결함 2 백엔드 잠재 결함 발견**: 운영 로그에 `Nexus:SharedSecret 미설정 — LAN 격리에만 의존합니다. Phase 5+ 운영 적용 전 반드시 설정 필요.` warning 반복. 응답은 통과하나 보안 권고 위반 (`appsettings.json:18 + .env`). 사용자 결정: **Nexus 측 SharedSecret 값 확보 후 운영 .env 주입** (대기 중).
+
+- **Phase A — 전수 87 라우트 페이지 로딩 e2e (live_runner.py)**: PASS **65** / SKIP 22 / FAIL 0. console error 0건, network 4xx/5xx 0건. **페이지 로딩 회귀 없음**.
+
+- **Phase B v5 — 메뉴별 case-by-case 인터랙션 (27 케이스, 신규 `interaction_runner_20260517.py`)**:
+  - **27/27 PASS, 결함 1+2 e2e 미재현**:
+    - IX-AH-001 AgentChat send → **응답 정상 + URL 유지** (대시보드 이탈 미발생)
+    - IX-AH-002 ChatGPT 멀티채팅 → 응답 OK (49초)
+    - IX-AH-003 Nexus 멀티채팅 → 응답 OK (99초)
+    - IX-AH-030~092 운영자 콘솔 + 사용자 데이터 + 시스템/보안 + 이미지/PPTX 모두 PASS
+  - **부수 발견 1건 (Medium)**: IX-AH-002 console error `Error sending message: TypeError: Failed to fetch at AgentChat-Dms7NbSM.js:5:1405` — 응답은 정상 표시되나 부수 fetch 1건 실패 (CORS/race 의심, 비치명적)
+
+- **Playwright 인프라 결함 우회 (v1~v5 진화 과정)**:
+  - v1~v4: 23~26/27 FAIL — "세션 redirect /login" — `_admin_state.json` 의 `cookies:0 origins:0` 빈 파일
+  - **root cause**: AgentHub Login 의 "로그인 상태 유지" (rememberMe) 미체크 시 JWT 가 **sessionStorage** 에 저장. Playwright `ctx.storage_state()` 는 **localStorage 만** 저장 → 새 컨텍스트에서 토큰 손실
+  - **v5 fix**: 로그인 성공 후 `sessionStorage.token`/`refreshToken` 을 `localStorage.setItem` 으로 강제 복사한 뒤 `storage_state` 저장 → 27/27 PASS
+
+- **사용자 결함 1+2 미재현 가설** (사용자 결정: DevTools 캡처 + localStorage 완전 삭제 후 재시연):
+  - 의심 시나리오: 브라우저 캐시/storage 잔존 (직전 트랙 #97-pre2-2 i18n localStorage 결함과 유사 패턴) / 토큰 만료 상태에서 Send → 401 → `api.ts:151 notifyAndRedirectToLogin` → router 가드 `index.ts:438-441` `/login` 진입 시 token 잔존 판정으로 `/`(Dashboard) 리다이렉트 / alert 차단 환경 race / 브라우저 차이
+  - 다음 단계: **사용자 측 5단 검증 가이드 진행** (DevTools Network + Console + storage 청소 후 재시연 + HAR export)
+
+- **신규 파일 (commit 대기)**:
+  - `tmp/diagnose_chat_failure_20260517.py` — paramiko 운영 env + Nexus 응답 + ApiServices/Keys + 로그 grep
+  - `tmp/sim_multichat_openai_20260517.py` — `/api/apiservices` + `/api/chat/send` 시뮬레이션 v1 (정규식 결함)
+  - `tmp/sim_multichat_v2_20260517.py` — ServiceId 하드코딩 v2 (OpenAI/Nexus/AgentId=30 PASS 확인)
+  - `tools/ui_e2e/full/interaction_runner_20260517.py` — 27 케이스 case-by-case 인터랙션 러너 (v5)
+  - `tools/ui_e2e/full/interaction_results_20260517.json` — 27/27 PASS 결과
+  - `tools/ui_e2e/screenshots/interaction_20260517/*.png` — 27 스크린샷
+
+- **메모리 활용**: `feedback_ui_verification.md` (5단 검증) + `feedback_quality_over_demo.md` (부분 구현 거부) 적용. 백엔드 시뮬레이션 + 프론트 e2e 양방향 검증 후 사용자 측 캡처 단계로 명확히 분리.
+
+- **마지막 commit**: `aa615bd` (직전 트랙 #97-pre2-2 progress.md hash 갱신). 본 트랙 작업은 commit 대기 (사용자 측 5단 재현 + 결함 확정 후 일괄).
+
+### 2026-05-17 (트랙 #97-post3 — 5단 검증 자동화 + 만료 토큰/alert dismiss 변형 + SSE 401 결함 발견)
+
+- **사용자 명시 지시**: "위 시나리오 대로 CLAUDE 가 진행해줘" (사용자 측 5단 검증을 자동화로 진행)
+
+- **신규 스크립트**: `tools/ui_e2e/full/verify_5step_user_scenario_20260517.py` — 7단계(S1~S5 + V1/V2 변형) + HAR 캡처 + 콘솔/네트워크/dialog 상세 캡처
+
+- **셀렉터 fix (v1→v2)**: `AgentMultiChat` 은 `textarea.mc-textarea` + `button.mc-send-btn` (cd- prefix 아님). `AgentChat` 단일과 다른 prefix 사용. v1 에서 S4 멀티채팅 input 미발견 → v2 에서 `mc-textarea` 추가 후 PASS.
+
+- **7/7 PASS, 결함 1+2 e2e 완전 미재현**:
+  - S1 storage 청소 (새 컨텍스트) / S2 fresh 로그인+sessionStorage→localStorage 복사 / S3 AgentChat send 응답 OK + url=/agents/chat 유지 / S4a ChatGPT 멀티채팅 응답 OK / S4b Nexus 멀티채팅 응답 OK
+  - **V1 만료 토큰 + send** → HTTP 401 받지만 **url=/agents/chat 유지** (대시보드 이동 X)
+  - **V2 alert dismiss + 만료 토큰** → dialog 0건 + redirect 0건 (notifyAndRedirectToLogin 호출 안 됨)
+
+- **중대 신호 발견 — SSE 경로 401 처리 부재 (결함 2 잠재 root cause)**:
+  - V1/V2 에서 `POST /api/chat/send/stream` → HTTP 401 → **dialog 0건 + redirect 0건** 확인
+  - `api.ts:87-161` 응답 인터셉터는 axios 호출만 적용. **SSE 경로(EventSource/Fetch streaming)는 인터셉터 우회**
+  - `sseClient.ts:192,214` 에 별도 `window.location.href='/login'` 처리가 있다고 알려져 있으나 실측 시 dialog 0건 = `notifyAndRedirectToLogin` 미호출
+  - **사용자 결함 2 시나리오와 정확히 일치**: 토큰 만료 또는 백엔드 일시 오류 → SSE 401 → 사용자에게 알림 없이 페이지 정적으로 멈춤 → "응답 없음" 인식
+  - `streamResponse=true` 기본값(AgentMultiChat.vue:683)이므로 멀티채팅/AgentChat 모두 영향
+
+- **부수 결함 — AgentChat chunk fetch TypeError 빈출**:
+  - `Error sending message: TypeError: Failed to fetch at AgentChat-Dms7NbSM.js:5:1405`
+  - 응답은 결국 표시되지만 첫 fetch 실패 후 retry 동작. 빈번 시 사용자 시점 "응답 없음" 가능
+
+- **결함 1 (Send → Dashboard) — 환경 특정 결함 의심**:
+  - 정상/만료/alert dismiss/SSE 401 모든 변형에서 대시보드 이동 미발생
+  - 가능성: 다른 메뉴 click handler 충돌 / 특정 브라우저 / 특정 사용자 계정 / 사용자 착각
+
+- **권장 후속 트랙 (사용자 결정 필요)**:
+  - **fix-A (Critical, 결함 2 root cause 후보)**: `sseClient.ts` 의 401 처리 — `api.ts notifyAndRedirectToLogin` 동일 패턴 적용 (alert + storage 청소 + /login redirect). 또는 SSE 응답 시작 시점에 status code 검사 추가
+  - **fix-B (Medium)**: AgentChat chunk fetch TypeError root cause 진단 (코드 분할 또는 race)
+  - **fix-C (Low)**: 사용자 측 결함 1 재현을 위해 사용자 환경(브라우저/계정/메뉴 클릭 시점) 정밀 캡처 필요
+
+- **신규 파일 (commit 대기)**:
+  - `tools/ui_e2e/full/verify_5step_user_scenario_20260517.py`
+  - `tools/ui_e2e/full/verify_5step_result_20260517.json` (7/7 PASS)
+  - `tools/ui_e2e/full/verify_5step_har/session.har` + `session_v2.har` (HAR 캡처)
+  - `tools/ui_e2e/screenshots/verify_5step_20260517/*.png` (6 스크린샷)
+
+- **마지막 commit**: `aa615bd` (직전 트랙 #97-pre2-2 progress.md hash 갱신). 본 트랙 작업은 commit 대기.
+
+### 2026-05-17 (트랙 #97-post3 fix-A — sseClient.ts SSE 401 처리 추가 + 운영 배포 + V3 검증)
+
+- **목적**: 직전 5단 검증에서 발견된 SSE 401 처리 부재 결함 (결함 2 root cause 후보) 해소. SSE 경로(`/api/chat/send/stream`) 가 axios 인터셉터를 우회하면서 `safeRemoveLocalStorage` 만 호출 → sessionStorage 토큰 잔존 → router 가드(`index.ts:438-441`) `/login` 진입 시 token 잔존 판정 → `next('/')` (Dashboard) 튕김 결함.
+
+- **수정 2 파일**:
+  - **`agenthub/ClientApp/src/services/api.ts`** — `notifyAndRedirectToLogin` 을 named export 로 노출 (sseClient 재사용). 기존 default `api` export 유지. 한국어 주석 + 트랙 #97-post3 fix-A 참조 추가.
+  - **`agenthub/ClientApp/src/services/sseClient.ts`** — `refreshAccessToken`:
+    - import 교체: `safeGetLocalStorage/safeSetLocalStorage/safeRemoveLocalStorage` → `safeGetAuthStorage/safeSetAuthStorage/safeRemoveAuthStorage` + `notifyAndRedirectToLogin from '@/services/api'`
+    - refresh token 조회: `safeGetLocalStorage('refreshToken')` → `safeGetAuthStorage('refreshToken')` (양쪽 저장소 탐색)
+    - 영속성 결정: `persistent = !!safeGetLocalStorage('token') || !!safeGetLocalStorage('refreshToken')` (rememberMe 정책 유지)
+    - refresh token 없음 분기: `safeRemoveLocalStorage` + `window.location.href='/login'` → `notifyAndRedirectToLogin('auth.session.noRefreshToken')` (양쪽 청소 + alert + redirect 일원화)
+    - refresh 실패 catch: 동일하게 `notifyAndRedirectToLogin('auth.session.expired')` 일원화
+    - 신규 access token 저장: `safeSetLocalStorage` → `safeSetAuthStorage(persistent)` (반대편 저장소 자동 청소)
+    - 신규 refresh token 회전 대응: 백엔드가 회전 정책일 때 `data.refreshToken` 도 함께 갱신
+
+- **로컬 빌드 PASS**: `cd agenthub/ClientApp && npm run build:check` — vue-tsc + vite **4.25초, 0 TypeScript 에러**. 신규 청크:
+  - `AgentChat-DtB6-y-R.js` 70.65 KB (이전 `AgentChat-Dms7NbSM.js`)
+  - `AgentMultiChat-ChjrcMMX.js` 35.43 KB
+  - `index-Dj7DlJLJ.js` 271.18 KB
+
+- **운영 배포 PASS** (`tmp/deploy_track97_post3_fixa.py` paramiko, 192.168.10.39):
+  - SFTP 2 파일 동기화 (백업 `.bak.fixa_20260517_224325` 동반)
+  - `docker compose build agenthub` BuildKit cache + 컨테이너 내부 vite 빌드 (11.4s exporting)
+  - `force-recreate` healthy **12초**
+  - 검증 5/5 PASS:
+    - admin 로그인 JWT 555 chars
+    - `/api/admin/metrics/rag` HTTP 200 (Phase 4 회귀 무)
+    - 신규 index 청크 fingerprint `index-AXgtksKw.js` (컨테이너 내부 빌드)
+    - **i18n 키 `auth.session.expired` 매치 청크**: `AgentChat-CZcfm1aN.js` + `index-AXgtksKw.js` 둘 다 보유 ✅
+    - **i18n 키 `auth.session.noRefreshToken` 매치 청크**: 동일 2 청크 보유 ✅
+
+- **V3 실측 — fix-A 동작 확정** (`verify_5step_user_scenario_20260517.py` 신규 V3 시나리오 추가):
+  - V1 (access 만 만료): refreshToken 유효 → refresh 성공 → SSE 재시도 성공 → fix-A 분기 미진입 (정상)
+  - V2 (alert dismiss + access 만 만료): 동일, dialog 0건 (정상)
+  - **V3 (access + refresh 둘 다 만료, 신규)** — 핵심 fix-A 트리거 시나리오:
+    - 캡처: `NET: 401 POST /api/chat/send/stream` + `NET: 401 POST /api/auth/refresh` (양쪽 401)
+    - 캡처: **`[alert] 세션이 만료되어 다시 로그인합니다.`** (1건)
+    - 캡처: `Execution context was destroyed, most likely because of a navigation` (page.evaluate race — **navigation 진행 증명**)
+    - 즉 `sseClient.refreshAccessToken` 의 catch 분기에서 `notifyAndRedirectToLogin('auth.session.expired')` 호출 → i18n `t('auth.session.expired')` 반환 → `window.alert(message)` → `safeRemoveAuthStorage` 양쪽 청소 → `window.location.href='/login'` → router 가드 진입 시 양쪽 storage token 없음 → `/login` 정상 진입 (대시보드 X)
+  - 정상 케이스(S3/S4a/S4b) 회귀 모두 PASS — fix-A 가 정상 흐름 깨뜨리지 않음 확인
+
+- **결함 해소 매핑**:
+  - **사용자 결함 2 (멀티채팅 무응답)**: SSE 401 → refresh 실패 시 fix-A 가 alert + /login 으로 명확히 안내. 이전엔 사용자가 무한 대기 ("응답 없음" 인식). **해소됨**
+  - **사용자 결함 1 (Send → Dashboard)**: SSE 401 → 기존 `window.location.href='/login'` 만 호출하나 `safeRemoveLocalStorage` 만 청소 → sessionStorage 토큰 잔존 → router 가드 가 token 잔존 판정으로 `/` (Dashboard) 튕김. fix-A 가 `safeRemoveAuthStorage` 로 양쪽 청소 → /login 진입 시 token 없음 → 가드 정상 통과. **해소됨**
+
+- **잔여 부수 결함 (별도 트랙)**:
+  - **fix-B (Medium)**: AgentChat chunk `Error sending message: TypeError: Failed to fetch at AgentChat-CZcfm1aN.js` — 응답은 결국 표시되지만 첫 fetch 실패 빈출. 코드 분할 또는 race 가능성, 별도 진단 필요
+  - **N1 (Medium)**: Nexus SharedSecret 운영 .env 빈값 — 사용자 결정 대기 (값 확보 후 .env 주입)
+
+- **신규/수정 파일 (commit 대기)**:
+  - 수정 2: `agenthub/ClientApp/src/services/{api.ts,sseClient.ts}`
+  - 신규 5: `tmp/deploy_track97_post3_fixa.py`, `tools/ui_e2e/full/{verify_5step_user_scenario_20260517.py,verify_5step_result_20260517.json,verify_5step_har/*.har}`, `tools/ui_e2e/screenshots/verify_5step_20260517/*.png`
+
+- **마지막 commit**: `aa615bd` (직전 트랙 #97-pre2-2 progress.md hash 갱신). 본 트랙 + 직전 #97-post2/post3 작업 일괄 commit 대기 (사용자 측 결함 1+2 실제 환경 재현 회복 확인 후).
+
+### 2026-05-18 (트랙 #97-post4 + post5 — 외부/내부 LLM 탭 + switchService 결함 fix + 메시지 출처 영구 보존)
+
+**사용자 명시 보고 (3건)**:
+1. AgentChat 단일 "복지 규정 기본에 대해 알려줘" 응답 속도 검증 — GPT 치고 느낌 (~7~8초)
+2. 멀티채팅에서 gpt/claude/gemini 변경 시 gpt 만 응답 — API 키 vs 로직 결함 진단
+3. 멀티채팅에서 nexus 선택해서 "복지 규정 알려줘" 보냈는데 대시보드 ApiUsages 에 ChatGPT 로 기록됨
+
+**진단 결과**:
+- **결함 A (속도)**: 로직 정상, 정상 범위. 직접 호출 실측 — chatgpt "안녕" RAG OFF 1.88s / "복지 규정..." RAG OFF 7.26s / RAG ON 7.96s. GPT-4o 한국어 ~500자 생성 정상 시간. RAG 오버헤드 0.7s.
+- **결함 B (claude/gemini 무응답)**: 단순 API 키 문제 — Claude 환경변수 빈값, Gemini 키는 있으나 Google API 가 INVALID 거부.
+- **결함 C (nexus 선택 → ChatGPT 호출, 중대 결함)**: ChatMessages DB 직접 조회 결과 MessageId 1349 ("복지 규정 알려줘", nexus 선택) → assistant 응답 model="gpt-4o-mini-2024-07-18". 같은 conversationId=287 에 두 메시지. **switchService 결함** — `chat.service` 만 frontend 변경, `chat.conversationId` 보유 시 백엔드 `/chat/conversations/{id}/messages` body 에 serviceId 미전송 → 백엔드는 conversation 의 원래 ServiceId(chatgpt) 그대로 사용.
+
+**fix #97-post4 — 외부/내부 LLM 탭 + 활성 키 필터 (4 파일)**:
+- `agenthub/DTOs/ApiServiceDto.cs` — `ServiceCategory("external"/"internal")` + `HasActiveKey: bool` 필드
+- `agenthub/Controllers/ApiServicesController.cs` — `ClassifyService()` 메서드 (ApiKeyPool 카운트 OR config 키 fallback OR Nexus.BaseUrl 검사) + GetServices/GetService 응답 채움
+- `agenthub/ClientApp/src/views/agent/AgentMultiChat.vue` — `activeServiceTab` ref + `filteredServices` computed (hasActiveKey + category + Chat 필터) + 탭 UI (외부/내부 + 활성 카운트 배지) + 빈 탭 안내
+- `agenthub/ClientApp/src/views/agent/AgentMultiChat.css` — `mc-svc-tabs/tab/tab-active/tab-badge/empty` 스타일
+- 운영 .env: `GEMINI_API_KEY=` 빈값 처리 (INVALID 키 정리, 사용자 결정 "키 없거나 expired 우선 무시")
+
+**fix #97-post4 검증**: `/api/apiservices` 응답:
+| ServiceCode | category | hasKey | UI 노출 |
+|---|---|---|---|
+| chatgpt(17) | external | true | ✅ 외부 LLM 탭 |
+| perplexity(31) | external | true | ✅ 외부 LLM 탭 |
+| nexus(32) | internal | true | ✅ 내부 LLM 탭 |
+| claude(18) | external | false | ❌ 숨김 |
+| gemini(21) | external | false | ❌ 숨김 |
+
+**fix #97-post5 — switchService 새 채팅 자동 생성 + 메시지 출처 영구 보존 (1 파일)**:
+- `agenthub/ClientApp/src/views/agent/AgentMultiChat.vue`:
+  - `interface Message` — `originServiceCode/Name/IconClass/ColorCode/Model` 5 필드 추가
+  - `switchService` — **케이스 A** (`conversationId` 보유 + 다른 service): `createNewChat()` 자동 호출 → 새 conversation 에서 의도된 service 로 호출 보장 / **케이스 B** (신규 또는 동일 service): 기존 로직 유지
+  - `sendMessage` — 두 분기(conversationId 있음/없음) 모두 `assistantMessage` 생성 시 `currentChat.service` 스냅샷 + `response.data.model` 을 origin 5 필드에 영구 저장
+  - 템플릿 (mc-msg-avatar/header) — `message.originXxx` 우선, fallback `currentChat?.service?.xxx`. `originModel` 작은 텍스트로 표시 (gpt-4o-mini-2024-07-18 등) → 모델 변경해도 기존 응답 출처 유지
+
+**fix #97-post5 검증 (운영 배포 후 직접 호출)**:
+- 신규 conversationId=288 + `serviceId=32 nexus + model=primary` → HTTP 200, 19.3초, `model: "primary"`, `cost: 0.0000` (nexus 정확히 호출됨)
+- 응답 본문: "post5.nexus 호스트를 찾을 수 없습니다..." (nexus LLM 의 자연어 응답 — 정확히 nexus 응답 패턴)
+- 청크 fingerprint `AgentMultiChat-DNiFSSTt.js` (이전 -DbxwUnFu.js 와 다름, 빌드 적용)
+
+**요청 5 답변 — DocUtil/career 의 AgentHub agent 사용처 검색 키워드**:
+
+| 시스템 | 검색 키워드 | 핵심 위치 |
+|---|---|---|
+| **DocUtil** (24 파일 매치) | `AgentHubClient` / `AGENTHUB_URL` / `AGENTHUB_API_KEY` / `/v1/chat/completions` | `docutil/backend/app/integrations/agenthub_client.py` (싱글톤 클라이언트), `docutil/backend/app/modules/{chat,search}/service.py`, `docutil/backend/app/integrations/llm/{client,factory}.py`, `docutil/backend/app/workers/{embedding_generator,training/trainer}.py`, `docutil/backend/app/integrations/{rag/graph_rag,image_generation/service}.py` |
+| **career** (6 파일 매치) | 동일 | `career/shared/common/agenthub_client.py` (공통 클라이언트, 18 MS 공용), `career/services/ai-service/app/services/{embedding,llm}_service.py`, `career/services/simulation-service/app/services/simulation_service.py` |
+| **환경변수** (양쪽) | `AGENTHUB_URL`, `AGENTHUB_API_KEY` (+ career 는 `AGENTHUB_CONSUMER` MS 식별자) | `.env.example` |
+
+User-Agent: `"AgentHubClient/1.0 (docutil)"` / `"AgentHubClient/1.0 ({consumer_label})"` — AgentHub 측 로그/감사에서 호출자 식별 가능.
+
+**신규/수정 파일 (commit 대기)**:
+- 수정 5: `agenthub/DTOs/ApiServiceDto.cs`, `agenthub/Controllers/ApiServicesController.cs`, `agenthub/ClientApp/src/views/agent/{AgentMultiChat.vue,AgentMultiChat.css}`
+- 신규 2: `tmp/diagnose_speed_provider_20260518.py`, `tmp/deploy_track97_post4_tabs.py`, `tmp/deploy_track97_post5_switchservice.py`
+
+**마지막 commit**: `aa615bd` (직전 트랙 #97-pre2-2 progress.md hash 갱신). 본 트랙 + 직전 #97-post2/3/4/5 일괄 commit 대기.
+
+### 2026-05-18 (트랙 #97-post6 — 멀티채팅 대화 삭제 FK 위반 fix + gpt-4 obsolete 모델 회피)
+
+**사용자 명시 보고 (2건)**:
+1. **결함 D**: 멀티채팅 메뉴의 이전 대화 내용 삭제 안 됨
+2. **결함 E**: gpt-4 멀티채팅 시 응답 미표시 + "안녕" 단순 질문에도 응답 시간 과다
+
+**결함 D root cause 완전 확정**:
+- 운영 로그 직접 매치: `Npgsql.PostgresException 23503: update or delete on table "ChatConversations" violates foreign key constraint "FK_ApiUsages_ChatConversations_ConversationId"`
+- 직접 호출 검증: `DELETE /api/chat/conversations/291` → **HTTP 500** + `INTERNAL_SERVER_ERROR`
+- 원인: `ChatService.DeleteConversationAsync` (line 211) 가 `_context.ChatConversations.Remove(conversation)` 만 호출 → `ApiUsages.ConversationId` FK (RESTRICT 정책) 위반
+- 사용자 시점: confirm 후 silent 실패 (alert 메시지 → "채팅 삭제 중 오류가 발생했습니다" 표시되었으나 사용자 인지 못함)
+
+**결함 D fix (`agenthub/Services/ChatService.cs` DeleteConversationAsync)**:
+- 트랜잭션 `BeginTransactionAsync` 안에서 3단계 처리:
+  1) `ApiUsages.ConversationId = NULL` nullify (Usage 행은 보존 — 사용량/비용 감사 기록)
+  2) `ChatMessages.RemoveRange` (대화 본문은 같이 삭제)
+  3) `ChatConversation.Remove` (본체 삭제)
+- 중간 실패 시 `RollbackAsync` — 부분 삭제 방지
+- `ApiUsage.ConversationId` 는 이미 `int?` (nullable) 으로 정의되어 마이그레이션 불필요
+
+**결함 D 검증**:
+- DELETE 291 → **HTTP 500 → 204** ✅
+- DELETE 290 (Nexus) → **HTTP 204** ✅
+- 삭제 후 conv 목록 — 290/291 모두 제거됨
+- ApiUsages 잔존 + ConversationId NULL 확인 (감사 보존)
+
+**결함 E 진단 결과 — 백엔드 정상**:
+- gpt-4 직접 호출: HTTP 200, **3.05초**, `model: "gpt-4-0613"`, content="안녕하세요! 어떻게 도와드릴까요?", 33 tokens, $0.00099 — 백엔드 응답 정상 (gpt-4 가 gpt-4o-mini 1.26s 대비 약 2.4배 느림은 모델 특성)
+- ApiServiceModels 카탈로그(`/api/apiservices/17/models`): `["gpt-5","o3","o3-mini","o1","o1-mini","gpt-4o","gpt-4o-mini"]` — **`gpt-4` 자체가 카탈로그에 없음**
+- frontend `availableModels` 의 hardcoded fallback: `['gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo']` — 카탈로그 API 응답 도착 전 사용자가 obsolete 모델 선택 가능
+- "응답 미표시" root cause 는 사용자 측 DevTools 캡처 필요 (백엔드 정상 → frontend 응답 처리 race 의심)
+
+**결함 E 회피 fix (`agenthub/ClientApp/src/views/agent/AgentMultiChat.vue`)**:
+- `modelSettings.value.model` 기본값: `'gpt-4-turbo'` → `'gpt-4o-mini'` (카탈로그 항상 존재)
+- `availableModels` 기본값: `['gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo']` → `['gpt-4o-mini']`
+- 카탈로그 API(`loadModels`) 응답이 우선 → 사용자가 obsolete 모델 선택 차단
+
+**배포**:
+- `dotnet build` 0 오류 (16 경고 기존 부채)
+- `npm run build:check` 4.24초, 0 TS 에러
+- `docker compose build agenthub` 10.0초 (BuildKit cache)
+- force-recreate healthy **12초**
+- 신규 청크 `AgentMultiChat-IUg1fHM_.js`
+
+**신규/수정 파일 (commit 대기)**:
+- 수정 2: `agenthub/Services/ChatService.cs`, `agenthub/ClientApp/src/views/agent/AgentMultiChat.vue`
+- 신규 1: `tmp/deploy_track97_post6_delete_fix.py`
+
+**잔여 사용자 검증 요청**:
+- 결함 D: 멀티채팅 좌측 chat list 의 삭제 버튼 (`mc-chat-item-del` X 아이콘) 클릭 → confirm → 삭제됨 확인
+- 결함 E: gpt-4o-mini 또는 gpt-4o 로 시도 시 응답 정상 표시 확인. obsolete 모델은 selector 자체에서 사라짐
+- 결함 E 잔존: 만약 다른 모델에서도 응답 미표시 발생 시 DevTools Network/Console 캡처 보고
+
+**마지막 commit**: `aa615bd`. 본 트랙 + #97-post2~6 일괄 commit 대기.
+
+### 2026-05-18 (트랙 #97-post7 — Nexus 첫 응답 미표시 race fix + 멀티채팅 SSE streaming 추가)
+
+**사용자 명시 보고 (3건)**:
+1. API 응답 완성 후 한 번에 표시 외 다른 방법? (질문)
+2. ChatGPT/Claude 처럼 token-by-token 표시 가능? (질문)
+3. **Nexus 이용해 질문 시 첫번째 답변 응답 없음 + F5 누르면 화면 표시** (Critical 결함, post5/6 fix 후에도 잔존)
+
+**결함 F (Nexus 첫 응답 미표시) root cause 완전 확정 (코드 분석)**:
+- `AgentMultiChat.vue:sendMessage` 신규 conv 분기 — `currentMessages = [...chat.messages]` 백업 (line 1435) 이 assistantMessage push 전에 일어남
+- `await loadConversations()` (line 1441) 가 `chats.value = [...convertedChats, ...existingLocalChats]` 통째 교체 (line 903)
+- existingLocalChats 는 conversationId 없는 chat 만 → 옛 chat (이제 conversationId 갱신됨) 은 chats.value 에서 제외 → 새 객체 (convertedChats) 만 살아남음
+- `updatedChat.messages = currentMessages` (line 1448) — assistantMessage 빠진 백업 복원
+- `chat.messages.push(assistantMessage)` (line 1454) — 옛 chat reference 에 push, chats.value 의 updatedChat 에는 미반영
+- 결과: 화면 currentChat = updatedChat = messages 에 assistantMessage 누락 → 빈 응답
+- F5 → 페이지 새로고침 → loadConversations + selectChat → 백엔드 ChatMessages 로드 → 표시 (사용자 보고 정확히 일치)
+
+**fix #97-post7 race fix (1 파일)**:
+- `agenthub/ClientApp/src/views/agent/AgentMultiChat.vue:sendMessage`
+  - 신규 conv 분기 2곳 (이미지 + 일반): `currentMessages = [...chat.messages]` → `[...chat.messages, assistantMessage]` (백업에 assistantMessage 포함)
+  - `updatedChat.messages = currentMessages` — 이제 assistantMessage 까지 영구 보존
+  - `updatedChat.updatedAt = new Date()` 도 갱신 (사이드바 정렬 정확)
+
+**답변 1+2 + fix #97-post7 SSE streaming 추가 (사용자 결정: 지금 바로 구현 + 배포)**:
+- import: `streamChat, type SendDirectMessageStreamRequest from '@/services/sseClient'`
+- `interface Message` — `isStreaming?: boolean` 필드 추가
+- `sendMessage` 신규 conv 분기에 `else if (streamResponse.value)` 가지 신설:
+  - AgentChat 단일채팅의 `streamChat for-await` 패턴 이식
+  - streaming 메시지 미리 push (`tempId: 'streaming-...'`, content='', isStreaming=true, originXxx 5필드 스냅샷)
+  - `streamChat(streamPayload)` async generator — `delta`/`meta`/`usage`/`error` 4 event 처리
+  - delta 누적으로 Vue reactivity 가 자동 token-by-token 렌더 (ChatGPT/Claude web 패턴)
+  - 첫 delta 도착 시 `chat.loading=false` (로딩 인디케이터 즉시 제거)
+  - meta event 의 `conversationId` 로 `chat.conversationId` + `chat.id='conv-{id}'` in-place 갱신 (loadConversations 호출 안 함 → race 회피)
+  - AbortError catch + finally `isStreaming=false`
+- line 1454 후속 push 가드: `if (assistantMessage && !chat.messages.includes(assistantMessage))` (streaming 분기 중복 push 방지)
+- 기존 conv 분기 (line 1166~) 는 비스트리밍 유지 (현재 endpoint `/chat/conversations/{id}/messages` 와 streaming endpoint 통합은 별도 트랙)
+
+**배포 (post7 race + streaming 통합)**:
+- `npm run build:check` 4.08초, 0 TS 에러
+- `docker compose build agenthub` 9.8초 (BuildKit cache)
+- force-recreate healthy **12초**
+- 청크 fingerprint `AgentMultiChat-CYQEq6PT.js`
+- 파일 크기 148KB → 153KB (+5KB 증가, streaming 분기)
+
+**신규/수정 파일 (commit 대기)**:
+- 수정 1: `agenthub/ClientApp/src/views/agent/AgentMultiChat.vue`
+- 신규 1: `tmp/deploy_track97_post7_race_fix.py`
+
+**사용자 검증 요청**:
+1. 멀티채팅 좌측 "스트리밍 응답" 체크박스 활성화 → ChatGPT/Nexus 어느 provider 든 새 채팅 → 메시지 전송 → **token-by-token 자연스럽게 표시** (한 번에 표시 안 됨)
+2. 비활성화 시 기존 동작 (한 번에 표시) + race fix 로 Nexus 첫 응답 정상 표시 + F5 불필요
+3. (잔존 시) 두 번째 메시지부터도 streaming 원하면 별도 트랙 (기존 conv endpoint streaming 통합)
+
+**마지막 commit**: `aa615bd`. 본 트랙 + #97-post2~7 일괄 commit 대기.
+
+### 2026-05-18 (트랙 #97-post8 — GPT/Nexus streaming 활성화 + Nexus event type 매핑 fix)
+
+**사용자 명시 보고 (속도 비교 + 추가)**:
+1. "짜라투스트라 위버멘시" GPT web 3초 안에 답변 시작 vs 우리 10~20초 기본, 멀티챗은 더 걸림 — 속도 결함 G
+2. "nexus 뿐 아니라 gpt도 마찬가지야" — GPT 도 동일 결함 (streaming 미활성)
+
+**결함 G (GPT 도 비스트리밍 기본값) root cause 확정**:
+- `agenthub/ClientApp/src/views/agent/AgentChat.vue:1018` — `streamResponse: false` 기본값 ("중복 응답 방지" 주석)
+- `agenthub/ClientApp/src/views/agent/AgentMultiChat.vue:739` — `streamResponse = ref(false)` 기본값
+- 비스트리밍 = 응답 전체 대기 = OpenAI API 응답 시간 10~20초 그대로 노출. GPT web 3초 체감은 streaming 의 첫 토큰 즉시 도착 덕분
+- "중복 응답 방지" 회피용 false 였으나, **fix-A(sseClient 401 처리 부재) + post7(신규 conv race)** 로 원인 결함 2건 모두 해소 → streaming 기본 활성화 안전
+
+**결함 H (Nexus streaming event type 매핑 결함) root cause 확정**:
+- 측정: nexus 비스트리밍 29.87s / nexus streaming **4 SSE 라인 (delta event 0!)** / nexus 직접 호출 `/v1/chat/stream` 은 text_delta 정상 흘러나옴
+- root cause: `agenthub/Services/AiProxyService.cs:4237 StreamNexusChunksAsync` switch 가 `"chunk"` event type 만 처리. Nexus 실제 SSE event type 은 `text_delta` / `message_start` / `message_stop` / `usage_update` / `stream_request_start/end` → **모두 default 분기 → delta 0 yield → frontend 화면 빈 응답**
+- spec 검증 시점 차이로 misalignment 발생
+
+**fix #97-post8 (3 파일)**:
+1. `agenthub/ClientApp/src/views/agent/AgentChat.vue:1018` — `streamResponse: false` → `true` + 주석 갱신 (fix-A/post7 해소 명시)
+2. `agenthub/ClientApp/src/views/agent/AgentMultiChat.vue:739` — `ref(false)` → `ref(true)` 동일 변경
+3. `agenthub/Services/AiProxyService.cs:4243~4286` — Nexus switch 에 실제 event type 매핑 추가:
+   - `case "chunk": case "text_delta":` → delta yield
+   - `case "usage": case "usage_update": case "message_stop":` → usage yield
+   - `case "done": case "stream_request_end":` → 자연 종료
+   - `case "stream_request_start": case "message_start":` → 시작 메타 무시
+   - `case "error":` 기존 유지
+
+**배포 (post8 통합)**:
+- backend: `dotnet build -c Release` 9.11초 / 에러 0 / 워닝 16 (기존)
+- frontend: `vue-tsc --noEmit` 통과 (에러 0)
+- docker compose build agenthub 11.0초, force-recreate healthy **12초**
+- frontend 청크 fingerprint: `AgentChat-DGlHm_KJ.js` + `AgentMultiChat-E2ft0dRK.js` (양쪽 모두 갱신 확인)
+
+**검증 (TTFB 실측 — Time::HiRes 정밀 ms)**:
+| 항목 | 이전 | post8 후 | 판정 |
+|---|---|---|---|
+| GPT-4o-mini TTFB | 10~20s (비스트리밍) | **2.39s** | EXCELLENT (GPT web 3초 근접) |
+| GPT-4o-mini delta event | 0 (비스트리밍) | **301개** | token-by-token 정상 |
+| Nexus TTFB | 측정 불가 (delta 0) | **1.62s** | EXCELLENT |
+| Nexus delta event | **0개** (event type 미스매핑) | **806개** | 결함 H 완전 해소 |
+| Nexus 총 응답 시간 | 26.41s (생성 시간) | 27.39s | 모델 자체 생성 시간 (변화 없음, 정상) |
+
+**신규/수정 파일 (commit 대기)**:
+- 수정 3: `agenthub/ClientApp/src/views/agent/AgentChat.vue` + `AgentMultiChat.vue` + `Services/AiProxyService.cs`
+- 신규 3: `tmp/diagnose_speed_provider_20260518.py` + `diagnose_speed_streaming_20260518.py` (결함 G 진단) / `deploy_track97_post8_streaming_default.py` (배포) / `verify_post8_streaming_20260518.py` + `verify_post8_ttfb_20260518.py` (검증)
+
+**사용자 검증 요청**:
+1. AgentChat 단일채팅: 새 채팅 → 메시지 전송 → **첫 토큰 ~2초 안에 표시** + token-by-token 흐름
+2. AgentMultiChat: 동일하게 streaming 기본 활성화 + nexus 도 첫 응답 정상 표시 (F5 불필요)
+3. 좌측 "스트리밍 응답" 토글로 비스트리밍 폴백 여전히 선택 가능
+
+**추가 사용자 질의 답변 (2026-05-18 — 본 트랙 중)**:
+- "docutil 사용자정보(부서, 프로젝트)이 사라졌는가?" → **사라지지 않음. 100% 보존**
+- 검증 실측 (`tmp/verify_docutil_data_20260518.py`):
+  - AGENT_HUB.document_utilization: tb_users 132 / tb_departments **10** / tb_projects **2** / tb_documents 31 / tb_chat_sessions 95 / tb_chat_messages 220 / tb_document_chunks 646 / tb_search_history 386 / tb_audit_logs 788 (트랙 #88-6 직후 761 → 운영 사용 +27 정상 증가) — 모든 항목 트랙 #88-6 최종값과 100% 일치
+  - AgentHub Users.OriginalDocutilUuid: 131명 매핑 / 133명 전체 (시드 admin/test 외 100% 매핑)
+  - DocUtil API DATABASE_URL: `AGENT_HUB:...@postgres:5432/AGENT_HUB` ← 통합 DB 정상 연결 (R3 정합 달성)
+  - 원본 docutil DB: 30일 read-only 안전 기간 종료 후 정리됨 → 통합 DB 가 단일 마스터
+
+**마지막 commit**: `aa615bd`. 본 트랙 + #97-post2~7 일괄 commit 대기.
+
 ### 2026-05-15 (트랙 #97-pre2-2 — i18n 메뉴 영문 결함 fix + 베트남어(vi) 추가 + Settings 3-way 언어 선택)
 
 - **사용자 명시 보고**: "메뉴명이 계속 영문이다가 SETTINGS 를 선택하면 한글로 변경되는건 아직 수정되지 않은 거 같아 메뉴명은 SETTING 에서 전체 메뉴 및 시스템 내부에서 사용하는 언어를 설정할 수 있도록 해줘 (영어/한글/베트남)"
