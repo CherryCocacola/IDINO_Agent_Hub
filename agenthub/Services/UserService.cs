@@ -36,22 +36,16 @@ public class UserService : IUserService
             query = query.Where(u => u.UserRoles.Any(ur => ur.Role.RoleName == role));
         }
 
-        var users = await query.OrderByDescending(u => u.CreatedAt).ToListAsync();
+        var users = await query
+            .Include(u => u.DepartmentRef)
+                .ThenInclude(d => d!.ParentDepartment)
+                    .ThenInclude(p => p!.ParentDepartment)
+            .OrderByDescending(u => u.CreatedAt).ToListAsync();
 
-        return users.Select(u => new UserDto
-        {
-            UserId = u.UserId,
-            Email = u.Email,
-            FullName = u.FullName,
-            PhoneNumber = u.PhoneNumber,
-            Department = u.Department,
-            Bio = u.Bio,
-            ProfileImageUrl = u.ProfileImageUrl,
-            Status = u.Status,
-            Roles = u.UserRoles.Select(ur => ur.Role.RoleName).ToList(),
-            LastLoginAt = u.LastLoginAt,
-            CreatedAt = u.CreatedAt
-        }).ToList();
+        // 트랙 #98 — 부서 트리 path 계산을 위해 모든 Departments 캐시 (작은 마스터, 32행)
+        var deptCache = await BuildDepartmentCacheAsync();
+
+        return users.Select(u => MapToDto(u, deptCache)).ToList();
     }
 
     public async Task<UserDto?> GetUserByIdAsync(int userId)
@@ -59,24 +53,75 @@ public class UserService : IUserService
         var user = await _context.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
+            .Include(u => u.DepartmentRef)
             .FirstOrDefaultAsync(u => u.UserId == userId && !u.IsDeleted);
 
         if (user == null) return null;
 
+        var deptCache = await BuildDepartmentCacheAsync();
+        return MapToDto(user, deptCache);
+    }
+
+    /// <summary>
+    /// 트랙 #98 — Departments 마스터 캐시 (DepartmentId → (Name, ParentId)).
+    /// 부서 트리 path 계산용. 작은 마스터(< 100행)이므로 메모리 캐시가 적합.
+    /// </summary>
+    private async Task<Dictionary<int, (string Name, int? ParentId)>> BuildDepartmentCacheAsync()
+    {
+        var all = await _context.Departments
+            .AsNoTracking()
+            .Select(d => new { d.DepartmentId, d.DepartmentName, d.ParentDepartmentId })
+            .ToListAsync();
+        return all.ToDictionary(d => d.DepartmentId, d => (d.DepartmentName, d.ParentDepartmentId));
+    }
+
+    /// <summary>
+    /// 부서 트리 path 빌드: "아이디노(주) &gt; M.SI본부 &gt; Si 4팀" 형태.
+    /// 재귀 부모 추적 + 순환 참조 방어 (depth &lt;= 10).
+    /// </summary>
+    private static string? BuildDepartmentPath(int? departmentId, Dictionary<int, (string Name, int? ParentId)> cache)
+    {
+        if (departmentId == null || !cache.ContainsKey(departmentId.Value)) return null;
+        var parts = new List<string>();
+        var currentId = departmentId;
+        int depth = 0;
+        while (currentId != null && depth < 10 && cache.TryGetValue(currentId.Value, out var dept))
+        {
+            parts.Insert(0, dept.Name);
+            currentId = dept.ParentId;
+            depth++;
+        }
+        return string.Join(" > ", parts);
+    }
+
+    /// <summary>User 엔티티 → UserDto 매핑 (Departments 캐시 활용).</summary>
+    private static UserDto MapToDto(Models.User u, Dictionary<int, (string Name, int? ParentId)> deptCache)
+    {
+        string? deptName = null;
+        if (u.DepartmentId != null && deptCache.TryGetValue(u.DepartmentId.Value, out var d))
+            deptName = d.Name;
+
+#pragma warning disable CS0618 // Department deprecated — 호환 위해 일시 유지
         return new UserDto
         {
-            UserId = user.UserId,
-            Email = user.Email,
-            FullName = user.FullName,
-            PhoneNumber = user.PhoneNumber,
-            Department = user.Department,
-            Bio = user.Bio,
-            ProfileImageUrl = user.ProfileImageUrl,
-            Status = user.Status,
-            Roles = user.UserRoles.Select(ur => ur.Role.RoleName).ToList(),
-            LastLoginAt = user.LastLoginAt,
-            CreatedAt = user.CreatedAt
+            UserId = u.UserId,
+            Email = u.Email,
+            FullName = u.FullName,
+            PhoneNumber = u.PhoneNumber,
+            Department = u.Department,
+            DepartmentId = u.DepartmentId,
+            DepartmentName = deptName,
+            DepartmentPath = BuildDepartmentPath(u.DepartmentId, deptCache),
+            OrganizationId = u.OrganizationId,
+            Language = u.Language,
+            Bio = u.Bio,
+            ProfileImageUrl = u.ProfileImageUrl,
+            Status = u.Status,
+            Roles = u.UserRoles.Select(ur => ur.Role.RoleName).ToList(),
+            LastLoginAt = u.LastLoginAt,
+            CreatedAt = u.CreatedAt
         };
+#pragma warning restore CS0618
     }
 
     public async Task<UserDto> CreateUserAsync(CreateUserRequestDto request)

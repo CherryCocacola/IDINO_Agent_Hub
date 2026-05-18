@@ -3,7 +3,18 @@ export interface UserDto {
   email: string
   fullName: string
   phoneNumber?: string
+  /** 레거시 부서명 (deprecated, 2026-06-11 DROP 예정 — departmentName 사용). */
   department?: string
+  /** 트랙 #98 — 정규화 부서 FK. */
+  departmentId?: number
+  /** 트랙 #98 — 부서 이름 (예: "Si 4팀"). */
+  departmentName?: string
+  /** 트랙 #98 — 부서 트리 전체 경로 (예: "아이디노(주) > M.SI본부 > Si 4팀"). */
+  departmentPath?: string
+  /** 트랙 #98 — DocUtil tb_organizations.id 와 매핑되는 단일 조직 UUID. */
+  organizationId?: string
+  /** 트랙 #98 — 사용자 언어 코드 (ko/en/vi). */
+  language?: string
   bio?: string
   profileImageUrl?: string
   status: string

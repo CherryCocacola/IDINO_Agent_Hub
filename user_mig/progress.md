@@ -479,6 +479,110 @@ User-Agent: `"AgentHubClient/1.0 (docutil)"` / `"AgentHubClient/1.0 ({consumer_l
 
 **마지막 commit**: `3af12a4` (`[agenthub/track97-post2~8] 사용자 결함 6건 일괄 fix + e2e 27 인터랙션 인프라 + Phase B race/streaming/event-type 완전 해소`, +105 파일 / agenthub 9 코드 + progress.md + e2e 도구·결과 + 스크린샷 89). push 보류 (사용자 명시 승인 대기).
 
+### 2026-05-18 (트랙 #98 — DocUtil tb_users 진정한 단일 통합 + 회사 root 부서 + UserDto 부서 노출)
+
+**사용자 명시 보고 (3건 연쇄)**:
+1. "로그인 시 hslee@idino.co.kr 은 docutil 의 hslee 와 같은 인물인데 통합된거야?" → **결함 I (통합 아키텍처 검증)**
+2. "화면 상 사용자 정보 조회나 session 에 부서/프로젝트 정보가 없음" → **결함 II (UserDto 부서 미노출)**
+3. "docutil 에서 사용되던 테이블은 삭제해도 될 정도로 통합. 세부 데이터는 내가 수정할테니 기능 상 문제 없도록. 최고 상위 부서 = 회사 확실히" → **트랙 #98 본체 (진정한 단일 통합)**
+
+**진단 결과 (실측)**:
+- AgentHub Users 와 DocUtil tb_users 매칭률: **131/131 MISS 0** (트랙 #88-6 의 OriginalDocutilUuid 매핑 100% 무결성)
+- hslee 매핑: AgentHub UserId=221 (이현수, DepartmentId=40 Si 4팀) ↔ DocUtil id=`b54f6c80-...` (이현수, AI기술팀, 미래기술연구소 권한 프로젝트 멤버) — 동일 인물 정확 매핑
+- 단, 두 시스템이 **별도 부서 트리** 사용 (AgentHub: Si 4팀, DocUtil: AI기술팀) — 세부 데이터는 사용자가 정리
+- 결함 #2 root cause: `agenthub/DTOs/UserDto.cs:9` 가 deprecated Department string 만 노출. DepartmentId/DepartmentName/DepartmentPath 미노출 → 화면 빈 부서
+
+**사전 영향 카탈로그 (실측)**:
+- tb_users 참조 FK: **14개** (tb_boards/tb_chat_sessions/tb_documents/tb_project_members/...)
+- DocUtil 만의 컬럼 사용 현황: `language` 만 132/132 채움 (failed_login_count=0, locked_until=NULL, password_reset=NULL)
+- DocUtil tb_organizations: 단일 row `00000000-0000-4000-a000-000000000001` "아이디노"
+- AgentHub Departments root: 8개 (본부 6 + 디자인팀 + QA팀) — **회사 root 없음**
+- AgentHub Tenants: TenantId=2 "아이디노(주)" (회사 root 명칭 후보)
+- DocUtil ORM (`models.py:42`): `__tablename__ = "tb_users"` — Base 의 default schema (`document_utilization`) 사용
+
+**사용자 ADR (이 트랙 결정)**:
+- D1 — 통합 방식: **VIEW + INSTEAD OF TRIGGER** (table 삭제 가능 단일 SOT 의도 부합 + DocUtil ORM 무변경)
+- D2 — 회사 root 명칭: Tenants.TenantName 과 동일 **"아이디노(주)"** (DepartmentCode=DEPT_COMPANY)
+- D3 — Phase 1~5 일괄 즉시 진행 (위험 감수, pg_dump 사전 백업 + 트랜잭션 + rollback 준비)
+
+**Phase 1 — 회사 root 부서 추가 + 트리 재정렬**:
+- `infra/db/migration_098_phase1_2_company_root_and_compat.sql` (Part 1 섹션)
+- INSERT Departments(DepartmentName='아이디노(주)', Code='DEPT_COMPANY', TenantId=2, Parent=NULL) → DepartmentId=63 자동 할당
+- UPDATE 8개 root 부서의 ParentDepartmentId=63 → **단일 root 트리 완성**
+- 검증: ParentDepartmentId NULL = 1 (회사만), 회사 직속 자식 8개 (본부 6 + 디자인팀 + QA팀), hslee 트리 path = **"아이디노(주) > M.SI본부 > Si 4팀"**
+
+**Phase 2 — AgentHub Users 호환 컬럼 4개 추가**:
+- `OrganizationId uuid` (DEFAULT `00000000-0000-4000-a000-000000000001`)
+- `Language varchar(10)` (DEFAULT 'ko')
+- `FailedLoginCount int NOT NULL` (DEFAULT 0)
+- `LockedUntil timestamptz NULL`
+- 133명 모두 100% 채움 검증 (org_null=0, lang_null=0, failed_null=0)
+
+**Phase 3 — DocUtil tb_users → VIEW + INSTEAD OF TRIGGER (사용자 의도 핵심)**:
+- `infra/db/migration_098_phase3_tb_users_view.sql` (310 LOC)
+- 14개 FK DROP (application-level + INSTEAD OF trigger 가 무결성 검증)
+- `tb_users` 테이블 → `tb_users_legacy_20260518` RENAME (7일 read-only 유예)
+- `tb_users` VIEW 생성: `AIAgentManagement.Users.OriginalDocutilUuid IS NOT NULL AND IsDeleted=FALSE` 조건 + 19 컬럼 alias
+- INSTEAD OF INSERT/UPDATE/DELETE TRIGGER 3개:
+  - INSERT: AgentHub.Users INSERT + UserRoles INSERT (role 이름 매칭, fallback='User')
+  - UPDATE: AgentHub.Users UPDATE + role 변경 시 UserRoles 교체
+  - DELETE: soft delete (IsDeleted=true)
+- 검증 (라이브 INSERT 테스트):
+  - INSERT INTO tb_users (uuid=aaa...) → AgentHub.Users 에 UserId=262 자동 생성 + view 에서 즉시 조회 가능
+  - DELETE FROM tb_users → IsDeleted=true 변경 + view 에서 자동 숨김
+  - 완전 정리 (DELETE FROM Users) 모두 정상
+
+**Phase 4 — UserDto 부서 트리 노출 (결함 II fix)**:
+- `agenthub/DTOs/UserDto.cs`: `DepartmentId int?` + `DepartmentName` + `DepartmentPath` + `OrganizationId Guid?` + `Language` 5개 신규 필드
+- `agenthub/Models/User.cs`: `OrganizationId`, `Language`, `FailedLoginCount`, `LockedUntil` 컬럼 4개 추가
+- `agenthub/Services/UserService.cs`:
+  - `GetUsersAsync` / `GetUserByIdAsync` 에 `Include(u => u.DepartmentRef).ThenInclude(d => d.ParentDepartment)`
+  - `BuildDepartmentCacheAsync()` — Departments 마스터 캐시 (32행, AsNoTracking)
+  - `BuildDepartmentPath(deptId, cache)` — 재귀 부모 추적 + 순환 방어 (depth ≤ 10) → "아이디노(주) > 본부 > 팀"
+  - `MapToDto(u, cache)` 헬퍼 추출
+- `agenthub/ClientApp/src/types/index.ts`: UserDto TypeScript 인터페이스 갱신
+- `agenthub/ClientApp/src/views/Settings.vue`: 부서 입력 → readonly path 표시 + "운영자 콘솔에서 변경" 안내
+
+**Phase 5 — 배포 + 검증**:
+- backend `dotnet build -c Release`: 워닝 14 (기존 -2 감소), 에러 0
+- frontend `vue-tsc --noEmit`: 에러 0
+- docker compose build agenthub 10.6초 + force-recreate healthy **12초**
+- DocUtil API force-recreate healthy **15초**
+
+**검증 실측 결과**:
+| 항목 | 이전 | post #98 후 |
+|---|---|---|
+| Departments root 수 | 8 (본부들) | **1 (회사)** |
+| DocUtil tb_users 형태 | 물리 테이블 | **VIEW** (legacy 7일 유예) |
+| tb_users FK 수 | 14 | 0 (application-level) |
+| tb_users INSERT/UPDATE/DELETE | 직접 DB write | **AgentHub.Users 위임** (INSTEAD OF trigger) |
+| `/api/auth/me` 응답 (admin@example.com) | department="IT팀" 만 | **departmentPath="아이디노(주) > 경영본부 > IT팀"** + departmentId=56 + organizationId=00...001 + language='ko' |
+| DocUtil login (`hslee` username) | 200 OK | **200 OK + JWT** (VIEW select 정상) |
+| AgentHub login (admin) | 200 OK | **200 OK** (영향 없음) |
+
+**산출물**:
+- SQL 3종: `migration_098_phase1_2_company_root_and_compat.sql` (Phase 1+2) + `migration_098_phase3_tb_users_view.sql` (VIEW + trigger)
+- 진단 도구 6종: `tmp/verify_hslee_mapping_*.py` + `verify_schema_catalog_*.py` + `verify_org_*.py` + `verify_integration_truth_*.py` + `verify_fk_impact_*.py` + `verify_docutil_login_*.py`
+- 적용/배포 도구 3종: `tmp/apply_track98_phase12_*.py` + `apply_track98_phase3_*.py` + `deploy_track98_phase5_*.py`
+- pg_dump 백업 2종: `pre_track98_phase12_20260518_161846.sql` (3.5MB) + `pre_track98_phase3_20260518_162354.sql` (3.5MB)
+
+**ADR 결정 (트랙 #98)**:
+- A. 통합 방식: VIEW + INSTEAD OF TRIGGER (table 삭제 가능 의도 + ORM 무변경)
+- B. 회사 root: Departments 신규 row "아이디노(주)" (Code=DEPT_COMPANY)
+- C. DocUtil 만의 컬럼: AgentHub.Users 에 흡수 (OrganizationId/Language/FailedLoginCount/LockedUntil)
+- D. legacy 보존: `tb_users_legacy_20260518` 7일 read-only 유예 후 DROP 검토
+- E. 부서명 매핑 차이 (Si 4팀 vs AI기술팀): 사용자가 세부 데이터 정리 (이 트랙 범위 외)
+- F. 결함 #2 fix: UserDto 5필드 신규 노출 + Settings.vue readonly + Frontend types 동기화
+
+**미해결 (다음 트랙)**:
+- 회사 root TenantId 와 Tenants 동기화 (트랙 #88 의 TenantId=2 와 Phase 1 의 DepartmentCode=DEPT_COMPANY 의 일관성 — 현재는 별개)
+- DocUtil tb_departments 통합 (현재 view 의 department_id=NULL — 매핑 차이로 미연결)
+- AgentHub EF Migration baseline (트랙 #88 부채 — Phase 1+2 의 컬럼 추가가 EF model 반영 후 dotnet ef migrations add 필요)
+- 7일 후 `tb_users_legacy_20260518` DROP (2026-05-25 예정)
+- AgentHub 의 일부 시드 사용자(admin) 가 DocUtil username 'admin' 으로 로그인 시 500 — 별개 시드 매핑 결함 (운영 영향 없음, 운영 사용자는 정상)
+
+**마지막 commit**: `ac66ec4`. 본 트랙 commit 대기.
+
 ### 2026-05-18 (트랙 #97-post8 — GPT/Nexus streaming 활성화 + Nexus event type 매핑 fix)
 
 **사용자 명시 보고 (속도 비교 + 추가)**:

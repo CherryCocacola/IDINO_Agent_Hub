@@ -116,13 +116,22 @@
                       </div>
                       <div class="col-md-6 mb-3">
                         <label class="form-label">부서</label>
+                        <!--
+                          트랙 #98 (2026-05-18) — 부서 트리 readonly 표시.
+                          정규화된 Departments 트리 (회사 > 본부 > 팀) 가 마스터.
+                          편집은 운영자가 /users 또는 /admin/doc-util/departments 에서.
+                        -->
                         <input
                           type="text"
                           class="form-control"
-                          v-model="profile.department"
-                          :disabled="profileSaving"
-                          maxlength="100"
+                          :value="authStore.user?.departmentPath || authStore.user?.departmentName || profile.department || '미배정'"
+                          readonly
+                          tabindex="-1"
+                          aria-label="소속 부서 (운영자 콘솔에서 변경)"
                         >
+                        <small class="text-muted">
+                          부서 변경은 운영자 콘솔에서 가능합니다.
+                        </small>
                       </div>
                     </div>
                     <div class="mb-3">

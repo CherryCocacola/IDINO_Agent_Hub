@@ -40,6 +40,29 @@ public class User
     /// </summary>
     public Guid? OriginalDocutilUuid { get; set; }
 
+    /// <summary>
+    /// 트랙 #98 (2026-05-18) — DocUtil tb_organizations.id 와 매핑되는 단일 조직 UUID.
+    /// DocUtil tb_users VIEW 의 organization_id 컬럼을 채우는 데 사용.
+    /// 현재 단일 조직 "아이디노" (00000000-0000-4000-a000-000000000001) 만 운영.
+    /// </summary>
+    public Guid? OrganizationId { get; set; }
+
+    /// <summary>
+    /// 트랙 #98 — 사용자 i18n 언어 코드 (ko/en/vi). DocUtil tb_users.language 와 매핑.
+    /// </summary>
+    [MaxLength(10)]
+    public string? Language { get; set; }
+
+    /// <summary>
+    /// 트랙 #98 — 로그인 실패 누적 카운트 (계정 잠금 정책). DocUtil tb_users.failed_login_count.
+    /// </summary>
+    public int FailedLoginCount { get; set; }
+
+    /// <summary>
+    /// 트랙 #98 — 계정 잠금 만료 시각. DocUtil tb_users.locked_until.
+    /// </summary>
+    public DateTime? LockedUntil { get; set; }
+
     [MaxLength(500)]
     public string? Bio { get; set; }
 
