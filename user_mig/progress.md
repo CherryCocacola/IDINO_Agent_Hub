@@ -668,7 +668,7 @@ User-Agent: `"AgentHubClient/1.0 (docutil)"` / `"AgentHubClient/1.0 ({consumer_l
 | F5 | DocUtil /chat textarea | Medium | `docutil/frontend/(user)/chat/page.tsx` |
 | F6 | DocUtil admin/user 시드 500 (잔존) | Medium | DocUtil `app/modules/auth/service.py` 의 email LIKE 폴백 제거 또는 limit 1 |
 
-**마지막 commit**: `dcee75d`. 본 트랙 commit 대기.
+**마지막 commit**: `9bfc631` (`[agenthub+infra+tools/track99] 5계정×2시스템 5단 e2e + Critical 14건 BFF 5xx hotfix`, +대량 LOC, ~80 파일 변경 (코드 1 + SQL 1 + e2e 도구 + 스크린샷 64)). push 보류.
 
 ### 2026-05-18 (트랙 #98 — DocUtil tb_users 진정한 단일 통합 + 회사 root 부서 + UserDto 부서 트리 노출)
 
