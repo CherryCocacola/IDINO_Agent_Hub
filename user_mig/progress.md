@@ -746,7 +746,7 @@ User-Agent: `"AgentHubClient/1.0 (docutil)"` / `"AgentHubClient/1.0 ({consumer_l
 - DU-B2-Chat expectation 정정 (session 자동 생성 후 textarea 검사)
 - Phase A AH 3 FAIL expectation 정정 (User 도 자기 quota 조회 OK)
 
-**마지막 commit**: `9bfc631`. 본 트랙 commit 대기.
+**마지막 commit**: `eb9b3a2` (`[agenthub+docutil+tools/track100] 트랙 #99 잔존 결함 5개 fix + e2e 회귀 (398/410 PASS, 운영 결함 0)`, +732/-792 LOC, 43 파일). push 보류.
 
 ### 2026-05-18 (트랙 #98 — DocUtil tb_users 진정한 단일 통합 + 회사 root 부서 + UserDto 부서 트리 노출)
 
