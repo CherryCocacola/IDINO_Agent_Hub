@@ -70,10 +70,20 @@ class AuthService:
         """
 
         # -- look up user -------------------------------------------------
-        # username, 전체 email, 또는 email 로컬파트(@ 앞부분)로 검색
-        # 트랙 #88 — 통합 후 tb_users.username 은 진짜 운영 데이터의 한국어 이름.
-        # 사용자는 보통 email 로 로그인하므로 User.email 매칭도 함께 검사.
-        from sqlalchemy import or_, func
+        # 트랙 #100 F6 fix — 매칭 우선순위:
+        #   1) username 정확 매칭 (가장 정확)
+        #   2) 전체 email 정확 매칭
+        #   3) email 로컬파트(@ 앞부분) 매칭 (fallback)
+        # 기존 결함: or_ + scalar_one_or_none → 'admin' / 'user' 처럼 email prefix 가 여러 row 와
+        # 매칭되는 경우 MultipleResultsFound 500 발생. 우선순위 ORDER BY + LIMIT 1 으로 가장 정확한
+        # 1행만 가져오도록 변경.
+        from sqlalchemy import or_, func, case
+
+        priority = case(
+            (User.username == username, 0),
+            (User.email == username, 1),
+            else_=2,  # split_part 매칭
+        )
 
         stmt = select(User).where(
             or_(
@@ -81,12 +91,14 @@ class AuthService:
                 User.email == username,
                 func.split_part(User.email, '@', 1) == username,
             )
-        )
+        ).order_by(priority, User.ins_dt).limit(1)
         if org_id is not None:
             stmt = stmt.where(User.organization_id == org_id)
 
         result = await db.execute(stmt)
-        user: User | None = result.scalar_one_or_none()
+        # 트랙 #100 — limit(1) + order_by 사용으로 scalar_one_or_none 대신 scalars().first() 사용
+        # (sqlalchemy 의 scalar_one_or_none 은 row 0~1 만 허용, ORDER BY + LIMIT 사용 시 의미적으로 .first() 가 자연스러움)
+        user: User | None = result.scalars().first()
 
         if user is None:
             return None

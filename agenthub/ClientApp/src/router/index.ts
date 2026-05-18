@@ -440,13 +440,16 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
-  // ── 권한(role/roles) 검증 ─────────────────────────────────────────────
-  // requiresAuth + meta.role|roles 가 모두 부착된 라우트만 권한 검사 수행.
-  const required = getRequiredRoles(to.meta as Record<string, unknown>)
-  if (to.meta.requiresAuth && token && required.length > 0) {
+  // ── user 로드 + 권한(role/roles) 검증 ───────────────────────────────
+  // 트랙 #100 F2 fix — 모든 인증 라우트 진입 시 user 가 null 이면 loadUser() 호출.
+  //   기존 결함: loadUser 가 `required.length > 0` (meta.role 있는 라우트) 일 때만 호출 →
+  //   Settings 같은 일반 라우트는 user 갱신 안 됨 → authStore.user.departmentPath 가 null →
+  //   화면이 "미배정" 으로 fallback (BFF 응답에 departmentPath 가 있어도 무용).
+  //   해소: user 로드를 권한 검사와 분리하여 모든 인증 라우트에 적용.
+  if (to.meta.requiresAuth && token) {
     const auth = useAuthStore()
 
-    // user 가 메모리에 없다면(새로고침 직후) 토큰으로 로드 시도.
+    // 1) user 가 메모리에 없다면(새로고침 직후 또는 일반 라우트 첫 진입) 토큰으로 로드 시도.
     if (!auth.user) {
       try {
         await auth.loadUser()
@@ -457,17 +460,21 @@ router.beforeEach(async (to, _from, next) => {
       }
     }
 
-    const userRoles = auth.user?.roles ?? []
-    if (!hasRequiredRole(userRoles, required)) {
-      // 권한 부족 — 무한 루프 방지를 위해 root('/' = Dashboard) 로 리다이렉트.
-      // 사용자에게는 alert/toast 대신 console 경고만(UX는 진입 차단으로 충분).
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[router] 권한 부족 — 라우트 진입 차단: path=${to.fullPath}, ` +
-          `required=[${required.join(', ')}], userRoles=[${userRoles.join(', ')}]`
-      )
-      next('/')
-      return
+    // 2) meta.role|roles 가 부착된 라우트만 권한 검사 수행 (일반 라우트는 통과).
+    const required = getRequiredRoles(to.meta as Record<string, unknown>)
+    if (required.length > 0) {
+      const userRoles = auth.user?.roles ?? []
+      if (!hasRequiredRole(userRoles, required)) {
+        // 권한 부족 — 무한 루프 방지를 위해 root('/' = Dashboard) 로 리다이렉트.
+        // 사용자에게는 alert/toast 대신 console 경고만(UX는 진입 차단으로 충분).
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[router] 권한 부족 — 라우트 진입 차단: path=${to.fullPath}, ` +
+            `required=[${required.join(', ')}], userRoles=[${userRoles.join(', ')}]`
+        )
+        next('/')
+        return
+      }
     }
   }
 

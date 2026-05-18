@@ -14,19 +14,22 @@ public class AuthService : IAuthService
     private readonly ILogger<AuthService> _logger;
     private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
+    private readonly IUserService _userService;  // 트랙 #100 F2 fix — login 응답에 부서 트리 포함
 
     public AuthService(
         AIAgentManagementDbContext context,
         IJwtService jwtService,
         ILogger<AuthService> logger,
         IEmailService emailService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IUserService userService)
     {
         _context = context;
         _jwtService = jwtService;
         _logger = logger;
         _emailService = emailService;
         _configuration = configuration;
+        _userService = userService;
     }
 
     /// <summary>
@@ -112,13 +115,19 @@ public class AuthService : IAuthService
         var jwtToken = _jwtService.GenerateToken(user.UserId, user.Email, roles);
         var accessTokenExpiresAt = now.AddMinutes(AccessTokenExpirationMinutes);
 
+        // 트랙 #100 F2 fix — login 응답의 user 객체에 부서 트리 등 전체 UserDto 필드 포함.
+        // 기존 결함: UserId/Email/FullName/Roles 만 채워 → frontend authStore.user.departmentPath 가 비어
+        // Settings 페이지의 부서 트리 readonly 표시가 "미배정" 으로 fallback 되던 결함.
+        // GetUserByIdAsync 위임으로 UserService.MapToDto 의 부서 트리 빌드 로직 재사용.
+        var fullUserDto = await _userService.GetUserByIdAsync(user.UserId);
+
         return new LoginResponseDto
         {
             Token = jwtToken,
             RefreshToken = sessionToken,
             TokenExpiresAt = new DateTimeOffset(accessTokenExpiresAt, TimeSpan.Zero),
             RefreshTokenExpiresAt = new DateTimeOffset(refreshTokenExpiresAt, TimeSpan.Zero),
-            User = new UserDto
+            User = fullUserDto ?? new UserDto
             {
                 UserId = user.UserId,
                 Email = user.Email,

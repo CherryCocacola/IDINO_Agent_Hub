@@ -413,19 +413,32 @@ def b_multichat_check(page, account: str, do_llm: bool) -> dict:
 
 
 def b_settings_dept_tree(page, account: str) -> dict:
-    """Settings 페이지 부서 트리 readonly 표시 검증."""
+    """Settings 페이지 부서 트리 readonly 표시 검증.
+
+    트랙 #100 fix — HTML 표준상 <input> 의 value attribute 는 innerText 에 포함되지 않음.
+    body.innerText 만 검사하면 readonly input 의 value 를 못 찾으므로,
+    document.querySelectorAll('input').value 도 함께 합쳐서 검색해야 정확한 판정 가능.
+    """
     r = {"scenario": "B3-Settings-DeptTree", "account": account, "status": "FAIL", "note": ""}
     try:
         page.goto(f"{AGENTHUB_BASE}/settings", timeout=20_000)
         page.wait_for_load_state("networkidle", timeout=10_000)
         time.sleep(2.0)
         body = page.evaluate("() => document.body.innerText || ''")
+        # 트랙 #100 fix — input value 들도 함께 수집
+        input_values = page.evaluate(
+            "() => Array.from(document.querySelectorAll('input')).map(i => i.value || '').filter(v => v).join(' ')"
+        )
+        combined = body + " " + input_values
         # 부서 트리 키워드 검색 — 아이디노/본부/팀 패턴
-        has_dept_tree = any(k in body for k in ("아이디노", "본부", "팀"))
+        has_dept_tree = any(k in combined for k in ("아이디노", "본부", "팀"))
         # readonly — input/select 가 disabled 인지 (대략)
         readonly_input = page.query_selector('input[readonly], input[disabled]')
         r["status"] = "PASS" if has_dept_tree else "FAIL"
-        r["note"] = f"부서 트리 키워드 발견={has_dept_tree}, readonly_input={'있음' if readonly_input else '없음'}"
+        r["note"] = (
+            f"부서 트리 키워드 발견={has_dept_tree}, readonly_input={'있음' if readonly_input else '없음'}, "
+            f"input_values_len={len(input_values)}"
+        )
         shot(page, account, f"B3_Settings_{account}")
         return r
     except Exception as e:
