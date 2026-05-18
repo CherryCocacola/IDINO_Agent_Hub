@@ -477,7 +477,7 @@ User-Agent: `"AgentHubClient/1.0 (docutil)"` / `"AgentHubClient/1.0 ({consumer_l
 2. 비활성화 시 기존 동작 (한 번에 표시) + race fix 로 Nexus 첫 응답 정상 표시 + F5 불필요
 3. (잔존 시) 두 번째 메시지부터도 streaming 원하면 별도 트랙 (기존 conv endpoint streaming 통합)
 
-**마지막 commit**: `aa615bd`. 본 트랙 + #97-post2~7 일괄 commit 대기.
+**마지막 commit**: `3af12a4` (`[agenthub/track97-post2~8] 사용자 결함 6건 일괄 fix + e2e 27 인터랙션 인프라 + Phase B race/streaming/event-type 완전 해소`, +105 파일 / agenthub 9 코드 + progress.md + e2e 도구·결과 + 스크린샷 89). push 보류 (사용자 명시 승인 대기).
 
 ### 2026-05-18 (트랙 #97-post8 — GPT/Nexus streaming 활성화 + Nexus event type 매핑 fix)
 
