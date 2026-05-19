@@ -12,7 +12,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ---------------------------------------------------------------------------
 # Project schemas
 # ---------------------------------------------------------------------------
@@ -148,3 +147,35 @@ class FolderListResponse(BaseModel):
     total: int
     page: int
     size: int
+
+
+# ---------------------------------------------------------------------------
+# ProjectMember schemas (트랙 #101 F8)
+# ---------------------------------------------------------------------------
+
+
+class ProjectMemberCreate(BaseModel):
+    """프로젝트 멤버 추가 요청 (트랙 #101 F8).
+
+    role: 'member' | 'manager' (DB 컬럼 코멘트 기준).
+    """
+
+    user_id: UUID
+    role: str = Field(default="member", max_length=20)
+
+
+class ProjectMemberResponse(BaseModel):
+    """프로젝트 멤버 조회/추가 응답 (트랙 #101 F8).
+
+    GET /projects/{id}/members 의 평탄 응답과 호환되도록
+    username/email 를 조인 결과로 함께 반환한다.
+    """
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: UUID
+    project_id: UUID
+    user_id: UUID
+    username: str
+    email: str
+    role: str

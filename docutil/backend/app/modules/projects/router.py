@@ -17,12 +17,13 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_role
+from app.core.dependencies import require_role
 from app.core.security import TokenData
+from app.modules.audit.service import AuditService
 
 from .schemas import (
     BoardCreate,
@@ -35,6 +36,8 @@ from .schemas import (
     FolderUpdate,
     ProjectCreate,
     ProjectListResponse,
+    ProjectMemberCreate,
+    ProjectMemberResponse,
     ProjectResponse,
     ProjectUpdate,
 )
@@ -397,6 +400,104 @@ async def list_project_members(
         {"id": str(row.id), "username": row.username, "email": row.email, "role": row.role}
         for row in result.all()
     ]
+
+
+# ---------------------------------------------------------------------------
+# Project member mutation (트랙 #101 F8)
+# ---------------------------------------------------------------------------
+#
+# - POST   /projects/{project_id}/members          → 201 ProjectMemberResponse
+# - DELETE /projects/{project_id}/members/{user_id} → 204
+#
+# 권한: admin / org_admin / super_admin (_require_admin).
+# 감사 로그: project.member.add / project.member.remove (best-effort — 실패 시 무시).
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/projects/{project_id}/members",
+    response_model=ProjectMemberResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_project_member(
+    project_id: UUID,
+    body: ProjectMemberCreate,
+    request: Request = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(_require_admin),
+):
+    """프로젝트에 사용자 추가 (admin+ 전용, 트랙 #101 F8)."""
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not associated with an organisation.",
+        )
+
+    created = await ProjectService.add_member(
+        db,
+        project_id=project_id,
+        user_id=body.user_id,
+        role=body.role,
+        organization_id=current_user.organization_id,
+    )
+
+    # 감사 로그 — 실패가 주 흐름을 막지 않도록 swallow.
+    try:
+        await AuditService.create_log(
+            db=db,
+            org_id=current_user.organization_id,
+            user_id=current_user.user_id,
+            action="project.member.add",
+            resource_type="project",
+            resource_id=str(project_id),
+            details={"user_id": str(body.user_id), "role": created["role"]},
+            ip_address=request.client.host if request and request.client else None,
+        )
+    except Exception:
+        pass
+
+    return created
+
+
+@router.delete(
+    "/projects/{project_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+async def remove_project_member(
+    project_id: UUID,
+    user_id: UUID,
+    request: Request = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(_require_admin),
+):
+    """프로젝트에서 사용자 제거 (admin+ 전용, 트랙 #101 F8)."""
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not associated with an organisation.",
+        )
+
+    await ProjectService.remove_member(
+        db,
+        project_id=project_id,
+        user_id=user_id,
+        organization_id=current_user.organization_id,
+    )
+
+    try:
+        await AuditService.create_log(
+            db=db,
+            org_id=current_user.organization_id,
+            user_id=current_user.user_id,
+            action="project.member.remove",
+            resource_type="project",
+            resource_id=str(project_id),
+            details={"user_id": str(user_id)},
+            ip_address=request.client.host if request and request.client else None,
+        )
+    except Exception:
+        pass
 
 
 @router.get("/projects/{project_id}/departments")

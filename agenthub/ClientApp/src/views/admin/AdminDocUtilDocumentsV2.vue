@@ -77,6 +77,61 @@
             </button>
           </div>
         </div>
+        <!-- 트랙 #101 F9: 부서/프로젝트 필터 (현재는 UI 준비 단계) -->
+        <div class="row g-2 align-items-end mt-1">
+          <div class="col-md-4">
+            <label class="form-label small">
+              {{ t('adminDocutilDocumentsV2.filterDepartmentId') }}
+              <span class="badge bg-warning-subtle text-warning-emphasis ms-1">
+                {{ t('adminDocutilDocumentsV2.filterPendingBadge') }}
+              </span>
+            </label>
+            <select
+              v-model="filterDepartmentId"
+              class="form-select"
+              :disabled="loadingFilterOptions || filterDepartmentOptions.length === 0"
+              @change="onApplyFilters"
+            >
+              <option value="">{{ t('adminDocutilDocumentsV2.filterAllDepartments') }}</option>
+              <option
+                v-for="d in filterDepartmentOptions"
+                :key="d.id"
+                :value="d.id"
+              >
+                {{ '— '.repeat(d.depth) }}{{ d.name }}
+              </option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small">
+              {{ t('adminDocutilDocumentsV2.filterProjectId') }}
+              <span class="badge bg-warning-subtle text-warning-emphasis ms-1">
+                {{ t('adminDocutilDocumentsV2.filterPendingBadge') }}
+              </span>
+            </label>
+            <select
+              v-model="filterProjectId"
+              class="form-select"
+              :disabled="loadingFilterOptions || filterProjectOptions.length === 0"
+              @change="onApplyFilters"
+            >
+              <option value="">{{ t('adminDocutilDocumentsV2.filterAllProjects') }}</option>
+              <option
+                v-for="p in filterProjectOptions"
+                :key="p.id"
+                :value="p.id"
+              >
+                {{ p.name }}
+              </option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <small class="text-muted d-block mt-3">
+              <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+              {{ t('adminDocutilDocumentsV2.filterPendingHint') }}
+            </small>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -606,7 +661,9 @@ import type {
   DocumentV2ExportFormat,
   DocumentV2ExportStatus,
   DocumentV2ExportStatusValue,
-  DocumentV2PatchType
+  DocumentV2PatchType,
+  DocUtilDepartment,
+  DocUtilProject
 } from '@/services/docutilService'
 
 const { t } = useI18n()
@@ -622,6 +679,18 @@ const docTypeInput = ref('')
 const modeInput = ref('')
 const appliedDocType = ref('')
 const appliedMode = ref('')
+
+// 트랙 #101 F9 — 부서/프로젝트 filter dropdown (UI 준비 단계).
+// 백엔드 GET /api/admin/docutil/documents-v2 가 현재 documentType/mode 만 지원하고,
+// DocUtil DocumentV2 스키마에도 departmentId/projectId 필드가 없어 client-side filter
+// 가 불가능하다. dropdown 자체는 노출하여 운영자가 부서/프로젝트 목록은 확인할 수
+// 있도록 하되, 적용은 일단 비활성(value 유지만)으로 둔다 — 차기 트랙에서 backend
+// 측 schema/필터 확장 후 활성화 예정.
+const filterDepartmentId = ref<string>('')
+const filterProjectId = ref<string>('')
+const filterDepartmentOptions = ref<DocUtilDepartment[]>([])
+const filterProjectOptions = ref<DocUtilProject[]>([])
+const loadingFilterOptions = ref<boolean>(false)
 
 const successMessage = ref('')
 const errorMessage = ref('')
@@ -721,7 +790,27 @@ async function loadDocuments() {
 
 onMounted(() => {
   loadDocuments()
+  void loadFilterOptions()
 })
+
+async function loadFilterOptions() {
+  // 부서/프로젝트 dropdown 데이터를 병렬로 1회 로드. 실패해도 본 화면의 다른 동작
+  // (목록/필터/생성/패치) 은 영향 받지 않도록 silent fallback (빈 배열).
+  loadingFilterOptions.value = true
+  try {
+    const [depts, projs] = await Promise.all([
+      docutilService.listDepartments().catch(() => [] as DocUtilDepartment[]),
+      docutilService
+        .listProjects(1, 200)
+        .then((res) => res.items)
+        .catch(() => [] as DocUtilProject[])
+    ])
+    filterDepartmentOptions.value = [...depts].sort((a, b) => a.path.localeCompare(b.path))
+    filterProjectOptions.value = projs
+  } finally {
+    loadingFilterOptions.value = false
+  }
+}
 
 function onApplyFilters() {
   appliedDocType.value = docTypeInput.value.trim()
@@ -735,6 +824,8 @@ function onClearFilters() {
   modeInput.value = ''
   appliedDocType.value = ''
   appliedMode.value = ''
+  filterDepartmentId.value = ''
+  filterProjectId.value = ''
   offset.value = 0
   loadDocuments()
 }

@@ -316,6 +316,39 @@ export async function updateUserStatus(
 }
 
 /**
+ * DocUtil 사용자 일반 정보 수정 — partial PUT (트랙 #101 F7).
+ *
+ * 백엔드 진입점: AgentHub `PUT /api/admin/docutil/users/{id}` (UpdateDocUtilUserRequest).
+ * 모든 필드 nullable — 최소 한 필드는 지정되어야 하며(컨트롤러 검증), departmentId 가
+ * 빈 문자열("")이면 부서 해제 의도로 해석된다(백엔드 → DocUtil null 매핑).
+ *
+ * 성공/실패 모두 백엔드가 사용자 캐시(version-key bump)를 일괄 무효화한다.
+ */
+export interface DocUtilUserUpdate {
+  /** 변경할 이메일. undefined 면 변경하지 않음. */
+  email?: string
+  /** 변경할 역할(예: "admin", "member"). */
+  role?: string
+  /** 변경할 부서 UUID. 빈 문자열("")은 부서 해제 의도. null 미지원 — 빈 문자열로 전달. */
+  departmentId?: string
+  /** 변경할 선호 언어 코드(예: "ko", "en", "vi"). */
+  language?: string
+  /** 변경할 상태(active/inactive/locked). */
+  status?: DocUtilUserStatus
+}
+
+export async function updateUser(
+  id: string,
+  request: DocUtilUserUpdate
+): Promise<DocUtilUserDetail> {
+  const { data } = await api.put<DocUtilUserDetail>(
+    `${USERS_BASE}/users/${encodeURIComponent(id)}`,
+    request
+  )
+  return data
+}
+
+/**
  * DocUtil 사용자 삭제. 백엔드 204 NoContent — 반환값 없음.
  * 성공 시 백엔드가 캐시 일괄 무효화.
  */
@@ -670,6 +703,51 @@ export async function getProjectMembers(id: string): Promise<DocUtilProjectMembe
     `${PROJECTS_BASE}/projects/${encodeURIComponent(id)}/members`
   )
   return data
+}
+
+/**
+ * 프로젝트 멤버 추가 요청(트랙 #101 F8).
+ *
+ * 백엔드 진입점: AgentHub `POST /api/admin/docutil/projects/{projectId}/members`.
+ * role 화이트리스트 — "member" 또는 "manager" (백엔드 사전 검증). 누락 시 백엔드가
+ * "member" 로 기본 적용한다.
+ *
+ * 실패 모드:
+ *   - 409 Conflict — 이미 동일 사용자가 멤버
+ *   - 404 Not Found — 프로젝트 또는 사용자 미존재
+ *   - 400 Bad Request — role 화이트리스트 위반
+ */
+export interface DocUtilProjectMemberAdd {
+  /** 추가할 사용자 UUID. */
+  userId: string
+  /** 역할 — 백엔드 화이트리스트는 "member" / "manager". 미지정 시 "member" 기본. */
+  role?: 'member' | 'manager'
+}
+
+export async function addProjectMember(
+  projectId: string,
+  request: DocUtilProjectMemberAdd
+): Promise<DocUtilProjectMember> {
+  const { data } = await api.post<DocUtilProjectMember>(
+    `${PROJECTS_BASE}/projects/${encodeURIComponent(projectId)}/members`,
+    request
+  )
+  return data
+}
+
+/**
+ * 프로젝트 멤버 제거(트랙 #101 F8).
+ *
+ * 백엔드 진입점: AgentHub `DELETE /api/admin/docutil/projects/{projectId}/members/{userId}`.
+ * 백엔드 204 NoContent — 반환값 없음. 성공/실패 모두 캐시 일괄 무효화.
+ */
+export async function removeProjectMember(
+  projectId: string,
+  userId: string
+): Promise<void> {
+  await api.delete(
+    `${PROJECTS_BASE}/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(userId)}`
+  )
 }
 
 /** 프로젝트 참여 부서 조회. */
@@ -2415,6 +2493,7 @@ export default {
   listUsers,
   getUser,
   updateUserStatus,
+  updateUser,
   deleteUser,
   // Phase 10.1b — 조직/부서/할당량
   getOrganization,
@@ -2434,6 +2513,8 @@ export default {
   updateProject,
   deleteProject,
   getProjectMembers,
+  addProjectMember,
+  removeProjectMember,
   getProjectDepartments,
   listProjectBoards,
   createProjectBoard,

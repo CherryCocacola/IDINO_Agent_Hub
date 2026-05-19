@@ -290,12 +290,21 @@
 
         <!-- 멤버 -->
         <div v-if="selectedProject" class="card aiuiux-card mt-3">
-          <div class="card-header bg-transparent border-bottom">
+          <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center">
             <h6 class="mb-0">
               <i class="bi bi-people me-1" aria-hidden="true"></i>
               {{ t('adminDocutilProjects.projectMembers') }}
               <span class="text-muted small ms-1">({{ members.length }})</span>
             </h6>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary"
+              @click="openAddMemberModal"
+              :aria-label="t('adminDocutilProjects.addMember')"
+            >
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              {{ t('adminDocutilProjects.addMember') }}
+            </button>
           </div>
           <div class="card-body p-0">
             <div v-if="loadingMembers" class="text-center py-3">
@@ -312,6 +321,7 @@
                   <th>{{ t('adminDocutilProjects.colMemberUsername') }}</th>
                   <th>{{ t('adminDocutilProjects.colMemberEmail') }}</th>
                   <th>{{ t('adminDocutilProjects.colMemberRole') }}</th>
+                  <th class="text-end" style="width: 80px;">{{ t('common.actions') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -319,9 +329,20 @@
                   <td>{{ m.username }}</td>
                   <td>{{ m.email }}</td>
                   <td>
-                    <span class="badge" :class="m.role === 'admin' ? 'bg-primary' : 'bg-secondary'">
+                    <span class="badge" :class="m.role === 'manager' ? 'bg-primary' : 'bg-secondary'">
                       {{ m.role }}
                     </span>
+                  </td>
+                  <td class="text-end">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-link text-danger p-1"
+                      @click="confirmRemoveProjectMember(m)"
+                      :title="t('adminDocutilProjects.removeMember')"
+                      :aria-label="t('adminDocutilProjects.removeMember')"
+                    >
+                      <i class="bi bi-person-dash" aria-hidden="true"></i>
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -582,6 +603,114 @@
         </div>
       </div>
     </div>
+
+    <!-- 프로젝트 멤버 추가 모달 (트랙 #101 F8) -->
+    <div v-if="addMemberModal.open" class="modal-overlay d-flex justify-content-center align-items-center">
+      <div class="modal-card card aiuiux-card">
+        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">
+            <i class="bi bi-person-plus me-1" aria-hidden="true"></i>
+            {{ t('adminDocutilProjects.modalAddMemberTitle') }}
+          </h6>
+          <button
+            type="button"
+            class="btn-close"
+            :aria-label="t('common.close')"
+            @click="closeAddMemberModal"
+          ></button>
+        </div>
+        <form @submit.prevent="submitAddMember">
+          <div class="card-body">
+            <p class="small text-muted mb-3">
+              {{ t('adminDocutilProjects.addMemberHint') }}
+            </p>
+            <div class="mb-3">
+              <label for="proj-add-search" class="form-label small">
+                {{ t('adminDocutilProjects.userSearch') }}
+              </label>
+              <div class="input-group input-group-sm">
+                <input
+                  id="proj-add-search"
+                  type="text"
+                  class="form-control"
+                  v-model="addMemberModal.searchInput"
+                  :placeholder="t('adminDocutilProjects.userSearchPlaceholder')"
+                  @keydown.enter.prevent="searchUsersForMember"
+                />
+                <button
+                  type="button"
+                  class="btn btn-outline-primary"
+                  @click="searchUsersForMember"
+                  :disabled="addMemberModal.searching"
+                >
+                  <span v-if="addMemberModal.searching" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                  {{ t('adminDocutilProjects.userSearchButton') }}
+                </button>
+              </div>
+            </div>
+            <div v-if="addMemberModal.results.length > 0" class="mb-3">
+              <label class="form-label small">
+                {{ t('adminDocutilProjects.userSearchResults') }}
+                <span class="text-muted">({{ addMemberModal.results.length }})</span>
+              </label>
+              <div class="list-group list-group-flush user-search-results">
+                <button
+                  v-for="u in addMemberModal.results"
+                  :key="u.id"
+                  type="button"
+                  class="list-group-item list-group-item-action small"
+                  :class="{ active: addMemberModal.selectedUserId === u.id }"
+                  @click="addMemberModal.selectedUserId = u.id"
+                >
+                  <strong>{{ u.username }}</strong>
+                  <span class="text-muted ms-2">{{ u.email }}</span>
+                </button>
+              </div>
+            </div>
+            <p v-else-if="addMemberModal.searched && !addMemberModal.searching" class="small text-muted mb-3">
+              {{ t('adminDocutilProjects.userSearchEmpty') }}
+            </p>
+            <div class="mb-3">
+              <label for="proj-add-role" class="form-label small">
+                {{ t('adminDocutilProjects.colMemberRole') }}
+              </label>
+              <select
+                id="proj-add-role"
+                class="form-select form-select-sm"
+                v-model="addMemberModal.role"
+              >
+                <option value="member">{{ t('adminDocutilProjects.roleMember') }}</option>
+                <option value="manager">{{ t('adminDocutilProjects.roleManager') }}</option>
+              </select>
+              <small class="form-text text-muted">
+                {{ t('adminDocutilProjects.roleHint') }}
+              </small>
+            </div>
+            <div v-if="addMemberModal.error" class="alert alert-danger small mb-0">
+              {{ addMemberModal.error }}
+            </div>
+          </div>
+          <div class="card-footer bg-transparent text-end">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary me-2"
+              @click="closeAddMemberModal"
+              :disabled="addMemberModal.submitting"
+            >
+              {{ t('common.cancel') }}
+            </button>
+            <button
+              type="submit"
+              class="btn btn-sm btn-primary"
+              :disabled="addMemberModal.submitting || !addMemberModal.selectedUserId"
+            >
+              <span v-if="addMemberModal.submitting" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              {{ t('adminDocutilProjects.addMemberConfirm') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -610,6 +739,7 @@ import {
   type DocUtilProjectDepartment,
   type DocUtilBoard,
   type DocUtilBoardList,
+  type DocUtilUserSummary,
   listProjects,
   getProjectTree,
   getProject,
@@ -617,11 +747,14 @@ import {
   updateProject,
   deleteProject,
   getProjectMembers,
+  addProjectMember,
+  removeProjectMember,
   getProjectDepartments,
   listProjectBoards,
   createProjectBoard,
   updateProjectBoard,
   deleteProjectBoard,
+  listUsers,
 } from '@/services/docutilService'
 
 const { t } = useI18n()
@@ -1036,6 +1169,109 @@ async function confirmDeleteBoard(b: DocUtilBoard): Promise<void> {
   }
 }
 
+// ── 트랙 #101 F8: 프로젝트 멤버 추가/제거 ───────────────────────────────
+// 백엔드: POST /api/admin/docutil/projects/{projectId}/members + DELETE …/{userId}.
+// role 화이트리스트는 "member" / "manager" (백엔드 사전 검증).
+interface AddMemberModalState {
+  open: boolean
+  searchInput: string
+  results: DocUtilUserSummary[]
+  selectedUserId: string | null
+  role: 'member' | 'manager'
+  searched: boolean
+  searching: boolean
+  submitting: boolean
+  error: string
+}
+
+const addMemberModal = ref<AddMemberModalState>({
+  open: false,
+  searchInput: '',
+  results: [],
+  selectedUserId: null,
+  role: 'member',
+  searched: false,
+  searching: false,
+  submitting: false,
+  error: '',
+})
+
+function openAddMemberModal(): void {
+  if (!selectedProjectId.value) return
+  addMemberModal.value = {
+    open: true,
+    searchInput: '',
+    results: [],
+    selectedUserId: null,
+    role: 'member',
+    searched: false,
+    searching: false,
+    submitting: false,
+    error: '',
+  }
+}
+
+function closeAddMemberModal(): void {
+  addMemberModal.value.open = false
+}
+
+async function searchUsersForMember(): Promise<void> {
+  const q = addMemberModal.value.searchInput.trim()
+  addMemberModal.value.searching = true
+  addMemberModal.value.error = ''
+  try {
+    const data = await listUsers(1, 50, q || undefined)
+    addMemberModal.value.results = data.items
+    addMemberModal.value.searched = true
+    if (data.items.length > 0) {
+      addMemberModal.value.selectedUserId = data.items[0].id
+    } else {
+      addMemberModal.value.selectedUserId = null
+    }
+  } catch (err: unknown) {
+    addMemberModal.value.error = extractErrorMessage(err)
+  } finally {
+    addMemberModal.value.searching = false
+  }
+}
+
+async function submitAddMember(): Promise<void> {
+  if (!selectedProjectId.value || !addMemberModal.value.selectedUserId) return
+
+  addMemberModal.value.submitting = true
+  addMemberModal.value.error = ''
+  try {
+    await addProjectMember(selectedProjectId.value, {
+      userId: addMemberModal.value.selectedUserId,
+      role: addMemberModal.value.role,
+    })
+    addMemberModal.value.open = false
+    // 멤버 list 새로고침.
+    await loadMembers(selectedProjectId.value)
+  } catch (err: unknown) {
+    addMemberModal.value.error = extractErrorMessage(err)
+  } finally {
+    addMemberModal.value.submitting = false
+  }
+}
+
+async function confirmRemoveProjectMember(member: DocUtilProjectMember): Promise<void> {
+  if (!selectedProjectId.value) return
+  const message = t('adminDocutilProjects.removeMemberConfirm', { username: member.username })
+  if (!window.confirm(message)) return
+
+  loadingMembers.value = true
+  errorMessage.value = ''
+  try {
+    await removeProjectMember(selectedProjectId.value, member.id)
+    await loadMembers(selectedProjectId.value)
+  } catch (err: unknown) {
+    errorMessage.value = extractErrorMessage(err)
+  } finally {
+    loadingMembers.value = false
+  }
+}
+
 // ── 유틸 ──────────────────────────────────────────────────────────────────
 function formatDate(value: string | null): string {
   if (!value) return '-'
@@ -1105,5 +1341,12 @@ dl.row dt {
 
 .nav-pills .nav-link {
   cursor: pointer;
+}
+
+.user-search-results {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.25rem;
 }
 </style>

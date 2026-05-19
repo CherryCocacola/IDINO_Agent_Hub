@@ -763,6 +763,75 @@ public class DocUtilClient : IDocUtilClient
     }
 
     // ══════════════════════════════════════════════════════════════════════
+    // 10b. UpdateUserAsync — PUT /api/v1/users/{user_id} (트랙 #101 F7)
+    //
+    // body: DocUtil UserUpdate {email?, role?, department_id?, language?, status?}
+    //   - 모든 필드 partial — null/미설정은 body 에서 제외하여 DocUtil 측 partial 의도 보존.
+    //   - DepartmentId 가 빈문자열("")이면 null 매핑하여 부서 해제 의도를 전달.
+    //
+    // 주의(트랙 #98 phase 3):
+    //   tb_users 는 VIEW (AgentHub User 마스터의 read-only 투영). DocUtil 측 UserService.update_user
+    //   가 ORM setattr → flush() 로 동작하지만 VIEW 갱신은 PG 가 거부할 수 있어 실제 효과는
+    //   DocUtil 의 INSTEAD OF trigger 유무에 의존한다. 본 클라이언트는 HTTP 응답만 forward 한다 —
+    //   응답이 200 이면 성공, 4xx/5xx 면 InvalidOperationException(한국어) 으로 매핑.
+    // ══════════════════════════════════════════════════════════════════════
+    public async Task<DocUtilUserDetail> UpdateUserAsync(
+        string userId,
+        DocUtilUpdateUserRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new ArgumentException("userId 가 비어있습니다.", nameof(userId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        var path = $"/api/v1/users/{Uri.EscapeDataString(userId)}";
+
+        // DocUtil UserUpdate partial body — null 필드는 제외.
+        var body = new Dictionary<string, object?>();
+        if (request.Email is not null) body["email"] = request.Email;
+        if (request.Role is not null) body["role"] = request.Role;
+        if (request.DepartmentId is not null)
+        {
+            // 빈문자열 → null (부서 해제 의도). 그 외는 그대로 전달.
+            body["department_id"] = string.IsNullOrWhiteSpace(request.DepartmentId)
+                ? null
+                : request.DepartmentId;
+        }
+        if (request.Language is not null) body["language"] = request.Language;
+        if (request.Status is not null) body["status"] = request.Status;
+
+        if (body.Count == 0)
+        {
+            throw new ArgumentException(
+                "수정할 필드가 하나 이상 있어야 합니다.", nameof(request));
+        }
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 사용자 일반 정보 수정 호출 - UserId={UserId}, FieldCount={FieldCount}",
+            userId, body.Count);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<UserResponseDto>(stream, JsonOptions, cancellationToken);
+
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 사용자 정보 수정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return MapUserDetail(dto);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
     // 11. DeleteUserAsync — DELETE /api/v1/users/{user_id}
     // ══════════════════════════════════════════════════════════════════════
     public async Task DeleteUserAsync(
@@ -1340,6 +1409,92 @@ public class DocUtilClient : IDocUtilClient
                 m.Email ?? string.Empty,
                 m.Role ?? string.Empty))
             .ToList();
+    }
+
+    // 7b) AddProjectMemberAsync — POST /api/v1/projects/{project_id}/members (트랙 #101 F8)
+    //
+    // DocUtil ProjectMemberCreate: {user_id: UUID, role: "member"|"manager" (default "member")}
+    // 응답 201 ProjectMemberResponse: {id, project_id, user_id, username, email, role}
+    public async Task<DocUtilProjectMember> AddProjectMemberAsync(
+        string projectId,
+        DocUtilAddProjectMemberRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.UserId))
+        {
+            throw new ArgumentException("userId 가 비어있습니다.", nameof(request));
+        }
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}/members";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        var body = new Dictionary<string, object?>
+        {
+            ["user_id"] = request.UserId,
+            ["role"] = string.IsNullOrWhiteSpace(request.Role) ? "member" : request.Role,
+        };
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 프로젝트 멤버 추가 호출 - ProjectId={ProjectId}, UserId={UserId}, Role={Role}",
+            projectId, request.UserId, body["role"]);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        // DocUtil ProjectMemberResponse 는 id/project_id/user_id/username/email/role 6 필드.
+        // BFF 표면(DocUtilProjectMember) 은 id/username/email/role 4 필드로 축약(GetProjectMembersAsync 와 동일 형태).
+        // id 는 user_id 로 매핑(외부 표면 일관성) — 기존 GET 와 같은 의미.
+        var dto = await JsonSerializer.DeserializeAsync<ProjectMemberCreateResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 프로젝트 멤버 추가 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        return new DocUtilProjectMember(
+            dto.UserId ?? dto.Id ?? string.Empty,
+            dto.Username ?? string.Empty,
+            dto.Email ?? string.Empty,
+            dto.Role ?? string.Empty);
+    }
+
+    // 7c) RemoveProjectMemberAsync — DELETE /api/v1/projects/{project_id}/members/{user_id} (트랙 #101 F8)
+    public async Task RemoveProjectMemberAsync(
+        string projectId,
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            throw new ArgumentException("projectId 가 비어있습니다.", nameof(projectId));
+        }
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new ArgumentException("userId 가 비어있습니다.", nameof(userId));
+        }
+
+        var path = $"/api/v1/projects/{Uri.EscapeDataString(projectId)}/members/{Uri.EscapeDataString(userId)}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Delete, path, body: null, cancellationToken);
+
+        _logger.LogInformation(
+            "DocUtil 프로젝트 멤버 제거 호출 - ProjectId={ProjectId}, UserId={UserId}",
+            projectId, userId);
+
+        using var response = await client.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
     }
 
     // 8) GetProjectDepartmentsAsync — GET /api/v1/projects/{project_id}/departments
@@ -4410,6 +4565,19 @@ public class DocUtilClient : IDocUtilClient
     private sealed class ProjectMemberResponseDto
     {
         [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("username")] public string? Username { get; set; }
+        [JsonPropertyName("email")] public string? Email { get; set; }
+        [JsonPropertyName("role")] public string? Role { get; set; }
+    }
+
+    // 트랙 #101 F8 — POST /projects/{id}/members 응답.
+    // DocUtil ProjectMemberResponse: id(=tb_project_members.id), project_id, user_id, username, email, role.
+    // GET 응답(id=user_id) 과 형식이 다르다 — 별도 DTO 로 분리하여 매핑 명확성 보장.
+    private sealed class ProjectMemberCreateResponseDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("project_id")] public string? ProjectId { get; set; }
+        [JsonPropertyName("user_id")] public string? UserId { get; set; }
         [JsonPropertyName("username")] public string? Username { get; set; }
         [JsonPropertyName("email")] public string? Email { get; set; }
         [JsonPropertyName("role")] public string? Role { get; set; }

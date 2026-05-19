@@ -262,11 +262,22 @@
                 <dd class="col-sm-8">{{ formatDate(selectedDept.createdAt) }}</dd>
               </dl>
 
-              <h6 class="border-top pt-3 mb-2">
-                <i class="bi bi-people me-1" aria-hidden="true"></i>
-                {{ t('adminDocutilDepartments.members') }}
-                <span class="text-muted small ms-1" v-if="members.length > 0">({{ members.length }})</span>
-              </h6>
+              <div class="d-flex justify-content-between align-items-center border-top pt-3 mb-2">
+                <h6 class="mb-0">
+                  <i class="bi bi-people me-1" aria-hidden="true"></i>
+                  {{ t('adminDocutilDepartments.members') }}
+                  <span class="text-muted small ms-1" v-if="members.length > 0">({{ members.length }})</span>
+                </h6>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  @click="openAddMemberModal"
+                  :aria-label="t('adminDocutilDepartments.addMember')"
+                >
+                  <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                  {{ t('adminDocutilDepartments.addMember') }}
+                </button>
+              </div>
               <div v-if="loadingMembers" class="text-center py-3">
                 <div class="spinner-border spinner-border-sm" role="status">
                   <span class="visually-hidden">{{ t('common.loading') }}</span>
@@ -282,6 +293,7 @@
                       <th scope="col">{{ t('adminDocutilDepartments.colMemberUsername') }}</th>
                       <th scope="col">{{ t('adminDocutilDepartments.colMemberEmail') }}</th>
                       <th scope="col" style="width: 100px;">{{ t('adminDocutilDepartments.colMemberRole') }}</th>
+                      <th scope="col" style="width: 100px;" class="text-end">{{ t('common.actions') }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -290,6 +302,17 @@
                       <td>{{ m.email }}</td>
                       <td>
                         <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ m.role }}</span>
+                      </td>
+                      <td class="text-end">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-link text-danger p-1"
+                          @click="confirmRemoveMember(m)"
+                          :title="t('adminDocutilDepartments.removeMember')"
+                          :aria-label="t('adminDocutilDepartments.removeMember')"
+                        >
+                          <i class="bi bi-person-dash" aria-hidden="true"></i>
+                        </button>
                       </td>
                     </tr>
                   </tbody>
@@ -499,6 +522,115 @@
         </form>
       </div>
     </div>
+
+    <!-- 부서 멤버 추가 모달 (트랙 #101 F8) -->
+    <div
+      v-if="addMemberModal.open"
+      class="modal-overlay d-flex align-items-center justify-content-center"
+      role="dialog"
+      :aria-label="t('adminDocutilDepartments.modalAddMemberTitle')"
+      @click.self="closeAddMemberModal"
+    >
+      <div class="modal-card card aiuiux-card">
+        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">
+            <i class="bi bi-person-plus me-1" aria-hidden="true"></i>
+            {{ t('adminDocutilDepartments.modalAddMemberTitle') }}
+          </h6>
+          <button
+            type="button"
+            class="btn-close"
+            :aria-label="t('common.close')"
+            @click="closeAddMemberModal"
+          ></button>
+        </div>
+        <form @submit.prevent="submitAddMember">
+          <div class="card-body">
+            <p class="small text-muted mb-3">
+              {{ t('adminDocutilDepartments.addMemberHint') }}
+            </p>
+            <div class="mb-3">
+              <label for="add-member-search" class="form-label small">
+                {{ t('adminDocutilDepartments.userSearch') }}
+              </label>
+              <div class="input-group input-group-sm">
+                <input
+                  id="add-member-search"
+                  type="text"
+                  class="form-control"
+                  v-model="addMemberModal.searchInput"
+                  :placeholder="t('adminDocutilDepartments.userSearchPlaceholder')"
+                  @keydown.enter.prevent="searchUsers"
+                />
+                <button
+                  type="button"
+                  class="btn btn-outline-primary"
+                  @click="searchUsers"
+                  :disabled="addMemberModal.searching"
+                >
+                  <span v-if="addMemberModal.searching" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                  {{ t('adminDocutilDepartments.userSearchButton') }}
+                </button>
+              </div>
+            </div>
+            <div v-if="addMemberModal.results.length > 0" class="mb-3">
+              <label class="form-label small">
+                {{ t('adminDocutilDepartments.userSearchResults') }}
+                <span class="text-muted">({{ addMemberModal.results.length }})</span>
+              </label>
+              <div class="list-group list-group-flush user-search-results">
+                <button
+                  v-for="u in addMemberModal.results"
+                  :key="u.id"
+                  type="button"
+                  class="list-group-item list-group-item-action small"
+                  :class="{ active: addMemberModal.selectedUserId === u.id }"
+                  @click="addMemberModal.selectedUserId = u.id"
+                >
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <strong>{{ u.username }}</strong>
+                      <span class="text-muted ms-2">{{ u.email }}</span>
+                    </div>
+                    <span
+                      v-if="u.departmentId"
+                      class="badge bg-warning-subtle text-warning-emphasis"
+                      :title="t('adminDocutilDepartments.userAlreadyInDepartment')"
+                    >
+                      {{ t('adminDocutilDepartments.userAlreadyInDepartmentBadge') }}
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <p v-else-if="addMemberModal.searched && !addMemberModal.searching" class="small text-muted mb-3">
+              {{ t('adminDocutilDepartments.userSearchEmpty') }}
+            </p>
+            <div v-if="addMemberModal.error" class="alert alert-danger small mb-0">
+              {{ addMemberModal.error }}
+            </div>
+          </div>
+          <div class="card-footer bg-transparent text-end">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary me-2"
+              @click="closeAddMemberModal"
+              :disabled="addMemberModal.submitting"
+            >
+              {{ t('common.cancel') }}
+            </button>
+            <button
+              type="submit"
+              class="btn btn-sm btn-primary"
+              :disabled="addMemberModal.submitting || !addMemberModal.selectedUserId"
+            >
+              <span v-if="addMemberModal.submitting" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              {{ t('adminDocutilDepartments.addMemberConfirm') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -534,11 +666,14 @@ import {
   getDepartmentMembers,
   getOrganizationQuota,
   updateOrganizationQuota,
+  listUsers,
+  updateUser,
   type DocUtilOrganization,
   type DocUtilDepartment,
   type DocUtilDepartmentMember,
   type DocUtilOrganizationQuotaCurrent,
   type DocUtilOrganizationQuotaStatus,
+  type DocUtilUserSummary,
 } from '@/services/docutilService'
 
 const { t } = useI18n()
@@ -878,6 +1013,109 @@ async function submitQuotaModal(): Promise<void> {
   }
 }
 
+// ── 트랙 #101 F8: 부서 멤버 추가/제거 ───────────────────────────────────
+// 모델: DocUtil 측 부서 멤버십은 user.department_id 단일 FK 매핑이므로
+//       "추가" = updateUser({ departmentId: <현재 부서 id> })
+//       "제거" = updateUser({ departmentId: "" })  (빈 문자열 → 백엔드 → DocUtil null 매핑)
+interface AddMemberModalState {
+  open: boolean
+  searchInput: string
+  results: DocUtilUserSummary[]
+  selectedUserId: string | null
+  searched: boolean
+  searching: boolean
+  submitting: boolean
+  error: string
+}
+
+const addMemberModal = ref<AddMemberModalState>({
+  open: false,
+  searchInput: '',
+  results: [],
+  selectedUserId: null,
+  searched: false,
+  searching: false,
+  submitting: false,
+  error: '',
+})
+
+function openAddMemberModal(): void {
+  if (!selectedDeptId.value) return
+  addMemberModal.value = {
+    open: true,
+    searchInput: '',
+    results: [],
+    selectedUserId: null,
+    searched: false,
+    searching: false,
+    submitting: false,
+    error: '',
+  }
+}
+
+function closeAddMemberModal(): void {
+  addMemberModal.value.open = false
+}
+
+async function searchUsers(): Promise<void> {
+  const q = addMemberModal.value.searchInput.trim()
+  // 빈 검색은 전체 사용자 첫 50명을 로드 (DocUtil 기본 페이지 사이즈 한도 내).
+  addMemberModal.value.searching = true
+  addMemberModal.value.error = ''
+  try {
+    const data = await listUsers(1, 50, q || undefined)
+    addMemberModal.value.results = data.items
+    addMemberModal.value.searched = true
+    // 검색 결과 중 첫 항목 자동 선택 (UX — 단건 결과 시 즉시 확정 가능).
+    if (data.items.length > 0) {
+      addMemberModal.value.selectedUserId = data.items[0].id
+    } else {
+      addMemberModal.value.selectedUserId = null
+    }
+  } catch (err: unknown) {
+    addMemberModal.value.error = extractErrorMessage(err)
+  } finally {
+    addMemberModal.value.searching = false
+  }
+}
+
+async function submitAddMember(): Promise<void> {
+  if (!selectedDeptId.value || !addMemberModal.value.selectedUserId) return
+
+  addMemberModal.value.submitting = true
+  addMemberModal.value.error = ''
+  try {
+    await updateUser(addMemberModal.value.selectedUserId, {
+      departmentId: selectedDeptId.value,
+    })
+    addMemberModal.value.open = false
+    // 멤버 list 새로고침.
+    await loadMembers(selectedDeptId.value)
+  } catch (err: unknown) {
+    addMemberModal.value.error = extractErrorMessage(err)
+  } finally {
+    addMemberModal.value.submitting = false
+  }
+}
+
+async function confirmRemoveMember(member: DocUtilDepartmentMember): Promise<void> {
+  if (!selectedDeptId.value) return
+  const message = t('adminDocutilDepartments.removeMemberConfirm', { username: member.username })
+  if (!window.confirm(message)) return
+
+  loadingMembers.value = true
+  errorMessage.value = ''
+  try {
+    // 빈 문자열 = 부서 해제 의도 (백엔드가 DocUtil null 로 매핑).
+    await updateUser(member.id, { departmentId: '' })
+    await loadMembers(selectedDeptId.value)
+  } catch (err: unknown) {
+    errorMessage.value = extractErrorMessage(err)
+  } finally {
+    loadingMembers.value = false
+  }
+}
+
 // ── 표시 헬퍼 ─────────────────────────────────────────────────────────────
 function quotaPercent(q: DocUtilOrganizationQuotaStatus): number {
   if (!q.monthlyLimit || q.monthlyLimit <= 0) return 0
@@ -955,5 +1193,12 @@ onMounted(() => {
 dl.row dt {
   font-weight: 600;
   color: var(--bs-secondary-color);
+}
+
+.user-search-results {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.25rem;
 }
 </style>

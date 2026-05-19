@@ -216,6 +216,98 @@ public class AdminDocUtilUsersController : ControllerBase
     }
 
     /// <summary>
+    /// 사용자 일반 정보 수정 — DocUtil `/api/v1/users/{id}` (PUT) 위임 (트랙 #101 F7).
+    /// 성공/실패 모두 캐시 일괄 무효화 — 부분 commit 가능성 대비(10.1b ghost 처리 패턴).
+    /// </summary>
+    /// <remarks>
+    /// 외부 표면 body: { email?, role?, departmentId?, language?, status? } — partial update.
+    /// 모든 필드 nullable. status 가 포함되면 DocUtil 측에서 active/inactive/locked 검증.
+    /// </remarks>
+    [HttpPut("users/{id}")]
+    public async Task<ActionResult<DocUtilUserDetail>> UpdateUser(
+        string id,
+        [FromBody] UpdateDocUtilUserRequest request,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return BadRequest(ErrorResponseDto.BadRequest("사용자 식별자가 비어 있습니다."));
+        }
+        if (request == null)
+        {
+            return BadRequest(ErrorResponseDto.BadRequest("요청 본문이 비어 있습니다."));
+        }
+
+        // 모든 필드 nullable 이지만 최소 한 개는 있어야 의미가 있다.
+        var hasAnyField =
+            request.Email is not null
+            || request.Role is not null
+            || request.DepartmentId is not null
+            || request.Language is not null
+            || request.Status is not null;
+        if (!hasAnyField)
+        {
+            return BadRequest(ErrorResponseDto.BadRequest(
+                "변경할 필드를 하나 이상 지정해 주세요(email/role/departmentId/language/status)."));
+        }
+
+        // status 가 포함되었으면 화이트리스트 사전 검증 (DocUtil 422 사전 차단).
+        if (request.Status is not null)
+        {
+            var allowed = new[] { "active", "inactive", "locked" };
+            if (!allowed.Contains(request.Status, StringComparer.OrdinalIgnoreCase))
+            {
+                return BadRequest(ErrorResponseDto.BadRequest(
+                    $"허용되지 않는 상태값입니다. (허용: {string.Join(", ", allowed)})"));
+            }
+        }
+
+        try
+        {
+            var docUtilRequest = new DocUtilUpdateUserRequest(
+                Email: request.Email,
+                Role: request.Role,
+                DepartmentId: request.DepartmentId,
+                Language: request.Language,
+                Status: request.Status?.ToLowerInvariant());
+
+            var result = await _docUtilClient.UpdateUserAsync(id, docUtilRequest, ct);
+
+            _logger.LogInformation(
+                "운영자 DocUtil 사용자 정보 수정 성공 - UserId={UserId}, Fields=[email={E},role={R},dept={D},lang={L},status={S}]",
+                id,
+                request.Email is null ? "-" : "set",
+                request.Role ?? "-",
+                request.DepartmentId is null ? "-" : (request.DepartmentId.Length == 0 ? "clear" : "set"),
+                request.Language ?? "-",
+                request.Status ?? "-");
+
+            await InvalidateUsersCacheAsync();
+            return Ok(result);
+        }
+        catch (DocUtilUpstreamException ex)
+        {
+            _logger.LogError(ex,
+                "DocUtil 사용자 정보 수정 실패 - errorCode={ErrorCode}, status={Status}, id={Id}",
+                ex.ErrorCode, (int)ex.StatusCode, id);
+            await InvalidateUsersCacheAsync();
+            return StatusCode(
+                ErrorResponseDto.MapDocUtilUpstreamToStatusCode(ex),
+                ErrorResponseDto.FromDocUtilUpstream(ex,
+                    "사용자 정보 수정에 실패했습니다. " + ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "DocUtil 사용자 정보 수정 실패 (id={Id})", id);
+            await InvalidateUsersCacheAsync();
+            return StatusCode(502, new ErrorResponseDto(
+                "사용자 정보 수정에 실패했습니다.",
+                "DOCUTIL_UPSTREAM_ERROR",
+                new { upstream = ex.Message }));
+        }
+    }
+
+    /// <summary>
     /// 사용자 상태 변경 — DocUtil `/api/v1/users/{id}/status` 위임.
     /// 성공 시 캐시 일괄 무효화(version-key bump).
     /// </summary>
@@ -345,4 +437,30 @@ public sealed class UpdateUserStatusRequest
 {
     /// <summary>변경할 상태값. DocUtil 측이 검증("active" | "inactive" | "locked").</summary>
     public string Status { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// 사용자 일반 정보 수정 요청 DTO (트랙 #101 F7).
+/// 외부 표면(camelCase): { email?, role?, departmentId?, language?, status? } — partial update.
+/// </summary>
+/// <remarks>
+/// departmentId 가 빈문자열("")이면 부서 해제 의도로 해석된다(null 로 매핑).
+/// status 는 "active" / "inactive" / "locked" 중 하나여야 한다(컨트롤러에서 사전 검증).
+/// </remarks>
+public sealed class UpdateDocUtilUserRequest
+{
+    /// <summary>변경할 이메일. null 이면 변경하지 않음.</summary>
+    public string? Email { get; set; }
+
+    /// <summary>변경할 역할. null 이면 변경하지 않음.</summary>
+    public string? Role { get; set; }
+
+    /// <summary>변경할 부서 UUID(string). 빈문자열은 부서 해제 의도.</summary>
+    public string? DepartmentId { get; set; }
+
+    /// <summary>변경할 선호 언어 코드(예: "ko", "en").</summary>
+    public string? Language { get; set; }
+
+    /// <summary>변경할 상태값(active/inactive/locked). null 이면 변경하지 않음.</summary>
+    public string? Status { get; set; }
 }

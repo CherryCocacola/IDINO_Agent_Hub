@@ -367,6 +367,113 @@ public class AdminDocUtilProjectsController : ControllerBase
     }
 
     /// <summary>
+    /// 프로젝트 멤버 추가 — DocUtil `/api/v1/projects/{project_id}/members` (POST) 위임 (트랙 #101 F8).
+    /// 성공/실패 모두 캐시 일괄 무효화(10.1b ghost 처리 패턴 — 부분 commit/409 회복 보장).
+    /// </summary>
+    /// <remarks>
+    /// 외부 표면 body: { userId: UUID, role?: "member"|"manager" (default "member") }.
+    /// DocUtil 측 검증:
+    ///   - 409 — 중복 매핑 (이미 멤버)
+    ///   - 404 — 프로젝트 또는 사용자 미존재
+    ///   - 400 — role 화이트리스트 위반
+    /// </remarks>
+    [HttpPost("projects/{projectId}/members")]
+    public async Task<ActionResult<DocUtilProjectMember>> AddProjectMember(
+        string projectId,
+        [FromBody] AddProjectMemberRequest request,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            return BadRequest(ErrorResponseDto.BadRequest("프로젝트 식별자가 비어 있습니다."));
+        }
+        if (request == null)
+        {
+            return BadRequest(ErrorResponseDto.BadRequest("요청 본문이 비어 있습니다."));
+        }
+        if (string.IsNullOrWhiteSpace(request.UserId))
+        {
+            return BadRequest(ErrorResponseDto.BadRequest("사용자 식별자가 비어 있습니다."));
+        }
+
+        // role 화이트리스트 사전 검증 — DocUtil 400 사전 차단 + 한국어 안내.
+        var role = string.IsNullOrWhiteSpace(request.Role) ? "member" : request.Role.Trim().ToLowerInvariant();
+        var allowedRoles = new[] { "member", "manager" };
+        if (!allowedRoles.Contains(role))
+        {
+            return BadRequest(ErrorResponseDto.BadRequest(
+                $"허용되지 않는 역할입니다. (허용: {string.Join(", ", allowedRoles)})"));
+        }
+
+        try
+        {
+            var docUtilRequest = new DocUtilAddProjectMemberRequest(request.UserId, role);
+            var member = await _docUtilClient.AddProjectMemberAsync(projectId, docUtilRequest, ct);
+
+            _logger.LogInformation(
+                "운영자 DocUtil 프로젝트 멤버 추가 성공 - ProjectId={Pid}, UserId={Uid}, Role={Role}",
+                projectId, request.UserId, role);
+
+            await InvalidateProjectsCacheAsync();
+            return StatusCode(StatusCodes.Status201Created, member);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex,
+                "DocUtil 프로젝트 멤버 추가 실패 (projectId={Pid}, userId={Uid})",
+                projectId, request.UserId);
+            await InvalidateProjectsCacheAsync();
+            return StatusCode(502, new ErrorResponseDto(
+                "프로젝트 멤버 추가에 실패했습니다.",
+                "DOCUTIL_UPSTREAM_ERROR",
+                new { upstream = ex.Message }));
+        }
+    }
+
+    /// <summary>
+    /// 프로젝트 멤버 제거 — DocUtil `/api/v1/projects/{project_id}/members/{user_id}` (DELETE) 위임 (트랙 #101 F8).
+    /// 성공/실패 모두 캐시 일괄 무효화(ghost 회복 보장).
+    /// </summary>
+    [HttpDelete("projects/{projectId}/members/{userId}")]
+    public async Task<IActionResult> RemoveProjectMember(
+        string projectId,
+        string userId,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId))
+        {
+            return BadRequest(ErrorResponseDto.BadRequest("프로젝트 식별자가 비어 있습니다."));
+        }
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return BadRequest(ErrorResponseDto.BadRequest("사용자 식별자가 비어 있습니다."));
+        }
+
+        try
+        {
+            await _docUtilClient.RemoveProjectMemberAsync(projectId, userId, ct);
+
+            _logger.LogInformation(
+                "운영자 DocUtil 프로젝트 멤버 제거 성공 - ProjectId={Pid}, UserId={Uid}",
+                projectId, userId);
+
+            await InvalidateProjectsCacheAsync();
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex,
+                "DocUtil 프로젝트 멤버 제거 실패 (projectId={Pid}, userId={Uid})",
+                projectId, userId);
+            await InvalidateProjectsCacheAsync();
+            return StatusCode(502, new ErrorResponseDto(
+                "프로젝트 멤버 제거에 실패했습니다.",
+                "DOCUTIL_UPSTREAM_ERROR",
+                new { upstream = ex.Message }));
+        }
+    }
+
+    /// <summary>
     /// 프로젝트 참여 부서 조회 — DocUtil `/api/v1/projects/{project_id}/departments` 위임 + TTL 캐시.
     /// </summary>
     [HttpGet("projects/{projectId}/departments")]
@@ -762,4 +869,17 @@ public class AdminDocUtilProjectsController : ControllerBase
             Page,
             Size);
     }
+}
+
+/// <summary>
+/// 프로젝트 멤버 추가 요청 DTO (트랙 #101 F8).
+/// 외부 표면(camelCase): { userId: UUID, role?: "member"|"manager" }.
+/// </summary>
+public sealed class AddProjectMemberRequest
+{
+    /// <summary>추가할 사용자 UUID.</summary>
+    public string UserId { get; set; } = string.Empty;
+
+    /// <summary>역할 — "member" 또는 "manager" (기본 "member").</summary>
+    public string? Role { get; set; }
 }

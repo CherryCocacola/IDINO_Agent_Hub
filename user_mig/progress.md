@@ -170,6 +170,70 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-19 (트랙 #101 F7+F8 — DocUtil + AgentHub backend 통합 fix: 사용자 부서/프로젝트 매핑 운영자 BFF 완성)
+
+- **결함 진단 (트랙 #97-post 사용자 보고 매트릭스에서 추출)**:
+  - **F7 — 사용자 → 부서 매핑 운영 불가**: DocUtil 원본 `PUT /api/v1/users/{user_id}` 는 UserUpdate 로 `department_id` 변경 가능. 그러나 AgentHub BFF (`AdminDocUtilUsersController`) 에 status 토글 endpoint 만 있고 일반 정보 수정 endpoint 부재 → 운영자 콘솔에서 부서 변경 불가.
+  - **F8 — 사용자 → 프로젝트 매핑 전체 부재**: DocUtil 의 `tb_project_members` 테이블은 트랙 #88-6 마이그레이션으로 이미 존재하지만 (1) ORM `ProjectMember` 모델 미정의 (2) `POST /projects/{id}/members` / `DELETE /projects/{id}/members/{user_id}` endpoint 부재 — GET 만 raw SQL 로 존재. AgentHub BFF + DocUtilClient 모두 GET 만.
+
+- **사전 DB 조사 (paramiko + psql)**:
+  - `tb_users` 가 트랙 #98 phase 3 이후 **VIEW** (`relkind=v`) — 마스터 `"Users"` 테이블의 read-only 투영.
+  - 그러나 VIEW 에 **INSTEAD OF rule/trigger 3개** (`tb_users_instead_insert/update/delete`) 가 설치되어 있어 `UPDATE tb_users` 가 마스터로 전파됨 → DocUtil `PUT /users/{id}` 가 의미 있게 작동.
+  - PG 는 VIEW 를 가리키는 FK 를 허용하지 않음 → `ProjectMember.user_id` 는 ORM-level relationship 만 정의, DB FK 미부착. 유효성은 `ProjectService.add_member` 가 책임짐 (tb_users SELECT 1).
+  - 기존 `tb_project_members` 데이터: yhkim(admin) + hslee(member) 2건 등록 상태 — 트랙 #88-6 시점 시드.
+
+- **DocUtil 측 변경 (4 파일, 트랙 #101 F8)**:
+  - `docutil/backend/app/modules/projects/models.py` (+47L) — `ProjectMember(Base)` 클래스 신설 (`tb_project_members`, UniqueConstraint, FK 없이 user_id 보존).
+  - `docutil/backend/app/modules/projects/schemas.py` (+27L) — `ProjectMemberCreate`/`ProjectMemberResponse` (Pydantic v2, UUID + role 화이트리스트).
+  - `docutil/backend/app/modules/projects/service.py` (+97L) — `_get_project_member_model()` + `ProjectService.add_member` / `remove_member` (project/user 검증 + IntegrityError → 409 매핑).
+  - `docutil/backend/app/modules/projects/router.py` (+90L) — `POST /projects/{id}/members` (201) + `DELETE /projects/{id}/members/{user_id}` (204), `_require_admin` 가드 + AuditService 감사 로그 (`project.member.add` / `project.member.remove`).
+
+- **AgentHub 측 변경 (4 파일, 트랙 #101 F7+F8)**:
+  - `agenthub/Services/IDocUtilClient.cs` (+44L) — `UpdateUserAsync(string, DocUtilUpdateUserRequest, ct)` 시그니처 + `AddProjectMemberAsync(string, DocUtilAddProjectMemberRequest, ct)` + `RemoveProjectMemberAsync(string, string, ct)` 3 메서드, `DocUtilUpdateUserRequest` / `DocUtilAddProjectMemberRequest` records 신설.
+  - `agenthub/Services/DocUtilClient.cs` (+136L) — 3 메서드 구현. body Dictionary partial update (null/빈문자열 처리), `BuildJsonRequestAsync` + `EnsureSuccessOrThrowKoreanAsync` 패턴 그대로. `ProjectMemberCreateResponseDto` (POST 응답 6필드, id=tb_project_members.id ≠ user_id) 신설.
+  - `agenthub/Controllers/AdminDocUtilUsersController.cs` (+108L) — `PUT /api/admin/docutil/users/{id}` (UpdateDocUtilUserRequest DTO partial body + 사전 검증 + status 화이트리스트). 캐시 invalidate 패턴 일관 적용.
+  - `agenthub/Controllers/AdminDocUtilProjectsController.cs` (+114L) — `POST /api/admin/docutil/projects/{projectId}/members` (201) + `DELETE /api/admin/docutil/projects/{projectId}/members/{userId}` (204), `AddProjectMemberRequest` DTO 신설, role 화이트리스트 + 캐시 invalidate.
+
+- **빌드 검증**:
+  - `dotnet build -c Release` — 에러 0, 워닝 14 (모두 기존 워닝, 새 코드 워닝 0).
+  - `ruff check app/modules/projects/` — 새 코드 lint 에러 0 (TC001/TC002/SIM105 stylistic 권고만 남음 — 기존 코드와 동일 패턴 보존).
+
+- **운영 배포 (paramiko SFTP + docker compose)**:
+  - DocUtil: 4 파일 SFTP → `cd /home/idino/docutil && docker compose up -d --build --force-recreate api` → healthy (1회 폴링 통과).
+  - AgentHub: 4 파일 SFTP → `docker compose build agenthub` (10.7s, layer cache 활용) → `up -d --force-recreate agenthub` → healthy (4회 폴링).
+
+- **API 검증 매트릭스 (admin@example.com / Admin123! JWT, hslee_id=b54f6c80-..., project_id=9ca4ce6e-...)**:
+
+  | 시나리오 | endpoint | HTTP | 결과 |
+  |---|---|---|---|
+  | PRE | GET /projects/{id}/members | 200 | yhkim(admin) + hslee(user) 2건 (시드 데이터) |
+  | F8.a | DELETE /projects/{id}/members/{hslee} | **204** | 기존 매핑 제거 OK |
+  | F8.b | POST /projects/{id}/members {userId:hslee, role:member} | **201** | `{id, username, email, role:"member"}` 반환 |
+  | F8.c | POST 동일 멤버 중복 추가 | **502** | DocUtil 409 → ErrorResponseDto 한국어 매핑 (`DOCUTIL_UPSTREAM_ERROR`) |
+  | F8.d | GET /projects/{id}/members | 200 | hslee 가 멤버 목록에 다시 등장 확인 |
+  | F8.e | DELETE /projects/{id}/members/{hslee} | **204** | cleanup OK |
+  | F8.f | GET /projects/{id}/members | 200 | hslee 부재 확인 (yhkim 1건만) |
+  | F8.g | DELETE 이미 없는 멤버 재요청 | **502** | DocUtil 404 → 한국어 매핑 |
+  | F7.a | GET /users/{hslee} | 200 | baseline: language=ko, departmentId=null |
+  | F7.b | PUT /users/{hslee} {language:"en"} | **200** | language="en" 반환 |
+  | F7.c | GET /users/{hslee} | 200 | **language="en" 영속화 확인 (VIEW INSTEAD OF trigger 동작)** |
+  | F7.d | PUT /users/{hslee} {language:"ko"} | **200** | 원복 OK |
+  | F7.e | PUT /users/{hslee} {departmentId:""} | **200** | 빈문자열 → null 매핑 정상 (DocUtil 200) |
+  | F7.f | GET /users/{hslee} | 200 | departmentId 여전히 null (원래 null 이었음) |
+  | F7.g | PUT /users/{hslee} {} | **400** | "변경할 필드를 하나 이상 지정해 주세요(...)." |
+  | F7.h | PUT /users/{hslee} {status:"zombie"} | **400** | "허용되지 않는 상태값입니다. (허용: active, inactive, locked)" |
+
+- **사후 cleanup**: F8 의 INSERT/DELETE 사이클로 hslee 멤버십이 원상복구됨 (트랙 #88-6 시드 상태로). F7 의 language 도 ko 로 원복. F7.e 의 departmentId 변경은 원래 null 이었으므로 영향 없음. 운영 데이터 오염 0건.
+
+- **추가 발견 (트랙 #102 후보)**:
+  1. **VIEW INSTEAD OF trigger 의 부서 컬럼 매핑 부재**: tb_users VIEW 정의에서 `department_id` 가 `NULL::uuid AS department_id` 로 매핑되어 있음. UPDATE trigger 가 어떻게 매핑하는지 추가 조사 필요 — 부서 변경의 실제 효과가 마스터 `"Users"` 테이블의 어느 컬럼에 도달하는지 추적 (DocUtil 의 부서 관리는 트랙 #98 phase 3 직후 일시적으로 미가용 상태일 가능성).
+  2. **DocUtil ProjectMember 의 ins_user 가 null**: 트랙 #88-6 시드 데이터가 ins_user 없이 들어가 있음. 신규 추가 시점부터는 audit_context 가 채워주지만, 기존 데이터의 audit 추적성은 부재.
+  3. **AddProjectMemberAsync 응답의 id 매핑 모호성**: DocUtil 의 POST 응답은 `id=tb_project_members.id` (멤버십 row PK) + `user_id` 별도. 외부 표면(`DocUtilProjectMember`) 은 GET 와 일관성 유지 위해 `id=user_id` 로 매핑함 — 향후 UI 가 "멤버십 삭제" 시 user_id 로 DELETE 호출하므로 정합. 멤버십 PK 가 필요한 케이스 발생 시 별도 record 추가 검토.
+
+- **R2 (AI 호출 단일 진입점) / R3 (스키마 격리) / R5 (한국어 우선) 모두 준수**. AgentHub anti-pattern (LLM SDK / HttpClient 직접 / Repository) 위반 0건. DocUtil anti-pattern (직접 SDK / Repository / Hardcoded URL) 위반 0건.
+
+- **마지막 commit**: `aa615bd` (직전 트랙 #97-pre2-2 progress.md). 본 트랙 작업은 commit 대기 (사용자 측 운영자 콘솔 UI 회귀 점검 + F7/F8 5단 검증 완료 후 일괄 commit 예정).
+
 ### 2026-05-17 (트랙 #97-post2 — 사용자 보고 결함 1+2 진단 + 전 메뉴 case-by-case e2e (Phase A 87 + Phase B 27))
 
 - **사용자 명시 보고 (3건)**:

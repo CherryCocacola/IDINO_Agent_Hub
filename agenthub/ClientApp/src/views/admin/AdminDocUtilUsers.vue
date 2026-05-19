@@ -161,6 +161,14 @@
                   </button>
                   <button
                     class="btn btn-sm btn-link"
+                    @click="openEditModal(user)"
+                    :aria-label="t('adminDocutilUsers.edit')"
+                  >
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                    {{ t('adminDocutilUsers.edit') }}
+                  </button>
+                  <button
+                    class="btn btn-sm btn-link"
                     @click="confirmToggleStatus(user)"
                     :aria-label="
                       user.status === 'active'
@@ -286,6 +294,143 @@
         </div>
       </div>
     </div>
+
+    <!-- 수정 모달 (트랙 #101 F7) -->
+    <div
+      v-if="editModal.open"
+      class="modal-overlay d-flex align-items-center justify-content-center"
+      role="dialog"
+      :aria-label="t('adminDocutilUsers.modalEditTitle')"
+      @click.self="closeEditModal"
+    >
+      <div class="modal-card card aiuiux-card">
+        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">
+            <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>
+            {{ t('adminDocutilUsers.modalEditTitle') }}
+            <code class="ms-2 small">{{ editModal.username }}</code>
+          </h6>
+          <button
+            type="button"
+            class="btn-close"
+            :aria-label="t('common.close')"
+            @click="closeEditModal"
+          ></button>
+        </div>
+        <form @submit.prevent="submitEditModal">
+          <div class="card-body">
+            <p class="small text-muted mb-3">
+              {{ t('adminDocutilUsers.editHint') }}
+            </p>
+            <div class="mb-3">
+              <label for="edit-email" class="form-label small">
+                {{ t('adminDocutilUsers.colEmail') }}
+              </label>
+              <input
+                id="edit-email"
+                type="email"
+                class="form-control form-control-sm"
+                v-model.trim="editModal.email"
+                maxlength="255"
+                :placeholder="t('adminDocutilUsers.emailPlaceholder')"
+              />
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-sm-6">
+                <label for="edit-role" class="form-label small">
+                  {{ t('adminDocutilUsers.colRole') }}
+                </label>
+                <select
+                  id="edit-role"
+                  class="form-select form-select-sm"
+                  v-model="editModal.role"
+                >
+                  <option value="member">{{ t('adminDocutilUsers.roleMember') }}</option>
+                  <option value="admin">{{ t('adminDocutilUsers.roleAdmin') }}</option>
+                  <option value="super_admin">{{ t('adminDocutilUsers.roleSuperAdmin') }}</option>
+                  <option value="viewer">{{ t('adminDocutilUsers.roleViewer') }}</option>
+                </select>
+              </div>
+              <div class="col-sm-6">
+                <label for="edit-status" class="form-label small">
+                  {{ t('adminDocutilUsers.colStatus') }}
+                </label>
+                <select
+                  id="edit-status"
+                  class="form-select form-select-sm"
+                  v-model="editModal.status"
+                >
+                  <option value="active">{{ t('adminDocutilUsers.statusActive') }}</option>
+                  <option value="inactive">{{ t('adminDocutilUsers.statusInactive') }}</option>
+                  <option value="locked">{{ t('adminDocutilUsers.statusLocked') }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-sm-7">
+                <label for="edit-department" class="form-label small">
+                  {{ t('adminDocutilUsers.colDeptId') }}
+                </label>
+                <select
+                  id="edit-department"
+                  class="form-select form-select-sm"
+                  v-model="editModal.departmentId"
+                  :disabled="loadingDepartments"
+                >
+                  <option value="">{{ t('adminDocutilUsers.departmentNone') }}</option>
+                  <option
+                    v-for="d in departmentOptions"
+                    :key="d.id"
+                    :value="d.id"
+                  >
+                    {{ '— '.repeat(d.depth) }}{{ d.name }}
+                  </option>
+                </select>
+                <small v-if="loadingDepartments" class="form-text text-muted">
+                  {{ t('common.loading') }}
+                </small>
+              </div>
+              <div class="col-sm-5">
+                <label for="edit-language" class="form-label small">
+                  {{ t('adminDocutilUsers.colLanguage') }}
+                </label>
+                <select
+                  id="edit-language"
+                  class="form-select form-select-sm"
+                  v-model="editModal.language"
+                >
+                  <option value="">{{ t('adminDocutilUsers.languageNone') }}</option>
+                  <option value="ko">{{ t('adminDocutilUsers.languageKo') }}</option>
+                  <option value="en">{{ t('adminDocutilUsers.languageEn') }}</option>
+                  <option value="vi">{{ t('adminDocutilUsers.languageVi') }}</option>
+                </select>
+              </div>
+            </div>
+            <div v-if="editModal.error" class="alert alert-danger small mb-0">
+              {{ editModal.error }}
+            </div>
+          </div>
+          <div class="card-footer bg-transparent text-end">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary me-2"
+              @click="closeEditModal"
+              :disabled="editModal.submitting"
+            >
+              {{ t('common.cancel') }}
+            </button>
+            <button
+              type="submit"
+              class="btn btn-sm btn-primary"
+              :disabled="editModal.submitting"
+            >
+              <span v-if="editModal.submitting" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              {{ t('adminDocutilUsers.save') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -312,10 +457,14 @@ import { useI18n } from 'vue-i18n'
 import {
   listUsers,
   updateUserStatus,
+  updateUser,
   deleteUser,
+  listDepartments,
   type DocUtilUserSummary,
   type DocUtilUserDetail,
-  type DocUtilUserStatus
+  type DocUtilUserStatus,
+  type DocUtilUserUpdate,
+  type DocUtilDepartment
 } from '@/services/docutilService'
 
 const { t } = useI18n()
@@ -334,6 +483,64 @@ const roleFilter = ref<string>('')
 const statusFilter = ref<string>('')
 
 const detailUser = ref<DocUtilUserDetail | null>(null)
+
+// ── 트랙 #101 F7: 사용자 일반 정보 수정 모달 상태 ─────────────────────────
+interface EditModalState {
+  open: boolean
+  userId: string
+  username: string
+  email: string
+  role: string
+  status: DocUtilUserStatus
+  /** 빈 문자열은 "부서 없음"(백엔드 → DocUtil null 매핑). */
+  departmentId: string
+  /** 빈 문자열은 "변경하지 않음" 의도. */
+  language: string
+  /** 모달 오픈 시점 원본값 (변경 여부 비교용). */
+  original: {
+    email: string
+    role: string
+    status: DocUtilUserStatus
+    departmentId: string
+    language: string
+  } | null
+  error: string
+  submitting: boolean
+}
+
+const editModal = ref<EditModalState>({
+  open: false,
+  userId: '',
+  username: '',
+  email: '',
+  role: 'member',
+  status: 'active',
+  departmentId: '',
+  language: '',
+  original: null,
+  error: '',
+  submitting: false
+})
+
+// 부서 dropdown 옵션 — 모달 오픈 시 lazy load (path 사전순 + depth 들여쓰기).
+const departmentOptions = ref<DocUtilDepartment[]>([])
+const loadingDepartments = ref<boolean>(false)
+let departmentsLoaded = false
+
+async function ensureDepartmentsLoaded(): Promise<void> {
+  if (departmentsLoaded) return
+  loadingDepartments.value = true
+  try {
+    const list = await listDepartments()
+    departmentOptions.value = [...list].sort((a, b) => a.path.localeCompare(b.path))
+    departmentsLoaded = true
+  } catch (err: unknown) {
+    // 모달 오픈 흐름을 죽이지 않기 위해 부서 dropdown 만 비워두고 폼은 계속 사용 가능.
+    errorMessage.value = extractErrorMessage(err)
+  } finally {
+    loadingDepartments.value = false
+  }
+}
 
 const totalPages = computed<number>(() => {
   if (size.value <= 0) return 1
@@ -391,6 +598,79 @@ function openDetail(id: string): void {
   const found = items.value.find(u => u.id === id)
   if (found) {
     detailUser.value = { ...found }
+  }
+}
+
+// ── 트랙 #101 F7: 수정 모달 ───────────────────────────────────────────────
+function openEditModal(user: DocUtilUserSummary): void {
+  const normalizedStatus: DocUtilUserStatus =
+    user.status === 'inactive' || user.status === 'locked' ? user.status : 'active'
+  const initialDept = user.departmentId ?? ''
+  const initialLang = user.language ?? ''
+  editModal.value = {
+    open: true,
+    userId: user.id,
+    username: user.username,
+    email: user.email ?? '',
+    role: user.role || 'member',
+    status: normalizedStatus,
+    departmentId: initialDept,
+    language: initialLang,
+    original: {
+      email: user.email ?? '',
+      role: user.role || 'member',
+      status: normalizedStatus,
+      departmentId: initialDept,
+      language: initialLang
+    },
+    error: '',
+    submitting: false
+  }
+  // 부서 dropdown 옵션 lazy load (한 번만).
+  void ensureDepartmentsLoaded()
+}
+
+function closeEditModal(): void {
+  editModal.value.open = false
+}
+
+async function submitEditModal(): Promise<void> {
+  const original = editModal.value.original
+  if (!original) return
+
+  // 변경된 필드만 payload 에 담는다 (백엔드는 최소 1 필드 요구).
+  const payload: DocUtilUserUpdate = {}
+  const trimmedEmail = editModal.value.email.trim()
+  if (trimmedEmail !== original.email) payload.email = trimmedEmail
+  if (editModal.value.role !== original.role) payload.role = editModal.value.role
+  if (editModal.value.status !== original.status) payload.status = editModal.value.status
+  if (editModal.value.departmentId !== original.departmentId) {
+    // 빈 문자열 = 부서 해제 의도 (백엔드가 DocUtil null 로 매핑).
+    payload.departmentId = editModal.value.departmentId
+  }
+  if (editModal.value.language !== original.language) {
+    payload.language = editModal.value.language
+  }
+
+  if (Object.keys(payload).length === 0) {
+    editModal.value.error = t('adminDocutilUsers.editNoChanges')
+    return
+  }
+
+  editModal.value.submitting = true
+  editModal.value.error = ''
+  try {
+    const updated = await updateUser(editModal.value.userId, payload)
+    // 목록의 해당 행 즉시 반영 — 백엔드 캐시 invalidate 도 함께 발생.
+    const idx = items.value.findIndex(u => u.id === editModal.value.userId)
+    if (idx >= 0) {
+      items.value[idx] = updated
+    }
+    editModal.value.open = false
+  } catch (err: unknown) {
+    editModal.value.error = extractErrorMessage(err)
+  } finally {
+    editModal.value.submitting = false
   }
 }
 

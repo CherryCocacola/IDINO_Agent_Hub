@@ -184,6 +184,23 @@ public interface IDocUtilClient
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 사용자 일반 정보 수정 — PUT /api/v1/users/{user_id} (트랙 #101 F7).
+    /// <para>
+    /// DocUtil UserUpdate schema: {email?, role?, department_id?, language?, status?} — partial update.
+    /// </para>
+    /// <para>
+    /// 주의(트랙 #98 phase 3): DocUtil 의 tb_users 는 VIEW 다. 따라서 본 endpoint 호출은
+    /// "DocUtil 측에서 받아주는지" 만 검증하며, 실제 마스터(AgentHub Users 테이블) 컬럼
+    /// 갱신은 별도 트랙에서 처리해야 한다. 본 트랙(#101 F7)은 BFF 표면만 노출 — DocUtil 가
+    /// 200 을 반환하면 성공으로 간주.
+    /// </para>
+    /// </summary>
+    Task<DocUtilUserDetail> UpdateUserAsync(
+        string userId,
+        DocUtilUpdateUserRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 사용자 삭제 — DELETE /api/v1/users/{user_id}.
     /// <para>
     /// DocUtil 측이 영구 삭제(204). 본 메서드는 성공 시 반환값 없음, 실패 시 InvalidOperationException.
@@ -410,6 +427,27 @@ public interface IDocUtilClient
     /// </summary>
     Task<List<DocUtilProjectMember>> GetProjectMembersAsync(
         string projectId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 프로젝트 멤버 추가 — POST /api/v1/projects/{project_id}/members (트랙 #101 F8).
+    /// <para>
+    /// DocUtil ProjectMemberCreate: {user_id, role?='member'}. 중복(409) / 미존재(404) / 권한(403)
+    /// 은 DocUtilClient 의 EnsureSuccessOrThrowKoreanAsync 가 InvalidOperationException 으로 변환.
+    /// </para>
+    /// </summary>
+    Task<DocUtilProjectMember> AddProjectMemberAsync(
+        string projectId,
+        DocUtilAddProjectMemberRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 프로젝트 멤버 제거 — DELETE /api/v1/projects/{project_id}/members/{user_id} (트랙 #101 F8).
+    /// <para>매핑 미존재(404) 는 InvalidOperationException 으로 표면화된다.</para>
+    /// </summary>
+    Task RemoveProjectMemberAsync(
+        string projectId,
+        string userId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -1466,6 +1504,21 @@ public sealed record DocUtilUserDetail(
     DateTime? LastLoginAt,
     DateTime CreatedAt);
 
+/// <summary>
+/// 사용자 일반 정보 수정 요청 — DocUtil UserUpdate 매핑 (트랙 #101 F7).
+/// <para>
+/// 모든 필드 nullable (partial update). DocUtil 의 UserUpdate schema 는 username 미보유 —
+/// username 변경은 별도 endpoint 가 필요(추정 금지 원칙 — 본 record 에 포함하지 않음).
+/// DepartmentId 는 string? 으로 받아 null/빈문자열 → null 매핑, UUID 검증은 DocUtil 에 위임.
+/// </para>
+/// </summary>
+public sealed record DocUtilUpdateUserRequest(
+    string? Email = null,
+    string? Role = null,
+    string? DepartmentId = null,
+    string? Language = null,
+    string? Status = null);
+
 // ── Phase 10.1b (2026-05-10): DocUtil 조직/부서/할당량 BFF DTO ─────────────
 //
 // DocUtil OpenAPI(2026-05-10 캡처) 의 OrganizationResponse / DepartmentResponse /
@@ -1645,6 +1698,14 @@ public sealed record DocUtilProjectMember(
     string Username,
     string Email,
     string Role);
+
+/// <summary>
+/// 프로젝트 멤버 추가 요청 — DocUtil ProjectMemberCreate 매핑 (트랙 #101 F8).
+/// <para>role 의 DocUtil 기본값은 "member" — "manager" 도 허용.</para>
+/// </summary>
+public sealed record DocUtilAddProjectMemberRequest(
+    string UserId,
+    string Role = "member");
 
 /// <summary>
 /// 프로젝트 참여 부서 한 행 — DocUtil free-form 응답에서 4 필드 안정적으로 노출.

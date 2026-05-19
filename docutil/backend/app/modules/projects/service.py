@@ -10,9 +10,9 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 # ---------------------------------------------------------------------------
 # SQLAlchemy models are expected to live in a shared ``models`` module.
@@ -33,6 +33,11 @@ def _get_board_model():
 def _get_folder_model():
     from app.modules.projects.models import Folder  # noqa: WPS433
     return Folder
+
+
+def _get_project_member_model():
+    from app.modules.projects.models import ProjectMember  # noqa: WPS433
+    return ProjectMember
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +262,129 @@ class ProjectService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Project {project_id} not found.",
+            )
+        await db.flush()
+
+    # -----------------------------------------------------------------------
+    # Project members (트랙 #101 F8) — 프로젝트 ↔ 사용자 매핑
+    # -----------------------------------------------------------------------
+    #
+    # 운영 메모:
+    #   1. tb_users 는 트랙 #98 phase 3 이후 VIEW 다 (AgentHub User 마스터 →
+    #      DocUtil document_utilization 스키마로 read-only 투영). PG 는 VIEW 를
+    #      가리키는 FK 를 허용하지 않으므로 ProjectMember.user_id 에는 FK 가 없다.
+    #      → 본 서비스가 user 존재 검증을 책임진다(tb_users SELECT 1).
+    #   2. UniqueConstraint(project_id, user_id) 가 있으므로 중복 INSERT 는
+    #      IntegrityError → 409 로 매핑한다.
+    #   3. project 존재 여부도 함께 검증(404) — FK 가 살아 있긴 하나 명시적 404 가
+    #      운영자 UX 에 친화적이다.
+    # -----------------------------------------------------------------------
+
+    @staticmethod
+    async def add_member(
+        db: AsyncSession,
+        *,
+        project_id: UUID,
+        user_id: UUID,
+        role: str = "member",
+        organization_id: UUID,
+    ):
+        """프로젝트에 사용자 추가 (트랙 #101 F8).
+
+        - 동일 (project_id, user_id) 중복 → 409.
+        - 프로젝트 미존재 → 404.
+        - 사용자 미존재(tb_users VIEW SELECT 결과 0건) → 404.
+        - 반환은 username/email 포함 평탄 dict (ProjectMemberResponse 호환).
+        """
+        # role 화이트리스트 (router 가 우선 검증하지만 service 도 방어)
+        normalized_role = (role or "member").strip().lower()
+        if normalized_role not in {"member", "manager"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid role '{role}'. Allowed: ['member', 'manager'].",
+            )
+
+        # 1. project 존재 + org scope 검증
+        await ProjectService.get_project(
+            db, project_id=project_id, organization_id=organization_id,
+        )
+
+        # 2. user 존재 검증 (tb_users VIEW)
+        user_row = await db.execute(
+            text(
+                "SELECT id, username, email "
+                "FROM tb_users WHERE id = :uid AND organization_id = :oid"
+            ),
+            {"uid": user_id, "oid": organization_id},
+        )
+        user = user_row.first()
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User {user_id} not found in organization.",
+            )
+
+        # 3. INSERT (중복 → IntegrityError → 409)
+        ProjectMember = _get_project_member_model()
+        member = ProjectMember(
+            project_id=project_id,
+            user_id=user_id,
+            role=normalized_role,
+        )
+        db.add(member)
+        try:
+            await db.flush()
+        except IntegrityError as exc:
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"User {user_id} is already a member of project {project_id}."
+                ),
+            ) from exc
+        await db.refresh(member)
+
+        return {
+            "id": member.id,
+            "project_id": member.project_id,
+            "user_id": member.user_id,
+            "username": user.username,
+            "email": user.email,
+            "role": member.role,
+        }
+
+    @staticmethod
+    async def remove_member(
+        db: AsyncSession,
+        *,
+        project_id: UUID,
+        user_id: UUID,
+        organization_id: UUID,
+    ) -> None:
+        """프로젝트에서 사용자 제거 (트랙 #101 F8).
+
+        - 매핑 미존재 → 404.
+        - project 존재/org scope 는 사전 검증(통합 보안 — 다른 조직의
+          멤버를 우연히 건드리지 않도록).
+        """
+        # 1. project 존재 + org scope 검증 (404)
+        await ProjectService.get_project(
+            db, project_id=project_id, organization_id=organization_id,
+        )
+
+        # 2. DELETE
+        ProjectMember = _get_project_member_model()
+        stmt = delete(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+        result = await db.execute(stmt)
+        if result.rowcount == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=(
+                    f"Project member ({project_id}, {user_id}) not found."
+                ),
             )
         await db.flush()
 
