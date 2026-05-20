@@ -1,6 +1,8 @@
+using System.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AIAgentManagement.DTOs;
+using AIAgentManagement.Exceptions;
 using AIAgentManagement.Services;
 
 namespace AIAgentManagement.Controllers;
@@ -57,6 +59,42 @@ public class AdminDocUtilProjectsController : ControllerBase
         _docUtilClient = docUtilClient;
         _cachingService = cachingService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// DocUtil 4xx 응답을 그대로 client status 로 전달(트랙 #101 F4 fix).
+    /// <para>
+    /// 이전 결함: 모든 <see cref="DocUtilUpstreamException"/> 을 <c>InvalidOperationException</c> 으로 잡아
+    /// 일괄 502 변환 → 409(이미 멤버), 404(사용자/프로젝트 미존재), 400(잘못된 요청) 같은 호출자 책임
+    /// 시나리오가 "외부 서버 오류" 처럼 보였다. 이제 4xx 는 그대로 전달, 5xx 만 502 폴백.
+    /// </para>
+    /// <para>
+    /// 5xx 폴백 메시지는 호출자(컨트롤러 catch 블록)가 작업 컨텍스트에 맞춰 전달.
+    /// </para>
+    /// </summary>
+    /// <param name="upstreamEx">DocUtilClient 가 throw 한 upstream 예외.</param>
+    /// <param name="upstreamFallbackMessage">5xx/분류 불가 일 때 client 에 노출할 한국어 메시지.</param>
+    private ActionResult MapDocUtilUpstreamError(
+        DocUtilUpstreamException upstreamEx,
+        string upstreamFallbackMessage)
+    {
+        var status = (int)upstreamEx.StatusCode;
+
+        // 4xx 영역: 호출자 책임 — status 그대로 + 한국어 메시지(예외 본문) 그대로 전달.
+        // (예: 409 중복 멤버, 404 미존재, 400 잘못된 요청, 422 검증 실패)
+        if (status >= 400 && status < 500)
+        {
+            return StatusCode(status, new ErrorResponseDto(
+                upstreamEx.Message,
+                upstreamEx.ErrorCode,
+                new { upstream = upstreamEx.Message, path = upstreamEx.Path }));
+        }
+
+        // 5xx 또는 분류 불가 — 502 폴백.
+        return StatusCode(502, new ErrorResponseDto(
+            upstreamFallbackMessage,
+            upstreamEx.ErrorCode,
+            new { upstream = upstreamEx.Message, path = upstreamEx.Path }));
     }
 
     /// <summary>
@@ -417,6 +455,32 @@ public class AdminDocUtilProjectsController : ControllerBase
             await InvalidateProjectsCacheAsync();
             return StatusCode(StatusCodes.Status201Created, member);
         }
+        catch (DocUtilUpstreamException upstreamEx)
+        {
+            // 트랙 #101 F4 fix: 4xx 그대로 전달(409 중복/404 미존재/400 잘못된 요청). 5xx 만 502.
+            _logger.LogWarning(upstreamEx,
+                "DocUtil 프로젝트 멤버 추가 upstream {Status} (projectId={Pid}, userId={Uid})",
+                (int)upstreamEx.StatusCode, projectId, request.UserId);
+            await InvalidateProjectsCacheAsync();
+
+            // 409 Conflict — 이미 멤버. UI 친화 메시지로 명시 대체.
+            if (upstreamEx.StatusCode == HttpStatusCode.Conflict)
+            {
+                return Conflict(new ErrorResponseDto(
+                    "이미 프로젝트에 등록된 사용자입니다.",
+                    upstreamEx.ErrorCode,
+                    new { upstream = upstreamEx.Message, path = upstreamEx.Path }));
+            }
+            // 404 Not Found — 프로젝트 또는 사용자 미존재.
+            if (upstreamEx.StatusCode == HttpStatusCode.NotFound)
+            {
+                return NotFound(new ErrorResponseDto(
+                    "프로젝트 또는 사용자를 찾을 수 없습니다.",
+                    upstreamEx.ErrorCode,
+                    new { upstream = upstreamEx.Message, path = upstreamEx.Path }));
+            }
+            return MapDocUtilUpstreamError(upstreamEx, "프로젝트 멤버 추가에 실패했습니다.");
+        }
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex,
@@ -459,6 +523,15 @@ public class AdminDocUtilProjectsController : ControllerBase
 
             await InvalidateProjectsCacheAsync();
             return NoContent();
+        }
+        catch (DocUtilUpstreamException upstreamEx)
+        {
+            // 트랙 #101 F4 fix: 4xx 그대로 전달(404 미존재 등). 5xx 만 502.
+            _logger.LogWarning(upstreamEx,
+                "DocUtil 프로젝트 멤버 제거 upstream {Status} (projectId={Pid}, userId={Uid})",
+                (int)upstreamEx.StatusCode, projectId, userId);
+            await InvalidateProjectsCacheAsync();
+            return MapDocUtilUpstreamError(upstreamEx, "프로젝트 멤버 제거에 실패했습니다.");
         }
         catch (InvalidOperationException ex)
         {

@@ -5,7 +5,13 @@ import * as React from "react";
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+// 트랙 #103(2026-05-19): toast 자동 dismiss + 정리 지연.
+// 이전: TOAST_REMOVE_DELAY = 1000000 (약 16분) + 자동 dismiss 없음 → toast 가 사실상 영구 표시.
+// TOAST_AUTO_DISMISS_MS: 표시 후 자동으로 dismiss 호출 (사용자 X 클릭 없이 사라지게)
+// TOAST_REMOVE_DELAY:   dismiss → 화면 transition 후 state 제거(unmount). ToastContainer 의
+//                       `transition-all duration-300` 와 정합하도록 500ms 로 설정.
+const TOAST_AUTO_DISMISS_MS = 5000;
+const TOAST_REMOVE_DELAY = 500;
 
 type ToasterToast = ToastProps & {
   id: string;
@@ -155,6 +161,12 @@ function toast({ ...props }: Toast) {
       },
     },
   });
+
+  // 트랙 #103: 표시 후 TOAST_AUTO_DISMISS_MS(5초) 경과 시 자동 dismiss.
+  // dismiss → ToastContainer 가 fade-out → TOAST_REMOVE_DELAY(500ms) 후 state 에서 완전 제거.
+  setTimeout(() => {
+    dispatch({ type: "DISMISS_TOAST", toastId: id });
+  }, TOAST_AUTO_DISMISS_MS);
 
   return {
     id: id,

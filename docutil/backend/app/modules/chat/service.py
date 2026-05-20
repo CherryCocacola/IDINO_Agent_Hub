@@ -116,6 +116,9 @@ class ChatService:
 
         offset = (page - 1) * size
 
+        # 트랙 #102b fix(2026-05-19): delete_session 이 is_active=False 로 soft-delete 하므로
+        # list 응답에서도 active session 만 노출해야 한다. 이전에는 필터가 없어 삭제된 세션이
+        # 새로고침 시 다시 나타나는 결함이 있었다.
         # Total count
         count_stmt = (
             select(func.count())
@@ -123,6 +126,7 @@ class ChatService:
             .where(
                 ChatSession.user_id == user_id,
                 ChatSession.organization_id == org_id,
+                ChatSession.is_active.is_(True),
             )
         )
         total = (await db.execute(count_stmt)).scalar() or 0
@@ -133,6 +137,7 @@ class ChatService:
             .where(
                 ChatSession.user_id == user_id,
                 ChatSession.organization_id == org_id,
+                ChatSession.is_active.is_(True),
             )
             .order_by(ChatSession.upd_dt.desc())
             .offset(offset)

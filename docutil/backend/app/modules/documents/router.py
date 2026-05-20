@@ -55,7 +55,11 @@ router = APIRouter(prefix="", tags=["documents"])
 # Role helpers
 # ---------------------------------------------------------------------------
 _require_admin = require_role(["super_admin", "admin", "org_admin"])
-_require_member = require_role(["super_admin", "admin", "org_admin", "manager", "member", "editor", "viewer"])
+# 트랙 #104(2026-05-19) fix: 'user' role 누락 → hslee 등 일반 사용자가 403 으로 차단되어
+# 공개 문서도 조회 불가. tb_users.role 의 default 인 'user' 도 read 권한 부여.
+_require_member = require_role(
+    ["super_admin", "admin", "org_admin", "manager", "member", "editor", "viewer", "user"]
+)
 
 
 # ---------------------------------------------------------------------------

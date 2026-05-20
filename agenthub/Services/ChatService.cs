@@ -764,6 +764,9 @@ public class ChatService : IChatService
             chatRequest.AgentId);
 
         // Agent의 system prompt 추가
+        // 트랙 #102 fix: 호출자가 PreserveSystemMessage=true 로 명시(예: OpenAI 호환 /v1/chat — DocUtil RAG)
+        // 한 경우, 호출자가 직접 구성한 system 메시지(RAG context 포함)를 그대로 유지하고
+        // Agent.SystemPrompt 자동 덮어쓰기를 스킵한다. 호출자가 system 을 안 보낸 경우는 그대로 inject.
         if (agent != null && !string.IsNullOrEmpty(agent.SystemPrompt))
         {
             var systemMessage = chatRequest.Messages.FirstOrDefault(m => m.Role == "system");
@@ -775,10 +778,11 @@ public class ChatService : IChatService
                     Content = agent.SystemPrompt
                 });
             }
-            else
+            else if (!request.PreserveSystemMessage)
             {
                 systemMessage.Content = agent.SystemPrompt;
             }
+            // else: 호출자가 직접 system 을 보냈고 보존 요청한 경우 — 그대로 유지(덮어쓰지 않음)
         }
 
         var startTime = DateTime.UtcNow;
@@ -1276,6 +1280,9 @@ public class ChatService : IChatService
             ThinkingMode = request.ThinkingMode
         };
 
+        // 트랙 #102 fix: 스트리밍 경로(OpenAI 호환 /v1/chat stream=true — DocUtil RAG 흐름)도
+        // PreserveSystemMessage 분기 적용. 호출자가 직접 RAG context 가 포함된 system 메시지를
+        // 보낸 경우 Agent.SystemPrompt 자동 덮어쓰기를 스킵.
         if (agent != null && !string.IsNullOrEmpty(agent.SystemPrompt))
         {
             var systemMessage = chatRequest.Messages.FirstOrDefault(m => m.Role == "system");
@@ -1283,10 +1290,11 @@ public class ChatService : IChatService
             {
                 chatRequest.Messages.Insert(0, new ChatMessageDto { Role = "system", Content = agent.SystemPrompt });
             }
-            else
+            else if (!request.PreserveSystemMessage)
             {
                 systemMessage.Content = agent.SystemPrompt;
             }
+            // else: 호출자가 보존 요청한 경우 — 그대로 유지
         }
 
         var startTime = DateTime.UtcNow;

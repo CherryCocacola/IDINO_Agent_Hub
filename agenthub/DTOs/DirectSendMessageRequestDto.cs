@@ -61,6 +61,17 @@ public class DirectSendMessageRequestDto
     /// </summary>
     [JsonPropertyName("fallbackModel")]
     public string? FallbackModel { get; set; }
+
+    /// <summary>
+    /// 호출자가 보낸 system 메시지를 보존할지 여부(트랙 #102 — DocUtil RAG 컨텍스트 누락 fix).
+    /// <para>
+    /// 기본 false: AgentHub UI 등 일반 채팅 흐름은 Agent.SystemPrompt 로 system 메시지를 덮어쓴다.
+    /// true: OpenAI 호환 `/v1/chat/completions` 같이 호출자가 직접 system prompt(RAG context 등)를
+    /// 구성한 경우, 그 system 메시지를 그대로 유지하고 Agent.SystemPrompt 자동 inject 를 스킵한다.
+    /// </para>
+    /// </summary>
+    [JsonPropertyName("preserveSystemMessage")]
+    public bool PreserveSystemMessage { get; set; } = false;
 }
 
 public class ChatMessageItemDto

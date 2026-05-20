@@ -36,7 +36,10 @@ router = APIRouter(prefix="", tags=["agents"])
 # Role helpers
 # ---------------------------------------------------------------------------
 _require_admin = require_role(["super_admin", "admin", "org_admin"])
-_require_member = require_role(["super_admin", "admin", "org_admin", "editor", "member", "viewer"])
+# 트랙 #104(2026-05-19) fix: 'user' role 도 일반 read 허용.
+_require_member = require_role(
+    ["super_admin", "admin", "org_admin", "editor", "member", "viewer", "user"]
+)
 
 
 # ---------------------------------------------------------------------------

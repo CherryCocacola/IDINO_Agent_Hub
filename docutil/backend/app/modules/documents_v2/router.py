@@ -68,8 +68,11 @@ router = APIRouter(prefix="/v2", tags=["Documents V2"])
 
 
 # 역할 게이트: 문서 생성은 편집 권한 이상, 조회는 열람 권한까지 허용.
+# 트랙 #104(2026-05-19) fix: 'user' role (tb_users default) 도 reader 권한 부여.
 _require_author = require_role(["super_admin", "admin", "org_admin", "editor", "member"])
-_require_reader = require_role(["super_admin", "admin", "org_admin", "editor", "member", "viewer"])
+_require_reader = require_role(
+    ["super_admin", "admin", "org_admin", "editor", "member", "viewer", "user"]
+)
 
 
 # ---------------------------------------------------------------------------

@@ -213,29 +213,33 @@ public class OpenAICompatController : ControllerBase
         }
 
         // ── DirectSendMessageRequestDto 구성 ─────────────────────────────────────
-        // OpenAI messages 배열에서 대화 히스토리를 그대로 전달 (system 제외)
+        // 트랙 #102 fix: OpenAI 호환 호출자(예: DocUtil 사용자 챗봇) 는 RAG context 가 포함된
+        // system 메시지를 직접 구성하여 보낸다. 이전에는 `.Where(!system)` 로 system 을 제거하여
+        // LLM 이 컨텍스트 없이 응답하는 결함이 있었다. 이제 system 도 포함하여 그대로 forward 하고,
+        // PreserveSystemMessage=true 로 ChatService 의 Agent.SystemPrompt 자동 덮어쓰기를 차단한다.
         var chatMessages = request.Messages
-            .Where(m => !string.Equals(m.Role, "system", StringComparison.OrdinalIgnoreCase))
             .Select(m => new ChatMessageItemDto { Role = m.Role, Content = m.Content })
             .ToList();
 
         // 마지막 user 메시지를 PII 처리된 값으로 교체
-        if (chatMessages.Count > 0 &&
-            string.Equals(chatMessages[^1].Role, "user", StringComparison.OrdinalIgnoreCase))
+        var lastUserIdx = chatMessages.FindLastIndex(m =>
+            string.Equals(m.Role, "user", StringComparison.OrdinalIgnoreCase));
+        if (lastUserIdx >= 0)
         {
-            chatMessages[^1] = new ChatMessageItemDto { Role = "user", Content = messageToSend };
+            chatMessages[lastUserIdx] = new ChatMessageItemDto { Role = "user", Content = messageToSend };
         }
 
         var directRequest = new DirectSendMessageRequestDto
         {
-            AgentId     = agent.AgentId,
-            ServiceId   = agent.ServiceId,
-            Model       = agent.DefaultModel ?? agent.ApiService?.DefaultModel,
-            Temperature = request.Temperature ?? agent.Temperature ?? 0.7m,
-            MaxTokens   = request.MaxTokens ?? agent.MaxTokens ?? 2048,
-            EnableRag   = agent.EnableRag,
-            Language    = "auto",
-            Messages    = chatMessages
+            AgentId                = agent.AgentId,
+            ServiceId              = agent.ServiceId,
+            Model                  = agent.DefaultModel ?? agent.ApiService?.DefaultModel,
+            Temperature            = request.Temperature ?? agent.Temperature ?? 0.7m,
+            MaxTokens              = request.MaxTokens ?? agent.MaxTokens ?? 2048,
+            EnableRag              = agent.EnableRag,
+            Language               = "auto",
+            Messages               = chatMessages,
+            PreserveSystemMessage  = true,  // 호출자(DocUtil 등) 가 보낸 RAG context system prompt 보존
         };
 
         var completionId = $"chatcmpl-{Guid.NewGuid():N}";
