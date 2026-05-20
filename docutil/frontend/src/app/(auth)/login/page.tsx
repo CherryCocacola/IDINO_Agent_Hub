@@ -89,7 +89,7 @@ export default function LoginPage() {
         <div className="border-border rounded-2xl border bg-white px-8 py-10 shadow-lg">
           {/* Logo */}
           <div className="mb-8 flex flex-col items-center">
-            <img src="/idino-logo.png" alt="IDINO" className="mb-3 h-16 w-16 rounded-xl object-contain" />
+            <img src="/g2-logo.png" alt="G2 SOFT" className="mb-3 h-16 w-16 rounded-xl object-contain" />
             <h1 className="text-foreground text-2xl font-bold">DocUtil</h1>
             <p className="text-muted-foreground mt-2 text-sm">관리자 로그인</p>
           </div>
@@ -194,7 +194,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-muted-foreground mt-8 text-center text-xs">
-          Copyright 2024. Hancom. All rights reserved.
+          Copyright 2026. G2 SOFT. All rights reserved.
         </p>
       </div>
     </div>

@@ -600,7 +600,17 @@ export default function ProjectsPage() {
                             )}
                           </Button>
                         </TableCell>
-                        <TableCell className="font-medium">{project.name}</TableCell>
+                        {/* 트랙 #106 결함 4 — 프로젝트 명 클릭 시 멤버 목록 dialog 자동 오픈 */}
+                        <TableCell className="font-medium">
+                          <button
+                            type="button"
+                            onClick={() => openMembersDialog(project)}
+                            className="text-foreground hover:text-primary hover:underline cursor-pointer text-left"
+                            aria-label={`${project.name} 상세 보기`}
+                          >
+                            {project.name}
+                          </button>
+                        </TableCell>
                         <TableCell className="text-muted-foreground max-w-xs truncate">
                           {project.description}
                         </TableCell>

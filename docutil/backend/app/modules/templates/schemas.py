@@ -8,7 +8,7 @@ from datetime import datetime
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # Request schemas
@@ -296,10 +296,22 @@ class VariableMapping(BaseModel):
         ...,
         min_length=1,
         max_length=64,
-        pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
-        description="매핑할 Jinja2 변수명 (영문·숫자·언더스코어, 숫자로 시작 불가). "
-                    "P1-6 validation 수정: Jinja2 렌더링 오류 방지.",
+        description="매핑할 Jinja2 변수명 (한글/영문/숫자/언더스코어, 숫자로 시작 불가). "
+                    "Python identifier 표준 — Jinja2 가 한글 식별자도 정상 렌더링한다. "
+                    "트랙 #106: ASCII-only 정규식 → str.isidentifier() validator 로 교체.",
     )
+
+    @field_validator("variable_name")
+    @classmethod
+    def _validate_variable_name(cls, v: str) -> str:
+        # Python 식별자 검증 — 한글/유니코드 식별자 허용 (Jinja2 호환).
+        # 거부: 공백/특수문자/숫자 시작 등 Python 가 식별자로 인정 안 하는 패턴.
+        if not v.isidentifier():
+            raise ValueError(
+                "변수명은 유효한 식별자여야 합니다 "
+                "(한글/영문/숫자/언더스코어 사용 가능, 숫자로 시작 불가, 공백/특수문자 금지)."
+            )
+        return v
     var_type: str = Field(
         default="string",
         description="변수 타입: 'string', 'date', 'array'",
