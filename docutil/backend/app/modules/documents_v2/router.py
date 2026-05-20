@@ -200,9 +200,24 @@ async def create_document(
         if "content_policy" in message.lower() or "blocked by content" in message.lower():
             # AgentHub 응답에 "Matched banned words: A, B" 형태로 매칭 단어 포함됨 (트랙 #106 v2).
             # 사용자가 어떤 표현 때문에 차단됐는지 알 수 있도록 detail 에 그대로 전달.
+            # AgentHub 가 한국어를 \uXXXX 유니코드 escape 형태로 보낼 수 있어 디코딩 처리.
             import re as _re
             _m = _re.search(r"matched banned words:\s*([^\"}]+)", message, _re.I)
-            _suffix = f" (차단된 표현: {_m.group(1).strip()})" if _m else ""
+            _suffix = ""
+            if _m:
+                _matched_raw = _m.group(1).strip().rstrip(",.;\\")
+                try:
+                    # \uXXXX → 한글 문자 변환 (raw_unicode_escape 가 안전, ASCII 도 영향 없음)
+                    _matched_decoded = _matched_raw.encode("latin-1", "ignore").decode(
+                        "unicode_escape", "ignore"
+                    )
+                    # 디코딩 결과가 ASCII 만 남았으면(실패), 원본 유지
+                    _matched_clean = _matched_decoded if any(
+                        "가" <= c <= "힣" for c in _matched_decoded
+                    ) else _matched_raw
+                except Exception:
+                    _matched_clean = _matched_raw
+                _suffix = f" (차단된 표현: {_matched_clean})"
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(

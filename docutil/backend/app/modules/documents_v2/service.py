@@ -354,11 +354,15 @@ class DocumentServiceV2:
             )
             # 트랙 #106 결함 8 — AgentHub upstream 의 content_policy_violation 은 사용자 입력
             # 차단(개인정보·금칙어 등)이므로 router 가 400 + 친화 메시지로 매핑할 수 있게
-            # error message 에 키워드를 보존한다.
-            _exc_msg = str(exc).lower()
-            if "content_policy" in _exc_msg or "blocked by content" in _exc_msg:
+            # error message 에 키워드를 보존한다. 원본 exc message 전체를 포함하여
+            # AgentHub 가 응답에 넣은 "Matched banned words: X, Y" 정보를 router 가 추출
+            # 가능하게 한다.
+            _exc_msg = str(exc)
+            _exc_lower = _exc_msg.lower()
+            if "content_policy" in _exc_lower or "blocked by content" in _exc_lower:
+                # 원본 메시지를 그대로 보존 — router 의 regex 가 "Matched banned words:" 부분 추출
                 raise DocumentGenerationError(
-                    "content_policy_violation: 입력하신 내용이 정책상 차단되었습니다."
+                    f"content_policy_violation: {_exc_msg}"
                 ) from exc
             raise DocumentGenerationError("LLM 호출에 실패했습니다. 잠시 후 다시 시도해 주세요.") from exc
 
