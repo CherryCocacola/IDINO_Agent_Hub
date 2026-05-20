@@ -247,7 +247,17 @@ class EvaluationService:
         judge_details[METRIC_HALLUCINATION] = hd_result
         hd_score = float(hd_result.get("score", 0.0))
         has_hallucination = bool(hd_result.get("has_hallucination", False))
-        hallucination_evidence = hd_result.get("evidence", [])
+        # 트랙 #105 Phase B.5 — frontend/AgentHub BFF DTO 가 dict 만 처리하므로
+        # list 가 반환되면 dict 로 래핑. 비어 있으면 None 으로 저장.
+        _evidence_raw = hd_result.get("evidence")
+        if not _evidence_raw:
+            hallucination_evidence: dict | None = None
+        elif isinstance(_evidence_raw, list):
+            hallucination_evidence = {"items": _evidence_raw}
+        elif isinstance(_evidence_raw, dict):
+            hallucination_evidence = _evidence_raw
+        else:
+            hallucination_evidence = {"value": _evidence_raw}
 
         # Composite score
         composite = (

@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -37,6 +37,21 @@ class EvaluationLogResponse(BaseModel):
     run_type: str
     question_index: int
     created_at: datetime = Field(validation_alias="ins_dt")
+
+    # 트랙 #105 Phase B.5 — DB 에 잔존한 list 형 데이터를 dict 로 정규화
+    # (구버전 service.py:250 default 가 `[]` 였어서 빈 list 가 다수 저장됨)
+    @field_validator("hallucination_evidence", mode="before")
+    @classmethod
+    def _normalize_evidence(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, list):
+            # 빈 list → None, 값 있는 list → {"items": [...]} 로 dict 래핑
+            return {"items": v} if v else None
+        if isinstance(v, dict):
+            return v
+        # 그 외 타입은 pydantic 이 dict 타입 검증으로 거부
+        return v
 
 
 class EvaluationLogListResponse(BaseModel):
