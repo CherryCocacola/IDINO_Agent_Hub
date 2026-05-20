@@ -163,3 +163,8 @@ tools/ui_e2e/full/_admin_state.json
 tools/ui_e2e/full/*_state.json
 tools/ui_e2e/full/_state_*.json
 tools/ui_e2e/**/storage_state*.json
+# 트랙 #105 (2026-05-20) — track105 runner 의 storage state 파일 (JWT 포함)
+tools/ui_e2e/full/_track105_*.json
+
+# Claude Code session 락
+.claude/scheduled_tasks.lock

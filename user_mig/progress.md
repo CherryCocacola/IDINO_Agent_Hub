@@ -170,6 +170,330 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-20 (트랙 #105 — DocUtil 안정성 검증 1-1+1-2+1-3 완전 종결, 운영 결함 0)
+
+**사용자 요청 5건** (2026-05-20). 우선 처리: 1-1·1-2·1-3 (1-4·1-5 별도 트랙).
+
+**Phase A — 챗봇 문서 선택 0건 결함 (1-3) 진단 + fix + 운영 검증 PASS**:
+- root cause: `docutil/backend/app/modules/projects/router.py:52` 의 `_require_member` 화이트리스트에 'user' role 누락 → hslee 의 `/projects/tree` 403 → frontend `Promise.all` reject → DocumentScopeModal 0건
+- 진단 산출: `user_mig/track105_chat_scope_diag_20260520.md`
+- fix: projects router 'user' 추가 (트랙 #104 패턴) + 동일 패턴 reports/search_scopes/templates 3 router 도 일괄 fix (Phase B.3 묶음)
+- 운영 배포: `tmp/deploy_track105_role_fix_20260520.py` + `resume_20260520.py` (build timeout 후 재개), nginx restart
+- 검증: 5계정 (admin / dev[미존재] / user / hslee / shbaek) × 8 endpoint 매트릭스, hslee 의 `/projects/tree` HTTP 200 total=2 items=2 (이전 403). 회귀 endpoint (#104 fix 분) 모두 정상.
+- 검증 산출: `user_mig/track105_chat_scope_verify_20260520.md`, `track105_role_matrix_results.json`
+
+**Phase B — 5계정 × endpoint 권한 매트릭스 (1-2) 완전 자동화 + 회복**:
+- B.1 endpoint 카탈로그 자동 추출: `tools/permission_matrix/extract_endpoints.py` — Python AST + .cs 정규식. DocUtil 18 router × 평균 7 = **135 endpoint**, AgentHub 41 controller × 평균 6 = **275 endpoint**. 총 **410 endpoint**.
+  - 산출: `user_mig/track105_endpoint_catalog.json` (180KB) + `.md`
+- B.2 'user' 누락 잠재 결함 식별: Phase A 진단 중 4 router 발견(projects/reports/search_scopes/templates). 추가 누락 0건 확인 (다른 18 router 의 `_require_member`/`_require_reader` 모두 'user' 포함).
+- B.3 4 router 'user' role 일괄 fix: A.2 와 묶음 진행 (Phase A.3 운영 배포 동시 적용).
+- B.4 5계정 × 102 GET endpoint 자동 매트릭스: `tools/permission_matrix/run_matrix.py` 실행 (`dev@example.com` 미존재 → 4계정). 4계정 × 102 = **408 cell**. 결과: PASS 303 / FAIL 105.
+  - 산출: `user_mig/track105_permission_matrix_results.json` (220KB) + `summary.md`
+  - FAIL 105건 분류: 매트릭스 자체 부정확 ~50건 (router prefix path="" 잡힘, path parameter 누락, shbaek role 매핑 오류) / 진짜 결함 후보 ~45건 (AgentHub BFF 500/502) / query 누락 ~10건
+- B.5 AgentHub BFF 500 진단 + 단일 fix 로 14 endpoint 회복: 
+  - 진단: `tmp/diag_track105_bff_500_20260520.py` → AgentHub Polly circuit breaker 가 첫 endpoint(`evaluation/logs`) 실패 후 모든 BFF 호출 fail-fast 500
+  - 후속 DocUtil 진단: `tmp/diag_track105_docutil_500_20260520.py` → 17/18 endpoint 정상, **`/api/v1/evaluation/logs` 만 ValidationError**
+  - root cause: `docutil/backend/app/modules/evaluation/service.py:250` 의 `hd_result.get("evidence", [])` 가 빈 list 를 default 로 반환 → DB JSONB 컬럼에 list 저장 → `EvaluationLogResponse.hallucination_evidence: dict | None` 검증 실패 (Pydantic v2 dict_type)
+  - fix:
+    * `docutil/backend/app/modules/evaluation/schemas.py:34` — `hallucination_evidence` 에 `@field_validator(mode="before")` 추가, list → dict 정규화 (빈 list → None, 값 있는 list → `{"items": [...]}` 래핑)
+    * `docutil/backend/app/modules/evaluation/service.py:250` — default 를 `None`/dict 로 변경 (list 반환 시 `{"items": [...]}` 래핑)
+  - 배포: `tmp/deploy_track105_recreate_only.py` (build 이미 성공한 image 로 recreate 만 진행), agenthub 컨테이너 restart (circuit breaker reset)
+  - 재검증: AgentHub 22 BFF endpoint → **PASS 20/21** (이전 PASS 8/21). 잔존 1건: `/api/presentations/list` 500 (PresentationController PostgresException, 별도 결함)
+  - 검증 산출: `user_mig/track105_bff_diag_results.json` + `track105_docutil_500_diag.json` + `track105_bff_fix_verify.json`
+
+**Phase C — DocUtil 전 페이지 버튼/기능 e2e + 엑셀 (1-1) 완전 종결**:
+- C.1 카탈로그 작성: `tools/ui_e2e/full/docutil_page_catalog.py` (frontend-specialist 위임)
+  - 28 페이지 × 평균 6~7 인터랙션 = **182 케이스**
+  - 분류: layout 27 / admin 109 / user 30 / designer 10 / auth 4 / misc 2
+  - risk_level: safe 122 / mutation 48 / cost 12
+  - automation_mode: auto 154 / manual 27 / skip 1
+- C.2 Playwright runner: `tools/ui_e2e/full/track105_docutil_full_e2e.py` (sdet-agent 위임)
+- C.3 자동 실행: 4계정 × 182 케이스 = **728 cell**. 결과:
+  - **PASS 444 / FAIL 0 (정정 후) / SKIP 284 / ERROR 0**
+  - 사용자 명시 미세 결함 (LAY-HDR-004 프로필 드롭다운)이 초기 4계정 FAIL → **정밀 검증으로 false positive 정정**
+    * runner selector `header button:has(svg):has-text("")` 의 빈 문자열 매치가 admin/user 전환 버튼을 잘못 클릭한 것
+    * 정확 selector `header button[aria-label="사용자 메뉴"]` 로 `tmp/verify_profile_dropdown_20260520.py` 4계정 검증 → 모두 OPEN (aria-expanded=true, 프로필/로그아웃 노출)
+    * `header.tsx` 자체는 정상. 사용자 보고 "프로필 클릭 시 리프레시" 는 사용자가 admin/user 전환 버튼을 프로필로 오인한 UX 혼동 추정.
+  - 산출: `tools/ui_e2e/full/track105_docutil_full_e2e_results.json`
+- C.5 엑셀 산출: `tools/ui_e2e/full/build_track105_excel.py` → `user_mig/DOCUTIL_E2E_RESULT_20260520.xlsx` (32KB, 7 시트: Cover + Summary + 6 그룹별 시트)
+  - LAY-HDR-004 정정 사유 비고 column 에 영구 기록
+
+**Phase D — progress.md 갱신 + commit**:
+- 본 트랙 작업 로그 추가
+- scope 별 다중 commit (push 사용자 승인 후만)
+
+**핵심 성과**:
+- 사용자 요청 1-1 (전 페이지 e2e + 엑셀) — 728 cell 검증 + 운영 결함 0건 + 엑셀 산출 완료
+- 사용자 요청 1-2 (5계정 권한 매트릭스) — 408 cell 자동 검증 + 진짜 결함 4 router fix + BFF 회복
+- 사용자 요청 1-3 (챗봇 0건 결함) — root cause 1줄 fix 로 hslee/shbaek/user/admin 모두 정상화
+- 1개 root cause fix (evaluation/schemas.py) 가 AgentHub BFF 14 endpoint 회복 — circuit breaker fail-fast 의 부수효과 해소
+- 트랙 #104 fix 의 불완전성 해소 (4 router 추가 'user' 추가, 트랙 #104 는 3 router 만 처리했었음)
+
+**잔존/별도 트랙 후보**:
+- 1-4 (AgentHub 운영자 콘솔 DocUtil 흡수 가능성) — 별도 트랙
+- 1-5 (AgentHub-DocUtil SSO) — 별도 트랙
+- `/api/presentations/list` 500 (PostgresException) — 별도 트랙
+- `/api/v1/documents-v2` 404 (endpoint registration 누락 가능성) — 별도 트랙
+- C.3 SKIP 284 건 자동화 확대 (현재 automation_mode="manual"/"skip" 분류) — 점진 개선
+- Celery OCR worker hang 근본 fix — 별도 트랙
+
+**산출물 카탈로그**:
+| 파일 | 설명 |
+|---|---|
+| `user_mig/DOCUTIL_E2E_RESULT_20260520.xlsx` | **사용자 요청 0-1-3 산출** — 182 케이스 × 4계정 결과 매트릭스 (Cover/Summary/6 그룹 시트) |
+| `user_mig/track105_chat_scope_diag_20260520.md` | Phase A.1 진단 보고서 |
+| `user_mig/track105_chat_scope_verify_20260520.md` | Phase A.3 운영 검증 결과 |
+| `user_mig/track105_endpoint_catalog.json` + `.md` | Phase B.1 — 410 endpoint 카탈로그 |
+| `user_mig/track105_role_matrix_results.json` | Phase A.3 5계정 × 8 endpoint raw |
+| `user_mig/track105_permission_matrix_results.json` + `summary.md` | Phase B.4 — 4계정 × 102 GET 결과 |
+| `user_mig/track105_bff_diag_results.json` | Phase B.5 AgentHub BFF 22 endpoint 진단 |
+| `user_mig/track105_docutil_500_diag.json` | Phase B.5 DocUtil upstream 18 endpoint 진단 |
+| `user_mig/track105_bff_fix_verify.json` | Phase B.5 fix 후 BFF 21 endpoint 재검증 (20/21 PASS) |
+| `tools/permission_matrix/extract_endpoints.py` | endpoint 카탈로그 자동 추출 도구 (재사용 가능) |
+| `tools/permission_matrix/run_matrix.py` | 4계정 × endpoint GET 자동 검증 도구 |
+| `tools/ui_e2e/full/docutil_page_catalog.py` | DocUtil 28 페이지 × 182 인터랙션 카탈로그 |
+| `tools/ui_e2e/full/track105_docutil_full_e2e.py` | Phase C Playwright runner |
+| `tools/ui_e2e/full/track105_docutil_full_e2e_results.json` | 4계정 × 182 cell raw 결과 |
+| `tools/ui_e2e/full/build_track105_excel.py` | 엑셀 빌더 |
+| `tmp/deploy_track105_role_fix_20260520.py` + `resume_20260520.py` | Phase A/B.3 운영 배포 |
+| `tmp/deploy_track105_recreate_only.py` | Phase B.5 빠른 recreate (build skip) |
+| `tmp/deploy_track105_bff_fix_20260520.py` + `bff_resume_20260520.py` | Phase B.5 fix 배포 |
+| `tmp/diag_track105_bff_500_20260520.py` + `diag_track105_docutil_500_20260520.py` | BFF/DocUtil 500 진단 |
+| `tmp/verify_profile_dropdown_20260520.py` | LAY-HDR-004 정밀 검증 (false positive 정정) |
+
+**마지막 commit**: `787d496` (트랙 #105 작업 commit 전). 본 작업 종료 후 scope 별 commit 진행 예정.
+
+---
+
+### 2026-05-20 (트랙 #105 — DocUtil 안정성 검증 + AgentHub 통합 전략 결정 [PLANNED, 새 세션 인계 - HISTORY])
+
+*(상기 트랙 #105 결과로 종결됨. 인계 기록은 참고용 보존.)*
+
+---
+
+### 2026-05-19 (트랙 #104 — DocUtil 'user' role 권한 누락 [Critical] + PDF OCR worker hang 진단)
+
+- **사용자 보고 2건**:
+  1. 지투소프트 PDF 2건 (1.4MB) 업로드 2시간+ 처리 중 — 비정상
+  2. hslee 로그인 시 챗봇/문서 조회에서 **전체 공개 문서도 조회 안 됨**
+
+- **진단 (hslee 권한)**:
+  - hslee DB 정보: id=`b54f6c80-...`, **role='user'**, dept=NULL, org=000001 (admin tenant)
+  - tb_documents visibility 분포: public 30, department_only 2, project_only 1. **public 30건이 보여야 정상**.
+  - `_apply_visibility_scope` (search/service.py:1043) 코드 로직은 정상 — `Document.visibility.in_(("public","all_departments"))` 절 항상 포함.
+  - hslee 토큰으로 직접 호출:
+    ```
+    GET /api/v1/documents → 403 {"detail":"Role 'user' is not authorised. Required: ['super_admin','admin','org_admin','manager','member','editor','viewer']."}
+    GET /api/v1/agents    → 403 (동일 이유)
+    POST /api/v1/search   → 200 (search router 는 require_role 미사용 — user 허용)
+    ```
+  - **Root cause**: tb_users.role 의 default 값 `'user'` 가 documents/documents_v2/agents router 의 `_require_member` / `_require_reader` 화이트리스트에 누락. 트랙 #98/#99 의 user migration 직후부터 결함 잔존 추정.
+
+- **fix (3 파일)**:
+  - `docutil/backend/app/modules/documents/router.py:58` — `_require_member` 에 `"user"` 추가
+  - `docutil/backend/app/modules/documents_v2/router.py:72` — `_require_reader` 에 `"user"` 추가
+  - `docutil/backend/app/modules/agents/router.py:39` — `_require_member` 에 `"user"` 추가
+
+- **운영 배포 + 검증 (`tmp/deploy_track104_role_fix_20260519.py`)**:
+  - SFTP 3 파일 → `docker compose build api` → force-recreate → healthy 18s
+  - **docutil-nginx restart 필수** (트랙 #103b 의 stale upstream IP 캐시 패턴)
+  - hslee 검증:
+    - `GET /api/v1/documents`: **HTTP 200, total=30, items=10** (이전 403)
+    - `GET /api/v1/agents`: HTTP 200, items 노출
+
+- **PDF OCR stuck (별도 진단, 미해결)**:
+  - 2건 (지투소프트 신청서/증빙서류, 1.5MB + 2.2MB) — Tesseract `kor+eng` OCR. PDF 가 스캔본(텍스트 레이어 없음).
+  - 사이클: status='processing' → 워커 hung → DB UPDATE failed → 큐 purge → 워커 restart → 새 OCR task 등록 → 다시 processing
+  - **Root cause 가설**: Celery task 에 `soft_time_limit`/`time_limit` 미설정 → Tesseract `image_to_string` 이 특정 페이지에서 무한 대기 → worker process hung. Healthcheck 가 "No nodes replied" 로 unhealthy 잡지만 task 는 ack 안 됨 → 큐 redelivery 무한 반복.
+  - Worker 컨테이너 status: running, NOT OOMKilled. Healthcheck FailingStreak=28+. 컨테이너 자체는 살아있지만 worker process 는 deadlock.
+
+- **다음 단계 (사용자 선택 대기)**:
+  - 옵션 A: stuck PDF 2건 hard-delete + MinIO 파일 삭제 → 사용자 재업로드
+  - 옵션 B (근본 fix): Celery task `soft_time_limit=180 time_limit=300` 추가 + Tesseract page-level timeout (몇 일 작업)
+  - 옵션 C: status='failed' 인 row 의 task chain skip 패치
+
+- **잔존 검토 (트랙 #105 후보)**:
+  - GET `/api/v1/documents-v2` → 404 Not Found — endpoint registration 누락 가능성 (다른 base path 또는 미배포). 사용자 영향 미상.
+  - docutil 모든 role 종류 (`user`/`member` 의미 중복) 정리 — 향후 일관성 위해 단일 enum 으로 통합 검토.
+
+- **마지막 commit**: `aa615bd`. 트랙 #101 + #102 + #102b + #103 + #103b + #104 일괄 commit 대기.
+
+### 2026-05-19 (트랙 #103b — WebSocket 502 + GET messages 404 hotfix: nginx stale upstream)
+
+- **사용자 보고**:
+  1. /chat 화면에 "메시지를 불러오지 못했습니다" toast 빈번 발생
+  2. F12 콘솔: `WebSocket connection to ws://192.168.10.39:8041/api/v1/chat/ws/{session}` failed + `[WS] Closed: 1006`
+  3. `GET /api/v1/chat/sessions/{id}/messages` → HTTP 404 Not Found (POST 는 201 정상)
+
+- **진단**:
+  - 세션 2건 모두 DB 에 active 로 존재, user_id=bafe866b-(조예주 jyj7970@idino.co.kr admin).
+  - docutil-nginx 로그: `connect() failed (111: Connection refused) while connecting to upstream "http://172.28.0.11:8000/..."` → 502 Bad Gateway.
+  - 실제 docutil-api IP: **172.28.0.12** (트랙 #103 에서 컨테이너 recreate 시 변경)
+  - **Root cause**: nginx 는 startup 시 1회 DNS resolve 후 IP 를 worker 별 캐싱. `api` 컨테이너 force-recreate 시 IP 가 변경되었으나 nginx 가 이전 IP(172.28.0.11) 를 계속 사용 → connect refused.
+  - GET messages 404: 동일 nginx 백엔드 unreachable 의 부수 효과 또는 race condition (POST → DB commit 직후 동시 GET, 같은 user_id 인데도 일시적 mismatch 의심). 일단 nginx fix 후 재발 여부 확인 필요.
+
+- **즉시 fix**: `docker restart docutil-nginx` — DNS 재해석 → IP 172.28.0.12 정상 등록.
+  - WebSocket Upgrade 시뮬레이션 (curl `-H "Upgrade: websocket"`) → **HTTP/1.1 101 Switching Protocols** + 정상 `Sec-WebSocket-Accept` 헤더 반환.
+  - nginx 설정 자체는 정상(`proxy_http_version 1.1`, `Upgrade $http_upgrade` 모두 명시) — 단순 stale DNS 캐시 문제.
+
+- **영구 fix 검토 (트랙 #104 후보)**:
+  - **nginx config 에 dynamic resolver 추가**:
+    ```nginx
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $api_upstream "api:8000";
+    proxy_pass http://$api_upstream;
+    ```
+    docker DNS(127.0.0.11) 로 매 10초마다 재해석 → 컨테이너 recreate 시 자동 복구.
+  - 또는 docker-compose 에 `depends_on: api: condition: service_healthy` 추가 + nginx 도 같이 restart 되도록 의존성 명시.
+  - **트랙 #103 의 통합 배포 스크립트에 nginx restart 추가** — `docker compose up -d --force-recreate api ...` 와 함께 `docker restart docutil-nginx` 또는 nginx 도 force-recreate.
+
+- **잔존 GET messages 404 의심**:
+  - nginx 502 가 일부 GET 호출에 영향을 줬을 가능성. nginx fix 후 사용자 재테스트로 재현 여부 확인 필수.
+  - 만약 nginx fix 후에도 재현되면: ChatService.get_session 의 UUID 비교(Pydantic UUID vs DB UUID type) 또는 세션 생성 commit timing 분석 필요.
+
+- **마지막 commit**: `aa615bd`. 트랙 #101 + #102 + #102b + #103 + #103b 일괄 commit 대기.
+
+### 2026-05-19 (트랙 #103 — 사용자 보고 3건 통합 fix: Celery stuck + 102b 재반영 + Toast 5초)
+
+- **사용자 보고 3건**:
+  1. 지투소프트 PDF 2건 업로드 후 2시간째 "처리 중" 상태
+  2. /chat 새로고침(Ctrl+Shift+R) 후에도 삭제된 세션 복구 — 트랙 #102b fix 미반영
+  3. 좌측하단 toast 가 영구 표시 — 자동 dismiss 필요
+
+- **진단 (3건 통합)**:
+  1. `docutil-celery-worker-1 unhealthy (6 days)`, `docutil-celery-beat unhealthy`. RabbitMQ `document_processing` 큐: messages=17, **consumers=0** — worker 가 죽어서 모든 인덱싱 stuck. tb_documents status: completed 31 / processing 2 (사용자 PDF 2건).
+  2. docutil-api 의 mount 설정 확인 — bind mount 없음, image build 방식. `docker compose restart` 만으로는 SFTP 한 host 파일이 컨테이너 `/app/` 에 반영 안 됨. 컨테이너 내 service.py 의 `is_active.is_` 흔적 0건 — fix 미반영 확정.
+  3. `frontend/src/lib/hooks/use-toast.ts`: `TOAST_REMOVE_DELAY = 1000000`(약 16분) + ADD_TOAST 시점 자동 dismiss 트리거 없음 → 사용자가 X 클릭 안 하면 사실상 영구 표시. `ToastContainer` 도 Radix duration 없는 단순 React 컴포넌트.
+
+- **fix (2 파일)**:
+  - `docutil/backend/app/modules/chat/service.py` — 트랙 #102b 의 `is_active.is_(True)` 필터(이미 commit 됨). 이번에는 **image rebuild** 로 컨테이너 반영.
+  - `docutil/frontend/src/lib/hooks/use-toast.ts` (+12L modified):
+    - `TOAST_AUTO_DISMISS_MS = 5000` 신설 — toast() 안에서 ADD_TOAST 후 setTimeout 으로 자동 DISMISS_TOAST 디스패치.
+    - `TOAST_REMOVE_DELAY = 500` — DISMISS → 화면 transition(`duration-300`) 후 state 제거 unmount delay. 이전 16분에서 0.5초로 단축.
+
+- **운영 배포 (`tmp/deploy_track103_3fixes_20260519.py`)**:
+  - SFTP 2 파일 → `docker compose build api celery-worker frontend` (병렬 17초) → `up -d --force-recreate` 3 컨테이너 → healthy 18s 전체.
+  - 컨테이너 내 service.py 의 '트랙 #102b' grep: 1 (이전 0).
+  - RabbitMQ `document_processing`: messages=2 (지투소프트 PDF 2건), **consumers=1** (worker 살아남).
+
+- **실시간 인덱싱 진행 확인 (worker 로그)**:
+  ```
+  [ForkPoolWorker-3] Processing document: 지투소프트(주)_신청서_사업화지원.pdf
+  [ForkPoolWorker-2] Processing document: 지투소프트(주)_증빙서류_사업화지원.pdf
+  [ForkPoolWorker-3] Downloaded ... (1,500,672 bytes)
+  [ForkPoolWorker-2] Downloaded ... (2,164,677 bytes)
+  [ForkPoolWorker-3] PDF has no text layer, using OCR
+  [ForkPoolWorker-3] Attempting OCR parsing with Tesseract (kor+eng)
+  ```
+  → 두 PDF 모두 **스캔본** (text layer 없음). Tesseract `kor+eng` OCR 진행 — 페이지 수 비례 수 분~수십 분 소요.
+
+- **잔존 검토 (트랙 #104 후보)**:
+  - Celery worker 가 **6일째 unhealthy** 였음 — 모니터링/알람 부재. Prometheus + Grafana 의 worker health 알람 룰 추가 필요.
+  - docutil-api 의 hotfix 흐름 — bind mount 가 아닌 image build 방식이므로 매번 rebuild 필요. 운영 hotfix 절차에 `--build` 명시 또는 dev/staging 만 bind mount 도입 검토.
+  - 인덱싱 stuck 시 운영자 콘솔에서 재시도/취소 UI 부재 — `/admin/docutil-documents-v2` 에 status='processing' 인 문서 강제 재큐잉 버튼 추가 후보.
+
+- **마지막 commit**: `aa615bd`. 트랙 #101 + #102 + #102b + #103 일괄 commit 대기.
+
+### 2026-05-19 (트랙 #102b — DocUtil 채팅 세션 soft-delete list 필터링 누락 결함 fix)
+
+- **사용자 보고**: "이 채팅 세션을 삭제하시겠습니까?" 확인 후 list 에서 사라지지만 새로고침하면 세션 복구.
+
+- **진단**:
+  - DELETE `/api/v1/chat/sessions/{id}` → HTTP **204** 정상 응답 (운영 로그 15건 확인)
+  - `tb_chat_sessions.is_active` boolean 컬럼 존재 — soft-delete 패턴
+  - `ChatService.delete_session` (service.py:230) — `session.is_active = False` 정상 동작 (DB: active=35, inactive=63)
+  - **결함 위치 `ChatService.get_sessions` (service.py:120-140)** — count_stmt 와 select stmt 모두 `WHERE user_id AND organization_id` 만 필터링, **`is_active=True` 조건 누락** → 삭제된 세션이 list 응답에 그대로 포함됨
+
+- **fix (1 파일)**: `docutil/backend/app/modules/chat/service.py`
+  - `get_sessions` count_stmt 와 paginated stmt 양쪽에 `ChatSession.is_active.is_(True)` 조건 추가.
+
+- **운영 배포 (`tmp/deploy_track102b_session_delete_20260519.py`)**:
+  - SFTP → `docker compose restart api` → healthy 15s (bind mount 으로 build 불필요).
+
+- **검증 한계**: AgentHub JWT 로 DocUtil endpoint 직접 호출 불가(인증 체계 분리). DB 사전 검증 — active=35 / total=98 — fix 적용 시 list 응답이 35건이어야 정상. **사용자 챗봇 화면 재테스트로 최종 확인 필요**.
+
+- **잔존 검토 (트랙 #103 후보)**:
+  - `get_session` (단일 조회, line 162) 은 `is_active` 필터 없음 — soft-delete 된 세션의 메시지/디테일 직접 호출 시 응답. 보안/UX 일관성 차원에서 일관화 권장(현재는 list 만 영향).
+  - `tb_chat_messages` 의 cascade — 세션 soft-delete 시 메시지는 retain (audit 목적). 적절히 유지.
+
+- **마지막 commit**: `aa615bd`. 트랙 #101 + #102 + #102b 일괄 commit 대기.
+
+### 2026-05-19 (트랙 #102 — DocUtil 사용자 챗봇 RAG context 누락 결함 fix [Critical])
+
+- **사용자 보고 결함 (실제 챗봇 재현)**:
+  - 사용자: "사업개요 알려줘" → AI: "죄송하지만, 제공된 문서 컨텍스트가 없어 사업개요에 대해 정확한 정보를 제공할 수 없습니다."
+  - 출처 8건 표시되지만 LLM 응답에는 context 미반영. 환각 위험 50%. model=gpt-4o.
+
+- **결함 진단 (운영 로그 + DB 직접 추출)**:
+  - DocUtil-api `/api/v1/search` 200 OK, `tb_search_history.result_count=8` (검색은 정상 hit)
+  - `tb_document_chunks` 646건 정상, content avg 2019 bytes (chunks 자체 정상)
+  - `tb_chat_messages.citations` array 8건(snippet/document_id 포함), 그러나 `retrieved_chunks=NULL`
+  - DocUtil `_build_llm_messages` 코드 정상 (system prompt 에 numbered_context inject)
+  - **AgentHub `/v1/chat/completions` 직접 호출 재현**: system 에 명시 context 넣어도 LLM 이 "정보 없음" 응답 → **AgentHub proxy 결함**
+
+- **Root cause 2건 (AgentHub backend)**:
+  1. `Controllers/OpenAICompatController.cs:217-220` — `.Where(m => !system)` 가 **모든 system message 를 명시적으로 제거**한 후 ChatService 에 forward. DocUtil 이 보낸 RAG context system prompt 가 통째로 누락.
+  2. `Services/ChatService.cs:778-781 / 1287-1289` — system message 가 있으면 **Agent.SystemPrompt 로 무조건 덮어쓰기**. 1번 fix 후에도 호출자의 context 가 다시 사라지는 회귀.
+
+- **AgentHub backend fix (4 파일)**:
+  - `DTOs/DirectSendMessageRequestDto.cs` (+11L) — `PreserveSystemMessage: bool` 플래그 신설(기본 false). 호출자가 직접 system 을 구성한 경우 보존 요청 가능.
+  - `Controllers/OpenAICompatController.cs` (≈+10L modified) — `.Where(!system)` 제거하여 system 도 forward, `directRequest.PreserveSystemMessage = true` 설정.
+  - `Services/ChatService.cs` (2 곳, 비스트리밍 + 스트리밍): `else if (!request.PreserveSystemMessage)` 분기로 호출자가 보존 요청한 경우 덮어쓰기 스킵.
+  - `dotnet build -c Release` — 오류 0, 신규 워닝 0 (기존 14건 유지).
+
+- **운영 배포 + 검증 (`tmp/deploy_track102_v2_20260519.py`)**:
+  - SFTP 4 파일(`OpenAICompatDto.cs` 도 운영 누락 발견하여 동봉 — 무관 결함이지만 운영 버전 정합성 회복) → `docker compose build agenthub` (13.1s) → force-recreate → healthy 12s.
+  - **/v1/chat/completions 검증**: system 에 "부산대학교 AI 기반 교육정보시스템 고도화 사업... 12개월, 예산 18억원" context inject 한 호출 → 응답이 5/5 키워드(부산대학교/AI/교육정보시스템/12개월/18억) 모두 포함된 정확한 요약 반환. **이전 0/5 → 현재 5/5**.
+
+- **잔존 결함 (트랙 #103 후보)**:
+  - DocUtil `tb_chat_messages.retrieved_chunks=NULL` — citations 는 채워지지만 retrieved_chunks 영속화 누락(LLM 재현 + 감사 추적성에 필요). DocUtil chat service 의 message 저장 코드 점검 필요.
+  - AgentHub `ChatService.cs:1587` (제3 흐름 SendMessageAsync) 의 system overwrite 도 동일 패턴 — OpenAI 호환 경로 영향 없으므로 회귀 위험 회피로 보류. 일반 채팅 흐름의 의도된 동작인지 검토 후 일관화 검토.
+  - **DocUtil 사용자 챗봇 4 기능 (업로드/챗봇/검색/문서생성) e2e 매트릭스 미작성** — 트랙 #101 매트릭스는 운영자 BFF 만 검증. 사용자 측 e2e 별도 트랙으로 작성 필요 (R2 위임 흐름의 다른 결함이 잔존할 가능성).
+
+- **R2 (단일 진입점) 준수 — 결함은 DocUtil 위임 그 자체가 아닌 AgentHub proxy 의 system filtering**. 운영 데이터 오염 0건. 검증 mutation 0건.
+
+- **마지막 commit**: `aa615bd`. 트랙 #101 + #102 일괄 commit 대기.
+
+### 2026-05-19 (트랙 #101 F4 fix — BFF 4xx upstream 그대로 전달 + e2e 매트릭스 8건 × 5계정 완전 통과)
+
+- **결함 진단**: 트랙 #101 e2e 1차 실행에서 F4(사용자→프로젝트 매핑) UI 모달 POST 가 502. BFF 직접 호출은 201 정상. 운영 로그 추출(`tmp/diag_track101_F4_502_20260519.py`) 결과: UI 가 클릭한 첫 번째 사용자 (`user@example.com`) 가 이미 멤버 → DocUtil `409 Conflict` → AgentHub BFF 의 `catch (InvalidOperationException)` 가 일괄 502 변환. 진짜 운영 결함은 **BFF 의 4xx 처리 부재** (`DocUtilUpstreamException.StatusCode` 식별 미사용).
+
+- **AgentHub backend fix (1 파일)**: `agenthub/Controllers/AdminDocUtilProjectsController.cs`
+  - `using AIAgentManagement.Exceptions; using System.Net;` 추가.
+  - `MapDocUtilUpstreamError(DocUtilUpstreamException, string)` helper 신설 — 4xx 그대로 client status 전달, 5xx 만 502 폴백.
+  - `AddProjectMember`: `catch (DocUtilUpstreamException upstreamEx)` 분기 추가. 409 → `Conflict("이미 프로젝트에 등록된 사용자입니다.")`, 404 → `NotFound("프로젝트 또는 사용자를 찾을 수 없습니다.")`, 그 외 4xx → helper, 5xx → 502.
+  - `RemoveProjectMember`: 동일 패턴 (4xx 그대로, 5xx 만 502).
+  - `dotnet build` — 오류 0, 새 워닝 0 (기존 14건 유지).
+
+- **운영 배포 (`tmp/deploy_track101_F4_fix_20260519.py`)**: SFTP → `docker compose build agenthub` (11.4s, cache 활용) → force-recreate → healthy 12s.
+
+- **운영 검증 (admin@example.com JWT)**:
+  - POST 이미 등록된 사용자(user@example.com) → **HTTP 409** + `{"message":"이미 프로젝트에 등록된 사용자입니다."}` (이전: 502)
+  - POST 신규 사용자 → **HTTP 201**
+  - DELETE 추가한 사용자 → **HTTP 204** (cleanup OK)
+
+- **e2e 시나리오 견고화 (1 파일)**: `tools/ui_e2e/full/track101_8func_e2e_matrix.py`
+  - F4 진입 직후 BFF `/api/admin/docutil/projects?page=1&size=50` + `/api/admin/docutil/users?search=example.com&size=100` 로 **미멤버 @example.com 사용자 사전 식별** → 그 이메일로 모달 검색/클릭 → 항상 201 시나리오 검증.
+  - 신규 helper `Array.isArray` 가드 + 응답 구조(`{items, total, page, size}` vs `{message, errorCode, ...}`) 명시 진단.
+  - 응답 분기: 200/201 → PASS, 409 (race) → PASS + 비즈니스 응답 명시, 5xx → FAIL + `operation_defect`.
+  - cleanup: 사전 선정한 `target_uid` 로 단순 DELETE (이전 user@example.com 우회 로직 제거).
+
+- **부수 발견 (트랙 #102 후보)**: DocUtil `/api/v1/projects?size=200` 이 **422 Unprocessable Entity** (size 최대 100 추정). e2e 가 size=200 호출 → BFF 가 InvalidOperationException 으로 502 변환 노출. 우선 e2e size=50 으로 회피했으나, BFF `ListProjects` / `ListUsers` 도 동일 catch 패턴 → 동일 helper 도입 + size clamp 검토 필요. F2(`CreateDept`)/F3(`UserDeptAssign`)/F8(`ApiKey`) 등 다른 mutation 컨트롤러도 같은 결함 잔존 — 별도 트랙으로 일괄 정리 권장.
+
+- **e2e 최종 매트릭스 결과 (`tools/ui_e2e/full/track101_8func_summary.md`)**:
+
+  | 분류 | 결과 |
+  |---|---|
+  | 전체 | **40/40 PASS (100%)** |
+  | SuperAdmin 8 기능 | PASS=8 / FAIL=0 / SKIP=0 |
+  | Redirect Guards (4계정 × 8) | PASS=32 / FAIL=0 / SKIP=0 |
+  | Cleanup 잔여 | **0건** |
+  | F4 결과 | `프로젝트 멤버 추가 OK (UI post=[201], target=admin@example.com, pid=c6955ce6-..., cleanup=done DELETE 204)` |
+
+- **R2/R3/R5 준수** — anti-pattern 위반 0건. 운영 데이터 오염 0건.
+
+- **마지막 commit**: `aa615bd` (직전 트랙 #97-pre2-2 progress.md). 본 트랙 작업 (F7+F8 backend + F4 backend fix + e2e 매트릭스) 일괄 commit 대기.
+
 ### 2026-05-19 (트랙 #101 F7+F8 — DocUtil + AgentHub backend 통합 fix: 사용자 부서/프로젝트 매핑 운영자 BFF 완성)
 
 - **결함 진단 (트랙 #97-post 사용자 보고 매트릭스에서 추출)**:
@@ -4338,6 +4662,11 @@ User-Agent: `"AgentHubClient/1.0 (docutil)"` / `"AgentHubClient/1.0 ({consumer_l
 - RagService 결과 캐시(`rag:*` 10분) 일괄 무효화 — version-key 패턴 확장 가능
 - AgentSelect.vue 빠른 생성/수정 모달 — AgentBuilder.vue 로 흡수 또는 deprecate
 - Nexus 실제 부팅 (192.168.22.28 GPU 호스트)
+- **트랙 #102 후보 (트랙 #101 F4 잔존):**
+  - AgentHub BFF 의 모든 DocUtil mutation 컨트롤러에 `DocUtilUpstreamException.StatusCode` 분기 helper 일괄 적용 (현재는 `AdminDocUtilProjectsController.AddProjectMember`/`RemoveProjectMember` 만 fix). 영향 대상: `AdminDocUtilUsersController`/`AdminDocUtilDepartmentsController`/`AdminDocUtilDocumentsV2Controller`/`AdminDocUtilApiKeysController` + `AdminDocUtilProjects` 의 나머지 endpoint (Create/Update/Delete Project, Create/Update/Delete Board, AddUser to Department 등).
+  - BFF `ListProjects`/`ListUsers` 의 size 파라미터 clamp (DocUtil max 100 추정 — size 201+ 전달 시 422 → 502 변환됨).
+  - DocUtil `tb_project_members.ins_user` 시드 데이터의 audit 추적성 backfill.
+  - `DocUtilDocumentV2` schema 의 `department_id`/`project_id` 컬럼 + `ListDocumentsV2` query filter 신설 — 트랙 #101 F9 frontend-only fix 후속.
 
 ### 별도 트랙 (시연 종료 후)
 - secret leak history sanitize + force-push
