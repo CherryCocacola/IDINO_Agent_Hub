@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using AIAgentManagement.Data;
 using AIAgentManagement.DTOs;
+using AIAgentManagement.Models;
 using AIAgentManagement.Services;
 
 namespace AIAgentManagement.Controllers;
@@ -53,16 +56,97 @@ public class AdminDocUtilDepartmentsController : ControllerBase
 
     private readonly IDocUtilClient _docUtilClient;
     private readonly CachingService _cachingService;
+    private readonly AIAgentManagementDbContext _db;
     private readonly ILogger<AdminDocUtilDepartmentsController> _logger;
 
     public AdminDocUtilDepartmentsController(
         IDocUtilClient docUtilClient,
         CachingService cachingService,
+        AIAgentManagementDbContext db,
         ILogger<AdminDocUtilDepartmentsController> logger)
     {
         _docUtilClient = docUtilClient;
         _cachingService = cachingService;
+        _db = db;
         _logger = logger;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // 트랙 #106 (2026-05-20) — 부서 GET 메서드를 AgentHub `Departments` 마스터 직접 쿼리로 전환.
+    // DocUtil `tb_departments` (9건) 는 AgentHub `Departments` (32건) 와 fork 상태로
+    // AgentHub `Users.DepartmentId` 와 매핑 불가 → 부서별 인원 0명 표시 결함 해소.
+    // 사용자 결정: AgentHub 단일 마스터 (R&D센터, Si 1~8팀, 개발사업팀 등 32 부서).
+    // mutation(POST/PUT/DELETE) 은 본 트랙 범위 외 — DocUtil 위임 유지.
+    // ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// AgentHub `Departments` 행 + 트리 정보를 DocUtil 응답 호환 `DocUtilDepartment` 로 매핑한다.
+    /// Vue 화면(`AdminDocUtilDepartments.vue`) 호환성:
+    ///   - `id` = `DepartmentId` 정수의 문자열(Vue 는 string key 만 사용).
+    ///   - `parentId` = `ParentDepartmentId?.ToString()`.
+    ///   - `depth` / `path` = 본 메서드 호출 직전 계산된 값(materialized path 패턴).
+    ///   - `organizationId` = `Tenant.TenantCode` (or empty) — DocUtil 의 org UUID 와 의미 호환.
+    /// </summary>
+    private static DocUtilDepartment MapDepartmentToDto(
+        Department d,
+        int depth,
+        string path,
+        string organizationId)
+    {
+        return new DocUtilDepartment(
+            Id: d.DepartmentId.ToString(),
+            OrganizationId: organizationId,
+            ParentId: d.ParentDepartmentId?.ToString(),
+            Name: d.DepartmentName,
+            Depth: depth,
+            Path: path,
+            CreatedAt: d.CreatedAt);
+    }
+
+    /// <summary>
+    /// 평탄 부서 리스트에서 (DepartmentId → depth, path) 트리 좌표를 계산한다.
+    /// path 는 "/{id}/{childId}/..." 형식의 materialized path — Vue 의 path 사전 정렬과 호환.
+    /// 순환 참조는 최대 깊이 16 으로 강제 차단(application-level 검증 — 실측 발생 시 로그).
+    /// </summary>
+    private static Dictionary<int, (int depth, string path)> BuildTreeCoords(IReadOnlyList<Department> all)
+    {
+        var byId = all.ToDictionary(d => d.DepartmentId);
+        var result = new Dictionary<int, (int, string)>();
+
+        (int depth, string path) ResolveOne(int id)
+        {
+            if (result.TryGetValue(id, out var cached)) return cached;
+            if (!byId.TryGetValue(id, out var dept))
+            {
+                // 부모가 비활성/누락 — 자신을 루트로 처리.
+                var fallback = (0, $"/{id}/");
+                result[id] = fallback;
+                return fallback;
+            }
+            if (dept.ParentDepartmentId is null || !byId.ContainsKey(dept.ParentDepartmentId.Value))
+            {
+                var rootCoord = (0, $"/{id}/");
+                result[id] = rootCoord;
+                return rootCoord;
+            }
+            var parent = ResolveOne(dept.ParentDepartmentId.Value);
+            if (parent.depth >= 16)
+            {
+                // 순환 또는 비정상 — 즉시 차단.
+                var bail = (parent.depth + 1, parent.path + id + "/");
+                result[id] = bail;
+                return bail;
+            }
+            var coord = (parent.depth + 1, parent.path + id + "/");
+            result[id] = coord;
+            return coord;
+        }
+
+        foreach (var d in all)
+        {
+            ResolveOne(d.DepartmentId);
+        }
+        return result;
     }
 
     /// <summary>
@@ -106,20 +190,34 @@ public class AdminDocUtilDepartmentsController : ControllerBase
 
         try
         {
-            var org = await _docUtilClient.GetOrganizationAsync(ct);
-            if (org == null)
+            // 트랙 #106 — AgentHub Tenant 마스터 직접 조회(단일 조직 가정).
+            // 다중 Tenant 환경 도래 시 본 endpoint 는 별도 query 파라미터(tenantId)로 확장 필요.
+            var tenant = await _db.Tenants
+                .AsNoTracking()
+                .Where(t => t.IsActive)
+                .OrderBy(t => t.TenantId)
+                .FirstOrDefaultAsync(ct);
+            if (tenant == null)
             {
-                return NotFound(ErrorResponseDto.NotFound("DocUtil 조직 정보를 찾을 수 없습니다."));
+                return NotFound(ErrorResponseDto.NotFound("조직 정보를 찾을 수 없습니다."));
             }
+
+            var org = new DocUtilOrganization(
+                Id: tenant.TenantCode,
+                Name: tenant.TenantName,
+                Slug: tenant.TenantCode,
+                Description: tenant.Description,
+                Settings: null,
+                CreatedAt: tenant.CreatedAt);
 
             await _cachingService.SetAsync(cacheKey, CachedOrganizationDto.From(org), CacheTtl);
             return Ok(org);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex, "DocUtil 조직 조회 실패");
+            _logger.LogError(ex, "AgentHub 조직 조회 실패");
             return StatusCode(502, new ErrorResponseDto(
-                "DocUtil 조직 정보를 불러오지 못했습니다. DocUtil 서비스 상태를 확인하세요.",
+                "조직 정보를 불러오지 못했습니다.",
                 "DOCUTIL_UPSTREAM_ERROR",
                 new { upstream = ex.Message }));
         }
@@ -190,15 +288,49 @@ public class AdminDocUtilDepartmentsController : ControllerBase
 
         try
         {
-            var depts = await _docUtilClient.ListDepartmentsAsync(ct);
+            // 트랙 #106 — AgentHub Departments 마스터 직접 쿼리. 32 부서 전체 + 트리 매핑.
+            var raw = await _db.Departments
+                .AsNoTracking()
+                .Where(d => d.IsActive)
+                .OrderBy(d => d.DepartmentId)
+                .ToListAsync(ct);
+
+            var coords = BuildTreeCoords(raw);
+
+            // organizationId 는 첫 번째 부서의 Tenant code 로 통일(단일 조직 가정 — 트랙 #106 범위).
+            // 다중 Tenant 시 별도 트랙에서 분기 필요.
+            string orgId = string.Empty;
+            if (raw.Count > 0)
+            {
+                var firstTenantId = raw[0].TenantId;
+                var tenant = await _db.Tenants
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.TenantId == firstTenantId, ct);
+                orgId = tenant?.TenantCode ?? firstTenantId.ToString();
+            }
+
+            var depts = raw
+                .Select(d =>
+                {
+                    var (depth, path) = coords.GetValueOrDefault(d.DepartmentId, (0, $"/{d.DepartmentId}/"));
+                    return MapDepartmentToDto(d, depth, path, orgId);
+                })
+                .OrderBy(d => d.Path, StringComparer.Ordinal)
+                .ToList();
+
             await _cachingService.SetAsync(cacheKey, new CachedDepartmentListDto { Items = depts.ToArray() }, CacheTtl);
+
+            _logger.LogInformation(
+                "AgentHub Departments 직접 쿼리 - count={Count}, orgId={OrgId}",
+                depts.Count, orgId);
+
             return Ok(depts);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex, "DocUtil 부서 목록 조회 실패");
+            _logger.LogError(ex, "AgentHub 부서 목록 조회 실패");
             return StatusCode(502, new ErrorResponseDto(
-                "DocUtil 부서 목록을 불러오지 못했습니다.",
+                "부서 목록을 불러오지 못했습니다.",
                 "DOCUTIL_UPSTREAM_ERROR",
                 new { upstream = ex.Message }));
         }
@@ -349,13 +481,57 @@ public class AdminDocUtilDepartmentsController : ControllerBase
 
         try
         {
-            var members = await _docUtilClient.GetDepartmentMembersAsync(deptId, ct);
+            // 트랙 #106 — AgentHub Users 직접 조회. deptId 는 int 문자열(Departments.DepartmentId).
+            if (!int.TryParse(deptId, out var deptIdInt))
+            {
+                // 호환성 — 과거 호출자가 UUID 를 넘기던 경우 빈 목록 반환(에러 대신 graceful empty).
+                _logger.LogWarning("부서 멤버 조회 - deptId 가 정수 형식이 아님: {DeptId} (UUID 등 deprecated 형식)", deptId);
+                return Ok(new List<DocUtilDepartmentMember>());
+            }
+
+            var users = await _db.Users
+                .AsNoTracking()
+                .Where(u => u.DepartmentId == deptIdInt && !u.IsDeleted)
+                .OrderBy(u => u.UserId)
+                .ToListAsync(ct);
+
+            var topRoles = new Dictionary<int, string?>();
+            if (users.Count > 0)
+            {
+                var userIds = users.Select(u => u.UserId).ToList();
+                var roleRows = await _db.UserRoles
+                    .AsNoTracking()
+                    .Where(ur => userIds.Contains(ur.UserId))
+                    .Include(ur => ur.Role)
+                    .ToListAsync(ct);
+                topRoles = roleRows
+                    .GroupBy(ur => ur.UserId)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => (string?)g.OrderBy(ur => ur.RoleId).First().Role?.RoleName);
+            }
+
+            var members = users
+                .Select(u => new DocUtilDepartmentMember(
+                    Id: u.OriginalDocutilUuid?.ToString() ?? u.UserId.ToString(),
+                    Username: !string.IsNullOrWhiteSpace(u.DocutilUsername)
+                        ? u.DocutilUsername!
+                        : (!string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : u.Email),
+                    Email: u.Email,
+                    Role: (topRoles.GetValueOrDefault(u.UserId) ?? "member").ToLowerInvariant()))
+                .ToList();
+
             await _cachingService.SetAsync(cacheKey, new CachedMemberListDto { Items = members.ToArray() }, CacheTtl);
+
+            _logger.LogInformation(
+                "AgentHub 부서별 멤버 직접 쿼리 - deptId={DeptId}, count={Count}",
+                deptIdInt, members.Count);
+
             return Ok(members);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex, "DocUtil 부서 멤버 조회 실패 (id={Id})", deptId);
+            _logger.LogError(ex, "AgentHub 부서 멤버 조회 실패 (id={Id})", deptId);
             return StatusCode(502, new ErrorResponseDto(
                 "부서 멤버 목록을 불러오지 못했습니다.",
                 "DOCUTIL_UPSTREAM_ERROR",

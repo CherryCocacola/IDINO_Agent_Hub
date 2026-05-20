@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using AIAgentManagement.Data;
 using AIAgentManagement.DTOs;
 using AIAgentManagement.Exceptions;
+using AIAgentManagement.Models;
 using AIAgentManagement.Services;
 
 namespace AIAgentManagement.Controllers;
@@ -52,16 +55,88 @@ public class AdminDocUtilUsersController : ControllerBase
 
     private readonly IDocUtilClient _docUtilClient;
     private readonly CachingService _cachingService;
+    private readonly AIAgentManagementDbContext _db;
     private readonly ILogger<AdminDocUtilUsersController> _logger;
 
     public AdminDocUtilUsersController(
         IDocUtilClient docUtilClient,
         CachingService cachingService,
+        AIAgentManagementDbContext db,
         ILogger<AdminDocUtilUsersController> logger)
     {
         _docUtilClient = docUtilClient;
         _cachingService = cachingService;
+        _db = db;
         _logger = logger;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // 트랙 #106 (2026-05-20) — GET 메서드를 AgentHub `Users` 마스터 직접 쿼리로 전환.
+    // DocUtil 위임 시 부서/조직 매핑이 깨지는 문제 해결:
+    //   - DocUtil `tb_users` VIEW 의 `department_id` 가 NULL::uuid 로 하드코딩되어
+    //     AgentHub 32 부서 중 어디에도 매핑 불가 → 부서별 멤버 0명 표시.
+    //   - 사용자 결정: `tb_users` 폐기, AgentHub `Users` + `Departments` 단일 마스터.
+    // mutation(PUT/DELETE) 은 본 트랙 범위 외 — DocUtil 위임 유지(별도 트랙 처리 예정).
+    // ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// AgentHub `Users` 행을 DocUtil 응답 호환 `DocUtilUserSummary` 로 매핑한다.
+    /// Vue 화면(`AdminDocUtilUsers.vue`) 호환성:
+    ///   - `id` 는 DocUtil UUID 우선(`OriginalDocutilUuid`), 없으면 `userId` 문자열.
+    ///   - `username` 은 `DocutilUsername` 우선(영문 short — 트랙 #99 fix), 없으면 `FullName`.
+    ///   - `role` 은 `UserRoles` 의 최고 권한 RoleName 소문자(없으면 "member").
+    ///   - `status` 는 Active/Inactive/Locked → 소문자 변환(DocUtil 표준 enum 호환).
+    ///   - `departmentId` 는 AgentHub int FK 를 문자열로 직렬화(Vue 는 string 키만 사용).
+    /// </summary>
+    private static DocUtilUserSummary MapUserToSummary(User u, string? roleName)
+    {
+        var statusLower = string.IsNullOrEmpty(u.Status)
+            ? "active"
+            : u.Status.ToLowerInvariant();
+        return new DocUtilUserSummary(
+            Id: u.OriginalDocutilUuid?.ToString() ?? u.UserId.ToString(),
+            Username: !string.IsNullOrWhiteSpace(u.DocutilUsername)
+                ? u.DocutilUsername!
+                : (!string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : u.Email),
+            Email: u.Email,
+            Role: string.IsNullOrWhiteSpace(roleName) ? "member" : roleName.ToLowerInvariant(),
+            Status: statusLower,
+            OrganizationId: u.OrganizationId?.ToString() ?? string.Empty,
+            DepartmentId: u.DepartmentId?.ToString(),
+            Language: u.Language,
+            LastLoginAt: u.LastLoginAt,
+            CreatedAt: u.CreatedAt);
+    }
+
+    private static DocUtilUserDetail MapUserToDetail(User u, string? roleName)
+    {
+        var s = MapUserToSummary(u, roleName);
+        return new DocUtilUserDetail(
+            s.Id, s.Username, s.Email, s.Role, s.Status,
+            s.OrganizationId, s.DepartmentId, s.Language, s.LastLoginAt, s.CreatedAt);
+    }
+
+    /// <summary>
+    /// 다중 사용자에 대한 최상위 RoleName 을 한 번의 LEFT JOIN 쿼리로 dict 화한다.
+    /// N+1 회피 — 페이지당 1 쿼리.
+    /// </summary>
+    private async Task<Dictionary<int, string?>> LoadTopRolesAsync(
+        IReadOnlyCollection<int> userIds,
+        CancellationToken ct)
+    {
+        if (userIds.Count == 0) return new();
+        // RoleId 가 낮을수록 상위 권한이라고 가정(시드 순서 — SuperAdmin=1, Admin=2 등).
+        // 동일 사용자 다중 Role 시 RoleId 최소값의 RoleName 채택.
+        var grouped = await _db.UserRoles
+            .AsNoTracking()
+            .Where(ur => userIds.Contains(ur.UserId))
+            .Include(ur => ur.Role)
+            .ToListAsync(ct);
+        return grouped
+            .GroupBy(ur => ur.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => (string?)g.OrderBy(ur => ur.RoleId).First().Role?.RoleName);
     }
 
     /// <summary>
@@ -137,9 +212,53 @@ public class AdminDocUtilUsersController : ControllerBase
 
         try
         {
-            var result = await _docUtilClient.ListUsersAsync(page, size, role, status, search, ct);
+            // 트랙 #106 — AgentHub Users 마스터 직접 쿼리. DocUtil VIEW 미사용.
+            var query = _db.Users.AsNoTracking().Where(u => !u.IsDeleted);
 
-            // ── 캐시 적재(성공 응답만) ─────────────────────────────────
+            // status 필터 (active/inactive/locked) — AgentHub `Users.Status` 비교는 대소문자 무시.
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                var statusLower = status.Trim().ToLowerInvariant();
+                query = query.Where(u => u.Status.ToLower() == statusLower);
+            }
+
+            // search 필터 — email / FullName / DocutilUsername ILIKE.
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var pattern = $"%{search.Trim()}%";
+                query = query.Where(u =>
+                    EF.Functions.ILike(u.Email, pattern)
+                    || (u.FullName != null && EF.Functions.ILike(u.FullName, pattern))
+                    || (u.DocutilUsername != null && EF.Functions.ILike(u.DocutilUsername, pattern)));
+            }
+
+            // role 필터 — UserRoles join. RoleId 최소값(상위 권한)이 query role 과 일치.
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                var roleLower = role.Trim().ToLowerInvariant();
+                query = query.Where(u => _db.UserRoles
+                    .Where(ur => ur.UserId == u.UserId)
+                    .Join(_db.Roles, ur => ur.RoleId, r => r.RoleId, (ur, r) => r.RoleName)
+                    .Any(rn => rn.ToLower() == roleLower));
+            }
+
+            var total = await query.LongCountAsync(ct);
+            var paged = await query
+                .OrderBy(u => u.UserId)
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync(ct);
+
+            // 최상위 role 한 번에 조회 (N+1 회피).
+            var topRoles = await LoadTopRolesAsync(paged.Select(u => u.UserId).ToList(), ct);
+
+            var items = paged
+                .Select(u => MapUserToSummary(u, topRoles.GetValueOrDefault(u.UserId)))
+                .ToArray();
+
+            var result = new DocUtilUserList(items, total, page, size);
+
+            // ── 캐시 적재 ─────────────────────────────────────────────
             await _cachingService.SetAsync(cacheKey, new CachedUserListDto
             {
                 Items = result.Items,
@@ -148,28 +267,18 @@ public class AdminDocUtilUsersController : ControllerBase
                 Size = result.Size,
             }, CacheTtl);
 
+            _logger.LogInformation(
+                "AgentHub Users 직접 쿼리 - total={Total}, page={Page}/{Size}, returned={Count}",
+                total, page, size, items.Length);
+
             return Ok(result);
         }
-        // Phase 10.x Task #9 (2026-05-15) — DocUtilUpstreamException 우선 catch.
-        // ErrorCode 별로 502/503/410/422 로 정확히 매핑된다.
-        // (InvalidOperationException 상속이므로 catch 순서 중요 — 구체 예외가 먼저)
-        catch (DocUtilUpstreamException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "DocUtil 사용자 목록 조회 실패 - errorCode={ErrorCode}, status={Status}, page={Page}, size={Size}",
-                ex.ErrorCode, (int)ex.StatusCode, page, size);
-            return StatusCode(
-                ErrorResponseDto.MapDocUtilUpstreamToStatusCode(ex),
-                ErrorResponseDto.FromDocUtilUpstream(ex,
-                    "DocUtil 사용자 목록을 불러오지 못했습니다. " + ex.Message));
-        }
-        catch (InvalidOperationException ex)
-        {
-            // 분류 불가능한 InvalidOperationException — 기존 일반 카테고리 폴백.
-            _logger.LogError(ex, "DocUtil 사용자 목록 조회 실패 (page={Page}, size={Size}, role={Role}, status={Status})",
+            _logger.LogError(ex, "AgentHub 사용자 목록 조회 실패 (page={Page}, size={Size}, role={Role}, status={Status})",
                 page, size, role, status);
             return StatusCode(502, new ErrorResponseDto(
-                "DocUtil 사용자 목록을 불러오지 못했습니다. DocUtil 서비스 상태를 확인하세요.",
+                "사용자 목록을 불러오지 못했습니다.",
                 "DOCUTIL_UPSTREAM_ERROR",
                 new { upstream = ex.Message }));
         }
@@ -188,28 +297,32 @@ public class AdminDocUtilUsersController : ControllerBase
 
         try
         {
-            var detail = await _docUtilClient.GetUserAsync(id, ct);
-            if (detail == null)
+            // 트랙 #106 — AgentHub Users 직접 조회. id 가 UUID 형식이면 OriginalDocutilUuid 매칭,
+            // 정수 문자열이면 UserId 매칭 — 둘 다 시도하여 견고성 확보.
+            User? user = null;
+            if (Guid.TryParse(id, out var guidId))
+            {
+                user = await _db.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.OriginalDocutilUuid == guidId && !u.IsDeleted, ct);
+            }
+            if (user == null && int.TryParse(id, out var intId))
+            {
+                user = await _db.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.UserId == intId && !u.IsDeleted, ct);
+            }
+            if (user == null)
             {
                 return NotFound(ErrorResponseDto.NotFound("해당 사용자를 찾을 수 없습니다."));
             }
+            var topRoles = await LoadTopRolesAsync(new[] { user.UserId }, ct);
+            var detail = MapUserToDetail(user, topRoles.GetValueOrDefault(user.UserId));
             return Ok(detail);
         }
-        catch (DocUtilUpstreamException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "DocUtil 사용자 상세 조회 실패 - errorCode={ErrorCode}, status={Status}, id={Id}",
-                ex.ErrorCode, (int)ex.StatusCode, id);
-            return StatusCode(
-                ErrorResponseDto.MapDocUtilUpstreamToStatusCode(ex),
-                ErrorResponseDto.FromDocUtilUpstream(ex,
-                    "DocUtil 사용자 상세를 불러오지 못했습니다. " + ex.Message));
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogError(ex, "DocUtil 사용자 상세 조회 실패 (id={Id})", id);
+            _logger.LogError(ex, "AgentHub 사용자 상세 조회 실패 (id={Id})", id);
             return StatusCode(502, new ErrorResponseDto(
-                "DocUtil 사용자 상세를 불러오지 못했습니다.",
+                "사용자 상세를 불러오지 못했습니다.",
                 "DOCUTIL_UPSTREAM_ERROR",
                 new { upstream = ex.Message }));
         }
