@@ -261,7 +261,14 @@
 | `tmp/diag_track105_bff_500_20260520.py` + `diag_track105_docutil_500_20260520.py` | BFF/DocUtil 500 진단 |
 | `tmp/verify_profile_dropdown_20260520.py` | LAY-HDR-004 정밀 검증 (false positive 정정) |
 
-**마지막 commit**: `787d496` (트랙 #105 작업 commit 전). 본 작업 종료 후 scope 별 commit 진행 예정.
+**commit 시퀀스** (트랙 #105):
+- `71f1cc7` — [docutil/permission] Phase A+B.3 4 router 'user' role fix
+- `cad8c40` — [docutil/evaluation] Phase B.5 hallucination_evidence 정규화
+- `f47c941` — [agenthub+docutil] 트랙 #101/#103/#104 잔존 9 파일 일괄
+- `6578602` — [tools+user_mig/track105] 자동화 도구 + 결과 산출 22 파일
+- `44c57f8` — [user_mig+infra] progress.md + .gitignore
+
+**마지막 commit**: `44c57f8` (push 사용자 승인 후만).
 
 ---
 
