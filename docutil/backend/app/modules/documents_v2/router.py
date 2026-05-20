@@ -198,11 +198,17 @@ async def create_document(
         # 트랙 #106 결함 8 — content policy violation 은 사용자 입력 차단이라 400 + 친화 메시지
         # (예: AgentHub PII/금칙어 차단, OpenAI content policy 차단 등 사용자 측 issue)
         if "content_policy" in message.lower() or "blocked by content" in message.lower():
+            # AgentHub 응답에 "Matched banned words: A, B" 형태로 매칭 단어 포함됨 (트랙 #106 v2).
+            # 사용자가 어떤 표현 때문에 차단됐는지 알 수 있도록 detail 에 그대로 전달.
+            import re as _re
+            _m = _re.search(r"matched banned words:\s*([^\"}]+)", message, _re.I)
+            _suffix = f" (차단된 표현: {_m.group(1).strip()})" if _m else ""
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    "입력하신 내용에 정책상 처리할 수 없는 표현(개인정보·금칙어 등)이 포함되어 "
-                    "있습니다. 표현을 다듬어 다시 시도해 주세요."
+                    "입력하신 내용 또는 첨부 문서에서 정책상 차단된 표현"
+                    "(개인정보·금칙어 등)이 발견되었습니다. 표현을 다듬어 다시 시도해 주세요."
+                    + _suffix
                 ),
             ) from exc
         raise HTTPException(

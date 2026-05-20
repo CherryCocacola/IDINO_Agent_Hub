@@ -188,8 +188,18 @@ public class OpenAICompatController : ControllerBase
         var bannedCheck = await _bannedWordService.CheckBannedWordsAsync(userMessage, agent.AgentId);
         if (bannedCheck.IsBlocked)
         {
+            // 트랙 #106 결함 8 — 차단된 단어 list 를 응답에 포함하여 사용자가
+            // 어떤 표현이 차단됐는지 확인 가능하게 한다. false positive 진단 + 사용자 안내.
+            var matched = bannedCheck.BlockedWords != null && bannedCheck.BlockedWords.Count > 0
+                ? string.Join(", ", bannedCheck.BlockedWords.Take(5))
+                : "(detail unavailable)";
             Response.StatusCode = 400;
-            await Response.WriteAsJsonAsync(ErrorBody("content_policy_violation", "Message blocked by content policy."), _snakeCase, cancellationToken);
+            await Response.WriteAsJsonAsync(
+                ErrorBody(
+                    "content_policy_violation",
+                    $"Message blocked by content policy. Matched banned words: {matched}"),
+                _snakeCase,
+                cancellationToken);
             return;
         }
 

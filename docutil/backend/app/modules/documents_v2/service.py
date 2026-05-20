@@ -352,6 +352,14 @@ class DocumentServiceV2:
                 model=(agent.llm_model if agent else None),
                 error_message=f"LLM 호출 실패: {exc}",
             )
+            # 트랙 #106 결함 8 — AgentHub upstream 의 content_policy_violation 은 사용자 입력
+            # 차단(개인정보·금칙어 등)이므로 router 가 400 + 친화 메시지로 매핑할 수 있게
+            # error message 에 키워드를 보존한다.
+            _exc_msg = str(exc).lower()
+            if "content_policy" in _exc_msg or "blocked by content" in _exc_msg:
+                raise DocumentGenerationError(
+                    "content_policy_violation: 입력하신 내용이 정책상 차단되었습니다."
+                ) from exc
             raise DocumentGenerationError("LLM 호출에 실패했습니다. 잠시 후 다시 시도해 주세요.") from exc
 
         # 7) 이미지 자동 선택 (Unsplash → DALL-E fallback, Phase 4 S3 D3) -----
