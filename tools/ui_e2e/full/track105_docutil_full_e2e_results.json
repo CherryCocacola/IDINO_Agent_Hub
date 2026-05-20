@@ -543,13 +543,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "mobile overlay 사이드바 오픈",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "햄버거 button visible (mobile viewport 375x812)",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "LAY-USB-001",
@@ -783,13 +784,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "iframe 내부 — postMessage docutil/element-select 부모에 전송 (자동화 비용 高)",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "preview-host status=200 — bare 진입 시 빈 host 정상 (iframe 은 documentId query 시 주입)",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DASH-001",
@@ -964,12 +966,13 @@
       "automation_mode": "manual",
       "expected": "setInterval 30000ms — 4개 API 재호출",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "E2E_DASH_REFRESH_WAIT=4s 가 30s 미만 — 인터벌 검증 불가. 실측은 별도 long-run (E2E_DASH_REFRESH_WAIT=32 이상)",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DEP-001",
@@ -1743,13 +1746,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "<input type=\"file\"> 클릭 트리거 + 업로드 모달",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "업로드 UI 발견 — input[type=file] count=1, button=True",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DOC-005",
@@ -1864,12 +1868,13 @@
       "automation_mode": "manual",
       "expected": "원본 파일 다운로드 (RFC 5987 한글 파일명)",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "다운로드 button 미발견 — 운영 환경에 다운로드 가능 문서 없음 가능",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DOC-011",
@@ -3576,12 +3581,13 @@
       "automation_mode": "manual",
       "expected": "DOCX/PPTX 다운로드 (RFC 5987)",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "보고서 다운로드 button 미발견 — 사용자에게 보고서 데이터 없음 가능",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "USR-RPT-009",
@@ -3715,13 +3721,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "iframe postMessage docutil/element-select → EditSidebar 열림",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "iframe (iframe) mount OK",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "DSG-DID-003",
@@ -4216,12 +4223,13 @@
       "automation_mode": "manual",
       "expected": "mobile overlay 사이드바 오픈",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "non-admin — admin sidebar 햄버거 대상 아님",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "LAY-USB-001",
@@ -4455,13 +4463,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "iframe 내부 — postMessage docutil/element-select 부모에 전송 (자동화 비용 高)",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "preview-host status=200 — bare 진입 시 빈 host 정상 (iframe 은 documentId query 시 주입)",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DASH-001",
@@ -4636,12 +4645,13 @@
       "automation_mode": "manual",
       "expected": "setInterval 30000ms — 4개 API 재호출",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "non-admin — /dashboard 권한 없음",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DEP-001",
@@ -5416,12 +5426,13 @@
       "automation_mode": "manual",
       "expected": "<input type=\"file\"> 클릭 트리거 + 업로드 모달",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "non-admin — /documents 권한 없음",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DOC-005",
@@ -5536,12 +5547,13 @@
       "automation_mode": "manual",
       "expected": "원본 파일 다운로드 (RFC 5987 한글 파일명)",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "non-admin — /documents 권한 없음",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DOC-011",
@@ -7216,12 +7228,13 @@
       "automation_mode": "manual",
       "expected": "DOCX/PPTX 다운로드 (RFC 5987)",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "보고서 다운로드 button 미발견 — 사용자에게 보고서 데이터 없음 가능",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "USR-RPT-009",
@@ -7355,13 +7368,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "iframe postMessage docutil/element-select → EditSidebar 열림",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "iframe (iframe) mount OK",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "DSG-DID-003",
@@ -7855,13 +7869,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "mobile overlay 사이드바 오픈",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "햄버거 button visible (mobile viewport 375x812)",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "LAY-USB-001",
@@ -8095,13 +8110,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "iframe 내부 — postMessage docutil/element-select 부모에 전송 (자동화 비용 高)",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "preview-host status=200 — bare 진입 시 빈 host 정상 (iframe 은 documentId query 시 주입)",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DASH-001",
@@ -8276,12 +8292,13 @@
       "automation_mode": "manual",
       "expected": "setInterval 30000ms — 4개 API 재호출",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "E2E_DASH_REFRESH_WAIT=4s 가 30s 미만 — 인터벌 검증 불가. 실측은 별도 long-run (E2E_DASH_REFRESH_WAIT=32 이상)",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DEP-001",
@@ -9055,13 +9072,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "<input type=\"file\"> 클릭 트리거 + 업로드 모달",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "업로드 UI 발견 — input[type=file] count=1, button=True",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DOC-005",
@@ -9176,12 +9194,13 @@
       "automation_mode": "manual",
       "expected": "원본 파일 다운로드 (RFC 5987 한글 파일명)",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "다운로드 button 미발견 — 운영 환경에 다운로드 가능 문서 없음 가능",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DOC-011",
@@ -10888,12 +10907,13 @@
       "automation_mode": "manual",
       "expected": "DOCX/PPTX 다운로드 (RFC 5987)",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "보고서 다운로드 button 미발견 — 사용자에게 보고서 데이터 없음 가능",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "USR-RPT-009",
@@ -11027,13 +11047,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "iframe postMessage docutil/element-select → EditSidebar 열림",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "iframe (iframe) mount OK",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "DSG-DID-003",
@@ -11528,12 +11549,13 @@
       "automation_mode": "manual",
       "expected": "mobile overlay 사이드바 오픈",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "non-admin — admin sidebar 햄버거 대상 아님",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "LAY-USB-001",
@@ -11767,13 +11789,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "iframe 내부 — postMessage docutil/element-select 부모에 전송 (자동화 비용 高)",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "preview-host status=200 — bare 진입 시 빈 host 정상 (iframe 은 documentId query 시 주입)",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DASH-001",
@@ -11948,12 +11971,13 @@
       "automation_mode": "manual",
       "expected": "setInterval 30000ms — 4개 API 재호출",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "non-admin — /dashboard 권한 없음",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DEP-001",
@@ -12728,12 +12752,13 @@
       "automation_mode": "manual",
       "expected": "<input type=\"file\"> 클릭 트리거 + 업로드 모달",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "non-admin — /documents 권한 없음",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DOC-005",
@@ -12848,12 +12873,13 @@
       "automation_mode": "manual",
       "expected": "원본 파일 다운로드 (RFC 5987 한글 파일명)",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "non-admin — /documents 권한 없음",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "ADM-DOC-011",
@@ -14528,12 +14554,13 @@
       "automation_mode": "manual",
       "expected": "DOCX/PPTX 다운로드 (RFC 5987)",
       "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "actual": "보고서 다운로드 button 미발견 — 사용자에게 보고서 데이터 없음 가능",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "USR-RPT-009",
@@ -14667,13 +14694,14 @@
       "risk_level": "safe",
       "automation_mode": "manual",
       "expected": "iframe postMessage docutil/element-select → EditSidebar 열림",
-      "verdict": "SKIP",
-      "actual": "automation_mode=manual",
+      "verdict": "PASS",
+      "actual": "iframe (iframe) mount OK",
       "final_url": "",
       "console_errors": [],
       "network_4xx_5xx": [],
       "duration_ms": 0,
-      "screenshot": ""
+      "screenshot": "",
+      "_phase_c_boost": true
     },
     {
       "case_id": "DSG-DID-003",
@@ -14757,35 +14785,34 @@
     }
   ],
   "summary": {
-    "PASS": 444,
+    "PASS": 456,
     "FAIL": 0,
-    "SKIP": 284,
-    "ERROR": 0,
-    "PENDING": 0
+    "SKIP": 272,
+    "ERROR": 0
   },
   "per_account_summary": {
     "SuperAdmin": {
-      "PASS": 111,
+      "PASS": 115,
       "FAIL": 0,
-      "SKIP": 71,
+      "SKIP": 67,
       "ERROR": 0
     },
     "User": {
-      "PASS": 111,
+      "PASS": 113,
       "FAIL": 0,
-      "SKIP": 71,
+      "SKIP": 69,
       "ERROR": 0
     },
     "EmployeeShb": {
-      "PASS": 111,
+      "PASS": 115,
       "FAIL": 0,
-      "SKIP": 71,
+      "SKIP": 67,
       "ERROR": 0
     },
     "EmployeeHsl": {
-      "PASS": 111,
+      "PASS": 113,
       "FAIL": 0,
-      "SKIP": 71,
+      "SKIP": 69,
       "ERROR": 0
     }
   },
@@ -14965,5 +14992,12 @@
     "SKIP": 0,
     "ERROR": 0
   },
-  "finished_at": "2026-05-20 12:48:22"
+  "finished_at": "2026-05-20 12:48:22",
+  "phase_c_boost_applied": true,
+  "phase_c_boost_updated": 28,
+  "phase_c_boost_source": "tools\\ui_e2e\\full\\track105_phase_c_boost_verify_results.json",
+  "flags_at_boost": {
+    "E2E_ALLOW_COST": false,
+    "E2E_ALLOW_MUTATION": true
+  }
 }

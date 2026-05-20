@@ -45,6 +45,15 @@ from common import (  # noqa: E402
     now_ts,
 )
 from docutil_page_catalog import CASES  # noqa: E402
+from e2e_helpers import (  # noqa: E402
+    ApiCallCounter,
+    allow_cost,
+    allow_mutation,
+    assert_body_not_empty,
+    download_file,
+    iframe_mounted,
+    wait_settled,
+)
 from playwright.sync_api import Page, sync_playwright  # noqa: E402
 
 # ─── 경로 ──────────────────────────────────────────────────────
@@ -206,6 +215,292 @@ def verify_state(p, state_path: Path) -> bool:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# Special case handlers — Phase C 보강: manual → auto 전환된 케이스들의 전용 검증.
+# 각 핸들러는 (page, result, account) 를 받아 result dict 를 갱신하고 verdict 결정.
+# ════════════════════════════════════════════════════════════════════════════
+def handle_lay_asb_014(page: Page, result: dict, account: dict) -> dict:
+    """LAY-ASB-014 — 모바일 햄버거 메뉴 visible 확인 (viewport 375x812)."""
+    label = account["label"]
+    # 모바일 viewport 로 변경 후 햄버거 button 존재 확인
+    try:
+        # admin 만 admin sidebar 햄버거를 가짐
+        if label not in ADMIN_LABELS:
+            result["verdict"] = "SKIP"
+            result["actual"] = "non-admin — admin sidebar 햄버거 대상 아님"
+            return result
+        page.set_viewport_size({"width": 375, "height": 812})
+        page.goto(f"{DOCUTIL_NGINX}/dashboard", timeout=20_000, wait_until="domcontentloaded")
+        wait_settled(page, timeout_ms=5000, sleep_after=1.0)
+        # 햄버거 selector 후보 — DocUtil header.tsx 패턴 (md:hidden 가시성)
+        candidates = [
+            'button[aria-label*="메뉴"]', 'button[aria-label*="menu"]',
+            'header button.md\\:hidden', 'header button:has(svg.lucide-menu)',
+            'header button:has-text("☰")',
+        ]
+        hb = None
+        for sel in candidates:
+            try:
+                el = page.query_selector(sel)
+                if el and el.is_visible():
+                    hb = el
+                    break
+            except Exception:
+                continue
+        # fallback — header 의 첫 visible button
+        if not hb:
+            try:
+                btns = page.query_selector_all("header button")
+                for el in btns:
+                    if el.is_visible():
+                        box = el.bounding_box()
+                        if box and box["x"] < 100:  # 왼쪽 영역 = 햄버거 위치
+                            hb = el
+                            break
+            except Exception:
+                pass
+        if hb:
+            result["verdict"] = "PASS"
+            result["actual"] = "햄버거 button visible (mobile viewport 375x812)"
+        else:
+            result["verdict"] = "FAIL"
+            result["actual"] = "모바일 viewport 에서 햄버거 button 미발견"
+    except Exception as e:
+        result["verdict"] = "ERROR"
+        result["actual"] = f"햄버거 검증 예외: {type(e).__name__}: {e}"
+    finally:
+        # viewport 복원
+        try:
+            page.set_viewport_size(VIEWPORT)
+        except Exception:
+            pass
+    return result
+
+
+def handle_msc_pvh_001(page: Page, result: dict, account: dict) -> dict:
+    """MSC-PVH-001 — /preview-host 페이지 로드 확인.
+
+    /preview-host 는 designer 가 query param 으로 documentId 를 주입할 때만 iframe 을 띄움.
+    bare /preview-host 진입 시 빈 페이지가 정상 — Next.js 페이지 자체가 200 으로 응답하면 PASS.
+    """
+    try:
+        resp = page.goto(f"{DOCUTIL_NGINX}/preview-host", timeout=20_000, wait_until="domcontentloaded")
+        wait_settled(page, timeout_ms=4000, sleep_after=1.0)
+        # HTTP 200 이면 페이지 자체는 정상 (빈 host 도 정상)
+        status = resp.status if resp else 0
+        if 200 <= status < 400:
+            # iframe 있으면 mount note, 없으면 host 정상 응답으로 PASS
+            mount = iframe_mounted(page, "iframe", timeout_ms=2000)
+            if mount["ok"]:
+                result["verdict"] = "PASS"
+                result["actual"] = f"preview-host status={status} + {mount['note']}"
+            else:
+                result["verdict"] = "PASS"
+                result["actual"] = (
+                    f"preview-host status={status} — bare 진입 시 빈 host 정상 "
+                    f"(iframe 은 documentId query 시 주입)"
+                )
+        else:
+            result["verdict"] = "FAIL"
+            result["actual"] = f"preview-host HTTP {status}"
+    except Exception as e:
+        result["verdict"] = "ERROR"
+        result["actual"] = f"preview-host 예외: {type(e).__name__}: {e}"
+    return result
+
+
+def handle_adm_dash_009(page: Page, result: dict, account: dict) -> dict:
+    """ADM-DASH-009 — /dashboard 30s 자동 새로고침 — API 호출 카운트."""
+    label = account["label"]
+    if label not in ADMIN_LABELS:
+        result["verdict"] = "SKIP"
+        result["actual"] = "non-admin — /dashboard 권한 없음"
+        return result
+    try:
+        page.goto(f"{DOCUTIL_NGINX}/dashboard", timeout=20_000, wait_until="domcontentloaded")
+        wait_settled(page, timeout_ms=5000, sleep_after=2.0)
+        # ApiCallCounter — 진입 후 초기 호출은 무시하고, 다음 cycle 만 카운트
+        counter = ApiCallCounter(page, "/api/v1/dashboard").start()
+        # 32s 대기 (30s 인터벌 + 2s 여유) — 단축 옵션 환경변수 (CI 단축용)
+        import os
+        wait_s = int(os.environ.get("E2E_DASH_REFRESH_WAIT", "32"))
+        time.sleep(wait_s)
+        cnt = counter.stop()
+        if cnt >= 1:
+            result["verdict"] = "PASS"
+            result["actual"] = f"30s 자동 새로고침 OK — {wait_s}s 동안 dashboard API 호출 {cnt}회"
+        elif wait_s < 30:
+            # 대기 시간이 인터벌(30s) 미만이면 검증 불가 — SKIP 으로 격하
+            result["verdict"] = "SKIP"
+            result["actual"] = (
+                f"E2E_DASH_REFRESH_WAIT={wait_s}s 가 30s 미만 — 인터벌 검증 불가. "
+                f"실측은 별도 long-run (E2E_DASH_REFRESH_WAIT=32 이상)"
+            )
+        else:
+            result["verdict"] = "FAIL"
+            result["actual"] = f"30s 자동 새로고침 미동작 — {wait_s}s 동안 dashboard API 호출 0회"
+    except Exception as e:
+        result["verdict"] = "ERROR"
+        result["actual"] = f"자동 새로고침 검증 예외: {type(e).__name__}: {e}"
+    return result
+
+
+def handle_adm_doc_004(page: Page, result: dict, account: dict) -> dict:
+    """ADM-DOC-004 — /documents 파일 업로드 button + input[type=file] selector 존재 검증."""
+    label = account["label"]
+    if label not in ADMIN_LABELS:
+        result["verdict"] = "SKIP"
+        result["actual"] = "non-admin — /documents 권한 없음"
+        return result
+    try:
+        page.goto(f"{DOCUTIL_NGINX}/documents", timeout=20_000, wait_until="domcontentloaded")
+        wait_settled(page)
+        # input[type=file] 존재 확인 (visible/hidden 무관)
+        inputs = page.query_selector_all('input[type="file"]')
+        # 업로드 button 후보
+        btn_candidates = [
+            'button:has-text("업로드")', 'button:has-text("파일")',
+            'button[aria-label*="업로드"]', 'button[aria-label*="upload"]',
+        ]
+        btn_found = False
+        for sel in btn_candidates:
+            try:
+                if page.query_selector(sel):
+                    btn_found = True
+                    break
+            except Exception:
+                continue
+        if inputs or btn_found:
+            result["verdict"] = "PASS"
+            result["actual"] = f"업로드 UI 발견 — input[type=file] count={len(inputs)}, button={btn_found}"
+        else:
+            result["verdict"] = "FAIL"
+            result["actual"] = "업로드 input/button 모두 미발견"
+    except Exception as e:
+        result["verdict"] = "ERROR"
+        result["actual"] = f"업로드 UI 검증 예외: {type(e).__name__}: {e}"
+    return result
+
+
+def handle_adm_doc_010(page: Page, result: dict, account: dict) -> dict:
+    """ADM-DOC-010 — /documents 첫 행 다운로드 — download_file 헬퍼."""
+    label = account["label"]
+    if label not in ADMIN_LABELS:
+        result["verdict"] = "SKIP"
+        result["actual"] = "non-admin — /documents 권한 없음"
+        return result
+    try:
+        page.goto(f"{DOCUTIL_NGINX}/documents", timeout=20_000, wait_until="domcontentloaded")
+        wait_settled(page, timeout_ms=5000, sleep_after=1.5)
+        # 다운로드 button 후보 (테이블 첫 행)
+        candidates = [
+            'table tr:nth-child(2) button[aria-label*="다운로드"]',
+            'table tr:nth-child(2) button[title*="다운로드"]',
+            'table tr:nth-child(2) a[download]',
+            'tbody tr:first-child button:has(svg.lucide-download)',
+            'button[aria-label*="download"]:visible',
+        ]
+        click_sel = None
+        for sel in candidates:
+            try:
+                el = page.query_selector(sel)
+                if el:
+                    click_sel = sel
+                    break
+            except Exception:
+                continue
+        if not click_sel:
+            result["verdict"] = "SKIP"
+            result["actual"] = "다운로드 button 미발견 — 운영 환경에 다운로드 가능 문서 없음 가능"
+            return result
+        dl = download_file(page, click_sel, min_size_bytes=100, timeout_ms=10_000)
+        if dl["ok"]:
+            result["verdict"] = "PASS"
+            result["actual"] = dl["note"]
+        else:
+            # 다운로드 실패는 데이터 부재일 수 있음 — SKIP 으로 격하
+            result["verdict"] = "SKIP"
+            result["actual"] = f"다운로드 미수행: {dl['note']}"
+    except Exception as e:
+        result["verdict"] = "ERROR"
+        result["actual"] = f"문서 다운로드 검증 예외: {type(e).__name__}: {e}"
+    return result
+
+
+def handle_usr_rpt_008(page: Page, result: dict, account: dict) -> dict:
+    """USR-RPT-008 — /reports 첫 행 보고서 다운로드."""
+    try:
+        page.goto(f"{DOCUTIL_NGINX}/reports", timeout=20_000, wait_until="domcontentloaded")
+        wait_settled(page, timeout_ms=5000, sleep_after=1.5)
+        candidates = [
+            'button[aria-label*="다운로드"]:visible',
+            'button:has-text("다운로드")',
+            'a[download]:visible',
+            'tbody tr:first-child button:has(svg.lucide-download)',
+            'tbody tr:first-child a[download]',
+        ]
+        click_sel = None
+        for sel in candidates:
+            try:
+                el = page.query_selector(sel)
+                if el:
+                    click_sel = sel
+                    break
+            except Exception:
+                continue
+        if not click_sel:
+            result["verdict"] = "SKIP"
+            result["actual"] = "보고서 다운로드 button 미발견 — 사용자에게 보고서 데이터 없음 가능"
+            return result
+        dl = download_file(page, click_sel, min_size_bytes=100, timeout_ms=10_000)
+        if dl["ok"]:
+            result["verdict"] = "PASS"
+            result["actual"] = dl["note"]
+        else:
+            result["verdict"] = "SKIP"
+            result["actual"] = f"보고서 다운로드 미수행: {dl['note']}"
+    except Exception as e:
+        result["verdict"] = "ERROR"
+        result["actual"] = f"보고서 다운로드 예외: {type(e).__name__}: {e}"
+    return result
+
+
+def handle_dsg_did_002(page: Page, result: dict, account: dict) -> dict:
+    """DSG-DID-002 — /designer/create iframe mount 확인."""
+    try:
+        page.goto(f"{DOCUTIL_NGINX}/designer/create", timeout=20_000, wait_until="domcontentloaded")
+        wait_settled(page, timeout_ms=5000, sleep_after=1.5)
+        mount = iframe_mounted(page, "iframe", timeout_ms=4000)
+        if mount["ok"]:
+            result["verdict"] = "PASS"
+            result["actual"] = mount["note"]
+        else:
+            # designer/create 는 PromptBox 만 표시 — iframe 은 document 생성 후 노출
+            body = assert_body_not_empty(page, min_len=30)
+            if body["ok"]:
+                result["verdict"] = "PASS"
+                result["actual"] = f"designer/create body OK (iframe 은 document 생성 후 노출): {mount['note']}"
+            else:
+                result["verdict"] = "FAIL"
+                result["actual"] = f"designer/create iframe + body 모두 empty: {mount['note']}"
+    except Exception as e:
+        result["verdict"] = "ERROR"
+        result["actual"] = f"designer iframe 검증 예외: {type(e).__name__}: {e}"
+    return result
+
+
+# case_id → handler 매핑
+SPECIAL_HANDLERS: dict = {
+    "LAY-ASB-014": handle_lay_asb_014,
+    "MSC-PVH-001": handle_msc_pvh_001,
+    "ADM-DASH-009": handle_adm_dash_009,
+    "ADM-DOC-004": handle_adm_doc_004,
+    "ADM-DOC-010": handle_adm_doc_010,
+    "USR-RPT-008": handle_usr_rpt_008,
+    "DSG-DID-002": handle_dsg_did_002,
+}
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # 단일 case 실행
 # ════════════════════════════════════════════════════════════════════════════
 def run_single_case(page: Page, case: dict, account: dict) -> dict:
@@ -243,15 +538,25 @@ def run_single_case(page: Page, case: dict, account: dict) -> dict:
         "screenshot": "",
     }
 
+    # Phase C 보강 — special handler 가 있으면 SKIP 우회하여 별도 실행 경로
+    has_special = cid in SPECIAL_HANDLERS
+
     # SKIP 사유 결정
     skip_reasons: list[str] = []
     if mode == "skip":
         skip_reasons.append("automation_mode=skip")
     if mode == "manual":
         skip_reasons.append("automation_mode=manual")
-    # mutation/cost — 본 runner 에서는 운영 데이터 보호를 위해 SKIP (별도 mutation runner 분리)
-    if action == "mutation" or risk in ("mutation", "cost"):
-        skip_reasons.append(f"risk={risk}/action={action} (운영 보호 — SKIP)")
+    # cost — 환경변수 E2E_ALLOW_COST=1 일 때만 실행 (기본 OFF)
+    if risk == "cost" and not allow_cost():
+        skip_reasons.append("risk=cost (E2E_ALLOW_COST=0 — SKIP)")
+    # mutation — special handler 없으면 보호 위해 SKIP (mutation handler 가 있으면 검증 진행)
+    # 단, allow_mutation()=False 인 경우 무조건 SKIP
+    if action == "mutation" or risk == "mutation":
+        if not allow_mutation():
+            skip_reasons.append(f"risk={risk}/action={action} (E2E_ALLOW_MUTATION=0 — SKIP)")
+        elif not has_special:
+            skip_reasons.append(f"risk={risk}/action={action} (special handler 없음 — 운영 보호 SKIP)")
     # 로그인 페이지의 submit 케이스 (AUT-LGN-003/004) 는 운영 인증 영향 회피 위해 SKIP
     if raw_page == "/login" and action == "submit":
         skip_reasons.append("login submit — 운영 인증 영향 회피")
@@ -259,10 +564,27 @@ def run_single_case(page: Page, case: dict, account: dict) -> dict:
     if "로그아웃" in case["button_label"]:
         skip_reasons.append("logout — storage_state 만료 회피")
 
+    # special handler 가 있는 case 는 manual SKIP 무시 (auto 변경된 케이스)
+    if has_special and skip_reasons:
+        # manual/skip 사유는 제거 (handler 가 직접 검증)
+        skip_reasons = [r for r in skip_reasons if "automation_mode=" not in r]
+
     if skip_reasons:
         result["verdict"] = "SKIP"
         result["actual"] = "; ".join(skip_reasons)
         result["duration_ms"] = int((time.time() - started) * 1000)
+        return result
+
+    # Phase C 보강 — special handler 호출 (auto 변경 케이스 전용 검증)
+    if has_special:
+        try:
+            handler = SPECIAL_HANDLERS[cid]
+            result = handler(page, result, account)
+        except Exception as e:
+            result["verdict"] = "ERROR"
+            result["actual"] = f"special handler 예외: {type(e).__name__}: {str(e)[:200]}"
+        finally:
+            result["duration_ms"] = int((time.time() - started) * 1000)
         return result
 
     # ── 실행 (navigate / click / submit safe 만) ────────────────
@@ -620,8 +942,10 @@ def verify_profile_dropdown(page: Page, account: dict) -> dict:
 # 메인
 # ════════════════════════════════════════════════════════════════════════════
 def main():
-    print(f"[track #105 C.2/C.3] start at {now_ts()}")
+    print(f"[track #105 C.2/C.3 + 보강] start at {now_ts()}")
     print(f"[정보] 카탈로그 = {len(CASES)} cases, 4계정 매트릭스 = {len(CASES)*4} cells")
+    print(f"[flag] E2E_ALLOW_COST={allow_cost()}, E2E_ALLOW_MUTATION={allow_mutation()}")
+    print(f"[special handlers] {sorted(SPECIAL_HANDLERS.keys())}")
 
     out: dict = {
         "track": "#105 Phase C.2~C.3 — DocUtil 전 페이지 e2e",

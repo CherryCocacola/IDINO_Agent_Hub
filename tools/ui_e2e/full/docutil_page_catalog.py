@@ -106,7 +106,9 @@ CASES: list[dict] = [
      "expected_behavior": "collapsed state 토글 (w-64 ↔ w-72)", "risk_level": "safe", "automation_mode": "auto"},
     {"id": "LAY-ASB-014", "page": "(admin)", "section": "sidebar", "button_label": "햄버거 (mobile)",
      "action_type": "click", "api_endpoint": None,
-     "expected_behavior": "mobile overlay 사이드바 오픈", "risk_level": "safe", "automation_mode": "manual"},
+     "expected_behavior": "mobile overlay 사이드바 오픈 — viewport 375x812 시 햄버거 visible",
+     "risk_level": "safe", "automation_mode": "auto"},
+    # ↑ Phase C 보강 — viewport 변경 후 햄버거 button visible 확인 (e2e_helpers.viewport_override)
 
     # User Sidebar
     {"id": "LAY-USB-001", "page": "(user)", "section": "sidebar", "button_label": "문서 검색",
@@ -154,8 +156,9 @@ CASES: list[dict] = [
      "risk_level": "safe", "automation_mode": "auto"},
     {"id": "MSC-PVH-001", "page": "/preview-host", "section": "iframe", "button_label": "preview-host 컴포넌트 클릭",
      "action_type": "click", "api_endpoint": None,
-     "expected_behavior": "iframe 내부 — postMessage docutil/element-select 부모에 전송 (자동화 비용 高)",
-     "risk_level": "safe", "automation_mode": "manual"},
+     "expected_behavior": "iframe 내부 — postMessage docutil/element-select 부모에 전송 (iframe mount 만 검증)",
+     "risk_level": "safe", "automation_mode": "auto"},
+    # ↑ Phase C 보강 — iframe DOM mount 까지만 검증 (postMessage 자체는 별도 e2e)
 
     # ════════════════════════════════════════════════════════════════════
     # ADM — Dashboard (/dashboard)
@@ -189,7 +192,9 @@ CASES: list[dict] = [
      "expected_behavior": "errors 빨강 막대", "risk_level": "safe", "automation_mode": "auto"},
     {"id": "ADM-DASH-009", "page": "/dashboard", "section": "main", "button_label": "30 초 자동 새로고침",
      "action_type": "click", "api_endpoint": "GET /api/v1/dashboard/*",
-     "expected_behavior": "setInterval 30000ms — 4개 API 재호출", "risk_level": "safe", "automation_mode": "manual"},
+     "expected_behavior": "setInterval 30000ms — 4개 API 재호출 — ApiCallCounter 로 32s 대기 후 호출 ≥1 확인",
+     "risk_level": "safe", "automation_mode": "auto"},
+    # ↑ Phase C 보강 — ApiCallCounter 로 dashboard API 호출 횟수 검증 (32s 대기)
 
     # ════════════════════════════════════════════════════════════════════
     # ADM — Departments (/departments)
@@ -319,11 +324,15 @@ CASES: list[dict] = [
      "expected_behavior": "선택된 폴더의 문서만 fetch", "risk_level": "safe", "automation_mode": "auto"},
     {"id": "ADM-DOC-004", "page": "/documents", "section": "main", "button_label": "파일 업로드 버튼",
      "action_type": "click", "api_endpoint": None,
-     "expected_behavior": "<input type=\"file\"> 클릭 트리거 + 업로드 모달", "risk_level": "safe", "automation_mode": "manual"},
+     "expected_behavior": "<input type=\"file\"> 클릭 트리거 + 업로드 모달 — input[type=file] selector 존재만 검증",
+     "risk_level": "safe", "automation_mode": "auto"},
+    # ↑ Phase C 보강 — input[type=file] selector 존재만 검증 (실제 업로드는 ADM-DOC-005)
     {"id": "ADM-DOC-005", "page": "/documents", "section": "modal", "button_label": "업로드 확정",
      "action_type": "mutation", "api_endpoint": "POST /api/v1/documents/upload (multipart)",
-     "expected_behavior": "파일 업로드 + 청크 분할 + 임베딩 큐 (Celery)",
+     "expected_behavior": "파일 업로드 + 청크 분할 + 임베딩 큐 (Celery) — 운영 영향 큼 — manual 유지",
      "risk_level": "mutation", "automation_mode": "manual"},
+    # ↑ Phase C 보강 — 실제 업로드는 임베딩 큐 (Celery) + Qdrant 영향 — 운영 보호 위해 manual 유지.
+    # 자동화 시 별도 mutation runner 에서 E2E_ALLOW_MUTATION=1 + cleanup 보장 필요.
     {"id": "ADM-DOC-006", "page": "/documents", "section": "main", "button_label": "문서 행 클릭 — 상세",
      "action_type": "click", "api_endpoint": "GET /api/v1/documents/{id}",
      "expected_behavior": "상세 패널 표시 (메타/벡터 상태)", "risk_level": "safe", "automation_mode": "auto"},
@@ -338,7 +347,9 @@ CASES: list[dict] = [
      "expected_behavior": "사용자 접근 권한 제거", "risk_level": "mutation", "automation_mode": "auto"},
     {"id": "ADM-DOC-010", "page": "/documents", "section": "main", "button_label": "문서 행 — 다운로드",
      "action_type": "click", "api_endpoint": "GET /api/v1/documents/{id}/download",
-     "expected_behavior": "원본 파일 다운로드 (RFC 5987 한글 파일명)", "risk_level": "safe", "automation_mode": "manual"},
+     "expected_behavior": "원본 파일 다운로드 (RFC 5987 한글 파일명) — download_file() 헬퍼 — binary size ≥ 100B 검증",
+     "risk_level": "safe", "automation_mode": "auto"},
+    # ↑ Phase C 보강 — download_file() 헬퍼 — 첫 행의 다운로드 버튼 클릭 → binary size 검증
     {"id": "ADM-DOC-011", "page": "/documents", "section": "main", "button_label": "문서 행 — 삭제",
      "action_type": "click", "api_endpoint": None,
      "expected_behavior": "AlertDialog 오픈", "risk_level": "safe", "automation_mode": "auto"},
@@ -436,7 +447,9 @@ CASES: list[dict] = [
      "expected_behavior": "step 별 partial save", "risk_level": "mutation", "automation_mode": "auto"},
     {"id": "ADM-TPL-005", "page": "/templates", "section": "modal", "button_label": "템플릿 파일 교체",
      "action_type": "mutation", "api_endpoint": "PUT /api/v1/templates/{id}/file (multipart)",
-     "expected_behavior": "MinIO 파일 교체", "risk_level": "mutation", "automation_mode": "manual"},
+     "expected_behavior": "MinIO 파일 교체 — 운영 template 영향 위험 (HIGH). 자동화 비권장.",
+     "risk_level": "mutation", "automation_mode": "manual"},
+    # ↑ Phase C 보강 — manual 유지. 운영 template 파일이 영향받음 (rollback 어려움 — MinIO 원본 덮어쓰기).
     {"id": "ADM-TPL-006", "page": "/templates", "section": "main", "button_label": "템플릿 수정",
      "action_type": "click", "api_endpoint": None,
      "expected_behavior": "Dialog 오픈 (수정 모드)", "risk_level": "safe", "automation_mode": "auto"},
@@ -518,8 +531,9 @@ CASES: list[dict] = [
      "expected_behavior": "스토리지 설정 update", "risk_level": "mutation", "automation_mode": "auto"},
     {"id": "ADM-SET-005", "page": "/settings", "section": "main", "button_label": "고아 벡터 정리 실행",
      "action_type": "mutation", "api_endpoint": "POST /api/v1/maintenance/cleanup-orphaned-vectors",
-     "expected_behavior": "Qdrant 중 DB 에 없는 벡터 삭제 (운영 시간 권장)",
+     "expected_behavior": "Qdrant 중 DB 에 없는 벡터 삭제 — 자동화 비권장 — manual 유지",
      "risk_level": "mutation", "automation_mode": "manual"},
+    # ↑ Phase C 보강 — manual 유지. 운영 Qdrant 영향 큼 (rollback 어려움 — 벡터 영구 삭제).
 
     # ════════════════════════════════════════════════════════════════════
     # ADM — Search Test (/search-test)
@@ -604,8 +618,9 @@ CASES: list[dict] = [
      "expected_behavior": "내 문서 목록 + 사용자 scope fetch", "risk_level": "safe", "automation_mode": "auto"},
     {"id": "USR-MDC-002", "page": "/my-documents", "section": "main", "button_label": "파일 업로드",
      "action_type": "mutation", "api_endpoint": "POST /api/v1/documents/upload (multipart)",
-     "expected_behavior": "내 영역에 문서 업로드 + 임베딩 큐",
+     "expected_behavior": "내 영역에 문서 업로드 + 임베딩 큐 — manual 유지 (cleanup 의무)",
      "risk_level": "mutation", "automation_mode": "manual"},
+    # ↑ Phase C 보강 — 사용자 영역 업로드도 임베딩 큐 (Celery) 트리거 — manual 유지 (별도 mutation runner)
     {"id": "USR-MDC-003", "page": "/my-documents", "section": "main", "button_label": "문서 행 — 상세",
      "action_type": "click", "api_endpoint": "GET /api/v1/documents/{id}",
      "expected_behavior": "상세 패널", "risk_level": "safe", "automation_mode": "auto"},
@@ -631,7 +646,9 @@ CASES: list[dict] = [
      "risk_level": "cost", "automation_mode": "manual"},
     {"id": "USR-SRC-005", "page": "/search", "section": "modal", "button_label": "디자이너 모드로 생성 → designer 이동",
      "action_type": "navigate", "api_endpoint": "POST /api/v1/v2/documents",
-     "expected_behavior": "/designer/{document_id} 이동", "risk_level": "cost", "automation_mode": "manual"},
+     "expected_behavior": "/designer/{document_id} 이동 — LLM 호출 cost",
+     "risk_level": "cost", "automation_mode": "manual"},
+    # ↑ Phase C 보강 — cost — manual 유지. /search 진입까지만 검증 (E2E_ALLOW_COST=1 시 cost runner)
 
     # ════════════════════════════════════════════════════════════════════
     # USR — Reports (/reports)
@@ -659,10 +676,14 @@ CASES: list[dict] = [
      "risk_level": "cost", "automation_mode": "manual"},
     {"id": "USR-RPT-007", "page": "/reports", "section": "main", "button_label": "디자이너로 이동",
      "action_type": "navigate", "api_endpoint": "POST /api/v1/v2/documents",
-     "expected_behavior": "/designer/{document_id} 이동", "risk_level": "cost", "automation_mode": "manual"},
+     "expected_behavior": "/designer/{document_id} 이동 — LLM 호출 cost 발생",
+     "risk_level": "cost", "automation_mode": "manual"},
+    # ↑ Phase C 보강 — cost — manual 유지. E2E_ALLOW_COST=1 시에만 cost runner 별도 실행.
     {"id": "USR-RPT-008", "page": "/reports", "section": "main", "button_label": "보고서 다운로드",
      "action_type": "click", "api_endpoint": "GET /api/v1/reports/{id}/download",
-     "expected_behavior": "DOCX/PPTX 다운로드 (RFC 5987)", "risk_level": "safe", "automation_mode": "manual"},
+     "expected_behavior": "DOCX/PPTX 다운로드 (RFC 5987) — download_file() 헬퍼",
+     "risk_level": "safe", "automation_mode": "auto"},
+    # ↑ Phase C 보강 — download_file() 헬퍼 — 첫 보고서 다운로드 (없으면 SKIP)
     {"id": "USR-RPT-009", "page": "/reports", "section": "main", "button_label": "보고서 삭제",
      "action_type": "mutation", "api_endpoint": "DELETE /api/v1/reports/{id}",
      "expected_behavior": "보고서 record + MinIO 파일 삭제", "risk_level": "mutation", "automation_mode": "auto"},
@@ -691,14 +712,19 @@ CASES: list[dict] = [
      "risk_level": "safe", "automation_mode": "auto"},
     {"id": "DSG-DID-002", "page": "/designer/[documentId]", "section": "iframe", "button_label": "PreviewPane 요소 클릭",
      "action_type": "click", "api_endpoint": None,
-     "expected_behavior": "iframe postMessage docutil/element-select → EditSidebar 열림",
-     "risk_level": "safe", "automation_mode": "manual"},
+     "expected_behavior": "iframe postMessage docutil/element-select → EditSidebar 열림 (iframe mount 만 검증)",
+     "risk_level": "safe", "automation_mode": "auto"},
+    # ↑ Phase C 보강 — iframe_mounted() 만 검증. postMessage 자체는 designer document 가 있어야 작동
     {"id": "DSG-DID-003", "page": "/designer/[documentId]", "section": "main", "button_label": "EditSidebar 속성 변경",
      "action_type": "mutation", "api_endpoint": "PATCH /api/v1/v2/documents/{id}",
-     "expected_behavior": "schema patch 전송 + iframe 재렌더", "risk_level": "mutation", "automation_mode": "manual"},
+     "expected_behavior": "schema patch 전송 + iframe 재렌더 — vue-flow 동적 selector 안정성 낮음",
+     "risk_level": "mutation", "automation_mode": "manual"},
+    # ↑ Phase C 보강 — manual 유지. vue-flow 의 동적 노드 조작은 selector 안정성 낮음 (자동화 비용 > 이익)
     {"id": "DSG-DID-004", "page": "/designer/[documentId]", "section": "main", "button_label": "내보내기 (PPTX/PDF)",
      "action_type": "mutation", "api_endpoint": "POST /api/v1/v2/documents/{id}/export",
-     "expected_behavior": "Celery 변환 → MinIO 저장", "risk_level": "mutation", "automation_mode": "manual"},
+     "expected_behavior": "Celery 변환 → MinIO 저장 — 실제 document 필요 (선행 mutation 의존)",
+     "risk_level": "mutation", "automation_mode": "manual"},
+    # ↑ Phase C 보강 — manual 유지. designer document 가 선행되어야 함 (시나리오 의존도 高)
     {"id": "DSG-FIL-001", "page": "/designer/fill/[templateId]", "section": "main", "button_label": "(페이지 진입 — Mode B)",
      "action_type": "navigate", "api_endpoint": "GET /api/v1/templates/{id}",
      "expected_behavior": "템플릿 기반 빈 폼 표시 (variables 자동 분류)",

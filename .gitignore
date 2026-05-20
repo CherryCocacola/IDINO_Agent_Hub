@@ -171,3 +171,6 @@ tools/ui_e2e/full/_track105_*.json
 
 # e2e 스크린샷 — 대용량 binary, 결과 JSON 에 path 참조만 보관
 tools/ui_e2e/screenshots/
+
+# Excel 임시 lock 파일 (사용자가 열어둔 상태)
+**/~$*.xlsx

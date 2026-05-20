@@ -29,7 +29,19 @@ from openpyxl.utils import get_column_letter
 
 ROOT = Path(__file__).resolve().parents[3]
 RESULTS_PATH = Path(__file__).resolve().parent / "track105_docutil_full_e2e_results.json"
-OUTPUT = ROOT / "user_mig" / "DOCUTIL_E2E_RESULT_20260520.xlsx"
+_PRIMARY = ROOT / "user_mig" / "DOCUTIL_E2E_RESULT_20260520.xlsx"
+# Excel 이 열려있어 PermissionError 발생 시 fallback 경로 사용 (lock 파일 회피)
+def _resolve_output() -> Path:
+    if _PRIMARY.exists():
+        lock = _PRIMARY.parent / f"~${_PRIMARY.name}"
+        if lock.exists():
+            from datetime import datetime as _dt
+            fb = _PRIMARY.with_name(f"DOCUTIL_E2E_RESULT_20260520_phase_c_boost_{_dt.now().strftime('%H%M%S')}.xlsx")
+            print(f"  [경고] {_PRIMARY.name} lock 파일 발견 → fallback 저장: {fb.name}")
+            return fb
+    return _PRIMARY
+
+OUTPUT = _resolve_output()
 
 # ── 스타일 ──────────────────────────────────────────────────────────────
 HEADER_FILL = PatternFill(start_color="1F3864", end_color="1F3864", fill_type="solid")
@@ -104,19 +116,37 @@ def build_cover(wb: Workbook, total_cases: int, results: dict) -> None:
     ws.merge_cells("A1:E1")
     ws["A1"].alignment = CENTER
 
+    # Phase C 보강 — 자동화 가능 카운트 실시간 계산
+    from docutil_page_catalog import CASES as _CASES
+    auto_n = sum(1 for c in _CASES if c.get("automation_mode") == "auto")
+    manual_n = sum(1 for c in _CASES if c.get("automation_mode") == "manual")
+    skip_n = sum(1 for c in _CASES if c.get("automation_mode") == "skip")
+
     info = [
-        ("트랙", "#105 Phase C.5"),
+        ("트랙", "#105 Phase C.5 + 보강"),
         ("검증일", datetime.now().strftime("%Y-%m-%d %H:%M")),
         ("대상 시스템", "DocUtil (운영 https://docutil.idino.co.kr / nginx http://192.168.10.39:8041)"),
         ("DocUtil 버전", "운영 배포 = 트랙 #105 Phase A/B 적용 후 (2026-05-20 03:00 UTC recreate)"),
         ("총 인터랙션 케이스", str(total_cases)),
         ("4계정 매트릭스", f"{total_cases * 4} cell"),
-        ("자동화 가능", "154 케이스 × 4계정 = 616 cell"),
-        ("실측 PASS", "100% (자동화 가능 케이스 중)"),
-        ("실측 FAIL", "0 (LAY-HDR-004 false positive 정정 후)"),
-        ("SKIP 사유", "automation_mode=manual/skip (파일 업로드, SSE 스트리밍, 다운로드, iframe postMessage 등)"),
+        ("자동화 분류",
+         f"auto={auto_n} (× 4계정 = {auto_n*4} cell), manual={manual_n}, skip={skip_n}"),
+        ("Phase C 보강",
+         "manual → auto 전환 7건 (LAY-ASB-014, MSC-PVH-001, ADM-DASH-009, "
+         "ADM-DOC-004, ADM-DOC-010, USR-RPT-008, DSG-DID-002)"),
+        ("재사용 helper", "tools/ui_e2e/full/e2e_helpers.py — upload/download/iframe/SSE/safe_mutation 8+ 함수"),
+        ("fixtures", "tools/ui_e2e/fixtures/{sample_doc.pdf, sample_template.docx, sample_template.pptx}"),
+        ("실측 PASS율", "결과 시트 참조 (자동화 가능 케이스 중)"),
+        ("실측 FAIL", "결과 시트 참조 (LAY-HDR-004 false positive 정정 후)"),
+        ("SKIP 사유 (manual 잔존 20건)",
+         "LLM cost 12 (E2E_ALLOW_COST=1 시 cost runner), "
+         "고위험 mutation 8 (template 교체 / 고아 벡터 정리 / 업로드 / designer mutation)"),
+        ("환경변수 flag",
+         "E2E_ALLOW_COST=0 (기본 OFF — cost 케이스 SKIP), "
+         "E2E_ALLOW_MUTATION=1 (기본 ON — ui-e2e-test prefix + cleanup 의무)"),
         ("작성 자산",
-         "tools/ui_e2e/full/{docutil_page_catalog.py, track105_docutil_full_e2e.py, build_track105_excel.py}"),
+         "tools/ui_e2e/full/{docutil_page_catalog.py, track105_docutil_full_e2e.py, "
+         "e2e_helpers.py(신규), build_track105_excel.py}"),
         ("Phase A 산출", "user_mig/track105_chat_scope_diag_20260520.md + verify_20260520.md (챗봇 결함 fix)"),
         ("Phase B 산출", "user_mig/track105_endpoint_catalog.json + permission_matrix_summary.md + bff_fix_verify.json"),
     ]
@@ -129,18 +159,20 @@ def build_cover(wb: Workbook, total_cases: int, results: dict) -> None:
         ws[f"B{i}"].alignment = WRAP
         ws.merge_cells(f"B{i}:F{i}")
 
-    # 사용자 요청 매핑
-    ws["A18"] = "사용자 요청 항목 매핑"
-    ws["A18"].font = TITLE_FONT
-    ws.merge_cells("A18:E18")
+    # 사용자 요청 매핑 — info 행 수 (start=3) + len(info) + 2 = 다음 섹션 시작
+    map_title_row = 3 + len(info) + 1
+    map_start_row = map_title_row + 1
+    ws.cell(row=map_title_row, column=1, value="사용자 요청 항목 매핑").font = TITLE_FONT
+    ws.merge_cells(start_row=map_title_row, start_column=1, end_row=map_title_row, end_column=5)
     mapping = [
-        ("0-1", "DocUtil 모든 버튼 e2e + 정상 사유 + 비정상 fix", "Phase C 완료 (FAIL 0건)"),
+        ("0-1", "DocUtil 모든 버튼 e2e + 정상 사유 + 비정상 fix",
+         "Phase C 완료 + 보강 (manual 27→20, auto +7건, helper lib + fixtures 신설)"),
         ("0-2", "사용자 권한 매트릭스 재검증", "Phase B 완료 (4 router 'user' role fix + 5계정 매트릭스 검증)"),
         ("0-2-1", "챗봇 문서 선택 0건 결함", "Phase A 완료 (projects/router.py 'user' role 누락 fix → /projects/tree 200 회복)"),
         ("0-3", "AgentHub 운영자 콘솔 DocUtil 대체 가능?", "별도 트랙 (트랙 #105 범위 외)"),
         ("0-4", "AgentHub-DocUtil SSO 가능?", "별도 트랙 (트랙 #105 범위 외)"),
     ]
-    for i, (req_id, req, status) in enumerate(mapping, start=19):
+    for i, (req_id, req, status) in enumerate(mapping, start=map_start_row):
         ws[f"A{i}"] = req_id
         ws[f"A{i}"].font = Font(name="맑은 고딕", size=10, bold=True)
         ws[f"A{i}"].alignment = CENTER
