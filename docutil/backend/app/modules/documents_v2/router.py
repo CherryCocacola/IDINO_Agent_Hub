@@ -195,6 +195,16 @@ async def create_document(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=message,
             ) from exc
+        # 트랙 #106 결함 8 — content policy violation 은 사용자 입력 차단이라 400 + 친화 메시지
+        # (예: AgentHub PII/금칙어 차단, OpenAI content policy 차단 등 사용자 측 issue)
+        if "content_policy" in message.lower() or "blocked by content" in message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "입력하신 내용에 정책상 처리할 수 없는 표현(개인정보·금칙어 등)이 포함되어 "
+                    "있습니다. 표현을 다듬어 다시 시도해 주세요."
+                ),
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=message or "문서 생성 LLM 호출에 실패했습니다.",

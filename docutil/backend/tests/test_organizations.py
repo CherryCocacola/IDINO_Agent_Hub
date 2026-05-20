@@ -35,26 +35,28 @@ def _make_fake_org(**overrides):
 
 
 def _make_fake_department(**overrides):
-    """Return a mock that behaves like a Department ORM instance.
+    """Return a dict that matches the new ``DepartmentResponse`` contract.
 
-    DepartmentResponse uses validation_alias="ins_dt" for created_at
-    and includes head_user_id field.
+    트랙 #106 결함 2' 이후: ``DepartmentService.get_departments`` 는
+    AgentHub schema 를 raw SQL 로 직접 조회해 dict 리스트를 반환한다.
+    Pydantic 의 ``from_attributes=True`` 는 dict 도 받아들이므로 그대로
+    ``model_validate`` 된다. ``id`` 는 AgentHub int 의 문자열 표현.
     """
     defaults = {
-        "id": FAKE_DEPT_ID,
-        "organization_id": FAKE_ORG_ID,
+        "id": str(FAKE_DEPT_ID),
+        "organization_id": str(FAKE_ORG_ID),
         "parent_id": None,
         "name": "Engineering",
         "depth": 0,
         "path": f"/{FAKE_DEPT_ID}/",
+        "code": None,
+        "member_count": 0,
         "head_user_id": None,
-        "ins_dt": datetime(2025, 1, 1, tzinfo=UTC),
+        "head_user_name": None,
+        "created_at": datetime(2025, 1, 1, tzinfo=UTC),
     }
     defaults.update(overrides)
-    dept = MagicMock()
-    for key, val in defaults.items():
-        setattr(dept, key, val)
-    return dept
+    return defaults
 
 
 # ===========================================================================

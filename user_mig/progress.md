@@ -256,6 +256,56 @@
 
 **운영 영향**: 0 (read-only refactor + 캐시 flush). LLM 비용 0. 사용자 검증 시점: 본 작업 종료 후 사용자가 `http://192.168.10.39:64005/admin/docutil-users` + `/admin/docutil-departments` 에서 132 사용자 / 32 부서 / 26 매핑 확인 가능.
 
+---
+
+### 2026-05-20 (트랙 #106 결함 2' — DocUtil `/departments` 사용자 화면 부서별 인원 0 결함 fix)
+
+**배경**: 트랙 #106 결함 1+2 는 AgentHub 운영자 화면(`/admin/docutil-users` + `/admin/docutil-departments`)을 AgentHub DB 직접 쿼리로 전환했지만, **DocUtil 자체 운영자 화면** `http://192.168.10.39:8041/departments` 는 동일 결함 잔존:
+- DocUtil `tb_departments` (9건, uuid PK) 와 AgentHub `AIAgentManagement.Departments` (32건, int PK) fork
+- DocUtil `tb_users` VIEW.`department_id = NULL::uuid` 하드코딩 (uuid↔int 매핑 불가)
+- AgentHub `Users` (132건) + `Departments` (32건) 가 마스터 + 정상 매핑 (129/132 = 97.7%)
+- 사용자 결정: DocUtil 자체 메뉴는 유지하되 데이터만 AgentHub 마스터 read-only 직접 조회
+
+**Refactor 범위** (`docutil/backend/app/modules/organizations/`):
+- `schemas.py` `DepartmentResponse` — `id`/`organization_id`/`parent_id` 를 `UUID` → `str` (AgentHub int 문자열). `member_count: int = 0`, `head_user_id: str | None`, `head_user_name: str | None`, `code: str | None` 필드 추가. `created_at` 을 `datetime | None` 로 완화.
+- `service.py` `DepartmentService` —
+    - `_fetch_agenthub_departments`: raw SQL `text()` 로 `"AIAgentManagement"."Departments"` 32 부서 + 부서별 `Users.DepartmentId` COUNT(`IsDeleted=false`) sub-SELECT 조회
+    - `_compute_depth_path`: ParentDepartmentId 기반 depth/path 메모이제이션 계산
+    - `get_departments`: 기존 ORM(`tb_departments`) 쿼리 → AgentHub dict 리스트 반환
+    - `get_department_tree`: DocUtil ORM → AgentHub dict 기반 nested tree
+    - `list_department_members` (신규): AgentHub `Users.DepartmentId=int + OrganizationId=uuid + IsDeleted=false` 직접 쿼리, `DocutilUsername`/`FullName`/`Email` COALESCE
+- `router.py` —
+    - GET `/{org_id}/departments` (flat/tree): 위 service 호출
+    - GET `/{org_id}/departments/{dept_id}/members`: `dept_id: UUID` → `dept_id: str` Path param 완화 (AgentHub int 수용), `User` ORM 쿼리 폐기 → `DepartmentService.list_department_members` 위임. service 가 int 변환 실패 시 400.
+    - DELETE `/{org_id}/departments/{dept_id}`: dict 접근으로 ownership 체크 보정 (`d["id"]`)
+- 응답 DTO 호환성: FE 인터페이스 `Department.id: string`/`member_count: number`/`head_user_id|name: string|null`/`children: Department[]` 그대로 만족. FE 변경 0.
+
+**테스트 fixture 업데이트**: `tests/test_organizations.py::_make_fake_department` 를 MagicMock → dict 로 교체 + `id`/`organization_id` 를 str(UUID) 로 변환. Pydantic strict mode 가 UUID→str 자동 coerce 안 함.
+
+**빌드 + 검증**:
+- 로컬 `pytest tests/test_organizations.py`: 6/6 PASS. `pytest tests/test_organization_quotas.py`: 22/22 PASS.
+- 로컬 `ruff format`: service.py 1 file 재포맷. `ruff check`: pre-existing TC003 (`uuid` import) 만, 본 변경 외.
+- 원격 `docker compose build api`: 빌드 30s. `up -d --force-recreate api` → healthy 15s. `nginx restart` → healthy 3s.
+- 운영 검증 (admin@example.com, org_id=`00000000-0000-4000-a000-000000000001`):
+    - `GET /api/v1/organizations/{org}/departments?tree=true` → root 1개 (id=63 "아이디노(주)") + 8 children + 전체 32 부서 flat, **sum member_count=129** (AgentHub 마스터와 정확 일치)
+    - `GET /.../departments` (flat) → 32건. sample[0]: `{id:"32", parent_id:"63", name:"경영본부", depth:1, path:"/63/32/", code:"DEPT_HQ", member_count:0, ...}`
+    - `GET /.../departments/51/members` (유지보수팀) → **15명** (예상치 일치), sample: `{id:"151", email:"eastsky@idino.co.kr", username:"eastsky", role:"Active"}`
+
+**산출 파일**:
+- `docutil/backend/app/modules/organizations/schemas.py` (수정)
+- `docutil/backend/app/modules/organizations/service.py` (수정 — 신규 헬퍼 3 + read 경로 3 전환)
+- `docutil/backend/app/modules/organizations/router.py` (수정 — dept_id 타입 완화 + members 위임)
+- `docutil/backend/tests/test_organizations.py` (fixture 업데이트)
+- `tmp/deploy_track106_defect2prime_20260520.py` (배포 스크립트)
+- `tmp/probe_track106d2p.py`, `tmp/probe_dept_tables.py`, `tmp/probe_user_sample.py` (DB 진단)
+
+**잠재 후속 (별도 트랙 권장)**:
+- Mutation (`POST` create_department / `PUT` update_department + `head` / `POST|DELETE /members`) 는 여전히 DocUtil `tb_departments` 를 향한다 — AgentHub 마스터로 통일하려면 별도 트랙. 현재 운영 콘솔 read-only 사용 시 결함 무관.
+- DocUtil 의 잔여 `tb_users` VIEW 폐기 — Cross-system 사용처 정리 후 DROP 가능.
+- `head_user_id` / `head_user_name` 컬럼이 AgentHub schema 에 없어 항상 null — 향후 부서장 기능 신설 시 별도 테이블 추가 필요.
+
+**운영 영향**: 0 (read-only refactor). LLM 비용 0. 사용자 검증 시점: `http://192.168.10.39:8041/departments` 접속 → 32 부서 트리 + 부서별 인원 카운트 + 부서 선택 시 멤버 목록 표시 확인.
+
 ### 2026-05-20 (트랙 #105 — DocUtil 안정성 검증 1-1+1-2+1-3 완전 종결, 운영 결함 0)
 
 **사용자 요청 5건** (2026-05-20). 우선 처리: 1-1·1-2·1-3 (1-4·1-5 별도 트랙).

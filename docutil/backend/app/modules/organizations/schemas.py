@@ -63,17 +63,26 @@ class DepartmentUpdate(BaseModel):
 
 
 class DepartmentResponse(BaseModel):
-    """부서 조회 응답 스키마. ins_dt를 created_at으로 매핑한다."""
+    """부서 조회 응답 스키마.
+
+    트랙 #106 결함 2': DocUtil ``tb_departments`` (uuid PK) 가 아니라 AgentHub
+    ``AIAgentManagement.Departments`` (int PK) 를 마스터로 사용한다. 따라서
+    ``id`` / ``parent_id`` 는 AgentHub int 를 문자열로 직렬화한다 (FE 호환).
+    """
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    id: UUID
-    organization_id: UUID
-    parent_id: UUID | None = None
+    id: str
+    organization_id: str
+    parent_id: str | None = None
     name: str
-    depth: int
-    path: str
-    created_at: datetime = Field(validation_alias="ins_dt")
+    depth: int = 0
+    path: str = ""
+    code: str | None = None
+    member_count: int = 0
+    head_user_id: str | None = None
+    head_user_name: str | None = None
+    created_at: datetime | None = None
 
 
 class DepartmentTreeResponse(DepartmentResponse):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -84,7 +84,12 @@ async def list_departments(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    """Return departments for an organisation, either flat or as a nested tree."""
+    """Return departments for an organisation, either flat or as a nested tree.
+
+    트랙 #106 결함 2': 데이터 소스는 AgentHub ``AIAgentManagement.Departments``
+    + ``Users`` (read-only). member_count 는 각 부서별 ``Users.DepartmentId``
+    카운트로 계산된다. 부서장(head_user) 컬럼은 AgentHub schema 에 없어 null.
+    """
     if tree:
         return await DepartmentService.get_department_tree(db, org_id)
 
@@ -146,11 +151,17 @@ async def delete_department(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_role(["admin", "super_admin"])),
 ):
-    """Delete a department and all its children (cascade)."""
-    # Verify ownership before deleting
+    """Delete a department and all its children (cascade).
+
+    트랙 #106 결함 2' 이후: read 경로는 AgentHub 마스터로 옮겼지만 본 write
+    경로는 DocUtil ``tb_departments`` 를 그대로 사용한다. AgentHub schema
+    에 대한 write 권한은 별도 트랙에서 다루며, 현재 운영 콘솔에서는 부서
+    삭제 트리거가 사실상 호출되지 않는다.
+    """
+    # AgentHub 마스터 기준 존재 여부 확인.
     departments = await DepartmentService.get_departments(db, org_id)
-    dept_ids = {d.id for d in departments}
-    if dept_id not in dept_ids:
+    dept_ids = {d["id"] for d in departments}
+    if str(dept_id) not in dept_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Department '{dept_id}' not found in organisation '{org_id}'.",
@@ -310,28 +321,18 @@ async def update_quota_limit(
 )
 async def list_department_members(
     org_id: UUID,
-    dept_id: UUID,
+    dept_id: str = Path(
+        ...,
+        description="AgentHub Department PK (int) as string. e.g. '40'.",
+    ),
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    """Return users belonging to a specific department."""
-    from sqlalchemy import select
+    """Return users belonging to a specific department.
 
-    from app.modules.users.models import User
-
-    result = await db.execute(
-        select(User).where(
-            User.organization_id == org_id,
-            User.department_id == dept_id,
-        )
-    )
-    users = result.scalars().all()
-    return [
-        {
-            "id": str(u.id),
-            "username": u.username,
-            "email": u.email,
-            "role": u.role,
-        }
-        for u in users
-    ]
+    트랙 #106 결함 2': DocUtil ``tb_users`` VIEW.department_id 가 NULL 로
+    하드코딩되어 있어 정상 조회 불가. 대신 AgentHub ``Users.DepartmentId``
+    (int) 를 직접 조회한다. ``dept_id`` 는 AgentHub int 를 문자열로 받으며
+    서비스 계층이 int 변환 + 검증 (400) 을 담당한다.
+    """
+    return await DepartmentService.list_department_members(db, org_id, dept_id)

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import Department, Organization, OrganizationQuota
@@ -117,51 +118,181 @@ class DepartmentService:
         await db.refresh(department)
         return department
 
+    # ------------------------------------------------------------------
+    # AgentHub-backed reads (트랙 #106 결함 2')
+    # ------------------------------------------------------------------
+    #
+    # DocUtil ``tb_departments`` (9건, uuid PK) 와 AgentHub
+    # ``AIAgentManagement.Departments`` (32건, int PK) 가 fork 되어 있고,
+    # ``tb_users`` VIEW.department_id 가 NULL 로 하드코딩되어 있어
+    # ``users.department_id`` 기준 카운트가 0 으로 나오는 결함.
+    #
+    # 사용자 결정 (2026-05-20): DocUtil 자체 메뉴는 유지하되 데이터는
+    # AgentHub 마스터를 read-only 로 직접 조회한다. ``tb_departments`` /
+    # ``tb_users`` 는 본 경로에서 사용하지 않는다.
+    #
+    # 응답 DTO 의 ``id`` / ``parent_id`` / ``organization_id`` 는 AgentHub
+    # int 를 문자열로 직렬화 (FE 변경 0 목표). ``organization_id`` 는 FE 가
+    # 그대로 PATH 변수로 사용하므로 ``org_id`` 입력값을 그대로 echo 한다.
+
+    @staticmethod
+    async def _fetch_agenthub_departments(
+        db: AsyncSession,
+        org_id: UUID,
+    ) -> list[dict[str, Any]]:
+        """AgentHub schema 의 부서 + 부서별 member_count 를 직접 조회.
+
+        TenantId 필터는 적용하지 않는다 — AgentHub 가 단일 조직(TenantId=2)
+        만 운영 중이며, ``org_id`` 는 응답에 echo 만 한다. 만약 멀티테넌트로
+        확장될 경우 ``TenantId`` 매핑을 추가해야 한다.
+        """
+
+        sql = text(
+            """
+            SELECT
+                d."DepartmentId"::text         AS id,
+                d."DepartmentName"             AS name,
+                d."ParentDepartmentId"::text   AS parent_id,
+                d."DepartmentCode"             AS code,
+                d."CreatedAt"                  AS created_at,
+                (
+                    SELECT COUNT(*)
+                    FROM "AIAgentManagement"."Users" u
+                    WHERE u."DepartmentId" = d."DepartmentId"
+                      AND u."IsDeleted" = false
+                ) AS member_count
+            FROM "AIAgentManagement"."Departments" d
+            WHERE d."IsActive" = true
+            ORDER BY d."DepartmentId"
+            """
+        )
+        result = await db.execute(sql)
+        rows = result.mappings().all()
+        return [dict(r) for r in rows]
+
+    @staticmethod
+    def _compute_depth_path(rows: list[dict[str, Any]]) -> None:
+        """ParentDepartmentId 기반으로 ``depth`` / ``path`` 를 계산해 row 에 주입."""
+
+        by_id: dict[str, dict[str, Any]] = {r["id"]: r for r in rows}
+        # 메모이제이션
+        cache: dict[str, tuple[int, str]] = {}
+
+        def resolve(node_id: str) -> tuple[int, str]:
+            if node_id in cache:
+                return cache[node_id]
+            node = by_id.get(node_id)
+            if node is None:
+                # orphan parent_id — 루트 취급
+                cache[node_id] = (0, f"/{node_id}/")
+                return cache[node_id]
+            parent_id = node.get("parent_id")
+            if not parent_id or parent_id not in by_id:
+                depth, path = 0, f"/{node_id}/"
+            else:
+                p_depth, p_path = resolve(parent_id)
+                depth, path = p_depth + 1, f"{p_path}{node_id}/"
+            cache[node_id] = (depth, path)
+            return depth, path
+
+        for r in rows:
+            depth, path = resolve(r["id"])
+            r["depth"] = depth
+            r["path"] = path
+
     @staticmethod
     async def get_departments(
         db: AsyncSession,
         org_id: UUID,
-    ) -> list[Department]:
-        """Return a flat list of all departments for an organisation."""
-        result = await db.execute(
-            select(Department).where(Department.organization_id == org_id).order_by(Department.path)
-        )
-        return list(result.scalars().all())
+    ) -> list[dict[str, Any]]:
+        """AgentHub 마스터에서 부서 flat list 반환 (Member count 포함).
+
+        반환 형식은 ``DepartmentResponse`` 와 호환되는 dict 리스트.
+        DocUtil ORM 모델(Department) 대신 dict 를 쓰는 이유: AgentHub int PK
+        를 uuid 컬럼에 매핑할 수 없음 + 응답은 read-only 이라 ORM 필요 없음.
+        """
+
+        rows = await DepartmentService._fetch_agenthub_departments(db, org_id)
+        DepartmentService._compute_depth_path(rows)
+        org_id_str = str(org_id)
+        for r in rows:
+            r["organization_id"] = org_id_str
+            # head_user_* 는 AgentHub schema 에 컬럼이 없어 항상 null.
+            r["head_user_id"] = None
+            r["head_user_name"] = None
+        return rows
 
     @staticmethod
     async def get_department_tree(
         db: AsyncSession,
         org_id: UUID,
     ) -> list[DepartmentTreeResponse]:
-        """Build a nested tree structure of departments for an organisation.
+        """Nested 부서 트리 + member_count 반환 (AgentHub 마스터)."""
 
-        Fetches all departments in one query and assembles the tree in memory.
-        """
-        departments = await DepartmentService.get_departments(db, org_id)
+        rows = await DepartmentService.get_departments(db, org_id)
 
-        # Build lookup tables (avoid ORM lazy-load by constructing manually)
-        node_map: dict[UUID, DepartmentTreeResponse] = {}
-        for dept in departments:
-            node_map[dept.id] = DepartmentTreeResponse(
-                id=dept.id,
-                organization_id=dept.organization_id,
-                parent_id=dept.parent_id,
-                name=dept.name,
-                depth=dept.depth,
-                path=dept.path,
-                created_at=dept.ins_dt,
+        node_map: dict[str, DepartmentTreeResponse] = {}
+        for r in rows:
+            node_map[r["id"]] = DepartmentTreeResponse(
+                id=r["id"],
+                organization_id=r["organization_id"],
+                parent_id=r.get("parent_id"),
+                name=r["name"],
+                depth=r["depth"],
+                path=r["path"],
+                code=r.get("code"),
+                member_count=int(r.get("member_count") or 0),
+                head_user_id=r.get("head_user_id"),
+                head_user_name=r.get("head_user_name"),
+                created_at=r.get("created_at"),
                 children=[],
             )
 
-        # Assemble tree
         roots: list[DepartmentTreeResponse] = []
         for node in node_map.values():
-            if node.parent_id is not None and node.parent_id in node_map:
-                node_map[node.parent_id].children.append(node)
+            parent_id = node.parent_id
+            if parent_id and parent_id in node_map:
+                node_map[parent_id].children.append(node)
             else:
                 roots.append(node)
-
         return roots
+
+    @staticmethod
+    async def list_department_members(
+        db: AsyncSession,
+        org_id: UUID,
+        dept_id: str | int,
+    ) -> list[dict[str, Any]]:
+        """AgentHub Users 에서 특정 부서 멤버를 조회.
+
+        ``dept_id`` 는 AgentHub int. ``org_id`` 는 ``OrganizationId`` 필터로
+        사용 (현재 단일 조직만 운영하지만 안전을 위해 명시적으로 적용).
+        """
+
+        try:
+            dept_id_int = int(dept_id)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"잘못된 부서 ID 입니다: '{dept_id}'.",
+            ) from exc
+
+        sql = text(
+            """
+            SELECT
+                u."UserId"::text   AS id,
+                u."Email"          AS email,
+                COALESCE(NULLIF(u."DocutilUsername", ''), u."FullName", u."Email") AS username,
+                COALESCE(u."Status", 'member') AS role
+            FROM "AIAgentManagement"."Users" u
+            WHERE u."DepartmentId" = :dept_id
+              AND u."OrganizationId" = :org_id
+              AND u."IsDeleted" = false
+            ORDER BY u."UserId"
+            """
+        )
+        result = await db.execute(sql, {"dept_id": dept_id_int, "org_id": org_id})
+        return [dict(r) for r in result.mappings().all()]
 
     @staticmethod
     async def update_department(
