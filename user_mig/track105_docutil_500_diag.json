@@ -1,0 +1,146 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/v1/evaluation/logs",
+    "label": "Eval Logs",
+    "status": "500",
+    "body_excerpt": "Internal Server Error\n",
+    "error_log_excerpt": "    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__\n    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)\n  File \"/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py\", line 18, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.12/site-packages/starlette/routing.py\", line 716, in __call__\n    await self.middleware_stack(scope, receive, send)\n  File \"/usr/local/lib/python3.12/site-packages/starlette/routing.py\", line 736, in app\n    await route.handle(scope, receive, send)\n  File \"/usr/local/lib/python3.12/site-packages/starlette/routing.py\", line 290, in handle\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.12/site-packages/fastapi/routing.py\", line 134, in app\n    await wrap_app_handling_exceptions(app, request)(scope, receive, send)\n  File \"/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.12/site-packages/fastapi/routing.py\", line 120, in app\n    response = await f(request)\n               ^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/fastapi/routing.py\", line 674, in app\n    raw_response = await run_endpoint_function(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/fastapi/routing.py\", line 328, in run_endpoint_function\n    return await dependant.call(**values)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/modules/evaluation/router.py\", line 107, in list_logs\n    items=[EvaluationLogResponse.model_validate(log) for log in logs],\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/pydantic/main.py\", line 732, in model_validate\n    return cls.__pydantic_validator__.validate_python(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydantic_core._pydantic_core.ValidationError: 1 validation error for EvaluationLogResponse\nhallucination_evidence\n  Input should be a valid dictionary [type=dict_type, input_value=[], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/dict_type"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/evaluation/questions",
+    "label": "Eval Questions",
+    "status": "200",
+    "body_excerpt": "{\"questions\":[{\"question\":\"이 프로젝트의 주요 기술 스택은 무엇인가요?\",\"category\":\"general\"},{\"question\":\"문서 업로드 후 처리 과정을 설명해주세요.\",\"category\":\"workflow\"},{\"question\":\"검색 기능은 어떤 방식으로 동작하나요?\",\"category\":\"search\"},{\"question\":\"사용자 권한 체계는 어떻게 구성되어 있나요?\",\"category\":\"auth\"},{\"question\":\"보고서 생성 기능에 대해 설명해주세요.\",\"category\":\"reports\"},{\"question\":\"문서의 보안 등급은 어떻게 분류되나요?\",\"category\":\"security\"},{\"question\":\"벡터 검색과 키워드 검색의 차이점은 무엇인가요?\",\"category\":\"search\"},{\"question\":\"조직 내 부서 관리는 어떻게 하나요?\",\"category\":\"organization\"},{\"question\":\"API 키를 생성하고 관리하는 방법을 알려주세요.\",\"category\":\"api\"},{\"question\":\"챗봇의 대화 맥락은 어떻게 유지되나요?\",\"category\":\"chat\"},{\"question\":\"문서 템플릿의 종류와 사용법을 설명해주세요.\",\"category\":\"templates\"},{\"question\":\"최근 업로드된 문서의 상태를 확인하려면 어떻게 하나요?\",\"category\":\"documents\"},{\"question\":\"프로젝트에 참여하는 부서를 추가하는 방법은?\",\"category\":\"projects\"}",
+    "error_log_excerpt": "pydantic_core._pydantic_core.ValidationError: 1 validation error for EvaluationLogResponse\nhallucination_evidence\n  Input should be a valid dictionary [type=dict_type, input_value=[], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/dict_type\nINFO:     192.168.10.39:44564 - \"GET /api/v1/evaluation/questions HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/evaluation/runs",
+    "label": "Eval Runs",
+    "status": "200",
+    "body_excerpt": "{\"items\":[{\"run_id\":\"c5424a7fc5f84819\",\"run_type\":\"scheduled\",\"created_at\":\"2026-05-19T18:00:10.528218Z\",\"question_count\":6,\"avg_context_relevancy\":0.5,\"avg_answer_faithfulness\":0.5,\"avg_answer_relevancy\":0.1667,\"avg_hallucination_score\":0.5,\"avg_composite_score\":0.4167,\"hallucination_count\":0},{\"run_id\":\"64b48b2e06414967\",\"run_type\":\"scheduled\",\"created_at\":\"2026-05-18T18:00:14.801452Z\",\"question_count\":6,\"avg_context_relevancy\":0.0,\"avg_answer_faithfulness\":0.0,\"avg_answer_relevancy\":0.0,\"avg_hallucination_score\":0.9167,\"avg_composite_score\":0.1833,\"hallucination_count\":0},{\"run_id\":\"ffbdf78252a84786\",\"run_type\":\"scheduled\",\"created_at\":\"2026-05-17T18:00:10.875933Z\",\"question_count\":6,\"avg_context_relevancy\":0.0,\"avg_answer_faithfulness\":0.3333,\"avg_answer_relevancy\":0.0833,\"avg_hallucin",
+    "error_log_excerpt": "pydantic_core._pydantic_core.ValidationError: 1 validation error for EvaluationLogResponse\nhallucination_evidence\n  Input should be a valid dictionary [type=dict_type, input_value=[], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/dict_type\nINFO:     192.168.10.39:44564 - \"GET /api/v1/evaluation/questions HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/evaluation/trend",
+    "label": "Eval Trend",
+    "status": "200",
+    "body_excerpt": "{\"data\":[{\"date\":\"2026-03-30\",\"avg_context_relevancy\":0.26,\"avg_answer_faithfulness\":0.5,\"avg_answer_relevancy\":0.4,\"avg_hallucination_score\":1.0,\"avg_composite_score\":0.515},{\"date\":\"2026-05-12\",\"avg_context_relevancy\":0.0,\"avg_answer_faithfulness\":0.3333,\"avg_answer_relevancy\":0.0833,\"avg_hallucination_score\":0.75,\"avg_composite_score\":0.2708},{\"date\":\"2026-05-13\",\"avg_context_relevancy\":0.0,\"avg_answer_faithfulness\":0.0,\"avg_answer_relevancy\":0.0,\"avg_hallucination_score\":0.75,\"avg_composite_score\":0.15},{\"date\":\"2026-05-14\",\"avg_context_relevancy\":0.0,\"avg_answer_faithfulness\":0.1667,\"avg_answer_relevancy\":0.0,\"avg_hallucination_score\":0.6667,\"avg_composite_score\":0.1833},{\"date\":\"2026-05-15\",\"avg_context_relevancy\":0.0,\"avg_answer_faithfulness\":0.0,\"avg_answer_relevancy\":0.0,\"avg_hall",
+    "error_log_excerpt": "pydantic_core._pydantic_core.ValidationError: 1 validation error for EvaluationLogResponse\nhallucination_evidence\n  Input should be a valid dictionary [type=dict_type, input_value=[], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/dict_type\nINFO:     192.168.10.39:44564 - \"GET /api/v1/evaluation/questions HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/evaluation/config",
+    "label": "Eval Config",
+    "status": "200",
+    "body_excerpt": "{\"id\":\"15fd5542-200a-48c1-9eb5-d502443a62fb\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"context_relevancy_weight\":0.25,\"answer_faithfulness_weight\":0.3,\"answer_relevancy_weight\":0.25,\"hallucination_weight\":0.2}\n",
+    "error_log_excerpt": "pydantic_core._pydantic_core.ValidationError: 1 validation error for EvaluationLogResponse\nhallucination_evidence\n  Input should be a valid dictionary [type=dict_type, input_value=[], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/dict_type\nINFO:     192.168.10.39:44564 - \"GET /api/v1/evaluation/questions HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/faq",
+    "label": "FAQ",
+    "status": "200",
+    "body_excerpt": "{\"items\":[{\"id\":\"399eb36c-4c96-4ceb-84a0-bd546b74b5bb\",\"search_scope_id\":null,\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"question\":\"FAQ 테스트입니다\",\"answer\":\"테스트입니다\",\"category\":null,\"display_order\":0,\"is_active\":true,\"created_at\":\"2026-05-20T02:11:43.894042Z\",\"updated_at\":\"2026-05-20T02:11:43.894042Z\"}],\"total\":1,\"page\":1,\"size\":20}\n",
+    "error_log_excerpt": "pydantic_core._pydantic_core.ValidationError: 1 validation error for EvaluationLogResponse\nhallucination_evidence\n  Input should be a valid dictionary [type=dict_type, input_value=[], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/dict_type\nINFO:     192.168.10.39:44564 - \"GET /api/v1/evaluation/questions HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/dashboard/metrics",
+    "label": "Dashboard Metrics",
+    "status": "200",
+    "body_excerpt": "{\"total_users\":132,\"active_users\":132,\"total_documents\":31,\"total_searches\":114,\"feature_usage\":{\"user\":114,\"assistant\":114}}\n",
+    "error_log_excerpt": "pydantic_core._pydantic_core.ValidationError: 1 validation error for EvaluationLogResponse\nhallucination_evidence\n  Input should be a valid dictionary [type=dict_type, input_value=[], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/dict_type\nINFO:     192.168.10.39:44564 - \"GET /api/v1/evaluation/questions HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/dashboard/response-times",
+    "label": "Dashboard Resp Times",
+    "status": "200",
+    "body_excerpt": "{\"timestamps\":[\"2026-05-19T06:00:00+00:00\",\"2026-05-19T08:00:00+00:00\"],\"values\":[2923.0,7835.0]}\n",
+    "error_log_excerpt": "    For further information visit https://errors.pydantic.dev/2.13/v/dict_type\nINFO:     192.168.10.39:44564 - \"GET /api/v1/evaluation/questions HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/dashboard/search-errors",
+    "label": "Dashboard Search Errors",
+    "status": "200",
+    "body_excerpt": "{\"dates\":[\"2026-05-13\",\"2026-05-14\",\"2026-05-15\",\"2026-05-16\",\"2026-05-17\",\"2026-05-18\",\"2026-05-19\"],\"error_counts\":[0,0,0,0,0,0,0]}\n",
+    "error_log_excerpt": "    For further information visit https://errors.pydantic.dev/2.13/v/dict_type\nINFO:     192.168.10.39:44564 - \"GET /api/v1/evaluation/questions HTTP/1.1\" 200 OK\nINFO:     192.168.10.39:33702 - \"GET /api/v1/dashboard/search-errors HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/dashboard/search-usage",
+    "label": "Dashboard Search Usage",
+    "status": "200",
+    "body_excerpt": "{\"total_requests\":4,\"total_responses\":4,\"total_failures\":0,\"period\":\"7d\"}\n",
+    "error_log_excerpt": "    For further information visit https://errors.pydantic.dev/2.13/v/dict_type\nINFO:     192.168.10.39:44564 - \"GET /api/v1/evaluation/questions HTTP/1.1\" 200 OK\nINFO:     192.168.10.39:33702 - \"GET /api/v1/dashboard/search-errors HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/dashboard/upload-status",
+    "label": "Dashboard Upload Status",
+    "status": "200",
+    "body_excerpt": "{\"completed\":31,\"processing\":0,\"waiting\":0,\"error\":0}\n",
+    "error_log_excerpt": "INFO:     192.168.10.39:33702 - \"GET /api/v1/dashboard/search-errors HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/audit-logs",
+    "label": "Audit Logs",
+    "status": "200",
+    "body_excerpt": "{\"items\":[{\"id\":\"864ac273-4119-483d-8817-757d0d8cdd8e\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"user_id\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"action\":\"auth.login\",\"resource_type\":\"auth\",\"resource_id\":null,\"details\":{\"username\":\"admin@example.com\"},\"ip_address\":\"192.168.10.39\",\"created_at\":\"2026-05-20T02:34:52.713523Z\"},{\"id\":\"7cb78a79-b231-45af-ab1a-858e46fad28c\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"user_id\":\"40811ca9-d838-4457-a8fe-a8a3cade70dd\",\"action\":\"auth.login\",\"resource_type\":\"auth\",\"resource_id\":null,\"details\":{\"username\":\"백성현\"},\"ip_address\":\"192.168.10.39\",\"created_at\":\"2026-05-20T02:28:47.897509Z\"},{\"id\":\"0eaa741a-fabc-4b71-9618-cb64785df7d5\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"user_id\":\"b54f6c80-85f4-4810-bf5a-ecc44",
+    "error_log_excerpt": "INFO:     192.168.10.39:33702 - \"GET /api/v1/dashboard/search-errors HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects",
+    "label": "Projects",
+    "status": "200",
+    "body_excerpt": "{\"items\":[{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"description\":\"연구과제 문서 관리\",\"allow_original_download\":false,\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"created_by\":\"de3587d2-600a-4248-b2dc-25ad133572d8\",\"created_at\":\"2026-04-22T04:15:32.069726Z\",\"updated_at\":\"2026-04-22T04:15:32.069726Z\"},{\"id\":\"9ca4ce6e-f047-4e80-8e71-6daee6f20fac\",\"name\":\"미래기술연구소 권한 프로젝트\",\"description\":\"권한 테스트 \",\"allow_original_download\":false,\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"created_by\":\"8baf9e41-20d9-4db6-b195-b04c8bab88f4\",\"created_at\":\"2026-03-19T04:02:53.075380Z\",\"updated_at\":\"2026-03-19T07:41:25.557391Z\"}],\"total\":2,\"page\":1,\"size\":20}\n",
+    "error_log_excerpt": "INFO:     192.168.10.39:33702 - \"GET /api/v1/dashboard/search-errors HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects/tree",
+    "label": "Projects Tree",
+    "status": "200",
+    "body_excerpt": "[{\"id\":\"9ca4ce6e-f047-4e80-8e71-6daee6f20fac\",\"name\":\"미래기술연구소 권한 프로젝트\",\"boards\":[]},{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"boards\":[]}]\n",
+    "error_log_excerpt": "INFO:     192.168.10.39:33702 - \"GET /api/v1/dashboard/search-errors HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reports",
+    "label": "Reports",
+    "status": "200",
+    "body_excerpt": "{\"items\":[],\"total\":0,\"page\":1,\"size\":20}\n",
+    "error_log_excerpt": "INFO:     192.168.10.39:33702 - \"GET /api/v1/dashboard/search-errors HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reports/templates",
+    "label": "Reports Templates",
+    "status": "200",
+    "body_excerpt": "{\"items\":[],\"total\":0,\"page\":1,\"size\":20}\n",
+    "error_log_excerpt": "INFO:     192.168.10.39:33702 - \"GET /api/v1/dashboard/search-errors HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/search-scopes",
+    "label": "Search Scopes",
+    "status": "200",
+    "body_excerpt": "{\"items\":[{\"id\":\"8a0f9f0f-c195-4a96-822c-f3fd7173e4b3\",\"name\":\"기본 범위 TEST\",\"description\":\"default\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"created_by\":\"de3587d2-600a-4248-b2dc-25ad133572d8\",\"project_id\":\"9ca4ce6e-f047-4e80-8e71-6daee6f20fac\",\"board_id\":null,\"folder_id\":null,\"location_path\":null,\"chatbot_enabled\":true,\"chatbot_faq_template\":null,\"qa_enabled\":true,\"qa_prompt_template\":null,\"qa_llm_model\":null,\"keyword_search_enabled\":false,\"agent_enabled\":false,\"chunk_size\":512,\"chunk_overlap\":50,\"title_weight\":0.3,\"keyword_weight\":0.3,\"content_weight\":0.4,\"max_results\":10,\"similarity_threshold\":0.7,\"created_at\":\"2026-04-22T05:11:59.890703Z\",\"updated_at\":\"2026-04-22T05:12:08.949716Z\"}],\"total\":1,\"page\":1,\"size\":20}\n",
+    "error_log_excerpt": "INFO:     192.168.10.39:33702 - \"GET /api/v1/dashboard/search-errors HTTP/1.1\" 200 OK"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users",
+    "label": "Users",
+    "status": "422",
+    "body_excerpt": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"query\",\"org_id\"],\"msg\":\"Field required\",\"input\":null}]}\n",
+    "error_log_excerpt": "(no error lines)"
+  }
+]

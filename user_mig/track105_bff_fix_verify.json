@@ -1,0 +1,90 @@
+{
+  "bff_results": [
+    {
+      "path": "/api/admin/docutil/evaluation/logs",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/evaluation/questions",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/evaluation/runs",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/evaluation/trend",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/evaluation/config",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/faq",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/dashboard/metrics",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/dashboard/response-times",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/dashboard/search-errors",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/dashboard/search-usage",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/dashboard/upload-status",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/audit-logs",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/projects",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/projects/tree",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/reports",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/reports/templates",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/search-scopes",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/docutil/users",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/knowledge-base/documents",
+      "status": "200"
+    },
+    {
+      "path": "/api/admin/knowledge-base/collections",
+      "status": "200"
+    },
+    {
+      "path": "/api/presentations/list",
+      "status": "500"
+    }
+  ],
+  "pass": 20,
+  "fail": 1
+}

@@ -1,0 +1,178 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/evaluation/logs",
+    "label": "Evaluation Logs",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:40.1859568Z\"}\n",
+    "error_log_excerpt": "[DocUtil HTTP circuit breaker] OPENED for 30s — status=500, exception=\n[DocUtil HTTP retry] attempt=1, delay=200ms, status=500, exception=\nfail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/evaluation/questions",
+    "label": "Evaluation Questions",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:41.6282518Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/evaluation/runs",
+    "label": "Evaluation Runs",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:43.1182601Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/evaluation/trend",
+    "label": "Evaluation Trend",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:44.6851245Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/evaluation/config",
+    "label": "Evaluation Config",
+    "status": "200",
+    "body_excerpt": "{\"id\":\"15fd5542-200a-48c1-9eb5-d502443a62fb\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"contextRelevancyWeight\":0.25,\"answerFaithfulnessWeight\":0.3,\"answerRelevancyWeight\":0.25,\"hallucinationWeight\":0.2}\n",
+    "error_log_excerpt": "         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/faq",
+    "label": "FAQ List",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:47.7720228Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/dashboard/metrics",
+    "label": "Dashboard Metrics",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:49.4112738Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/dashboard/response-times",
+    "label": "Dashboard Response Times",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:50.9143184Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/dashboard/search-errors",
+    "label": "Dashboard Search Errors",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:52.5034709Z\"}\n",
+    "error_log_excerpt": "      Start processing HTTP request GET http://docutil-api:8000/api/v1/dashboard/search-errors\nfail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      처리되지 않은 예외 발생: /api/admin/docutil/dashboard/search-errors\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Services.DocUtilClient.GetDashboardSearchErrorsAsync(String period, CancellationToken cancellationToken) in /src/Services/DocUtilClient.cs:line 1823\n         at AIAgentManagement.Controllers.AdminDocUtilOperationsController.GetDashboardSearchErrors(String period, CancellationToken ct) in /src/Controllers/AdminDocUtilOperationsController.cs:line 156\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/dashboard/search-usage",
+    "label": "Dashboard Search Usage",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:54.0047446Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/dashboard/upload-status",
+    "label": "Dashboard Upload Status",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:55.5192085Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/audit-logs",
+    "label": "Audit Logs",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:57.1398258Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/projects",
+    "label": "Projects List",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:32:58.6300319Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/projects/tree",
+    "label": "Projects Tree",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:33:00.2310889Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/reports",
+    "label": "Reports List",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:33:02.0841819Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/reports/templates",
+    "label": "Reports Templates",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:33:03.5505271Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/search-scopes",
+    "label": "Search Scopes",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:33:05.0981081Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/search-scopes/locations",
+    "label": "Search Scope Locations",
+    "status": "400",
+    "body_excerpt": "{\"message\":\"입력값이 올바르지 않습니다.\",\"errorCode\":\"VALIDATION_ERROR\",\"details\":{\"errors\":[\"locationType: The locationType field is required.\"]},\"timestamp\":\"2026-05-20T02:33:06.6863589Z\"}\n",
+    "error_log_excerpt": "         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/docutil/users",
+    "label": "DocUtil Users",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:33:08.2304743Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/knowledge-base/documents",
+    "label": "KB Documents",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"\\uC11C\\uBC84 \\uB0B4\\uBD80 \\uC624\\uB958\\uAC00 \\uBC1C\\uC0DD\\uD588\\uC2B5\\uB2C8\\uB2E4.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:33:09.8790893Z\"}\n",
+    "error_log_excerpt": "fail: AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware[0]\n      Polly.CircuitBreaker.BrokenCircuitException`1[System.Net.Http.HttpResponseMessage]: The circuit is now open and is not allowing calls.\n         at Polly.CircuitBreaker.AsyncCircuitBreakerEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, Boolean continueOnCapturedContext, ExceptionPredicates shouldHandleExceptionPredicates, ResultPredicates`1 shouldHandleResultPredicates, ICircuitController`1 breakerController)\n         at Polly.Retry.AsyncRetryEngine.ImplementationAsync[TResult](Func`3 action, Context context, CancellationToken cancellationToken, ExceptionPredicates shouldRetryExceptionPredicates, ResultPredicates`1 shouldRetryResultPredicates, Func`5 onRetryAsync, Int32 permittedRetryCount, IEnumerable`1 sleepDurationsEnumerable, Func`4 sleepDurationProvider, Boolean continueOnCapturedContext)\n      --- End of stack trace from previous location ---\n         at AIAgentManagement.Middleware.GlobalExceptionHandlerMiddleware.InvokeAsync(HttpContext context) in /src/Middleware/GlobalExceptionHandlerMiddleware.cs:line 21"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/knowledge-base/collections",
+    "label": "KB Collections",
+    "status": "200",
+    "body_excerpt": "[{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"description\":\"연구과제 문서 관리\"},{\"id\":\"9ca4ce6e-f047-4e80-8e71-6daee6f20fac\",\"name\":\"미래기술연구소 권한 프로젝트\",\"description\":\"권한 테스트 \"}]\n",
+    "error_log_excerpt": "(no error lines captured)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/presentations/list",
+    "label": "Presentations List",
+    "status": "500",
+    "body_excerpt": "{\"message\":\"프레젠테이션 목록을 불러오는데 실패했습니다.\",\"errorCode\":\"INTERNAL_SERVER_ERROR\",\"details\":null,\"timestamp\":\"2026-05-20T02:33:13.1360355Z\"}\n",
+    "error_log_excerpt": "fail: Microsoft.EntityFrameworkCore.Database.Command[20102]\n      Failed executing DbCommand (1ms) [Parameters=[p0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']\nfail: Microsoft.EntityFrameworkCore.Query[10100]\n      An exception occurred while iterating over the results of a query for context type 'AIAgentManagement.Data.AIAgentManagementDbContext'.\n      Npgsql.PostgresException (0x80004005): 42601: syntax error at or near \"100\"\n        Exception data:\n          Severity: ERROR\n          MessageText: syntax error at or near \"100\"\n          Routine: scanner_yyerror\n      Npgsql.PostgresException (0x80004005): 42601: syntax error at or near \"100\"\n        Exception data:\n          Severity: ERROR\n          MessageText: syntax error at or near \"100\"\n          Routine: scanner_yyerror\nfail: AIAgentManagement.Controllers.PresentationController[0]\n      Error getting presentations from PRESENTATIONS table\n      Npgsql.PostgresException (0x80004005): 42601: syntax error at or near \"100\"\n        Exception data:\n          Severity: ERROR\n          MessageText: syntax error at or near \"100\"\n          Routine: scanner_yyerror"
+  }
+]

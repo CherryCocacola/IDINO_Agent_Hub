@@ -1,0 +1,426 @@
+{
+  "track": "#101 DocUtil 운영자 8 기능 × 5계정 e2e 매트릭스",
+  "started_at": "2026-05-19 12:49:51",
+  "e2e_prefix": "e2e-t101-202605191249",
+  "accounts": [
+    "SuperAdmin",
+    "AdminDev",
+    "User",
+    "EmployeeHslee",
+    "EmployeeShbaek"
+  ],
+  "storage_states": {
+    "SuperAdmin": {
+      "ok": true,
+      "verify": "RECREATED",
+      "source": "재생성",
+      "path": "D:\\workspace\\IDINO_Agent_Hub\\tools\\ui_e2e\\full\\_state_track101_SuperAdmin_ah.json",
+      "note": "localStorage already has token (ls=OK)"
+    },
+    "AdminDev": {
+      "ok": true,
+      "verify": "RECREATED",
+      "source": "재생성",
+      "path": "D:\\workspace\\IDINO_Agent_Hub\\tools\\ui_e2e\\full\\_state_track101_AdminDev_ah.json",
+      "note": "localStorage already has token (ls=OK)"
+    },
+    "User": {
+      "ok": true,
+      "verify": "RECREATED",
+      "source": "재생성",
+      "path": "D:\\workspace\\IDINO_Agent_Hub\\tools\\ui_e2e\\full\\_state_track101_User_ah.json",
+      "note": "localStorage already has token (ls=OK)"
+    },
+    "EmployeeHslee": {
+      "ok": true,
+      "verify": "RECREATED",
+      "source": "재생성",
+      "path": "D:\\workspace\\IDINO_Agent_Hub\\tools\\ui_e2e\\full\\_state_track101_EmployeeHslee_ah.json",
+      "note": "localStorage already has token (ls=OK)"
+    },
+    "EmployeeShbaek": {
+      "ok": true,
+      "verify": "RECREATED",
+      "source": "재생성",
+      "path": "D:\\workspace\\IDINO_Agent_Hub\\tools\\ui_e2e\\full\\_state_track101_EmployeeShbaek_ah.json",
+      "note": "localStorage already has token (ls=OK)"
+    }
+  },
+  "superadmin_results": [
+    {
+      "scenario": "F1-DeptList",
+      "account": "SuperAdmin",
+      "status": "PASS",
+      "note": "발견 부서=['대표이사', '사업지원팀', '미래기술연구소', 'U-이노베이션본부', 'AI기술팀'], .list-group-item=10개",
+      "shot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/track101_8func/F1_DeptList.png"
+    },
+    {
+      "scenario": "F2-DeptCreate",
+      "account": "SuperAdmin",
+      "status": "PASS",
+      "note": "부서 생성 OK (post=[201], in_list=False)",
+      "cleanup": "done (DELETE by_id status=204, attempt=1)",
+      "created_dept_name": "e2e-t101-202605191249-dept",
+      "created_dept_id": "d61897c7-3d78-497d-ae76-b68a899cd881"
+    },
+    {
+      "scenario": "F3-UserDeptAssign",
+      "account": "SuperAdmin",
+      "status": "PASS",
+      "note": "부서 할당 OK (put=[200], user_id=ef5aa277-2ca0-4ab1-bd8f-41ef5e2540a5, orig_dept=None)",
+      "cleanup": "done (restored deptId=None, status=200)",
+      "selected_user_id": "ef5aa277-2ca0-4ab1-bd8f-41ef5e2540a5",
+      "selected_user_email": "user@example.com",
+      "original_departmentId": null,
+      "selected_dept_name": "대표이사"
+    },
+    {
+      "scenario": "F4-UserProjectAssign",
+      "account": "SuperAdmin",
+      "status": "PASS",
+      "note": "프로젝트 멤버 추가 OK (UI post=[201], target=admin@example.com, pid=c6955ce6-de61-4611-8eff-213c8101d82f)",
+      "cleanup": "done (DELETE status=204)",
+      "selected_project_name": "연구과제",
+      "selected_user_id": "aaf5e6b1-465b-4dde-85a0-2b880029704a",
+      "selected_user_email": "admin@example.com"
+    },
+    {
+      "scenario": "F5-DeptMembersView",
+      "account": "SuperAdmin",
+      "status": "PASS",
+      "note": "dept='대표이사', 멤버 키워드=True, 멤버 추가 버튼=True, 멤버/empty 영역=True",
+      "shot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/track101_8func/F5_DeptMembers.png"
+    },
+    {
+      "scenario": "F6-ProjectMembersView",
+      "account": "SuperAdmin",
+      "status": "PASS",
+      "note": "project='연구과제', 멤버 키워드=True, 멤버 추가 버튼=True, 멤버/empty 영역=True",
+      "shot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/track101_8func/F6_ProjectMembers.png"
+    },
+    {
+      "scenario": "F7-DocumentsFilterUI",
+      "account": "SuperAdmin",
+      "status": "PASS",
+      "note": "pending=True, dept_label=True, proj_label=True, selects=3",
+      "shot": "D:/workspace/IDINO_Agent_Hub/tools/ui_e2e/screenshots/track101_8func/F7_DocumentsFilterUI.png"
+    },
+    {
+      "scenario": "F8-ApiKeyCreateVerify",
+      "account": "SuperAdmin",
+      "status": "PASS",
+      "note": "키 발급+verify OK (post=[201], verify=[200])",
+      "cleanup": "done (BFF DELETE status=204)",
+      "created_llm_name": "e2e-t101-202605191249-llm"
+    }
+  ],
+  "redirect_guards": [
+    {
+      "scenario": "F1-RedirectGuard",
+      "account": "AdminDev",
+      "expected_role": "Developer",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F2-RedirectGuard",
+      "account": "AdminDev",
+      "expected_role": "Developer",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F3-RedirectGuard",
+      "account": "AdminDev",
+      "expected_role": "Developer",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F5-RedirectGuard",
+      "account": "AdminDev",
+      "expected_role": "Developer",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F4-RedirectGuard",
+      "account": "AdminDev",
+      "expected_role": "Developer",
+      "path": "/admin/docutil-projects",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F6-RedirectGuard",
+      "account": "AdminDev",
+      "expected_role": "Developer",
+      "path": "/admin/docutil-projects",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F7-RedirectGuard",
+      "account": "AdminDev",
+      "expected_role": "Developer",
+      "path": "/admin/docutil-documents-v2",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F8-RedirectGuard",
+      "account": "AdminDev",
+      "expected_role": "Developer",
+      "path": "/admin/docutil-api-keys",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F1-RedirectGuard",
+      "account": "User",
+      "expected_role": "User",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F2-RedirectGuard",
+      "account": "User",
+      "expected_role": "User",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F3-RedirectGuard",
+      "account": "User",
+      "expected_role": "User",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F5-RedirectGuard",
+      "account": "User",
+      "expected_role": "User",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F4-RedirectGuard",
+      "account": "User",
+      "expected_role": "User",
+      "path": "/admin/docutil-projects",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F6-RedirectGuard",
+      "account": "User",
+      "expected_role": "User",
+      "path": "/admin/docutil-projects",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F7-RedirectGuard",
+      "account": "User",
+      "expected_role": "User",
+      "path": "/admin/docutil-documents-v2",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F8-RedirectGuard",
+      "account": "User",
+      "expected_role": "User",
+      "path": "/admin/docutil-api-keys",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F1-RedirectGuard",
+      "account": "EmployeeHslee",
+      "expected_role": "User",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F2-RedirectGuard",
+      "account": "EmployeeHslee",
+      "expected_role": "User",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F3-RedirectGuard",
+      "account": "EmployeeHslee",
+      "expected_role": "User",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F5-RedirectGuard",
+      "account": "EmployeeHslee",
+      "expected_role": "User",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F4-RedirectGuard",
+      "account": "EmployeeHslee",
+      "expected_role": "User",
+      "path": "/admin/docutil-projects",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F6-RedirectGuard",
+      "account": "EmployeeHslee",
+      "expected_role": "User",
+      "path": "/admin/docutil-projects",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F7-RedirectGuard",
+      "account": "EmployeeHslee",
+      "expected_role": "User",
+      "path": "/admin/docutil-documents-v2",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F8-RedirectGuard",
+      "account": "EmployeeHslee",
+      "expected_role": "User",
+      "path": "/admin/docutil-api-keys",
+      "status": "PASS",
+      "note": "비Admin 권한차단 OK → /",
+      "final_url": "http://192.168.10.39:64005/"
+    },
+    {
+      "scenario": "F1-RedirectGuard",
+      "account": "EmployeeShbaek",
+      "expected_role": "Admin",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "Admin 진입 OK (path 유지)",
+      "final_url": "http://192.168.10.39:64005/admin/docutil-departments"
+    },
+    {
+      "scenario": "F2-RedirectGuard",
+      "account": "EmployeeShbaek",
+      "expected_role": "Admin",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "Admin 진입 OK (path 유지)",
+      "final_url": "http://192.168.10.39:64005/admin/docutil-departments"
+    },
+    {
+      "scenario": "F3-RedirectGuard",
+      "account": "EmployeeShbaek",
+      "expected_role": "Admin",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "Admin 진입 OK (path 유지)",
+      "final_url": "http://192.168.10.39:64005/admin/docutil-departments"
+    },
+    {
+      "scenario": "F5-RedirectGuard",
+      "account": "EmployeeShbaek",
+      "expected_role": "Admin",
+      "path": "/admin/docutil-departments",
+      "status": "PASS",
+      "note": "Admin 진입 OK (path 유지)",
+      "final_url": "http://192.168.10.39:64005/admin/docutil-departments"
+    },
+    {
+      "scenario": "F4-RedirectGuard",
+      "account": "EmployeeShbaek",
+      "expected_role": "Admin",
+      "path": "/admin/docutil-projects",
+      "status": "PASS",
+      "note": "Admin 진입 OK (path 유지)",
+      "final_url": "http://192.168.10.39:64005/admin/docutil-projects"
+    },
+    {
+      "scenario": "F6-RedirectGuard",
+      "account": "EmployeeShbaek",
+      "expected_role": "Admin",
+      "path": "/admin/docutil-projects",
+      "status": "PASS",
+      "note": "Admin 진입 OK (path 유지)",
+      "final_url": "http://192.168.10.39:64005/admin/docutil-projects"
+    },
+    {
+      "scenario": "F7-RedirectGuard",
+      "account": "EmployeeShbaek",
+      "expected_role": "Admin",
+      "path": "/admin/docutil-documents-v2",
+      "status": "PASS",
+      "note": "Admin 진입 OK (path 유지)",
+      "final_url": "http://192.168.10.39:64005/admin/docutil-documents-v2"
+    },
+    {
+      "scenario": "F8-RedirectGuard",
+      "account": "EmployeeShbaek",
+      "expected_role": "Admin",
+      "path": "/admin/docutil-api-keys",
+      "status": "PASS",
+      "note": "Admin 진입 OK (path 유지)",
+      "final_url": "http://192.168.10.39:64005/admin/docutil-api-keys"
+    }
+  ],
+  "summary": {
+    "superadmin": {
+      "PASS": 8,
+      "FAIL": 0,
+      "SKIP": 0
+    },
+    "redirect_guards": {
+      "PASS": 32,
+      "FAIL": 0,
+      "SKIP": 0
+    }
+  },
+  "pre_cleanup": {
+    "depts_removed": [],
+    "keys_removed": [],
+    "errors": []
+  },
+  "finished_at": "2026-05-19 12:52:29",
+  "cleanup_residue": []
+}

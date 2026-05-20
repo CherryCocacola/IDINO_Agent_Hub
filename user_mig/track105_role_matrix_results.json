@@ -1,0 +1,235 @@
+{
+  "admin@example.com": [
+    {
+      "path": "/projects/tree",
+      "label": "GET /projects/tree (핵심 fix)",
+      "status": "200",
+      "total": 2,
+      "items": 2
+    },
+    {
+      "path": "/projects",
+      "label": "GET /projects",
+      "status": "200",
+      "total": 2,
+      "items": 2
+    },
+    {
+      "path": "/reports",
+      "label": "GET /reports",
+      "status": "200",
+      "total": 0,
+      "items": 0
+    },
+    {
+      "path": "/search-scopes",
+      "label": "GET /search-scopes",
+      "status": "200",
+      "total": 1,
+      "items": 1
+    },
+    {
+      "path": "/templates",
+      "label": "GET /templates",
+      "status": "200",
+      "total": 1,
+      "items": 1
+    },
+    {
+      "path": "/documents?page=1&size=10",
+      "label": "회귀: /documents (#104)",
+      "status": "200",
+      "total": 31,
+      "items": 10
+    },
+    {
+      "path": "/documents-v2?page=1&size=10",
+      "label": "회귀: /documents-v2 (#104)",
+      "status": "404",
+      "total": null,
+      "items": null
+    },
+    {
+      "path": "/agents?page=1&size=10",
+      "label": "회귀: /agents (#104)",
+      "status": "200",
+      "total": 4,
+      "items": 4
+    }
+  ],
+  "dev@example.com": null,
+  "user@example.com": [
+    {
+      "path": "/projects/tree",
+      "label": "GET /projects/tree (핵심 fix)",
+      "status": "200",
+      "total": 2,
+      "items": 2
+    },
+    {
+      "path": "/projects",
+      "label": "GET /projects",
+      "status": "200",
+      "total": 2,
+      "items": 2
+    },
+    {
+      "path": "/reports",
+      "label": "GET /reports",
+      "status": "200",
+      "total": 0,
+      "items": 0
+    },
+    {
+      "path": "/search-scopes",
+      "label": "GET /search-scopes",
+      "status": "200",
+      "total": 1,
+      "items": 1
+    },
+    {
+      "path": "/templates",
+      "label": "GET /templates",
+      "status": "200",
+      "total": 1,
+      "items": 1
+    },
+    {
+      "path": "/documents?page=1&size=10",
+      "label": "회귀: /documents (#104)",
+      "status": "200",
+      "total": 28,
+      "items": 10
+    },
+    {
+      "path": "/documents-v2?page=1&size=10",
+      "label": "회귀: /documents-v2 (#104)",
+      "status": "404",
+      "total": null,
+      "items": null
+    },
+    {
+      "path": "/agents?page=1&size=10",
+      "label": "회귀: /agents (#104)",
+      "status": "200",
+      "total": 4,
+      "items": 4
+    }
+  ],
+  "hslee": [
+    {
+      "path": "/projects/tree",
+      "label": "GET /projects/tree (핵심 fix)",
+      "status": "200",
+      "total": 2,
+      "items": 2
+    },
+    {
+      "path": "/projects",
+      "label": "GET /projects",
+      "status": "200",
+      "total": 2,
+      "items": 2
+    },
+    {
+      "path": "/reports",
+      "label": "GET /reports",
+      "status": "200",
+      "total": 5,
+      "items": 5
+    },
+    {
+      "path": "/search-scopes",
+      "label": "GET /search-scopes",
+      "status": "200",
+      "total": 1,
+      "items": 1
+    },
+    {
+      "path": "/templates",
+      "label": "GET /templates",
+      "status": "200",
+      "total": 1,
+      "items": 1
+    },
+    {
+      "path": "/documents?page=1&size=10",
+      "label": "회귀: /documents (#104)",
+      "status": "200",
+      "total": 28,
+      "items": 10
+    },
+    {
+      "path": "/documents-v2?page=1&size=10",
+      "label": "회귀: /documents-v2 (#104)",
+      "status": "404",
+      "total": null,
+      "items": null
+    },
+    {
+      "path": "/agents?page=1&size=10",
+      "label": "회귀: /agents (#104)",
+      "status": "200",
+      "total": 4,
+      "items": 4
+    }
+  ],
+  "shbaek": [
+    {
+      "path": "/projects/tree",
+      "label": "GET /projects/tree (핵심 fix)",
+      "status": "200",
+      "total": 2,
+      "items": 2
+    },
+    {
+      "path": "/projects",
+      "label": "GET /projects",
+      "status": "200",
+      "total": 2,
+      "items": 2
+    },
+    {
+      "path": "/reports",
+      "label": "GET /reports",
+      "status": "200",
+      "total": 2,
+      "items": 2
+    },
+    {
+      "path": "/search-scopes",
+      "label": "GET /search-scopes",
+      "status": "200",
+      "total": 1,
+      "items": 1
+    },
+    {
+      "path": "/templates",
+      "label": "GET /templates",
+      "status": "200",
+      "total": 1,
+      "items": 1
+    },
+    {
+      "path": "/documents?page=1&size=10",
+      "label": "회귀: /documents (#104)",
+      "status": "200",
+      "total": 31,
+      "items": 10
+    },
+    {
+      "path": "/documents-v2?page=1&size=10",
+      "label": "회귀: /documents-v2 (#104)",
+      "status": "404",
+      "total": null,
+      "items": null
+    },
+    {
+      "path": "/agents?page=1&size=10",
+      "label": "회귀: /agents (#104)",
+      "status": "200",
+      "total": 4,
+      "items": 4
+    }
+  ]
+}

@@ -1,0 +1,5954 @@
+{
+  "extracted_at": "2026-05-20",
+  "track": "#105 Phase B.1",
+  "docutil": {
+    "total": 135,
+    "endpoints": [
+      {
+        "system": "docutil",
+        "module": "admin",
+        "function": "get_dashboard_metrics",
+        "method": "GET",
+        "path": "/dashboard/metrics",
+        "full_path": "/api/v1/dashboard/metrics",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\admin\\router.py",
+        "line": 39
+      },
+      {
+        "system": "docutil",
+        "module": "admin",
+        "function": "get_search_usage",
+        "method": "GET",
+        "path": "/dashboard/search-usage",
+        "full_path": "/api/v1/dashboard/search-usage",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\admin\\router.py",
+        "line": 60
+      },
+      {
+        "system": "docutil",
+        "module": "admin",
+        "function": "get_upload_status",
+        "method": "GET",
+        "path": "/dashboard/upload-status",
+        "full_path": "/api/v1/dashboard/upload-status",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\admin\\router.py",
+        "line": 82
+      },
+      {
+        "system": "docutil",
+        "module": "admin",
+        "function": "get_response_times",
+        "method": "GET",
+        "path": "/dashboard/response-times",
+        "full_path": "/api/v1/dashboard/response-times",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\admin\\router.py",
+        "line": 103
+      },
+      {
+        "system": "docutil",
+        "module": "admin",
+        "function": "get_search_errors",
+        "method": "GET",
+        "path": "/dashboard/search-errors",
+        "full_path": "/api/v1/dashboard/search-errors",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\admin\\router.py",
+        "line": 125
+      },
+      {
+        "system": "docutil",
+        "module": "agents",
+        "function": "list_agents",
+        "method": "GET",
+        "path": "/agents",
+        "full_path": "/api/v1/agents",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\agents\\router.py",
+        "line": 56
+      },
+      {
+        "system": "docutil",
+        "module": "agents",
+        "function": "create_agent",
+        "method": "POST",
+        "path": "/agents",
+        "full_path": "/api/v1/agents",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\agents\\router.py",
+        "line": 100
+      },
+      {
+        "system": "docutil",
+        "module": "agents",
+        "function": "get_agent",
+        "method": "GET",
+        "path": "/agents/{agent_id}",
+        "full_path": "/api/v1/agents/{agent_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\agents\\router.py",
+        "line": 131
+      },
+      {
+        "system": "docutil",
+        "module": "agents",
+        "function": "update_agent",
+        "method": "PUT",
+        "path": "/agents/{agent_id}",
+        "full_path": "/api/v1/agents/{agent_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\agents\\router.py",
+        "line": 161
+      },
+      {
+        "system": "docutil",
+        "module": "agents",
+        "function": "delete_agent",
+        "method": "DELETE",
+        "path": "/agents/{agent_id}",
+        "full_path": "/api/v1/agents/{agent_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\agents\\router.py",
+        "line": 194
+      },
+      {
+        "system": "docutil",
+        "module": "api_keys",
+        "function": "list_api_keys",
+        "method": "GET",
+        "path": "/api-keys",
+        "full_path": "/api/v1/api-keys",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\api_keys\\router.py",
+        "line": 81
+      },
+      {
+        "system": "docutil",
+        "module": "api_keys",
+        "function": "create_api_key",
+        "method": "POST",
+        "path": "/api-keys",
+        "full_path": "/api/v1/api-keys",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\api_keys\\router.py",
+        "line": 118
+      },
+      {
+        "system": "docutil",
+        "module": "api_keys",
+        "function": "delete_api_key",
+        "method": "DELETE",
+        "path": "/api-keys/{key_id}",
+        "full_path": "/api/v1/api-keys/{key_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\api_keys\\router.py",
+        "line": 153
+      },
+      {
+        "system": "docutil",
+        "module": "api_keys",
+        "function": "verify_api_key",
+        "method": "POST",
+        "path": "/api-keys/{key_id}/verify",
+        "full_path": "/api/v1/api-keys/{key_id}/verify",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\api_keys\\router.py",
+        "line": 182
+      },
+      {
+        "system": "docutil",
+        "module": "audit",
+        "function": "list_audit_logs",
+        "method": "GET",
+        "path": "/audit-logs",
+        "full_path": "/api/v1/audit-logs",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\audit\\router.py",
+        "line": 37
+      },
+      {
+        "system": "docutil",
+        "module": "audit",
+        "function": "export_audit_logs",
+        "method": "GET",
+        "path": "/audit-logs/export",
+        "full_path": "/api/v1/audit-logs/export",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\audit\\router.py",
+        "line": 86
+      },
+      {
+        "system": "docutil",
+        "module": "auth",
+        "function": "login",
+        "method": "POST",
+        "path": "/login",
+        "full_path": "/api/v1/login",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\auth\\router.py",
+        "line": 62
+      },
+      {
+        "system": "docutil",
+        "module": "auth",
+        "function": "logout",
+        "method": "POST",
+        "path": "/logout",
+        "full_path": "/api/v1/logout",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\auth\\router.py",
+        "line": 140
+      },
+      {
+        "system": "docutil",
+        "module": "auth",
+        "function": "refresh",
+        "method": "POST",
+        "path": "/refresh",
+        "full_path": "/api/v1/refresh",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\auth\\router.py",
+        "line": 216
+      },
+      {
+        "system": "docutil",
+        "module": "auth",
+        "function": "password_reset_request",
+        "method": "POST",
+        "path": "/password/reset-request",
+        "full_path": "/api/v1/password/reset-request",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\auth\\router.py",
+        "line": 268
+      },
+      {
+        "system": "docutil",
+        "module": "auth",
+        "function": "password_reset",
+        "method": "POST",
+        "path": "/password/reset",
+        "full_path": "/api/v1/password/reset",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\auth\\router.py",
+        "line": 317
+      },
+      {
+        "system": "docutil",
+        "module": "chat",
+        "function": "list_sessions",
+        "method": "GET",
+        "path": "/chat/sessions",
+        "full_path": "/api/v1/chat/sessions",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\chat\\router.py",
+        "line": 47
+      },
+      {
+        "system": "docutil",
+        "module": "chat",
+        "function": "create_session",
+        "method": "POST",
+        "path": "/chat/sessions",
+        "full_path": "/api/v1/chat/sessions",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\chat\\router.py",
+        "line": 87
+      },
+      {
+        "system": "docutil",
+        "module": "chat",
+        "function": "get_session",
+        "method": "GET",
+        "path": "/chat/sessions/{session_id}",
+        "full_path": "/api/v1/chat/sessions/{session_id}",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\chat\\router.py",
+        "line": 118
+      },
+      {
+        "system": "docutil",
+        "module": "chat",
+        "function": "delete_session",
+        "method": "DELETE",
+        "path": "/chat/sessions/{session_id}",
+        "full_path": "/api/v1/chat/sessions/{session_id}",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\chat\\router.py",
+        "line": 156
+      },
+      {
+        "system": "docutil",
+        "module": "chat",
+        "function": "get_messages",
+        "method": "GET",
+        "path": "/chat/sessions/{session_id}/messages",
+        "full_path": "/api/v1/chat/sessions/{session_id}/messages",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\chat\\router.py",
+        "line": 194
+      },
+      {
+        "system": "docutil",
+        "module": "chat",
+        "function": "send_message",
+        "method": "POST",
+        "path": "/chat/sessions/{session_id}/messages",
+        "full_path": "/api/v1/chat/sessions/{session_id}/messages",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\chat\\router.py",
+        "line": 249
+      },
+      {
+        "system": "docutil",
+        "module": "documents",
+        "function": "list_documents",
+        "method": "GET",
+        "path": "/documents",
+        "full_path": "/api/v1/documents",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\documents\\router.py",
+        "line": 129
+      },
+      {
+        "system": "docutil",
+        "module": "documents",
+        "function": "upload_document",
+        "method": "POST",
+        "path": "/documents/upload",
+        "full_path": "/api/v1/documents/upload",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\documents\\router.py",
+        "line": 182
+      },
+      {
+        "system": "docutil",
+        "module": "documents",
+        "function": "bulk_upload_documents",
+        "method": "POST",
+        "path": "/documents/bulk-upload",
+        "full_path": "/api/v1/documents/bulk-upload",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\documents\\router.py",
+        "line": 253
+      },
+      {
+        "system": "docutil",
+        "module": "documents",
+        "function": "get_document",
+        "method": "GET",
+        "path": "/documents/{document_id}",
+        "full_path": "/api/v1/documents/{document_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\documents\\router.py",
+        "line": 313
+      },
+      {
+        "system": "docutil",
+        "module": "documents",
+        "function": "delete_document",
+        "method": "DELETE",
+        "path": "/documents/{document_id}",
+        "full_path": "/api/v1/documents/{document_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\documents\\router.py",
+        "line": 352
+      },
+      {
+        "system": "docutil",
+        "module": "documents",
+        "function": "download_document",
+        "method": "GET",
+        "path": "/documents/{document_id}/download",
+        "full_path": "/api/v1/documents/{document_id}/download",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\documents\\router.py",
+        "line": 389
+      },
+      {
+        "system": "docutil",
+        "module": "documents",
+        "function": "get_document_chunks",
+        "method": "GET",
+        "path": "/documents/{document_id}/chunks",
+        "full_path": "/api/v1/documents/{document_id}/chunks",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\documents\\router.py",
+        "line": 455
+      },
+      {
+        "system": "docutil",
+        "module": "documents",
+        "function": "upload_progress",
+        "method": "GET",
+        "path": "/documents/upload-progress/{job_id}",
+        "full_path": "/api/v1/documents/upload-progress/{job_id}",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\documents\\router.py",
+        "line": 484
+      },
+      {
+        "system": "docutil",
+        "module": "documents_v2",
+        "function": "create_document",
+        "method": "POST",
+        "path": "/documents",
+        "full_path": "/api/v1/documents",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "editor",
+          "member"
+        ],
+        "helper": "_require_author",
+        "source_file": "docutil\\backend\\app\\modules\\documents_v2\\router.py",
+        "line": 137
+      },
+      {
+        "system": "docutil",
+        "module": "documents_v2",
+        "function": "list_documents",
+        "method": "GET",
+        "path": "/documents",
+        "full_path": "/api/v1/documents",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_reader",
+        "source_file": "docutil\\backend\\app\\modules\\documents_v2\\router.py",
+        "line": 222
+      },
+      {
+        "system": "docutil",
+        "module": "documents_v2",
+        "function": "get_document",
+        "method": "GET",
+        "path": "/documents/{document_id}",
+        "full_path": "/api/v1/documents/{document_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_reader",
+        "source_file": "docutil\\backend\\app\\modules\\documents_v2\\router.py",
+        "line": 281
+      },
+      {
+        "system": "docutil",
+        "module": "documents_v2",
+        "function": "patch_document",
+        "method": "PATCH",
+        "path": "/documents/{document_id}",
+        "full_path": "/api/v1/documents/{document_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "editor",
+          "member"
+        ],
+        "helper": "_require_author",
+        "source_file": "docutil\\backend\\app\\modules\\documents_v2\\router.py",
+        "line": 329
+      },
+      {
+        "system": "docutil",
+        "module": "documents_v2",
+        "function": "request_export",
+        "method": "POST",
+        "path": "/documents/{document_id}/export",
+        "full_path": "/api/v1/documents/{document_id}/export",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "editor",
+          "member"
+        ],
+        "helper": "_require_author",
+        "source_file": "docutil\\backend\\app\\modules\\documents_v2\\router.py",
+        "line": 438
+      },
+      {
+        "system": "docutil",
+        "module": "documents_v2",
+        "function": "get_export_status_endpoint",
+        "method": "GET",
+        "path": "/documents/exports/{job_id}",
+        "full_path": "/api/v1/documents/exports/{job_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_reader",
+        "source_file": "docutil\\backend\\app\\modules\\documents_v2\\router.py",
+        "line": 511
+      },
+      {
+        "system": "docutil",
+        "module": "documents_v2",
+        "function": "download_export",
+        "method": "GET",
+        "path": "/documents/exports/{job_id}/download",
+        "full_path": "/api/v1/documents/exports/{job_id}/download",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_reader",
+        "source_file": "docutil\\backend\\app\\modules\\documents_v2\\router.py",
+        "line": 605
+      },
+      {
+        "system": "docutil",
+        "module": "evaluation",
+        "function": "list_runs",
+        "method": "GET",
+        "path": "/evaluation/runs",
+        "full_path": "/api/v1/evaluation/runs",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\evaluation\\router.py",
+        "line": 56
+      },
+      {
+        "system": "docutil",
+        "module": "evaluation",
+        "function": "list_logs",
+        "method": "GET",
+        "path": "/evaluation/logs",
+        "full_path": "/api/v1/evaluation/logs",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\evaluation\\router.py",
+        "line": 80
+      },
+      {
+        "system": "docutil",
+        "module": "evaluation",
+        "function": "get_trend",
+        "method": "GET",
+        "path": "/evaluation/trend",
+        "full_path": "/api/v1/evaluation/trend",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\evaluation\\router.py",
+        "line": 124
+      },
+      {
+        "system": "docutil",
+        "module": "evaluation",
+        "function": "trigger_run",
+        "method": "POST",
+        "path": "/evaluation/run",
+        "full_path": "/api/v1/evaluation/run",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\evaluation\\router.py",
+        "line": 148
+      },
+      {
+        "system": "docutil",
+        "module": "evaluation",
+        "function": "get_config",
+        "method": "GET",
+        "path": "/evaluation/config",
+        "full_path": "/api/v1/evaluation/config",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\evaluation\\router.py",
+        "line": 179
+      },
+      {
+        "system": "docutil",
+        "module": "evaluation",
+        "function": "update_config",
+        "method": "PUT",
+        "path": "/evaluation/config",
+        "full_path": "/api/v1/evaluation/config",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\evaluation\\router.py",
+        "line": 205
+      },
+      {
+        "system": "docutil",
+        "module": "evaluation",
+        "function": "get_questions",
+        "method": "GET",
+        "path": "/evaluation/questions",
+        "full_path": "/api/v1/evaluation/questions",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\evaluation\\router.py",
+        "line": 242
+      },
+      {
+        "system": "docutil",
+        "module": "faq",
+        "function": "list_faqs",
+        "method": "GET",
+        "path": "/faq",
+        "full_path": "/api/v1/faq",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\faq\\router.py",
+        "line": 38
+      },
+      {
+        "system": "docutil",
+        "module": "faq",
+        "function": "create_faq",
+        "method": "POST",
+        "path": "/faq",
+        "full_path": "/api/v1/faq",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\faq\\router.py",
+        "line": 87
+      },
+      {
+        "system": "docutil",
+        "module": "faq",
+        "function": "get_faq",
+        "method": "GET",
+        "path": "/faq/{faq_id}",
+        "full_path": "/api/v1/faq/{faq_id}",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\faq\\router.py",
+        "line": 110
+      },
+      {
+        "system": "docutil",
+        "module": "faq",
+        "function": "update_faq",
+        "method": "PUT",
+        "path": "/faq/{faq_id}",
+        "full_path": "/api/v1/faq/{faq_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\faq\\router.py",
+        "line": 133
+      },
+      {
+        "system": "docutil",
+        "module": "faq",
+        "function": "delete_faq",
+        "method": "DELETE",
+        "path": "/faq/{faq_id}",
+        "full_path": "/api/v1/faq/{faq_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\faq\\router.py",
+        "line": 161
+      },
+      {
+        "system": "docutil",
+        "module": "organizations",
+        "function": "get_organization",
+        "method": "GET",
+        "path": "/{org_id}",
+        "full_path": "/api/v1/{org_id}",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\organizations\\router.py",
+        "line": 45
+      },
+      {
+        "system": "docutil",
+        "module": "organizations",
+        "function": "update_organization",
+        "method": "PUT",
+        "path": "/{org_id}",
+        "full_path": "/api/v1/{org_id}",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\organizations\\router.py",
+        "line": 60
+      },
+      {
+        "system": "docutil",
+        "module": "organizations",
+        "function": "list_departments",
+        "method": "GET",
+        "path": "/{org_id}/departments",
+        "full_path": "/api/v1/{org_id}/departments",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\organizations\\router.py",
+        "line": 81
+      },
+      {
+        "system": "docutil",
+        "module": "organizations",
+        "function": "create_department",
+        "method": "POST",
+        "path": "/{org_id}/departments",
+        "full_path": "/api/v1/{org_id}/departments",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\organizations\\router.py",
+        "line": 101
+      },
+      {
+        "system": "docutil",
+        "module": "organizations",
+        "function": "update_department",
+        "method": "PUT",
+        "path": "/{org_id}/departments/{dept_id}",
+        "full_path": "/api/v1/{org_id}/departments/{dept_id}",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\organizations\\router.py",
+        "line": 117
+      },
+      {
+        "system": "docutil",
+        "module": "organizations",
+        "function": "delete_department",
+        "method": "DELETE",
+        "path": "/{org_id}/departments/{dept_id}",
+        "full_path": "/api/v1/{org_id}/departments/{dept_id}",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\organizations\\router.py",
+        "line": 143
+      },
+      {
+        "system": "docutil",
+        "module": "organizations",
+        "function": "get_current_quotas",
+        "method": "GET",
+        "path": "/{org_id}/quotas/current",
+        "full_path": "/api/v1/{org_id}/quotas/current",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\organizations\\router.py",
+        "line": 177
+      },
+      {
+        "system": "docutil",
+        "module": "organizations",
+        "function": "update_quota_limit",
+        "method": "PUT",
+        "path": "/{org_id}/quotas/{quota_type}",
+        "full_path": "/api/v1/{org_id}/quotas/{quota_type}",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\organizations\\router.py",
+        "line": 235
+      },
+      {
+        "system": "docutil",
+        "module": "organizations",
+        "function": "list_department_members",
+        "method": "GET",
+        "path": "/{org_id}/departments/{dept_id}/members",
+        "full_path": "/api/v1/{org_id}/departments/{dept_id}/members",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\organizations\\router.py",
+        "line": 311
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "list_projects",
+        "method": "GET",
+        "path": "/projects",
+        "full_path": "/api/v1/projects",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 61
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "get_projects_tree",
+        "method": "GET",
+        "path": "/projects/tree",
+        "full_path": "/api/v1/projects/tree",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 80
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "create_project",
+        "method": "POST",
+        "path": "/projects",
+        "full_path": "/api/v1/projects",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 101
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "get_project",
+        "method": "GET",
+        "path": "/projects/{project_id}",
+        "full_path": "/api/v1/projects/{project_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 124
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "update_project",
+        "method": "PUT",
+        "path": "/projects/{project_id}",
+        "full_path": "/api/v1/projects/{project_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 141
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "delete_project",
+        "method": "DELETE",
+        "path": "/projects/{project_id}",
+        "full_path": "/api/v1/projects/{project_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 166
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "list_boards",
+        "method": "GET",
+        "path": "/projects/{project_id}/boards",
+        "full_path": "/api/v1/projects/{project_id}/boards",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 191
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "create_board",
+        "method": "POST",
+        "path": "/projects/{project_id}/boards",
+        "full_path": "/api/v1/projects/{project_id}/boards",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 210
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "get_board",
+        "method": "GET",
+        "path": "/projects/{project_id}/boards/{board_id}",
+        "full_path": "/api/v1/projects/{project_id}/boards/{board_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 230
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "update_board",
+        "method": "PUT",
+        "path": "/projects/{project_id}/boards/{board_id}",
+        "full_path": "/api/v1/projects/{project_id}/boards/{board_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 246
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "delete_board",
+        "method": "DELETE",
+        "path": "/projects/{project_id}/boards/{board_id}",
+        "full_path": "/api/v1/projects/{project_id}/boards/{board_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 267
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "list_folders",
+        "method": "GET",
+        "path": "/boards/{board_id}/folders",
+        "full_path": "/api/v1/boards/{board_id}/folders",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 288
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "create_folder",
+        "method": "POST",
+        "path": "/boards/{board_id}/folders",
+        "full_path": "/api/v1/boards/{board_id}/folders",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 307
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "get_folder",
+        "method": "GET",
+        "path": "/boards/{board_id}/folders/{folder_id}",
+        "full_path": "/api/v1/boards/{board_id}/folders/{folder_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 327
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "update_folder",
+        "method": "PUT",
+        "path": "/boards/{board_id}/folders/{folder_id}",
+        "full_path": "/api/v1/boards/{board_id}/folders/{folder_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 343
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "delete_folder",
+        "method": "DELETE",
+        "path": "/boards/{board_id}/folders/{folder_id}",
+        "full_path": "/api/v1/boards/{board_id}/folders/{folder_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 364
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "list_project_members",
+        "method": "GET",
+        "path": "/projects/{project_id}/members",
+        "full_path": "/api/v1/projects/{project_id}/members",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 382
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "add_project_member",
+        "method": "POST",
+        "path": "/projects/{project_id}/members",
+        "full_path": "/api/v1/projects/{project_id}/members",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 422
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "remove_project_member",
+        "method": "DELETE",
+        "path": "/projects/{project_id}/members/{user_id}",
+        "full_path": "/api/v1/projects/{project_id}/members/{user_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 467
+      },
+      {
+        "system": "docutil",
+        "module": "projects",
+        "function": "list_project_departments",
+        "method": "GET",
+        "path": "/projects/{project_id}/departments",
+        "full_path": "/api/v1/projects/{project_id}/departments",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\projects\\router.py",
+        "line": 504
+      },
+      {
+        "system": "docutil",
+        "module": "reports",
+        "function": "list_templates",
+        "method": "GET",
+        "path": "/reports/templates",
+        "full_path": "/api/v1/reports/templates",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\reports\\router.py",
+        "line": 205
+      },
+      {
+        "system": "docutil",
+        "module": "reports",
+        "function": "create_template",
+        "method": "POST",
+        "path": "/reports/templates",
+        "full_path": "/api/v1/reports/templates",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\reports\\router.py",
+        "line": 253
+      },
+      {
+        "system": "docutil",
+        "module": "reports",
+        "function": "get_template",
+        "method": "GET",
+        "path": "/reports/templates/{template_id}",
+        "full_path": "/api/v1/reports/templates/{template_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\reports\\router.py",
+        "line": 278
+      },
+      {
+        "system": "docutil",
+        "module": "reports",
+        "function": "update_template",
+        "method": "PUT",
+        "path": "/reports/templates/{template_id}",
+        "full_path": "/api/v1/reports/templates/{template_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\reports\\router.py",
+        "line": 311
+      },
+      {
+        "system": "docutil",
+        "module": "reports",
+        "function": "delete_template",
+        "method": "DELETE",
+        "path": "/reports/templates/{template_id}",
+        "full_path": "/api/v1/reports/templates/{template_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\reports\\router.py",
+        "line": 336
+      },
+      {
+        "system": "docutil",
+        "module": "reports",
+        "function": "generate_report",
+        "method": "POST",
+        "path": "/reports/generate",
+        "full_path": "/api/v1/reports/generate",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\reports\\router.py",
+        "line": 370
+      },
+      {
+        "system": "docutil",
+        "module": "reports",
+        "function": "list_reports",
+        "method": "GET",
+        "path": "/reports",
+        "full_path": "/api/v1/reports",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\reports\\router.py",
+        "line": 399
+      },
+      {
+        "system": "docutil",
+        "module": "reports",
+        "function": "get_report",
+        "method": "GET",
+        "path": "/reports/{report_id}",
+        "full_path": "/api/v1/reports/{report_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\reports\\router.py",
+        "line": 441
+      },
+      {
+        "system": "docutil",
+        "module": "reports",
+        "function": "delete_report",
+        "method": "DELETE",
+        "path": "/reports/{report_id}",
+        "full_path": "/api/v1/reports/{report_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\reports\\router.py",
+        "line": 475
+      },
+      {
+        "system": "docutil",
+        "module": "reports",
+        "function": "download_report",
+        "method": "GET",
+        "path": "/reports/{report_id}/download",
+        "full_path": "/api/v1/reports/{report_id}/download",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\reports\\router.py",
+        "line": 508
+      },
+      {
+        "system": "docutil",
+        "module": "search",
+        "function": "search",
+        "method": "POST",
+        "path": "/search",
+        "full_path": "/api/v1/search",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\search\\router.py",
+        "line": 59
+      },
+      {
+        "system": "docutil",
+        "module": "search",
+        "function": "chatbot_search",
+        "method": "POST",
+        "path": "/search/chatbot",
+        "full_path": "/api/v1/search/chatbot",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\search\\router.py",
+        "line": 112
+      },
+      {
+        "system": "docutil",
+        "module": "search",
+        "function": "qa_search",
+        "method": "POST",
+        "path": "/search/qa",
+        "full_path": "/api/v1/search/qa",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\search\\router.py",
+        "line": 148
+      },
+      {
+        "system": "docutil",
+        "module": "search",
+        "function": "keyword_search",
+        "method": "POST",
+        "path": "/search/keyword",
+        "full_path": "/api/v1/search/keyword",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\search\\router.py",
+        "line": 184
+      },
+      {
+        "system": "docutil",
+        "module": "search",
+        "function": "search_history",
+        "method": "GET",
+        "path": "/search/history",
+        "full_path": "/api/v1/search/history",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\search\\router.py",
+        "line": 217
+      },
+      {
+        "system": "docutil",
+        "module": "search",
+        "function": "search_test",
+        "method": "POST",
+        "path": "/search/test",
+        "full_path": "/api/v1/search/test",
+        "roles": null,
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\search\\router.py",
+        "line": 251
+      },
+      {
+        "system": "docutil",
+        "module": "search_scopes",
+        "function": "list_search_scopes",
+        "method": "GET",
+        "path": "/search-scopes",
+        "full_path": "/api/v1/search-scopes",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\search_scopes\\router.py",
+        "line": 57
+      },
+      {
+        "system": "docutil",
+        "module": "search_scopes",
+        "function": "list_search_scope_options",
+        "method": "GET",
+        "path": "/search-scopes/options",
+        "full_path": "/api/v1/search-scopes/options",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\search_scopes\\router.py",
+        "line": 89
+      },
+      {
+        "system": "docutil",
+        "module": "search_scopes",
+        "function": "list_locations",
+        "method": "GET",
+        "path": "/search-scopes/locations",
+        "full_path": "/api/v1/search-scopes/locations",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\search_scopes\\router.py",
+        "line": 129
+      },
+      {
+        "system": "docutil",
+        "module": "search_scopes",
+        "function": "create_search_scope",
+        "method": "POST",
+        "path": "/search-scopes",
+        "full_path": "/api/v1/search-scopes",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\search_scopes\\router.py",
+        "line": 227
+      },
+      {
+        "system": "docutil",
+        "module": "search_scopes",
+        "function": "get_search_scope",
+        "method": "GET",
+        "path": "/search-scopes/{scope_id}",
+        "full_path": "/api/v1/search-scopes/{scope_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\search_scopes\\router.py",
+        "line": 279
+      },
+      {
+        "system": "docutil",
+        "module": "search_scopes",
+        "function": "update_search_scope",
+        "method": "PUT",
+        "path": "/search-scopes/{scope_id}",
+        "full_path": "/api/v1/search-scopes/{scope_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\search_scopes\\router.py",
+        "line": 306
+      },
+      {
+        "system": "docutil",
+        "module": "search_scopes",
+        "function": "delete_search_scope",
+        "method": "DELETE",
+        "path": "/search-scopes/{scope_id}",
+        "full_path": "/api/v1/search-scopes/{scope_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\search_scopes\\router.py",
+        "line": 336
+      },
+      {
+        "system": "docutil",
+        "module": "search_scopes",
+        "function": "update_search_scope_environment",
+        "method": "PUT",
+        "path": "/search-scopes/{scope_id}/environment",
+        "full_path": "/api/v1/search-scopes/{scope_id}/environment",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\search_scopes\\router.py",
+        "line": 363
+      },
+      {
+        "system": "docutil",
+        "module": "search_scopes",
+        "function": "get_valid_id",
+        "method": "GET",
+        "path": "/search-scopes/{scope_id}/valid-id",
+        "full_path": "/api/v1/search-scopes/{scope_id}/valid-id",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "member",
+          "editor",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\search_scopes\\router.py",
+        "line": 389
+      },
+      {
+        "system": "docutil",
+        "module": "settings",
+        "function": "get_settings",
+        "method": "GET",
+        "path": "",
+        "full_path": "/api/v1",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\settings\\router.py",
+        "line": 30
+      },
+      {
+        "system": "docutil",
+        "module": "settings",
+        "function": "update_general",
+        "method": "PUT",
+        "path": "/general",
+        "full_path": "/api/v1/general",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\settings\\router.py",
+        "line": 42
+      },
+      {
+        "system": "docutil",
+        "module": "settings",
+        "function": "update_security",
+        "method": "PUT",
+        "path": "/security",
+        "full_path": "/api/v1/security",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\settings\\router.py",
+        "line": 55
+      },
+      {
+        "system": "docutil",
+        "module": "settings",
+        "function": "update_storage",
+        "method": "PUT",
+        "path": "/storage",
+        "full_path": "/api/v1/storage",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\settings\\router.py",
+        "line": 67
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "list_templates",
+        "method": "GET",
+        "path": "/templates",
+        "full_path": "/api/v1/templates",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 93
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "create_template",
+        "method": "POST",
+        "path": "/templates",
+        "full_path": "/api/v1/templates",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 133
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "upload_template",
+        "method": "POST",
+        "path": "/templates/upload",
+        "full_path": "/api/v1/templates/upload",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 165
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "upload_blank_form",
+        "method": "POST",
+        "path": "/templates/upload-blank",
+        "full_path": "/api/v1/templates/upload-blank",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 237
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "upload_smart",
+        "method": "POST",
+        "path": "/templates/upload-smart",
+        "full_path": "/api/v1/templates/upload-smart",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 318
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "get_template",
+        "method": "GET",
+        "path": "/templates/{template_id}",
+        "full_path": "/api/v1/templates/{template_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 417
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "update_template",
+        "method": "PUT",
+        "path": "/templates/{template_id}",
+        "full_path": "/api/v1/templates/{template_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 443
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "delete_template",
+        "method": "DELETE",
+        "path": "/templates/{template_id}",
+        "full_path": "/api/v1/templates/{template_id}",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 472
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "convert_to_template",
+        "method": "POST",
+        "path": "/templates/{template_id}/convert",
+        "full_path": "/api/v1/templates/{template_id}/convert",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 507
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "auto_fill_variables",
+        "method": "POST",
+        "path": "/templates/{template_id}/auto-fill",
+        "full_path": "/api/v1/templates/{template_id}/auto-fill",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 554
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "get_template_variables",
+        "method": "GET",
+        "path": "/templates/{template_id}/variables",
+        "full_path": "/api/v1/templates/{template_id}/variables",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 613
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "preview_template",
+        "method": "GET",
+        "path": "/templates/{template_id}/preview",
+        "full_path": "/api/v1/templates/{template_id}/preview",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin",
+          "manager",
+          "editor",
+          "member",
+          "viewer",
+          "user"
+        ],
+        "helper": "_require_member",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 654
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "update_template_variables",
+        "method": "PUT",
+        "path": "/templates/{template_id}/variables",
+        "full_path": "/api/v1/templates/{template_id}/variables",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 697
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "get_template_structure",
+        "method": "GET",
+        "path": "/templates/{template_id}/structure",
+        "full_path": "/api/v1/templates/{template_id}/structure",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 732
+      },
+      {
+        "system": "docutil",
+        "module": "templates",
+        "function": "apply_variable_mapping",
+        "method": "POST",
+        "path": "/templates/{template_id}/apply-mapping",
+        "full_path": "/api/v1/templates/{template_id}/apply-mapping",
+        "roles": [
+          "super_admin",
+          "admin",
+          "org_admin"
+        ],
+        "helper": "_require_admin",
+        "source_file": "docutil\\backend\\app\\modules\\templates\\router.py",
+        "line": 771
+      },
+      {
+        "system": "docutil",
+        "module": "users",
+        "function": "list_users",
+        "method": "GET",
+        "path": "",
+        "full_path": "/api/v1",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\users\\router.py",
+        "line": 46
+      },
+      {
+        "system": "docutil",
+        "module": "users",
+        "function": "list_users",
+        "method": "GET",
+        "path": "/",
+        "full_path": "/api/v1/",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\users\\router.py",
+        "line": 46
+      },
+      {
+        "system": "docutil",
+        "module": "users",
+        "function": "create_user",
+        "method": "POST",
+        "path": "",
+        "full_path": "/api/v1",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\users\\router.py",
+        "line": 90
+      },
+      {
+        "system": "docutil",
+        "module": "users",
+        "function": "create_user",
+        "method": "POST",
+        "path": "/",
+        "full_path": "/api/v1/",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\users\\router.py",
+        "line": 90
+      },
+      {
+        "system": "docutil",
+        "module": "users",
+        "function": "get_user",
+        "method": "GET",
+        "path": "/{user_id}",
+        "full_path": "/api/v1/{user_id}",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\users\\router.py",
+        "line": 122
+      },
+      {
+        "system": "docutil",
+        "module": "users",
+        "function": "update_user",
+        "method": "PUT",
+        "path": "/{user_id}",
+        "full_path": "/api/v1/{user_id}",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\users\\router.py",
+        "line": 137
+      },
+      {
+        "system": "docutil",
+        "module": "users",
+        "function": "delete_user",
+        "method": "DELETE",
+        "path": "/{user_id}",
+        "full_path": "/api/v1/{user_id}",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\users\\router.py",
+        "line": 154
+      },
+      {
+        "system": "docutil",
+        "module": "users",
+        "function": "update_user_status",
+        "method": "PUT",
+        "path": "/{user_id}/status",
+        "full_path": "/api/v1/{user_id}/status",
+        "roles": [
+          "admin",
+          "super_admin"
+        ],
+        "helper": null,
+        "source_file": "docutil\\backend\\app\\modules\\users\\router.py",
+        "line": 183
+      }
+    ]
+  },
+  "agenthub": {
+    "total": 275,
+    "endpoints": [
+      {
+        "system": "agenthub",
+        "controller": "ActivityLogController",
+        "method": "GetActivityLogs",
+        "http_method": "GET",
+        "path": "/activitylog",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ActivityLogController.cs",
+        "line": 22
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilApiKeysController",
+        "method": "ListApiKeys",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/api-keys",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilApiKeysController.cs",
+        "line": 85
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilApiKeysController",
+        "method": "CreateApiKey",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/api-keys",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilApiKeysController.cs",
+        "line": 133
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilApiKeysController",
+        "method": "DeleteApiKey",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/api-keys/{keyId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilApiKeysController.cs",
+        "line": 189
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilApiKeysController",
+        "method": "VerifyApiKey",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/api-keys/{keyId}/verify",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilApiKeysController.cs",
+        "line": 229
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDepartmentsController",
+        "method": "GetOrganization",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/organization",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDepartmentsController.cs",
+        "line": 93
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDepartmentsController",
+        "method": "UpdateOrganization",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/organization",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDepartmentsController.cs",
+        "line": 132
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDepartmentsController",
+        "method": "ListDepartments",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/departments",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDepartmentsController.cs",
+        "line": 177
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDepartmentsController",
+        "method": "CreateDepartment",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/departments",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDepartmentsController.cs",
+        "line": 211
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDepartmentsController",
+        "method": "UpdateDepartment",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/departments/{deptId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDepartmentsController.cs",
+        "line": 250
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDepartmentsController",
+        "method": "DeleteDepartment",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/departments/{deptId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDepartmentsController.cs",
+        "line": 298
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDepartmentsController",
+        "method": "GetDepartmentMembers",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/departments/{deptId}/members",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDepartmentsController.cs",
+        "line": 329
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDepartmentsController",
+        "method": "GetOrganizationQuota",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/organization/quota",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDepartmentsController.cs",
+        "line": 374
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDepartmentsController",
+        "method": "UpdateOrganizationQuota",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/organization/quota/{quotaType}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDepartmentsController.cs",
+        "line": 396
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocAgentsController",
+        "method": "ListDocAgents",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/agents",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocAgentsController.cs",
+        "line": 84
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocAgentsController",
+        "method": "GetDocAgent",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/agents/{agentId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocAgentsController.cs",
+        "line": 130
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocAgentsController",
+        "method": "CreateDocAgent",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/agents",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocAgentsController.cs",
+        "line": 179
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocAgentsController",
+        "method": "UpdateDocAgent",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/agents/{agentId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocAgentsController.cs",
+        "line": 216
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocAgentsController",
+        "method": "DeleteDocAgent",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/agents/{agentId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocAgentsController.cs",
+        "line": 261
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocumentsV2Controller",
+        "method": "ListDocumentsV2",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/documents-v2",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocumentsV2Controller.cs",
+        "line": 99
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocumentsV2Controller",
+        "method": "GetDocumentV2",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/documents-v2/{documentId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocumentsV2Controller.cs",
+        "line": 146
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocumentsV2Controller",
+        "method": "GenerateDocumentV2",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/documents-v2",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocumentsV2Controller.cs",
+        "line": 196
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocumentsV2Controller",
+        "method": "PatchDocumentV2",
+        "http_method": "PATCH",
+        "path": "/api/admin/docutil/documents-v2/{documentId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocumentsV2Controller.cs",
+        "line": 234
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocumentsV2Controller",
+        "method": "RequestExport",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/documents-v2/{documentId}/export",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocumentsV2Controller.cs",
+        "line": 279
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocumentsV2Controller",
+        "method": "GetExportStatus",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/documents-v2/exports/{jobId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocumentsV2Controller.cs",
+        "line": 330
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilDocumentsV2Controller",
+        "method": "DownloadExport",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/documents-v2/exports/{jobId}/download",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilDocumentsV2Controller.cs",
+        "line": 366
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilEvaluationController",
+        "method": "GetEvaluationConfig",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/evaluation/config",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilEvaluationController.cs",
+        "line": 91
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilEvaluationController",
+        "method": "UpdateEvaluationConfig",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/evaluation/config",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilEvaluationController.cs",
+        "line": 125
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilEvaluationController",
+        "method": "ListEvaluationLogs",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/evaluation/logs",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilEvaluationController.cs",
+        "line": 189
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilEvaluationController",
+        "method": "GetEvaluationQuestions",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/evaluation/questions",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilEvaluationController.cs",
+        "line": 250
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilEvaluationController",
+        "method": "RunEvaluation",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/evaluation/run",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilEvaluationController.cs",
+        "line": 291
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilEvaluationController",
+        "method": "ListEvaluationRuns",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/evaluation/runs",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilEvaluationController.cs",
+        "line": 341
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilEvaluationController",
+        "method": "GetEvaluationTrend",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/evaluation/trend",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilEvaluationController.cs",
+        "line": 376
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilFaqController",
+        "method": "ListFaqs",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/faq",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilFaqController.cs",
+        "line": 85
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilFaqController",
+        "method": "CreateFaq",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/faq",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilFaqController.cs",
+        "line": 126
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilFaqController",
+        "method": "GetFaq",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/faq/{faqId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilFaqController.cs",
+        "line": 174
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilFaqController",
+        "method": "UpdateFaq",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/faq/{faqId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilFaqController.cs",
+        "line": 218
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilFaqController",
+        "method": "DeleteFaq",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/faq/{faqId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilFaqController.cs",
+        "line": 262
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilOperationsController",
+        "method": "GetDashboardMetrics",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/dashboard/metrics",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilOperationsController.cs",
+        "line": 74
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilOperationsController",
+        "method": "GetDashboardResponseTimes",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/dashboard/response-times",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilOperationsController.cs",
+        "line": 107
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilOperationsController",
+        "method": "GetDashboardSearchErrors",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/dashboard/search-errors",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilOperationsController.cs",
+        "line": 140
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilOperationsController",
+        "method": "GetDashboardSearchUsage",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/dashboard/search-usage",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilOperationsController.cs",
+        "line": 173
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilOperationsController",
+        "method": "GetDashboardUploadStatus",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/dashboard/upload-status",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilOperationsController.cs",
+        "line": 206
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilOperationsController",
+        "method": "ListAuditLogs",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/audit-logs",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilOperationsController.cs",
+        "line": 248
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilOperationsController",
+        "method": "ExportAuditLogs",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/audit-logs/export",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilOperationsController.cs",
+        "line": 296
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "ListProjects",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/projects",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 125
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "GetProjectTree",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/projects/tree",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 165
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "CreateProject",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/projects",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 198
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "GetProject",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/projects/{projectId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 244
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "UpdateProject",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/projects/{projectId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 287
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "DeleteProject",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/projects/{projectId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 337
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "GetProjectMembers",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/projects/{projectId}/members",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 370
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "AddProjectMember",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/projects/{projectId}/members",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 418
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "RemoveProjectMember",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/projects/{projectId}/members/{userId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 501
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "GetProjectDepartments",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/projects/{projectId}/departments",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 552
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "ListProjectBoards",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/projects/{projectId}/boards",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 596
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "CreateProjectBoard",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/projects/{projectId}/boards",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 638
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "GetProjectBoard",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/projects/{projectId}/boards/{boardId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 690
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "UpdateProjectBoard",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/projects/{projectId}/boards/{boardId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 739
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilProjectsController",
+        "method": "DeleteProjectBoard",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/projects/{projectId}/boards/{boardId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilProjectsController.cs",
+        "line": 796
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilReportsController",
+        "method": "ListReports",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/reports",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilReportsController.cs",
+        "line": 119
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilReportsController",
+        "method": "GetReport",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/reports/{reportId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilReportsController.cs",
+        "line": 176
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilReportsController",
+        "method": "GenerateReport",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/reports/generate",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilReportsController.cs",
+        "line": 223
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilReportsController",
+        "method": "DeleteReport",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/reports/{reportId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilReportsController.cs",
+        "line": 299
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilReportsController",
+        "method": "DownloadReport",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/reports/{reportId}/download",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilReportsController.cs",
+        "line": 332
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilReportsController",
+        "method": "ListTemplates",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/reports/templates",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilReportsController.cs",
+        "line": 379
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilReportsController",
+        "method": "GetTemplate",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/reports/templates/{templateId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilReportsController.cs",
+        "line": 414
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilReportsController",
+        "method": "UpdateTemplate",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/reports/templates/{templateId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilReportsController.cs",
+        "line": 539
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilReportsController",
+        "method": "DeleteTemplate",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/reports/templates/{templateId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilReportsController.cs",
+        "line": 594
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilSearchScopesController",
+        "method": "ListSearchScopes",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/search-scopes",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilSearchScopesController.cs",
+        "line": 84
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilSearchScopesController",
+        "method": "ListSearchScopeOptions",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/search-scopes/options",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilSearchScopesController.cs",
+        "line": 120
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilSearchScopesController",
+        "method": "ListSearchScopeLocations",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/search-scopes/locations",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilSearchScopesController.cs",
+        "line": 155
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilSearchScopesController",
+        "method": "CreateSearchScope",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/search-scopes",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilSearchScopesController.cs",
+        "line": 200
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilSearchScopesController",
+        "method": "GetSearchScope",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/search-scopes/{scopeId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilSearchScopesController.cs",
+        "line": 244
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilSearchScopesController",
+        "method": "UpdateSearchScope",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/search-scopes/{scopeId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilSearchScopesController.cs",
+        "line": 288
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilSearchScopesController",
+        "method": "DeleteSearchScope",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/search-scopes/{scopeId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilSearchScopesController.cs",
+        "line": 332
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilSearchScopesController",
+        "method": "UpdateSearchScopeEnvironment",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/search-scopes/{scopeId}/environment",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilSearchScopesController.cs",
+        "line": 361
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilSearchScopesController",
+        "method": "GetSearchScopeValidId",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/search-scopes/{scopeId}/valid-id",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilSearchScopesController.cs",
+        "line": 416
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "ListTemplates",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/templates",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 105
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "GetTemplate",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/templates/{templateId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 144
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "CreateTemplate",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/templates",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 189
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "UpdateTemplate",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/templates/{templateId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 254
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "DeleteTemplate",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/templates/{templateId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 310
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "UploadTemplate",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/templates/upload",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 344
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "UploadBlankForm",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/templates/upload-blank",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 368
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "UploadSmart",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/templates/upload-smart",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 393
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "GetVariables",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/templates/{templateId}/variables",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 530
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "UpdateVariables",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/templates/{templateId}/variables",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 570
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "AutoFill",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/templates/{templateId}/auto-fill",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 621
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "ConvertToTemplate",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/templates/{templateId}/convert",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 670
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "GetStructure",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/templates/{templateId}/structure",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 731
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "ApplyMapping",
+        "http_method": "POST",
+        "path": "/api/admin/docutil/templates/{templateId}/apply-mapping",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 759
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilTemplatesController",
+        "method": "Preview",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/templates/{templateId}/preview",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilTemplatesController.cs",
+        "line": 828
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilUsersController",
+        "method": "ListUsers",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/users",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilUsersController.cs",
+        "line": 112
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilUsersController",
+        "method": "GetUser",
+        "http_method": "GET",
+        "path": "/api/admin/docutil/users/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilUsersController.cs",
+        "line": 181
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilUsersController",
+        "method": "UpdateUser",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/users/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilUsersController.cs",
+        "line": 226
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilUsersController",
+        "method": "UpdateUserStatus",
+        "http_method": "PUT",
+        "path": "/api/admin/docutil/users/{id}/status",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilUsersController.cs",
+        "line": 317
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminDocUtilUsersController",
+        "method": "DeleteUser",
+        "http_method": "DELETE",
+        "path": "/api/admin/docutil/users/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminDocUtilUsersController.cs",
+        "line": 381
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminKnowledgeBaseController",
+        "method": "ListDocuments",
+        "http_method": "GET",
+        "path": "/api/admin/knowledge-base/documents",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminKnowledgeBaseController.cs",
+        "line": 72
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminKnowledgeBaseController",
+        "method": "GetDocument",
+        "http_method": "GET",
+        "path": "/api/admin/knowledge-base/documents/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminKnowledgeBaseController.cs",
+        "line": 100
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminKnowledgeBaseController",
+        "method": "DeleteDocument",
+        "http_method": "DELETE",
+        "path": "/api/admin/knowledge-base/documents/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminKnowledgeBaseController.cs",
+        "line": 176
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminKnowledgeBaseController",
+        "method": "GetChunks",
+        "http_method": "GET",
+        "path": "/api/admin/knowledge-base/documents/{id}/chunks",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminKnowledgeBaseController.cs",
+        "line": 209
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminKnowledgeBaseController",
+        "method": "ListCollections",
+        "http_method": "GET",
+        "path": "/api/admin/knowledge-base/collections",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminKnowledgeBaseController.cs",
+        "line": 252
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminKnowledgeBaseController",
+        "method": "Search",
+        "http_method": "POST",
+        "path": "/api/admin/knowledge-base/search",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminKnowledgeBaseController.cs",
+        "line": 279
+      },
+      {
+        "system": "agenthub",
+        "controller": "AdminMetricsController",
+        "method": "GetRagMetrics",
+        "http_method": "GET",
+        "path": "/api/admin/metrics/rag",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AdminMetricsController.cs",
+        "line": 50
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "GetAgents",
+        "http_method": "GET",
+        "path": "/agents",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 47
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "GetAgent",
+        "http_method": "GET",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 72
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "GetAgentByCode",
+        "http_method": "GET",
+        "path": "/bycode/{code}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 95
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "CreateAgent",
+        "http_method": "POST",
+        "path": "/agents",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 146
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "UpdateAgent",
+        "http_method": "PUT",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 191
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "DeleteAgent",
+        "http_method": "DELETE",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 223
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "ChatWithAgent",
+        "http_method": "POST",
+        "path": "/{id}/chat",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 254
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "ChatWithAgentByCode",
+        "http_method": "POST",
+        "path": "/code/{code}/chat",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 384
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "CreateAgentApiKey",
+        "http_method": "POST",
+        "path": "/{id}/api-keys",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 514
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "GetAgentApiKeys",
+        "http_method": "GET",
+        "path": "/{id}/api-keys",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 545
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "DeleteAgentApiKey",
+        "http_method": "DELETE",
+        "path": "/{id}/api-keys/{apiKeyId}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 576
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "ChatWithAgentStream",
+        "http_method": "POST",
+        "path": "/{id}/chat/stream",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 620
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "GetAgentPublicInfo",
+        "http_method": "GET",
+        "path": "/{id}/info",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 758
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "GetPublicAgentInfo",
+        "http_method": "GET",
+        "path": "/public/{code}/info",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 810
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "PublicChat",
+        "http_method": "POST",
+        "path": "/public/{code}/chat",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 851
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "PublicChatStream",
+        "http_method": "POST",
+        "path": "/public/{code}/stream",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 912
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "GetAgentApiUsage",
+        "http_method": "GET",
+        "path": "/{id}/usage",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 1005
+      },
+      {
+        "system": "agenthub",
+        "controller": "AgentsController",
+        "method": "GetAgentQrCode",
+        "http_method": "GET",
+        "path": "/public/{code}/qr",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AgentsController.cs",
+        "line": 1102
+      },
+      {
+        "system": "agenthub",
+        "controller": "AnalyticsController",
+        "method": "GetDashboardStats",
+        "http_method": "GET",
+        "path": "/dashboard",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AnalyticsController.cs",
+        "line": 27
+      },
+      {
+        "system": "agenthub",
+        "controller": "AnalyticsController",
+        "method": "GetUsageStats",
+        "http_method": "GET",
+        "path": "/usage",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AnalyticsController.cs",
+        "line": 42
+      },
+      {
+        "system": "agenthub",
+        "controller": "AnalyticsController",
+        "method": "GetCostAnalysis",
+        "http_method": "GET",
+        "path": "/cost",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AnalyticsController.cs",
+        "line": 61
+      },
+      {
+        "system": "agenthub",
+        "controller": "AnalyticsController",
+        "method": "GetTopUsers",
+        "http_method": "GET",
+        "path": "/top-users",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AnalyticsController.cs",
+        "line": 78
+      },
+      {
+        "system": "agenthub",
+        "controller": "AnalyticsController",
+        "method": "GetTeamStats",
+        "http_method": "GET",
+        "path": "/team-stats",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AnalyticsController.cs",
+        "line": 94
+      },
+      {
+        "system": "agenthub",
+        "controller": "AnalyticsController",
+        "method": "GetUserUsage",
+        "http_method": "GET",
+        "path": "/user-usage/{userId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AnalyticsController.cs",
+        "line": 110
+      },
+      {
+        "system": "agenthub",
+        "controller": "AnalyticsController",
+        "method": "GetUsageHistorySummary",
+        "http_method": "GET",
+        "path": "/usage-summary",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AnalyticsController.cs",
+        "line": 129
+      },
+      {
+        "system": "agenthub",
+        "controller": "AnalyticsController",
+        "method": "GetAgentStats",
+        "http_method": "GET",
+        "path": "/agents/{agentId}/stats",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AnalyticsController.cs",
+        "line": 158
+      },
+      {
+        "system": "agenthub",
+        "controller": "AnalyticsController",
+        "method": "GetAgentDailyStats",
+        "http_method": "GET",
+        "path": "/agents/{agentId}/daily",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AnalyticsController.cs",
+        "line": 240
+      },
+      {
+        "system": "agenthub",
+        "controller": "AnalyticsController",
+        "method": "GetUsageHistory",
+        "http_method": "GET",
+        "path": "/usage-history",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AnalyticsController.cs",
+        "line": 287
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiKeysController",
+        "method": "GetUserApiKeys",
+        "http_method": "GET",
+        "path": "/apikeys",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiKeysController.cs",
+        "line": 23
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiKeysController",
+        "method": "GetApiKey",
+        "http_method": "GET",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiKeysController.cs",
+        "line": 34
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiKeysController",
+        "method": "CreateApiKey",
+        "http_method": "POST",
+        "path": "/apikeys",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiKeysController.cs",
+        "line": 48
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiKeysController",
+        "method": "UpdateApiKey",
+        "http_method": "PUT",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiKeysController.cs",
+        "line": 62
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiKeysController",
+        "method": "DeleteApiKey",
+        "http_method": "DELETE",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiKeysController.cs",
+        "line": 76
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiKeysController",
+        "method": "RevealApiKey",
+        "http_method": "POST",
+        "path": "/{id}/reveal",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiKeysController.cs",
+        "line": 90
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiKeysController",
+        "method": "CreateProviderApiKey",
+        "http_method": "POST",
+        "path": "/provider",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiKeysController.cs",
+        "line": 110
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiKeysController",
+        "method": "TestApiKey",
+        "http_method": "POST",
+        "path": "/{id}/test",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiKeysController.cs",
+        "line": 141
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiKeysController",
+        "method": "GetPoolStats",
+        "http_method": "GET",
+        "path": "/pool-stats",
+        "auth": "authenticated",
+        "roles": [
+          "Admin",
+          "SuperAdmin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiKeysController.cs",
+        "line": 156
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiServicesController",
+        "method": "GetServices",
+        "http_method": "GET",
+        "path": "/apiservices",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiServicesController.cs",
+        "line": 95
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiServicesController",
+        "method": "GetService",
+        "http_method": "GET",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiServicesController.cs",
+        "line": 142
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiServicesController",
+        "method": "GetServiceModels",
+        "http_method": "GET",
+        "path": "/{id}/models",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiServicesController.cs",
+        "line": 181
+      },
+      {
+        "system": "agenthub",
+        "controller": "ApiServicesController",
+        "method": "GetConnectionStatus",
+        "http_method": "GET",
+        "path": "/{id}/connection-status",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ApiServicesController.cs",
+        "line": 202
+      },
+      {
+        "system": "agenthub",
+        "controller": "AuthController",
+        "method": "Login",
+        "http_method": "POST",
+        "path": "/login",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AuthController.cs",
+        "line": 24
+      },
+      {
+        "system": "agenthub",
+        "controller": "AuthController",
+        "method": "Register",
+        "http_method": "POST",
+        "path": "/register",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AuthController.cs",
+        "line": 52
+      },
+      {
+        "system": "agenthub",
+        "controller": "AuthController",
+        "method": "Logout",
+        "http_method": "POST",
+        "path": "/logout",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AuthController.cs",
+        "line": 73
+      },
+      {
+        "system": "agenthub",
+        "controller": "AuthController",
+        "method": "RefreshToken",
+        "http_method": "POST",
+        "path": "/refresh",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AuthController.cs",
+        "line": 89
+      },
+      {
+        "system": "agenthub",
+        "controller": "AuthController",
+        "method": "ForgotPassword",
+        "http_method": "POST",
+        "path": "/forgot-password",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AuthController.cs",
+        "line": 110
+      },
+      {
+        "system": "agenthub",
+        "controller": "AuthController",
+        "method": "ResetPassword",
+        "http_method": "POST",
+        "path": "/reset-password",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AuthController.cs",
+        "line": 128
+      },
+      {
+        "system": "agenthub",
+        "controller": "AuthController",
+        "method": "GetCurrentUser",
+        "http_method": "GET",
+        "path": "/me",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\AuthController.cs",
+        "line": 154
+      },
+      {
+        "system": "agenthub",
+        "controller": "BannedWordsController",
+        "method": "GetBannedWords",
+        "http_method": "GET",
+        "path": "/bannedwords",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\BannedWordsController.cs",
+        "line": 25
+      },
+      {
+        "system": "agenthub",
+        "controller": "BannedWordsController",
+        "method": "CreateBannedWord",
+        "http_method": "POST",
+        "path": "/bannedwords",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\BannedWordsController.cs",
+        "line": 55
+      },
+      {
+        "system": "agenthub",
+        "controller": "BannedWordsController",
+        "method": "UpdateBannedWord",
+        "http_method": "PUT",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\BannedWordsController.cs",
+        "line": 82
+      },
+      {
+        "system": "agenthub",
+        "controller": "BannedWordsController",
+        "method": "DeleteBannedWord",
+        "http_method": "DELETE",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\BannedWordsController.cs",
+        "line": 109
+      },
+      {
+        "system": "agenthub",
+        "controller": "ChatController",
+        "method": "GetConversations",
+        "http_method": "GET",
+        "path": "/conversations",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ChatController.cs",
+        "line": 32
+      },
+      {
+        "system": "agenthub",
+        "controller": "ChatController",
+        "method": "GetConversation",
+        "http_method": "GET",
+        "path": "/conversations/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ChatController.cs",
+        "line": 53
+      },
+      {
+        "system": "agenthub",
+        "controller": "ChatController",
+        "method": "CreateConversation",
+        "http_method": "POST",
+        "path": "/conversations",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ChatController.cs",
+        "line": 79
+      },
+      {
+        "system": "agenthub",
+        "controller": "ChatController",
+        "method": "UpdateConversation",
+        "http_method": "PUT",
+        "path": "/conversations/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ChatController.cs",
+        "line": 106
+      },
+      {
+        "system": "agenthub",
+        "controller": "ChatController",
+        "method": "DeleteConversation",
+        "http_method": "DELETE",
+        "path": "/conversations/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ChatController.cs",
+        "line": 132
+      },
+      {
+        "system": "agenthub",
+        "controller": "ChatController",
+        "method": "GetMessages",
+        "http_method": "GET",
+        "path": "/conversations/{id}/messages",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ChatController.cs",
+        "line": 158
+      },
+      {
+        "system": "agenthub",
+        "controller": "ChatController",
+        "method": "SendMessage",
+        "http_method": "POST",
+        "path": "/conversations/{id}/messages",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ChatController.cs",
+        "line": 179
+      },
+      {
+        "system": "agenthub",
+        "controller": "ChatController",
+        "method": "ArchiveConversation",
+        "http_method": "POST",
+        "path": "/conversations/{id}/archive",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ChatController.cs",
+        "line": 218
+      },
+      {
+        "system": "agenthub",
+        "controller": "ChatController",
+        "method": "SendDirectMessage",
+        "http_method": "POST",
+        "path": "/send",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ChatController.cs",
+        "line": 244
+      },
+      {
+        "system": "agenthub",
+        "controller": "ChatController",
+        "method": "SendDirectMessageStream",
+        "http_method": "POST",
+        "path": "/send/stream",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ChatController.cs",
+        "line": 400
+      },
+      {
+        "system": "agenthub",
+        "controller": "DatabaseBackupController",
+        "method": "CreateBackup",
+        "http_method": "POST",
+        "path": "/backup",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\DatabaseBackupController.cs",
+        "line": 29
+      },
+      {
+        "system": "agenthub",
+        "controller": "DatabaseBackupController",
+        "method": "GetBackups",
+        "http_method": "GET",
+        "path": "/backups",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\DatabaseBackupController.cs",
+        "line": 46
+      },
+      {
+        "system": "agenthub",
+        "controller": "DatabaseBackupController",
+        "method": "RestoreBackup",
+        "http_method": "POST",
+        "path": "/restore",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\DatabaseBackupController.cs",
+        "line": 61
+      },
+      {
+        "system": "agenthub",
+        "controller": "DatabaseBackupController",
+        "method": "DeleteBackup",
+        "http_method": "DELETE",
+        "path": "/backups/{backupName}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\DatabaseBackupController.cs",
+        "line": 81
+      },
+      {
+        "system": "agenthub",
+        "controller": "DatabaseBackupController",
+        "method": "GetBackupSettings",
+        "http_method": "GET",
+        "path": "/settings",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\DatabaseBackupController.cs",
+        "line": 101
+      },
+      {
+        "system": "agenthub",
+        "controller": "DatabaseBackupController",
+        "method": "UpdateBackupSettings",
+        "http_method": "PUT",
+        "path": "/settings",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\DatabaseBackupController.cs",
+        "line": 124
+      },
+      {
+        "system": "agenthub",
+        "controller": "ExamplePromptsController",
+        "method": "GetExamplePrompts",
+        "http_method": "GET",
+        "path": "/exampleprompts",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ExamplePromptsController.cs",
+        "line": 24
+      },
+      {
+        "system": "agenthub",
+        "controller": "ExamplePromptsController",
+        "method": "GetExamplePrompt",
+        "http_method": "GET",
+        "path": "/{id}",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ExamplePromptsController.cs",
+        "line": 88
+      },
+      {
+        "system": "agenthub",
+        "controller": "ExamplePromptsController",
+        "method": "CreateExamplePrompt",
+        "http_method": "POST",
+        "path": "/exampleprompts",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ExamplePromptsController.cs",
+        "line": 126
+      },
+      {
+        "system": "agenthub",
+        "controller": "ExamplePromptsController",
+        "method": "UpdateExamplePrompt",
+        "http_method": "PUT",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ExamplePromptsController.cs",
+        "line": 176
+      },
+      {
+        "system": "agenthub",
+        "controller": "ExamplePromptsController",
+        "method": "DeleteExamplePrompt",
+        "http_method": "DELETE",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ExamplePromptsController.cs",
+        "line": 247
+      },
+      {
+        "system": "agenthub",
+        "controller": "FaqsController",
+        "method": "GetFaqs",
+        "http_method": "GET",
+        "path": "/faqs",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FaqsController.cs",
+        "line": 24
+      },
+      {
+        "system": "agenthub",
+        "controller": "FaqsController",
+        "method": "GetFaq",
+        "http_method": "GET",
+        "path": "/{id}",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FaqsController.cs",
+        "line": 68
+      },
+      {
+        "system": "agenthub",
+        "controller": "FaqsController",
+        "method": "CreateFaq",
+        "http_method": "POST",
+        "path": "/faqs",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FaqsController.cs",
+        "line": 102
+      },
+      {
+        "system": "agenthub",
+        "controller": "FaqsController",
+        "method": "UpdateFaq",
+        "http_method": "PUT",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FaqsController.cs",
+        "line": 144
+      },
+      {
+        "system": "agenthub",
+        "controller": "FaqsController",
+        "method": "DeleteFaq",
+        "http_method": "DELETE",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FaqsController.cs",
+        "line": 195
+      },
+      {
+        "system": "agenthub",
+        "controller": "FilesController",
+        "method": "UploadFile",
+        "http_method": "POST",
+        "path": "/upload",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FilesController.cs",
+        "line": 24
+      },
+      {
+        "system": "agenthub",
+        "controller": "FilesController",
+        "method": "UploadImage",
+        "http_method": "POST",
+        "path": "/upload/image",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FilesController.cs",
+        "line": 58
+      },
+      {
+        "system": "agenthub",
+        "controller": "FilesController",
+        "method": "UploadAudio",
+        "http_method": "POST",
+        "path": "/upload/audio",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FilesController.cs",
+        "line": 85
+      },
+      {
+        "system": "agenthub",
+        "controller": "FilesController",
+        "method": "DownloadFile",
+        "http_method": "GET",
+        "path": "/download/{*filePath}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FilesController.cs",
+        "line": 112
+      },
+      {
+        "system": "agenthub",
+        "controller": "FilesController",
+        "method": "DeleteFile",
+        "http_method": "DELETE",
+        "path": "/{*filePath}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FilesController.cs",
+        "line": 155
+      },
+      {
+        "system": "agenthub",
+        "controller": "FilesController",
+        "method": "UploadFileToKnowledgeBase",
+        "http_method": "POST",
+        "path": "/upload/knowledgebase",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\FilesController.cs",
+        "line": 183
+      },
+      {
+        "system": "agenthub",
+        "controller": "ImageGenerationController",
+        "method": "GenerateImage",
+        "http_method": "POST",
+        "path": "/api/image-generation/generate",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ImageGenerationController.cs",
+        "line": 41
+      },
+      {
+        "system": "agenthub",
+        "controller": "ImageGenerationController",
+        "method": "DownloadImage",
+        "http_method": "GET",
+        "path": "/api/image-generation/download",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ImageGenerationController.cs",
+        "line": 357
+      },
+      {
+        "system": "agenthub",
+        "controller": "ImageGenerationController",
+        "method": "EstimateCost",
+        "http_method": "GET",
+        "path": "/api/image-generation/estimate-cost",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ImageGenerationController.cs",
+        "line": 388
+      },
+      {
+        "system": "agenthub",
+        "controller": "OpenAICompatController",
+        "method": "ListModels",
+        "http_method": "GET",
+        "path": "/v1/models",
+        "auth": "none",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\OpenAICompatController.cs",
+        "line": 67
+      },
+      {
+        "system": "agenthub",
+        "controller": "OpenAICompatController",
+        "method": "GetModel",
+        "http_method": "GET",
+        "path": "/v1/models/{model}",
+        "auth": "none",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\OpenAICompatController.cs",
+        "line": 107
+      },
+      {
+        "system": "agenthub",
+        "controller": "OpenAICompatController",
+        "method": "ChatCompletions",
+        "http_method": "POST",
+        "path": "/v1/chat/completions",
+        "auth": "none",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\OpenAICompatController.cs",
+        "line": 137
+      },
+      {
+        "system": "agenthub",
+        "controller": "OpenAICompatController",
+        "method": "EmbeddingsAsync",
+        "http_method": "POST",
+        "path": "/v1/embeddings",
+        "auth": "none",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\OpenAICompatController.cs",
+        "line": 455
+      },
+      {
+        "system": "agenthub",
+        "controller": "OpenAICompatController",
+        "method": "ImagesGenerationsAsync",
+        "http_method": "POST",
+        "path": "/v1/images/generations",
+        "auth": "none",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\OpenAICompatController.cs",
+        "line": 664
+      },
+      {
+        "system": "agenthub",
+        "controller": "PiiDetectionLogsController",
+        "method": "GetLogs",
+        "http_method": "GET",
+        "path": "/piidetectionlogs",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PiiDetectionLogsController.cs",
+        "line": 37
+      },
+      {
+        "system": "agenthub",
+        "controller": "PiiDetectionLogsController",
+        "method": "GetStatistics",
+        "http_method": "GET",
+        "path": "/statistics",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PiiDetectionLogsController.cs",
+        "line": 124
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "GeneratePresentation",
+        "http_method": "POST",
+        "path": "/api/presentations/generate",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 33
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "GetPresentations",
+        "http_method": "GET",
+        "path": "/api/presentations/list",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 66
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "GetThemes",
+        "http_method": "GET",
+        "path": "/api/presentations/themes",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 108
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "GetPresentation",
+        "http_method": "GET",
+        "path": "/api/presentations/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 114
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "UpdateTheme",
+        "http_method": "PUT",
+        "path": "/api/presentations/{id}/theme",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 139
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "UpdatePresentation",
+        "http_method": "PUT",
+        "path": "/api/presentations/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 165
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "AddSlide",
+        "http_method": "POST",
+        "path": "/api/presentations/{id}/slides",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 202
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "UpdateSlide",
+        "http_method": "PUT",
+        "path": "/api/presentations/{id}/slides/{slideId}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 227
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "DeleteSlide",
+        "http_method": "DELETE",
+        "path": "/api/presentations/{id}/slides/{slideId}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 259
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "ReorderSlides",
+        "http_method": "POST",
+        "path": "/api/presentations/{id}/reorder",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 284
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "ExportToPptx",
+        "http_method": "GET",
+        "path": "/api/presentations/{id}/export/pptx",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 309
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "ExportToPptxFromBody",
+        "http_method": "POST",
+        "path": "/api/presentations/export/pptx",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 357
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "ExportToPdfFromBody",
+        "http_method": "POST",
+        "path": "/api/presentations/export/pdf",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 385
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationController",
+        "method": "ExportToPdf",
+        "http_method": "GET",
+        "path": "/api/presentations/{id}/export/pdf",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationController.cs",
+        "line": 425
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationTemplateController",
+        "method": "UploadTemplate",
+        "http_method": "POST",
+        "path": "/api/presentation-templates/upload",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationTemplateController.cs",
+        "line": 25
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationTemplateController",
+        "method": "GetTemplates",
+        "http_method": "GET",
+        "path": "/api/presentation-templates",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationTemplateController.cs",
+        "line": 59
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationTemplateController",
+        "method": "GetTemplateFile",
+        "http_method": "GET",
+        "path": "/api/presentation-templates/{id}/file",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationTemplateController.cs",
+        "line": 84
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationTemplateController",
+        "method": "GetTemplate",
+        "http_method": "GET",
+        "path": "/api/presentation-templates/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationTemplateController.cs",
+        "line": 110
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationTemplateController",
+        "method": "DeleteTemplate",
+        "http_method": "DELETE",
+        "path": "/api/presentation-templates/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationTemplateController.cs",
+        "line": 129
+      },
+      {
+        "system": "agenthub",
+        "controller": "PresentationTemplateController",
+        "method": "GenerateFromTemplate",
+        "http_method": "POST",
+        "path": "/api/presentation-templates/{id}/generate",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\PresentationTemplateController.cs",
+        "line": 159
+      },
+      {
+        "system": "agenthub",
+        "controller": "QuotaController",
+        "method": "GetQuotas",
+        "http_method": "GET",
+        "path": "/quota",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\QuotaController.cs",
+        "line": 23
+      },
+      {
+        "system": "agenthub",
+        "controller": "QuotaController",
+        "method": "GetQuota",
+        "http_method": "GET",
+        "path": "/user/{userId}/service/{serviceId}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\QuotaController.cs",
+        "line": 39
+      },
+      {
+        "system": "agenthub",
+        "controller": "QuotaController",
+        "method": "SetQuota",
+        "http_method": "POST",
+        "path": "/user/{userId}/service/{serviceId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\QuotaController.cs",
+        "line": 71
+      },
+      {
+        "system": "agenthub",
+        "controller": "QuotaController",
+        "method": "GetMyQuotas",
+        "http_method": "GET",
+        "path": "/my-quotas",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\QuotaController.cs",
+        "line": 87
+      },
+      {
+        "system": "agenthub",
+        "controller": "QuotaController",
+        "method": "GetMyQuota",
+        "http_method": "GET",
+        "path": "/my/{serviceId}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\QuotaController.cs",
+        "line": 108
+      },
+      {
+        "system": "agenthub",
+        "controller": "SystemHealthController",
+        "method": "GetSystemHealth",
+        "http_method": "GET",
+        "path": "/systemhealth",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\SystemHealthController.cs",
+        "line": 53
+      },
+      {
+        "system": "agenthub",
+        "controller": "SystemHealthController",
+        "method": "RunDiagnostics",
+        "http_method": "GET",
+        "path": "/diagnostics",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\SystemHealthController.cs",
+        "line": 78
+      },
+      {
+        "system": "agenthub",
+        "controller": "SystemSettingsController",
+        "method": "GetPiiProtectionSettings",
+        "http_method": "GET",
+        "path": "/pii-protection",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\SystemSettingsController.cs",
+        "line": 30
+      },
+      {
+        "system": "agenthub",
+        "controller": "SystemSettingsController",
+        "method": "UpdatePiiProtectionSettings",
+        "http_method": "PUT",
+        "path": "/pii-protection",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\SystemSettingsController.cs",
+        "line": 45
+      },
+      {
+        "system": "agenthub",
+        "controller": "TeamsController",
+        "method": "GetTeams",
+        "http_method": "GET",
+        "path": "/teams",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TeamsController.cs",
+        "line": 23
+      },
+      {
+        "system": "agenthub",
+        "controller": "TeamsController",
+        "method": "GetTeam",
+        "http_method": "GET",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TeamsController.cs",
+        "line": 39
+      },
+      {
+        "system": "agenthub",
+        "controller": "TeamsController",
+        "method": "CreateTeam",
+        "http_method": "POST",
+        "path": "/teams",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TeamsController.cs",
+        "line": 59
+      },
+      {
+        "system": "agenthub",
+        "controller": "TeamsController",
+        "method": "UpdateTeam",
+        "http_method": "PUT",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TeamsController.cs",
+        "line": 81
+      },
+      {
+        "system": "agenthub",
+        "controller": "TeamsController",
+        "method": "DeleteTeam",
+        "http_method": "DELETE",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TeamsController.cs",
+        "line": 107
+      },
+      {
+        "system": "agenthub",
+        "controller": "TeamsController",
+        "method": "AddTeamMember",
+        "http_method": "POST",
+        "path": "/{id}/members",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TeamsController.cs",
+        "line": 133
+      },
+      {
+        "system": "agenthub",
+        "controller": "TeamsController",
+        "method": "RemoveTeamMember",
+        "http_method": "DELETE",
+        "path": "/{id}/members/{userId}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TeamsController.cs",
+        "line": 159
+      },
+      {
+        "system": "agenthub",
+        "controller": "TeamsController",
+        "method": "UpdateTeamMemberRole",
+        "http_method": "PUT",
+        "path": "/{id}/members/{userId}/role",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TeamsController.cs",
+        "line": 185
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolBuilderController",
+        "method": "CompileCode",
+        "http_method": "POST",
+        "path": "/compile",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolBuilderController.cs",
+        "line": 30
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolBuilderController",
+        "method": "ValidateCode",
+        "http_method": "POST",
+        "path": "/validate",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolBuilderController.cs",
+        "line": 72
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolBuilderController",
+        "method": "TestCode",
+        "http_method": "POST",
+        "path": "/test",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolBuilderController.cs",
+        "line": 126
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "GetTools",
+        "http_method": "GET",
+        "path": "/tools",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 29
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "GetTool",
+        "http_method": "GET",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 48
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "CreateTool",
+        "http_method": "POST",
+        "path": "/tools",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 68
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "UpdateTool",
+        "http_method": "PUT",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 89
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "DeleteTool",
+        "http_method": "DELETE",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 119
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "GetToolVersions",
+        "http_method": "GET",
+        "path": "/{id}/versions",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 149
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "CreateToolVersion",
+        "http_method": "POST",
+        "path": "/{id}/versions",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 164
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "ActivateToolVersion",
+        "http_method": "PUT",
+        "path": "/{id}/versions/{versionId}/activate",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 186
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "ExecuteTool",
+        "http_method": "POST",
+        "path": "/{id}/execute",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 206
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "GetExecutions",
+        "http_method": "GET",
+        "path": "/executions",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 242
+      },
+      {
+        "system": "agenthub",
+        "controller": "ToolsController",
+        "method": "GetExecution",
+        "http_method": "GET",
+        "path": "/executions/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\ToolsController.cs",
+        "line": 262
+      },
+      {
+        "system": "agenthub",
+        "controller": "TutorialsController",
+        "method": "GetTutorials",
+        "http_method": "GET",
+        "path": "/tutorials",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TutorialsController.cs",
+        "line": 24
+      },
+      {
+        "system": "agenthub",
+        "controller": "TutorialsController",
+        "method": "GetTutorial",
+        "http_method": "GET",
+        "path": "/{id}",
+        "auth": "anonymous",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TutorialsController.cs",
+        "line": 72
+      },
+      {
+        "system": "agenthub",
+        "controller": "TutorialsController",
+        "method": "CreateTutorial",
+        "http_method": "POST",
+        "path": "/tutorials",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TutorialsController.cs",
+        "line": 114
+      },
+      {
+        "system": "agenthub",
+        "controller": "TutorialsController",
+        "method": "UpdateTutorial",
+        "http_method": "PUT",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TutorialsController.cs",
+        "line": 164
+      },
+      {
+        "system": "agenthub",
+        "controller": "TutorialsController",
+        "method": "DeleteTutorial",
+        "http_method": "DELETE",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\TutorialsController.cs",
+        "line": 230
+      },
+      {
+        "system": "agenthub",
+        "controller": "UserPreferencesController",
+        "method": "GetUserPreferences",
+        "http_method": "GET",
+        "path": "/userpreferences",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UserPreferencesController.cs",
+        "line": 27
+      },
+      {
+        "system": "agenthub",
+        "controller": "UserPreferencesController",
+        "method": "GetUserPreference",
+        "http_method": "GET",
+        "path": "/{key}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UserPreferencesController.cs",
+        "line": 63
+      },
+      {
+        "system": "agenthub",
+        "controller": "UserPreferencesController",
+        "method": "CreateUserPreference",
+        "http_method": "POST",
+        "path": "/userpreferences",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UserPreferencesController.cs",
+        "line": 104
+      },
+      {
+        "system": "agenthub",
+        "controller": "UserPreferencesController",
+        "method": "UpdateUserPreference",
+        "http_method": "PUT",
+        "path": "/{key}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UserPreferencesController.cs",
+        "line": 186
+      },
+      {
+        "system": "agenthub",
+        "controller": "UserPreferencesController",
+        "method": "DeleteUserPreference",
+        "http_method": "DELETE",
+        "path": "/{key}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UserPreferencesController.cs",
+        "line": 247
+      },
+      {
+        "system": "agenthub",
+        "controller": "UsersController",
+        "method": "GetUsers",
+        "http_method": "GET",
+        "path": "/users",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UsersController.cs",
+        "line": 23
+      },
+      {
+        "system": "agenthub",
+        "controller": "UsersController",
+        "method": "GetUser",
+        "http_method": "GET",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UsersController.cs",
+        "line": 39
+      },
+      {
+        "system": "agenthub",
+        "controller": "UsersController",
+        "method": "GetCurrentUser",
+        "http_method": "GET",
+        "path": "/me",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UsersController.cs",
+        "line": 71
+      },
+      {
+        "system": "agenthub",
+        "controller": "UsersController",
+        "method": "CreateUser",
+        "http_method": "POST",
+        "path": "/users",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UsersController.cs",
+        "line": 97
+      },
+      {
+        "system": "agenthub",
+        "controller": "UsersController",
+        "method": "UpdateUser",
+        "http_method": "PUT",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UsersController.cs",
+        "line": 113
+      },
+      {
+        "system": "agenthub",
+        "controller": "UsersController",
+        "method": "DeleteUser",
+        "http_method": "DELETE",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [
+          "Admin"
+        ],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\UsersController.cs",
+        "line": 149
+      },
+      {
+        "system": "agenthub",
+        "controller": "WorkflowsController",
+        "method": "GetWorkflows",
+        "http_method": "GET",
+        "path": "/workflows",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\WorkflowsController.cs",
+        "line": 28
+      },
+      {
+        "system": "agenthub",
+        "controller": "WorkflowsController",
+        "method": "GetWorkflow",
+        "http_method": "GET",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\WorkflowsController.cs",
+        "line": 46
+      },
+      {
+        "system": "agenthub",
+        "controller": "WorkflowsController",
+        "method": "CreateWorkflow",
+        "http_method": "POST",
+        "path": "/workflows",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\WorkflowsController.cs",
+        "line": 66
+      },
+      {
+        "system": "agenthub",
+        "controller": "WorkflowsController",
+        "method": "UpdateWorkflow",
+        "http_method": "PUT",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\WorkflowsController.cs",
+        "line": 87
+      },
+      {
+        "system": "agenthub",
+        "controller": "WorkflowsController",
+        "method": "DeleteWorkflow",
+        "http_method": "DELETE",
+        "path": "/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\WorkflowsController.cs",
+        "line": 117
+      },
+      {
+        "system": "agenthub",
+        "controller": "WorkflowsController",
+        "method": "ExecuteWorkflow",
+        "http_method": "POST",
+        "path": "/{id}/execute",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\WorkflowsController.cs",
+        "line": 147
+      },
+      {
+        "system": "agenthub",
+        "controller": "WorkflowsController",
+        "method": "GetExecutions",
+        "http_method": "GET",
+        "path": "/executions",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\WorkflowsController.cs",
+        "line": 171
+      },
+      {
+        "system": "agenthub",
+        "controller": "WorkflowsController",
+        "method": "GetExecution",
+        "http_method": "GET",
+        "path": "/executions/{id}",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\WorkflowsController.cs",
+        "line": 191
+      },
+      {
+        "system": "agenthub",
+        "controller": "WorkflowsController",
+        "method": "CancelExecution",
+        "http_method": "POST",
+        "path": "/executions/{id}/cancel",
+        "auth": "authenticated",
+        "roles": [],
+        "policy": null,
+        "source_file": "agenthub\\Controllers\\WorkflowsController.cs",
+        "line": 211
+      }
+    ]
+  }
+}
