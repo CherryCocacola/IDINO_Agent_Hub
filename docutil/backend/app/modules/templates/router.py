@@ -49,7 +49,8 @@ router = APIRouter(prefix="", tags=["templates"])
 # _require_admin: 관리자(super_admin, admin, org_admin)만 접근 가능
 _require_admin = require_role(["super_admin", "admin", "org_admin"])
 # _require_member: 모든 인증된 사용자 접근 가능 (조회 전용 엔드포인트용)
-_require_member = require_role(["super_admin", "admin", "org_admin", "editor", "member", "viewer"])
+# 트랙 #105 — 'manager', 'user' role 누락 fix (사용자 화면에서 /templates/{id}/preview, /templates/{id}/variables 호출)
+_require_member = require_role(["super_admin", "admin", "org_admin", "manager", "editor", "member", "viewer", "user"])
 
 # 파일 확장자 → MIME 타입 매핑 (StreamingResponse에서 사용)
 _CONTENT_TYPES: dict[str, str] = {

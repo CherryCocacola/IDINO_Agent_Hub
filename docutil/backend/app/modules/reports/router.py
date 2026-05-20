@@ -61,7 +61,7 @@ router = APIRouter(prefix="", tags=["reports"])
 # Role helpers
 # ---------------------------------------------------------------------------
 _require_admin = require_role(["super_admin", "admin", "org_admin"])
-_require_member = require_role(["super_admin", "admin", "org_admin", "manager", "member", "editor", "viewer"])
+_require_member = require_role(["super_admin", "admin", "org_admin", "manager", "member", "editor", "viewer", "user"])
 
 
 # ---------------------------------------------------------------------------
