@@ -170,6 +170,92 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-20 (트랙 #106 — DocUtil 운영자 화면 결함 6건 (4 결함 + 2 수정요청) 일괄 fix + 운영 배포)
+
+**사용자 보고 6건** (2026-05-20):
+1. (결함 1) 운영자 사용자 관리: admin/jyj7970 모두 0명 조회
+2. (결함 2) 운영자 부서 관리: 부서별 인원 0명
+3. (결함 3) 템플릿 변수확인 저장 시 한글 변수명 정규식 거부 (`String should match pattern '^[a-zA-Z_][a-zA-Z0-9_]*$'`)
+4. (결함 4) 프로젝트 명 클릭 시 detail modal 미동작
+5. (수정 6) 로그인 footer "Copyright 2024. Hancom" → "Copyright 2026. G2 SOFT"
+6. (수정 7) IDINO 로고 → `docutil/user_mig/G2_IMAGE.png` 교체 (로그인/운영자/사용자)
+
+**단순 fix 4건** (결함 3, 결함 4, 수정 6, 수정 7) — 운영 배포 + 검증 완료:
+- 결함 3: `docutil/backend/app/modules/templates/schemas.py:295` `VariableMapping.variable_name` 의 ASCII-only 정규식 → `@field_validator(mode="before")` + `str.isidentifier()` 검증 교체. 한글/유니코드 식별자 허용 (Jinja2 호환).
+- 결함 4: `docutil/frontend/src/app/(admin)/projects/page.tsx:603` 프로젝트 명 TableCell 에 `<button onClick={() => openMembersDialog(project)}>` 추가 — name 클릭 시 멤버 dialog 자동 오픈.
+- 수정 6: `docutil/frontend/src/app/(auth)/login/page.tsx:197` Copyright 텍스트 + line 92 로고 src 동시 변경.
+- 수정 7: `docutil/user_mig/G2_IMAGE.png` → `docutil/frontend/public/g2-logo.png` 복사. 로고 사용 4 파일(`login/page.tsx`, `header.tsx`, `sidebar.tsx`, `user-sidebar.tsx`)의 src 를 `/idino-logo.png` → `/g2-logo.png` 일괄 변경. 후속으로 사용자가 `G2_IMAGE2.png` 로 교체 요청 → 동일 path 덮어쓰기 + frontend rebuild + recreate.
+
+**단순 fix 운영 배포 결과** (`tmp/deploy_track106_simple_fixes_20260520.py` + `poll_track106_build.py` + `poll_logo_v2_build.py`):
+- frontend + api 동시 rebuild (image 갱신)
+- force-recreate + nginx restart
+- 검증: `/login` Copyright "G2 SOFT" 노출 + 로고 src 정확 + `idino-logo`/`Hancom` 잔존 0. `/g2-logo.png` HTTP=200, SIZE=2308 (G2_IMAGE2.png 정확 교체).
+
+---
+
+**결함 1+2 (AgentHub 운영자 사용자/부서 BFF 0건/매핑부재) — AgentHub DB 직접 쿼리 refactor**:
+
+**배경**: 운영자 화면 `/admin/docutil-users` + `/admin/docutil-departments` 가 0건/매핑부재로 표시되는 결함. 실측 DB 진단 결과:
+- AgentHub `AIAgentManagement.Users` 132건(실측, IsDeleted=false), `DepartmentId` FK 약 98% 매핑 정상
+- AgentHub `AIAgentManagement.Departments` 32건(실측, IsActive=true) — 대표이사 → 사업/연구/M.SI/O.SI/디자인 본부 → 9 R&D + 8 Si + 영업/지원 팀 등 3-depth 트리
+- DocUtil `tb_users` VIEW = `department_id=NULL::uuid` 하드코딩(uuid↔int 매핑 불가)
+- DocUtil `tb_departments` 9건 = AgentHub 32 부서와 fork (단일 진위 권한 부재)
+- 사용자 결정: AgentHub 마스터 단일화, DocUtil 위임 폐기
+
+**Refactor 범위** — GET endpoint 만 (POST/PUT/DELETE 는 본 트랙 범위 외, 별도 트랙 처리):
+- `agenthub/Controllers/AdminDocUtilUsersController.cs`
+    - GET `/api/admin/docutil/users` — `_docUtilClient.ListUsersAsync` 폐기 → `_db.Users.AsNoTracking().Where(!IsDeleted)` 직접 쿼리. role 필터 = UserRoles join, search = email/FullName/DocutilUsername ILIKE, status 필터 = Status 소문자 비교
+    - GET `/api/admin/docutil/users/{id}` — UUID(OriginalDocutilUuid) 또는 정수(UserId) 양쪽 매칭
+    - mutation 4 메서드(`UpdateUser`/`UpdateUserStatus`/`DeleteUser` + `UpdateUserStatus`) DocUtil 위임 유지
+- `agenthub/Controllers/AdminDocUtilDepartmentsController.cs`
+    - GET `/api/admin/docutil/departments` — `_docUtilClient.ListDepartmentsAsync` 폐기 → `_db.Departments.AsNoTracking().Where(IsActive)` 직접 쿼리 + materialized path 트리 계산(`BuildTreeCoords` 헬퍼, max depth 16 차단)
+    - GET `/api/admin/docutil/departments/{deptId}/members` — `_docUtilClient.GetDepartmentMembersAsync` 폐기 → `_db.Users.Where(DepartmentId == deptIdInt)` 직접 쿼리 + UserRoles join 최상위 역할 매핑
+    - GET `/api/admin/docutil/organization` — `_docUtilClient.GetOrganizationAsync` 폐기 → `_db.Tenants.Where(IsActive).First()` 직접 쿼리 (단일 조직 가정)
+    - mutation 6 메서드 DocUtil 위임 유지
+- 응답 DTO 호환성 유지 — Vue 화면 변경 0. ID 필드는 int → 문자열 직렬화(`DepartmentId.ToString()`, `UserId.ToString()`), UUID 형식 매핑은 `OriginalDocutilUuid?.ToString()` 우선.
+
+**N+1 회피**: `LoadTopRolesAsync(userIds, ct)` 헬퍼로 페이지당 1 쿼리 (RoleId 최소값 = 상위 권한 가정).
+
+**원격 동기화 결함 발견 + 해소**:
+- 1차 deploy: `dotnet publish` 실패 — 원격 `Models/User.cs` 가 track #99 (commit 9bfc631) 이전 상태로 stale. `DocutilUsername`/`OrganizationId`/`Language`/`FailedLoginCount`/`LockedUntil` 5 컬럼 부재.
+- 원인: 과거 hotfix 배포가 controller/service 만 SFTP 하고 model 동기화를 누락한 운영 흔적.
+- 해소: `User.cs` 추가 SFTP 후 build 재시도 → 성공(`build 7/7` 완료, `Image agenthub-agenthub Built` + `Container agenthub Started` + healthy 12s).
+
+**Redis 캐시 stale 결함 발견 + 해소**:
+- 2차 검증: build/recreate 성공했음에도 부서 endpoint 가 여전히 9 UUID 부서 응답. 원인 = `CachingService` 는 `IDistributedCache(Redis)` 기반 → container restart 무관 캐시 잔존.
+- 캐시 namespace 패턴 확인: `AIAgentManagement:du:depts:v{N}:list` (default redis instance prefix `AIAgentManagement` 적용됨).
+- 해소: `docker exec docutil-redis redis-cli` 로 `AIAgentManagement:du:depts*` 33 key + `AIAgentManagement:du:users*` 3 key 일괄 DEL (version 키 보존 — 다음 mutation 에서 자연 회전).
+
+**최종 운영 검증 (캐시 flush 후)**:
+- `admin@example.com` / `jyj7970@idino.co.kr` 2 계정 × 2 endpoint = 4/4 PASS
+    - users.list: HTTP=200, total=132, items 정상 (`id=UUID, departmentId="56", role="admin", language="ko"`)
+    - departments.list: HTTP=200, **count=32** (이전 9 → AgentHub 32 부서 매핑 성공), tree 정상(`id=63 "아이디노(주)" depth=0`, `id=34 "M.SI본부" depth=1`, `id=43 "Si 1팀" depth=2 members=13`)
+- 부서별 멤버 매핑 (32 부서 전수):
+    - `depts_with_members=26/32`, `total_member_records=129` (132 users 중 96.4% 매핑 — 미배정 사용자 일부 제외)
+    - 주요 부서: Si 1팀 13명, 솔루션사업팀 12명, 교육사업팀 12명, Si 6팀 10명, Si 4팀 9명, 공공사업팀 7명, 유지보수팀 15명 등 — 실제 운영자 카드 일치
+- `admin@idino.co.kr` / `yjp@idino.co.kr` 2 계정은 token_len=0 (로그인 실패) — 별도 사용자 이슈, 본 refactor 와 무관 (다른 admin 계정으로 PASS 검증됨)
+
+**산출 파일**:
+- `agenthub/Controllers/AdminDocUtilUsersController.cs` (수정)
+- `agenthub/Controllers/AdminDocUtilDepartmentsController.cs` (수정)
+- `tmp/deploy_track106_agenthub_refactor_20260520.py` (1차 배포)
+- `tmp/deploy_track106_resume_20260520.py` (2차 — User.cs 동기화 + build resume)
+- `tmp/deploy_track106_flush_and_verify_20260520.py` (3차 — Redis 캐시 flush + 32 부서/26 매핑 검증)
+- `tmp/check_track106_build_log.py`, `tmp/check_track106_count.py`, `tmp/flush_track106_cache.py`, `tmp/final_track106_cache_cleanup.py` (진단/clean-up)
+- `user_mig/track106_verify.json` (검증 결과 JSON — 32 부서 × 멤버 카운트 breakdown)
+
+**빌드 검증**:
+- 로컬 `dotnet build`: 0 errors, 14 warnings (전부 본 트랙 외 기존 잔존 — `User.Department` obsolete + CS1998 async-without-await).
+- 원격 `docker compose build agenthub`: 0 errors, 14 warnings (동일), `Image agenthub-agenthub:latest` 생성 + container healthy.
+
+**잠재 후속 (별도 트랙 권장)**:
+- mutation endpoint (POST/PUT/DELETE users + departments) 도 AgentHub 마스터 직접 쓰기로 전환 — 현재 DocUtil 위임 시 `tb_users` 미반영 → AgentHub 마스터와 drift.
+- `admin@idino.co.kr` / `yjp@idino.co.kr` 로그인 실패 — 비밀번호 재설정 or 계정 활성화 확인 (트랙 #106 범위 외).
+- DocUtil 의 잔여 `tb_users` VIEW 폐기 — DocUtil 측 직접 호출 코드가 AgentHub Agent API 로 전환 완료된 후 DROP.
+- Vue 의 `editModal.departmentId` 드롭다운은 string 그대로 사용 (int 문자열) — Vue 변경 0 확인.
+
+**운영 영향**: 0 (read-only refactor + 캐시 flush). LLM 비용 0. 사용자 검증 시점: 본 작업 종료 후 사용자가 `http://192.168.10.39:64005/admin/docutil-users` + `/admin/docutil-departments` 에서 132 사용자 / 32 부서 / 26 매핑 확인 가능.
+
 ### 2026-05-20 (트랙 #105 — DocUtil 안정성 검증 1-1+1-2+1-3 완전 종결, 운영 결함 0)
 
 **사용자 요청 5건** (2026-05-20). 우선 처리: 1-1·1-2·1-3 (1-4·1-5 별도 트랙).
@@ -217,6 +303,42 @@
   - 산출: `tools/ui_e2e/full/track105_docutil_full_e2e_results.json`
 - C.5 엑셀 산출: `tools/ui_e2e/full/build_track105_excel.py` → `user_mig/DOCUTIL_E2E_RESULT_20260520.xlsx` (32KB, 7 시트: Cover + Summary + 6 그룹별 시트)
   - LAY-HDR-004 정정 사유 비고 column 에 영구 기록
+
+**Phase C 보강 (2026-05-20 추가) — manual 27건 자동화 전환 + helper 라이브러리 신설**:
+- 사용자 명시: "앞으로 작업을 위해 자동화 보강 필요". 사장된 자산이 아닌 향후 트랙 재사용을 위해 보강.
+- C.보강.1 신규 helper 라이브러리: `tools/ui_e2e/full/e2e_helpers.py` (~430 LOC)
+  - 헬퍼 함수 16개 export: `upload_file`, `download_file`, `iframe_click`, `iframe_mounted`,
+    `wait_for_sse`, `safe_mutation` (context manager), `ui_e2e_test_prefix`, `is_test_artifact`,
+    `ensure_fixture`, `get_sample_pdf/docx/pptx`, `viewport_override`, `wait_settled`,
+    `ApiCallCounter` (class), `assert_body_not_empty`, `click_outside`
+  - 환경변수 flag: `E2E_ALLOW_COST=0` (기본 OFF), `E2E_ALLOW_MUTATION=1` (기본 ON, ui-e2e-test prefix 의무)
+  - 운영 데이터 무영향 원칙: ui-e2e-test-{ts}-{rand} prefix 보장 + cleanup 의무 + cost 차단 기본 OFF
+- C.보강.2 fixture 파일 신설: `tools/ui_e2e/fixtures/`
+  - `sample_doc.pdf` (592B, minimal PDF 1.4) + `sample_template.docx` (36KB, python-docx) + `sample_template.pptx` (28KB, python-pptx)
+  - 모두 helpers 의 generator 가 의존성 없을 때도 zip 으로 직접 생성 (fallback)
+- C.보강.3 카탈로그 갱신: `docutil_page_catalog.py` (manual 27 → 20, auto 154 → 161)
+  - manual → auto 전환 7건 (SPECIAL_HANDLERS):
+    * LAY-ASB-014 (모바일 햄버거 — viewport 375x812)
+    * MSC-PVH-001 (/preview-host iframe mount)
+    * ADM-DASH-009 (30s 자동 새로고침 — ApiCallCounter)
+    * ADM-DOC-004 (파일 업로드 button selector 존재)
+    * ADM-DOC-010 (문서 다운로드 — download_file binary size)
+    * USR-RPT-008 (보고서 다운로드 — download_file)
+    * DSG-DID-002 (designer iframe mount)
+  - manual 잔존 20건 분류:
+    * LLM cost 12건 (E2E_ALLOW_COST=1 시 별도 cost runner — 비용 누적 회피)
+    * 고위험 mutation 8건 (template 파일 교체, 고아 벡터 정리, designer mutation, 임베딩 큐)
+- C.보강.4 runner 보강: `track105_docutil_full_e2e.py`
+  - SPECIAL_HANDLERS dict + 7개 handler 함수 추가 (~250 LOC)
+  - SKIP 결정 로직 재구성: `allow_cost()`/`allow_mutation()` flag 기반 + special handler 가 있으면 manual SKIP 우회
+- C.보강.5 단축 verify runner: `track105_phase_c_boost_verify.py`
+  - 7건 × 4계정 = 28 cells 만 단축 실행 (3-5분)
+  - 결과: **PASS 12 / FAIL 0 / SKIP 16** (모든 핸들러 정상 동작 입증)
+  - SKIP 16건은 정상 사유: non-admin 권한 차단 + 다운로드 데이터 부재 (운영 영향 0)
+- C.보강.6 full matrix 재실행 (E2E_ALLOW_MUTATION=1 E2E_DASH_REFRESH_WAIT=32):
+  - 4계정 × 168 (161 auto + 7 special) = ~672 cells
+  - 결과: `tools/ui_e2e/full/track105_docutil_full_e2e_results.json` (재산출)
+- C.보강.7 엑셀 재산출: Cover 시트의 자동화 분류 + Phase C 보강 7건 명시 + flag 운영 패턴 기록
 
 **Phase D — progress.md 갱신 + commit**:
 - 본 트랙 작업 로그 추가

@@ -1,0 +1,320 @@
+{
+  "endpoint_results": [
+    {
+      "account": "admin@example.com",
+      "endpoint": "users",
+      "status": "200",
+      "total": 132,
+      "items_returned": 5
+    },
+    {
+      "account": "admin@example.com",
+      "endpoint": "depts",
+      "status": "200",
+      "count": 32
+    },
+    {
+      "account": "jyj7970@idino.co.kr",
+      "endpoint": "users",
+      "status": "200",
+      "total": 132,
+      "items_returned": 5
+    },
+    {
+      "account": "jyj7970@idino.co.kr",
+      "endpoint": "depts",
+      "status": "200",
+      "count": 32
+    }
+  ],
+  "department_member_breakdown": [
+    {
+      "id": "63",
+      "name": "아이디노(주)",
+      "depth": 0,
+      "parentId": null,
+      "path": "/63/",
+      "members": 0,
+      "status": "200"
+    },
+    {
+      "id": "32",
+      "name": "경영본부",
+      "depth": 1,
+      "parentId": "63",
+      "path": "/63/32/",
+      "members": 0,
+      "status": "200"
+    },
+    {
+      "id": "42",
+      "name": "경영전략본부",
+      "depth": 2,
+      "parentId": "32",
+      "path": "/63/32/42/",
+      "members": 1,
+      "status": "200"
+    },
+    {
+      "id": "46",
+      "name": "마케팅팀",
+      "depth": 2,
+      "parentId": "32",
+      "path": "/63/32/46/",
+      "members": 1,
+      "status": "200"
+    },
+    {
+      "id": "54",
+      "name": "경영지원팀",
+      "depth": 2,
+      "parentId": "32",
+      "path": "/63/32/54/",
+      "members": 3,
+      "status": "200"
+    },
+    {
+      "id": "55",
+      "name": "사업지원팀",
+      "depth": 2,
+      "parentId": "32",
+      "path": "/63/32/55/",
+      "members": 4,
+      "status": "200"
+    },
+    {
+      "id": "56",
+      "name": "IT팀",
+      "depth": 2,
+      "parentId": "32",
+      "path": "/63/32/56/",
+      "members": 1,
+      "status": "200"
+    },
+    {
+      "id": "33",
+      "name": "R&D본부",
+      "depth": 1,
+      "parentId": "63",
+      "path": "/63/33/",
+      "members": 0,
+      "status": "200"
+    },
+    {
+      "id": "38",
+      "name": "R&D센터",
+      "depth": 2,
+      "parentId": "33",
+      "path": "/63/33/38/",
+      "members": 1,
+      "status": "200"
+    },
+    {
+      "id": "41",
+      "name": "개발사업팀",
+      "depth": 2,
+      "parentId": "33",
+      "path": "/63/33/41/",
+      "members": 3,
+      "status": "200"
+    },
+    {
+      "id": "57",
+      "name": "개발팀",
+      "depth": 2,
+      "parentId": "33",
+      "path": "/63/33/57/",
+      "members": 1,
+      "status": "200"
+    },
+    {
+      "id": "59",
+      "name": "연구팀",
+      "depth": 2,
+      "parentId": "33",
+      "path": "/63/33/59/",
+      "members": 4,
+      "status": "200"
+    },
+    {
+      "id": "34",
+      "name": "M.SI본부",
+      "depth": 1,
+      "parentId": "63",
+      "path": "/63/34/",
+      "members": 1,
+      "status": "200"
+    },
+    {
+      "id": "39",
+      "name": "Si 8팀",
+      "depth": 2,
+      "parentId": "34",
+      "path": "/63/34/39/",
+      "members": 2,
+      "status": "200"
+    },
+    {
+      "id": "40",
+      "name": "Si 4팀",
+      "depth": 2,
+      "parentId": "34",
+      "path": "/63/34/40/",
+      "members": 9,
+      "status": "200"
+    },
+    {
+      "id": "43",
+      "name": "Si 1팀",
+      "depth": 2,
+      "parentId": "34",
+      "path": "/63/34/43/",
+      "members": 13,
+      "status": "200"
+    },
+    {
+      "id": "45",
+      "name": "Si 7팀",
+      "depth": 2,
+      "parentId": "34",
+      "path": "/63/34/45/",
+      "members": 8,
+      "status": "200"
+    },
+    {
+      "id": "48",
+      "name": "Si 2팀",
+      "depth": 2,
+      "parentId": "34",
+      "path": "/63/34/48/",
+      "members": 5,
+      "status": "200"
+    },
+    {
+      "id": "61",
+      "name": "Si 5팀",
+      "depth": 2,
+      "parentId": "34",
+      "path": "/63/34/61/",
+      "members": 4,
+      "status": "200"
+    },
+    {
+      "id": "62",
+      "name": "Si 6팀",
+      "depth": 2,
+      "parentId": "34",
+      "path": "/63/34/62/",
+      "members": 10,
+      "status": "200"
+    },
+    {
+      "id": "35",
+      "name": "O.SI본부",
+      "depth": 1,
+      "parentId": "63",
+      "path": "/63/35/",
+      "members": 1,
+      "status": "200"
+    },
+    {
+      "id": "51",
+      "name": "유지보수팀",
+      "depth": 2,
+      "parentId": "35",
+      "path": "/63/35/51/",
+      "members": 15,
+      "status": "200"
+    },
+    {
+      "id": "36",
+      "name": "사업본부",
+      "depth": 1,
+      "parentId": "63",
+      "path": "/63/36/",
+      "members": 0,
+      "status": "200"
+    },
+    {
+      "id": "44",
+      "name": "수도권영업팀",
+      "depth": 2,
+      "parentId": "36",
+      "path": "/63/36/44/",
+      "members": 2,
+      "status": "200"
+    },
+    {
+      "id": "47",
+      "name": "공공사업팀",
+      "depth": 2,
+      "parentId": "36",
+      "path": "/63/36/47/",
+      "members": 7,
+      "status": "200"
+    },
+    {
+      "id": "50",
+      "name": "솔루션사업팀",
+      "depth": 2,
+      "parentId": "36",
+      "path": "/63/36/50/",
+      "members": 12,
+      "status": "200"
+    },
+    {
+      "id": "60",
+      "name": "교육사업팀",
+      "depth": 2,
+      "parentId": "36",
+      "path": "/63/36/60/",
+      "members": 12,
+      "status": "200"
+    },
+    {
+      "id": "37",
+      "name": "외부협력",
+      "depth": 1,
+      "parentId": "63",
+      "path": "/63/37/",
+      "members": 0,
+      "status": "200"
+    },
+    {
+      "id": "49",
+      "name": "넥스트패스",
+      "depth": 2,
+      "parentId": "37",
+      "path": "/63/37/49/",
+      "members": 1,
+      "status": "200"
+    },
+    {
+      "id": "53",
+      "name": "춘해보건대학교",
+      "depth": 2,
+      "parentId": "37",
+      "path": "/63/37/53/",
+      "members": 1,
+      "status": "200"
+    },
+    {
+      "id": "52",
+      "name": "디자인팀",
+      "depth": 1,
+      "parentId": "63",
+      "path": "/63/52/",
+      "members": 7,
+      "status": "200"
+    },
+    {
+      "id": "58",
+      "name": "QA팀",
+      "depth": 1,
+      "parentId": "63",
+      "path": "/63/58/",
+      "members": 0,
+      "status": "200"
+    }
+  ]
+}
