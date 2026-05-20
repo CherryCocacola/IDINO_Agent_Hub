@@ -281,7 +281,7 @@ export default function AdminAccountsPage() {
           organization_id: formData.organization_id,
           department_id: formData.department_id,
         };
-        // trailing slash 필수 (FastAPI router "/" 등록)
+        // 트랙 #106 — FastAPI redirect_slashes=False 이므로 trailing slash 제거
         await apiClient.post("/users", createData);
         addToast("사용자가 생성되었습니다", "success");
       }

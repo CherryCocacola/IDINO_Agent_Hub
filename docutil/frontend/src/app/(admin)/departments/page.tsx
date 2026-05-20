@@ -231,8 +231,8 @@ export default function DepartmentsPage() {
     if (!orgId) return;
     setUsersLoading(true);
     try {
-      // trailing slash 필수 — FastAPI router prefix 종단이 "/" 로 등록됨
-      const data = await apiClient.get<{ items: UserOption[] }>("/users/", { org_id: orgId! });
+      // 트랙 #106 — FastAPI redirect_slashes=False, trailing slash 제거
+      const data = await apiClient.get<{ items: UserOption[] }>("/users", { org_id: orgId! });
       setAllUsers(data.items || []);
     } catch {
       // ignore

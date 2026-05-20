@@ -495,7 +495,7 @@ export default function DocumentsPage() {
     try {
       const [accessData, usersData] = await Promise.all([
         apiClient.get<{ users: UserOption[] }>(`/documents/${doc.id}/access`),
-        apiClient.get<{ items: UserOption[] }>("/users/", { org_id: orgId! }),
+        apiClient.get<{ items: UserOption[] }>("/users", { org_id: orgId! }),
       ]);
       setAccessUsers(accessData.users || []);
       setAllUsers(usersData.items || []);
