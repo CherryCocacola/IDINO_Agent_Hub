@@ -370,8 +370,72 @@ class AgentHubLLMWrapper(LLMClient):
                 }
             },
         )
-        content = resp["choices"][0]["message"]["content"]
-        return json_module.loads(content)
+        # 트랙 #106 결함 8 v7 — AgentHub 가 200 + empty content 또는 finish_reason="content_filter"
+        # 같이 비정상 응답을 보낼 수 있음. 명시적으로 검증 후 친화 메시지 raise.
+        import sys as _sys
+        try:
+            choice = resp["choices"][0]
+            content = choice["message"]["content"]
+            finish_reason = choice.get("finish_reason", "")
+        except (KeyError, IndexError, TypeError) as exc:
+            print(
+                f"[generate_structured] AgentHub 응답 구조 비정상 — resp keys={list(resp) if isinstance(resp, dict) else type(resp).__name__}, repr={str(resp)[:500]}",
+                file=_sys.stderr, flush=True,
+            )
+            raise ValueError(f"AgentHub 응답 구조 비정상: {exc}") from exc
+
+        if not content or not str(content).strip():
+            # content 가 비어있음 — content_filter / moderation 차단 / token limit 등
+            print(
+                f"[generate_structured] AgentHub 응답 content 가 empty — finish_reason={finish_reason!r}, full_resp={str(resp)[:1000]}",
+                file=_sys.stderr, flush=True,
+            )
+            _hint = ""
+            if finish_reason == "content_filter":
+                _hint = "content_policy_violation: LLM 모더레이션이 응답을 차단했습니다."
+            elif finish_reason == "length":
+                _hint = "응답 토큰 한도 초과 — max_tokens 를 늘리거나 prompt 를 줄여주세요."
+            else:
+                _hint = f"LLM 응답이 비어있습니다 (finish_reason={finish_reason!r})."
+            raise ValueError(_hint)
+
+        # 트랙 #106 결함 8 v8 — LLM 이 response_format=json_schema 를 무시하고
+        # markdown fence (```json ... ```) 로 감싸 응답하는 경우 대응. OpenAI/Gemini/Claude
+        # 모두 같은 fallback 양상. 첫/끝 fence 제거 후 json.loads 재시도.
+        def _strip_markdown_fence(text: str) -> str:
+            text = text.strip()
+            if not text.startswith("```"):
+                return text
+            # 첫 줄 ```json (또는 ```) 제거
+            after_first_fence = text[3:].lstrip()
+            # 첫 줄의 언어 hint (json) 제거 후 첫 newline 이후만 사용
+            if "\n" in after_first_fence:
+                lang_or_body, rest = after_first_fence.split("\n", 1)
+                # lang hint 가 ASCII 식별자면 제거, 아니면 본문의 일부
+                body = rest if lang_or_body.strip().isidentifier() or lang_or_body.strip() == "" else after_first_fence
+            else:
+                body = after_first_fence
+            # 끝 ``` 제거
+            body = body.rstrip()
+            if body.endswith("```"):
+                body = body[:-3].rstrip()
+            return body
+
+        try:
+            return json_module.loads(content)
+        except json_module.JSONDecodeError:
+            # markdown fence 제거 후 재시도
+            cleaned = _strip_markdown_fence(content)
+            try:
+                return json_module.loads(cleaned)
+            except json_module.JSONDecodeError as exc:
+                print(
+                    f"[generate_structured] JSON 파싱 실패 (fence 제거 후도) — "
+                    f"original(첫 300): {str(content)[:300]!r}, "
+                    f"cleaned(첫 300): {str(cleaned)[:300]!r}",
+                    file=_sys.stderr, flush=True,
+                )
+                raise
 
     # ── 동기 메서드 (Celery worker 용) ─────────────────────────────────────
     #

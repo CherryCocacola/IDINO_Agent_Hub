@@ -339,6 +339,15 @@ class DocumentServiceV2:
             )
             raise DocumentSchemaValidationError("LLM 응답이 DocumentSchema 를 만족하지 못했습니다.") from exc
         except Exception as exc:  # noqa: BLE001 - 외부 호출은 포괄적으로 래핑
+            # 트랙 #106 결함 8 v6 진단 — logger 가 STDOUT 으로 안 가는 환경 대응. stderr 강제 출력.
+            import sys as _sys
+            import traceback as _tb
+            print(
+                f"[DOCUMENTS_V2 LLM 호출 실패] type={type(exc).__name__} repr={exc!r}",
+                file=_sys.stderr, flush=True,
+            )
+            _tb.print_exception(type(exc), exc, exc.__traceback__, file=_sys.stderr)
+            _sys.stderr.flush()
             await DocumentServiceV2._persist_failure(
                 db=db,
                 document_id=document_id,
@@ -364,6 +373,9 @@ class DocumentServiceV2:
                 raise DocumentGenerationError(
                     f"content_policy_violation: {_exc_msg}"
                 ) from exc
+            # v7 — client.py 가 raise 한 명시 메시지(빈 응답/토큰 한도/구조 비정상)는 그대로 전달
+            if any(k in _exc_msg for k in ("토큰 한도 초과", "응답이 비어있", "응답 구조 비정상", "LLM 모더레이션")):
+                raise DocumentGenerationError(_exc_msg) from exc
             raise DocumentGenerationError("LLM 호출에 실패했습니다. 잠시 후 다시 시도해 주세요.") from exc
 
         # 7) 이미지 자동 선택 (Unsplash → DALL-E fallback, Phase 4 S3 D3) -----
