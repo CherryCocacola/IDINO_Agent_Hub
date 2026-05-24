@@ -23,7 +23,26 @@ from typing import Final
 
 COMMON_INSTRUCTIONS: Final[str] = (
     "반드시 모든 텍스트 (컴포넌트 내부 문자열, 제목, 캡션 포함) 는 한국어로 작성하세요. "
+    "출력은 **순수 JSON 객체** 만 반환합니다. markdown code fence (```json) 사용 금지, "
+    "설명 문장 금지, 응답 전체가 단일 JSON 객체로 시작/종료되어야 합니다.\n"
     "생성한 DocumentSchema 는 다음 규칙을 따릅니다.\n"
+    "- **type 필드 필수** — document_type 값을 그대로 (예: 'slide_report', 'docx_report', "
+    "'minutes', 'proposal', 'one_pager', 'weekly_status', 'freeform_doc')\n"
+    "- **각 페이지마다 page_kind + layout 필드 필수**:\n"
+    "  · page_kind ∈ {'slide', 'section'} 만 허용. slide_report 면 'slide', "
+    "그 외 (docx_report/minutes/proposal/one_pager/weekly_status/freeform_doc) 는 'section'\n"
+    "  · layout ∈ {'title_slide', 'section_divider', 'content_body', 'kpi_dashboard', "
+    "'two_column', 'closing'} 만 허용. 타입에 관계없이 이 6 값 중 선택. "
+    "minutes/docx_report/proposal 등 슬라이드 아닌 타입도 'content_body' 또는 "
+    "'section_divider' 사용.\n"
+    "- **design_tokens 필드 필수** — 다음 enum 값만 허용:\n"
+    "  · font_family ∈ {'Pretendard', 'NotoSansKR', 'System'} — 'Pretendard' 기본\n"
+    "  · brand_preset ∈ {'idino_default', 'idino_mono', 'custom'} — 'idino_default' 기본\n"
+    "  · spacing ∈ {'compact', 'normal', 'relaxed'} — 'normal' 기본\n"
+    "  · primary_color/accent_color/text_color/background_color 는 '#RRGGBB' 6자리 hex\n"
+    "  · 추천 기본값: {primary_color:'#0A4FC2', accent_color:'#FF6B35', "
+    "text_color:'#1F2937', background_color:'#FFFFFF', font_family:'Pretendard', "
+    "spacing:'normal', brand_preset:'idino_default'}\n"
     "- 컴포넌트 id 는 페이지별로 'c1','c2',... 형식\n"
     "- 페이지 id 는 'p1','p2',... 형식\n"
     "- schema_version 은 '1.0' 고정\n"
@@ -214,3 +233,12 @@ MAX_CHUNK_SNIPPET_CHARS: Final[int] = 1_200
 
 # DocumentMetadata.citations 에 저장할 최대 항목 수.
 MAX_CITATIONS_STORED: Final[int] = 10
+
+
+# ---------------------------------------------------------------------------
+# 트랙 #106 결함 8 v10 fix-up — 운영 utils.py 가 import 하는 placeholder.
+# 운영 hotfix 가 utils.py 에 _SLOT_FILL_SYSTEM_PROMPT 사용을 추가했으나
+# 로컬 constants.py 에 정의가 누락된 drift 상태였음. ImportError 회피용
+# placeholder. 향후 slot-fill (Mode B / template_fill) 활성 시 정의 보강.
+# ---------------------------------------------------------------------------
+_SLOT_FILL_SYSTEM_PROMPT: Final[str] = ""

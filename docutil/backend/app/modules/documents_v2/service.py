@@ -324,6 +324,24 @@ class DocumentServiceV2:
                 max_tokens=max_tokens,
             )
         except ValidationError as exc:
+            # 트랙 #106 결함 8 v9 진단 — ValidationError 의 정확한 field 정보 stderr 출력
+            # + 사용자 detail 에 첫 3개 error 포함 (어떤 필드 실패인지 알아야 fix 가능)
+            import sys as _sys
+            try:
+                _errors = exc.errors()
+            except Exception:
+                _errors = []
+            _err_summary = []
+            for e in _errors[:3]:
+                _loc = ".".join(str(x) for x in e.get("loc", []))
+                _msg = e.get("msg", "?")
+                _typ = e.get("type", "?")
+                _err_summary.append(f"{_loc}: {_msg} [{_typ}]")
+            _detail_text = " | ".join(_err_summary) or str(exc)[:300]
+            print(
+                f"[DOCUMENTS_V2 ValidationError] count={len(_errors)} first_errors={_err_summary}",
+                file=_sys.stderr, flush=True,
+            )
             await DocumentServiceV2._persist_failure(
                 db=db,
                 document_id=document_id,
@@ -335,9 +353,11 @@ class DocumentServiceV2:
                 source_chat_session_id=source_chat_session_id,
                 provider=provider,
                 model=(agent.llm_model if agent else None),
-                error_message=f"LLM 응답 스키마 검증 실패: {exc}",
+                error_message=f"LLM 응답 스키마 검증 실패: {_detail_text}",
             )
-            raise DocumentSchemaValidationError("LLM 응답이 DocumentSchema 를 만족하지 못했습니다.") from exc
+            raise DocumentSchemaValidationError(
+                f"LLM 응답이 DocumentSchema 를 만족하지 못했습니다. 첫 검증 실패: {_detail_text}"
+            ) from exc
         except Exception as exc:  # noqa: BLE001 - 외부 호출은 포괄적으로 래핑
             # 트랙 #106 결함 8 v6 진단 — logger 가 STDOUT 으로 안 가는 환경 대응. stderr 강제 출력.
             import sys as _sys

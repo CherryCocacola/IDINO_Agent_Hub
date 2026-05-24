@@ -170,6 +170,47 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-24 (트랙 #106 결함 8 근본 fix — AgentHub `/v1/chat/completions` 가 OpenAI Structured Outputs `response_format` 무시 결함 해소)
+
+**배경**: 트랙 #106 결함 8 의 v1~v8 우회 fix(차단 단어 노출 / 메시지 보강 / markdown fence 제거 / unicode escape 디코딩)에도 불구하고, DocUtil documents_v2 보고서 생성 시 `json.loads` 실패 + `ValidationError` 502/422 가 잔존. 근본 원인 추적:
+
+- DocUtil `app/integrations/llm/client.py:361` 의 `generate_structured` 는 `apiClient.chat(..., extra={"response_format": {"type":"json_schema", ...}})` 로 호출.
+- 그러나 AgentHub `OpenAICompatController.ChatCompletions`(line 137) + `DirectSendMessageRequestDto` + `ChatMessageRequestDto` 모두 `ResponseFormat` 필드 자체가 **부재** — `request.ResponseFormat` 이 deserialize 안 됨 → 모든 chain 에서 무시 → `AiProxyService.CallOpenAiAsync` 의 OpenAI payload 에 `response_format` 누락 → OpenAI 가 일반 chat 모드로 markdown fence 섞인 freetext 반환 → DocUtil 측 schema 파싱 실패 → 502/422.
+
+**작업 (5 파일 신설/수정)**:
+
+1. `agenthub/DTOs/OpenAICompatDto.cs` — `OpenAIChatCompletionRequest.ResponseFormat` 추가 (`JsonElement?`, `[JsonPropertyName("response_format")]`).
+2. `agenthub/DTOs/DirectSendMessageRequestDto.cs` — `ResponseFormat` (`JsonElement?`, `[JsonPropertyName("responseFormat")]`) + xmldoc.
+3. `agenthub/DTOs/ChatMessageRequestDto.cs` — `ResponseFormat` (`JsonElement?`) 추가 (내부 전달용).
+4. `agenthub/Controllers/OpenAICompatController.cs:253` — `directRequest.ResponseFormat = request.ResponseFormat` 매핑.
+5. `agenthub/Services/ChatService.cs:759, 1283, 1582` — 3개 분기(`SendDirectMessageAsync` / `SendDirectMessageStreamChunksAsync` / `SendDirectMessageStreamEventsAsync`) 모두 `chatRequest.ResponseFormat = request.ResponseFormat` 매핑.
+6. `agenthub/Services/AiProxyService.cs:872 (CallOpenAiAsync), 1078 (CallOpenAiStreamAsync)` — `payloadDict["response_format"] = request.ResponseFormat!.Value` (`ValueKind == Object` 검사 후) + `_logger.LogInformation("OpenAI Structured Outputs 활성화: Model={Model}, response_format.type={Type}", ...)`.
+
+**1차 시도 결함**: `Dictionary<string, object?>` 로 선언하니 프로젝트의 `Infrastructure.DictionaryStringObjectJsonConverter` 가 nested object 직렬화에서 **무한 재귀 → StackOverflow**. AgentHub 가 1.5초만에 connection 끊고 GlobalExceptionHandler 가 거대한 nested converter stack 만 출력. → 모든 ResponseFormat 필드를 `JsonElement?` 로 변경하여 raw JSON tree 보존 (System.Text.Json 이 element 를 그대로 직렬화). 2차 빌드/배포 후 정상 동작 확인.
+
+**빌드/운영 배포** (`tmp/deploy_track106_defect8_root_fix.py`):
+- `dotnet build` — 워닝 14건(모두 기존, 본 작업 무관), 오류 0.
+- `docker compose build agenthub` + `up -d --force-recreate agenthub` (healthy 폴링 12초) + `docker restart docutil-nginx` (stale upstream 패턴 — `MEMORY.md / reference_docutil_hotfix_pattern.md` ref).
+
+**운영 검증 결과** (3 케이스):
+- A. `prompt="마약 분석 보고서"` → HTTP 400 + `BannedWordException` 정상 차단 ("차단된 표현: 마약" — v3/v4 차단 단어 노출 fix 회귀 없음).
+- B. `prompt="회의록 / 회의일자 ..."` , `document_type="minutes"` → **HTTP 202** + 정상 보고서 응답 (document_id, schema, design_tokens 모두 포함).
+- C. `document_type="general"` → 422 (DocUtil enum 검증, 본 fix 무관).
+- AgentHub 로그: `OpenAI Structured Outputs 활성화: Model=gpt-4o, response_format.type=json_schema` — 3 호출 모두 출력 (response_format 이 OpenAI 까지 forward 됨 confirm).
+- DocUtil `documents_v2` 보고서 생성 성공 — `json.loads` 실패 / ValidationError 종결.
+
+**파급 효과**:
+- 트랙 #106 결함 8 의 우회 fix v1~v8 (차단 단어 노출 / markdown fence 제거 / unicode escape) 은 그대로 유지 — 본 fix 와 직교(defense in depth).
+- DocUtil `client.py:402` 의 markdown fence 후처리는 외부 LLM 회귀 안전망으로 유지.
+- AgentHub 의 OpenAI compat 게이트웨이가 이제 OpenAI Structured Outputs 를 정확히 forward — 다른 호출자(career 등) 도 동일하게 활용 가능.
+
+**다음 단계**:
+- progress.md commit + push (사용자 승인 후).
+- 회귀 추적: 트랙 #102 (system message preserve) 이전 시점에 이미 결함 잔존했을 가능성 — git log 검토.
+- (선택) `ChatMessageRequestDto.ResponseFormat` 을 일반 채팅 흐름(SendChatMessageAsync 의 conversation-기반 경로 line 441) 까지 확장할지 검토 — 현재는 OpenAI 호환 게이트웨이 전용으로 충분.
+
+---
+
 ### 2026-05-20 (트랙 #106 — DocUtil 운영자 화면 결함 6건 (4 결함 + 2 수정요청) 일괄 fix + 운영 배포)
 
 **사용자 보고 6건** (2026-05-20):
