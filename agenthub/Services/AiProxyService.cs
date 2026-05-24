@@ -897,11 +897,32 @@ You are a professional and helpful AI assistant.
             }
         }
 
+        // 트랙 #106 결함 8 근본 fix — OpenAI Structured Outputs forward.
+        // 호출자(DocUtil documents_v2 등) 가 `{"type":"json_schema","json_schema":{...}}` 를 보내면
+        // OpenAI Chat Completions payload 의 `response_format` 필드로 그대로 동봉하여 schema 강제.
+        // JsonElement 를 사용하여 raw JSON tree 를 보존(Dictionary<string,object> 는 프로젝트의
+        // DictionaryStringObjectJsonConverter 와 충돌해 StackOverflow 를 일으키므로 사용 불가).
+        var hasResponseFormat = request.ResponseFormat.HasValue
+            && request.ResponseFormat.Value.ValueKind == JsonValueKind.Object;
+        if (hasResponseFormat)
+        {
+            payloadDict["response_format"] = request.ResponseFormat!.Value;
+            string fmtType = "(none)";
+            if (request.ResponseFormat.Value.TryGetProperty("type", out var typeProp)
+                && typeProp.ValueKind == JsonValueKind.String)
+            {
+                fmtType = typeProp.GetString() ?? "(none)";
+            }
+            _logger.LogInformation(
+                "OpenAI Structured Outputs 활성화: Model={Model}, response_format.type={Type}",
+                model, fmtType);
+        }
+
         var json = JsonSerializer.Serialize(payloadDict);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        _logger.LogDebug("OpenAI API request: Model={Model}, MessagesCount={Count}, Temperature={Temp}, MaxTokens={MaxTokens}, UsesCompletionTokens={UsesCompletionTokens}", 
-            model, messages.Count, request.Temperature, request.MaxTokens, usesCompletionTokens);
+        _logger.LogDebug("OpenAI API request: Model={Model}, MessagesCount={Count}, Temperature={Temp}, MaxTokens={MaxTokens}, UsesCompletionTokens={UsesCompletionTokens}, HasResponseFormat={HasFmt}",
+            model, messages.Count, request.Temperature, request.MaxTokens, usesCompletionTokens, hasResponseFormat);
 
         var response = await client.PostAsync($"{baseUrl}/chat/completions", content, cancellationToken);
         
@@ -1101,6 +1122,13 @@ You are a professional and helpful AI assistant.
             {
                 payloadDict["max_tokens"] = request.MaxTokens.Value;
             }
+        }
+
+        // 트랙 #106 결함 8 근본 fix — 스트리밍에서도 Structured Outputs forward (raw JsonElement).
+        if (request.ResponseFormat.HasValue
+            && request.ResponseFormat.Value.ValueKind == JsonValueKind.Object)
+        {
+            payloadDict["response_format"] = request.ResponseFormat.Value;
         }
 
         var json = JsonSerializer.Serialize(payloadDict);

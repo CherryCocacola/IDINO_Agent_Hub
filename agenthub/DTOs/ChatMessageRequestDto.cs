@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace AIAgentManagement.DTOs;
 
 public class ChatMessageRequestDto
@@ -16,6 +18,13 @@ public class ChatMessageRequestDto
     public bool EnableDeepResearch { get; set; } = false; // 심층 리서치: 다중 웹 검색 + RAG 통합 분석
     public bool EnableDeepThinking { get; set; } = false; // 더 오래 생각하기: Chain-of-Thought 프롬프팅
     public string? ThinkingMode { get; set; } // 'chain-of-thought', 'step-by-step' 등
+
+    /// <summary>
+    /// OpenAI Structured Outputs — `response_format` 객체를 그대로 OpenAI Chat Completions payload 로 forward.
+    /// 트랙 #106 결함 8 근본 fix. AiProxyService.CallOpenAiAsync / CallOpenAiStreamAsync 에서 소비합니다.
+    /// 타입은 <see cref="JsonElement"/> (nullable) — nested JSON tree 를 raw 로 보존합니다.
+    /// </summary>
+    public JsonElement? ResponseFormat { get; set; }
 }
 
 public class ChatMessageDto

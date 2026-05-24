@@ -755,7 +755,9 @@ public class ChatService : IChatService
             DocumentIds = request.DocumentIds, // 사용자가 선택한 문서 ID 목록
             EnableDeepResearch = request.EnableDeepResearch ?? false,
             EnableDeepThinking = request.EnableDeepThinking ?? false,
-            ThinkingMode = request.ThinkingMode
+            ThinkingMode = request.ThinkingMode,
+            // 트랙 #106 결함 8 근본 fix — Structured Outputs 를 AiProxyService 까지 전달.
+            ResponseFormat = request.ResponseFormat,
         };
         
         _logger.LogInformation("Chat request prepared. EnableRag: {EnableRag}, DocumentIds: {DocumentIds}, AgentId: {AgentId}", 
@@ -1277,7 +1279,9 @@ public class ChatService : IChatService
             DocumentIds = request.DocumentIds,
             EnableDeepResearch = request.EnableDeepResearch ?? false,
             EnableDeepThinking = request.EnableDeepThinking ?? false,
-            ThinkingMode = request.ThinkingMode
+            ThinkingMode = request.ThinkingMode,
+            // 트랙 #106 결함 8 근본 fix — 스트리밍 경로도 Structured Outputs 를 OpenAI 까지 forward.
+            ResponseFormat = request.ResponseFormat,
         };
 
         // 트랙 #102 fix: 스트리밍 경로(OpenAI 호환 /v1/chat stream=true — DocUtil RAG 흐름)도
@@ -1576,7 +1580,9 @@ public class ChatService : IChatService
             DocumentIds = request.DocumentIds,
             EnableDeepResearch = request.EnableDeepResearch ?? false,
             EnableDeepThinking = request.EnableDeepThinking ?? false,
-            ThinkingMode = request.ThinkingMode
+            ThinkingMode = request.ThinkingMode,
+            // 트랙 #106 결함 8 근본 fix — Vue UI 진짜 SSE 경로에서도 Structured Outputs 전달 일관성 유지.
+            ResponseFormat = request.ResponseFormat,
         };
 
         if (agent != null && !string.IsNullOrEmpty(agent.SystemPrompt))

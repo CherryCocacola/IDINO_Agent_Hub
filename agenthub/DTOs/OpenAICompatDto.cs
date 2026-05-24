@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace AIAgentManagement.DTOs;
@@ -48,6 +49,24 @@ public class OpenAIChatCompletionRequest
 
     [JsonPropertyName("user")]
     public string? User { get; set; }
+
+    /// <summary>
+    /// OpenAI Structured Outputs — response_format 객체를 그대로 외부 LLM 으로 forward 합니다.
+    /// 트랙 #106 결함 8 근본 fix: DocUtil documents_v2 가 보고서 생성 시 `{"type":"json_schema","json_schema":{...}}`
+    /// 를 보내면, AgentHub OpenAI 호환 게이트웨이가 이를 무시하지 않고 그대로 OpenAI Chat Completions
+    /// payload 에 포함시켜 LLM 응답이 schema 를 정확히 준수하도록 보장합니다.
+    /// 형식 예시:
+    ///   {"type":"json_object"}
+    ///   {"type":"json_schema","json_schema":{"name":"...","schema":{...},"strict":true}}
+    /// <para>
+    /// 타입은 <see cref="JsonElement"/> (nullable) 로 raw JSON tree 를 그대로 보존합니다.
+    /// <c>Dictionary&lt;string, object&gt;</c> 를 사용하면 프로젝트의
+    /// <see cref="AIAgentManagement.Infrastructure.DictionaryStringObjectJsonConverter"/> 가
+    /// nested 객체에서 무한 재귀에 빠져 StackOverflow 가 발생하므로 절대 사용하지 않습니다.
+    /// </para>
+    /// </summary>
+    [JsonPropertyName("response_format")]
+    public JsonElement? ResponseFormat { get; set; }
 }
 
 public class OpenAIChatMessage

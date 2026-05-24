@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace AIAgentManagement.DTOs;
@@ -72,6 +73,22 @@ public class DirectSendMessageRequestDto
     /// </summary>
     [JsonPropertyName("preserveSystemMessage")]
     public bool PreserveSystemMessage { get; set; } = false;
+
+    /// <summary>
+    /// OpenAI Structured Outputs — `response_format` 객체를 그대로 외부 LLM 으로 forward 합니다.
+    /// <para>
+    /// 트랙 #106 결함 8 근본 fix: OpenAI 호환 게이트웨이(`/v1/chat/completions`) 호출자가
+    /// `{"type":"json_schema","json_schema":{...}}` 같은 Structured Outputs 지시를 보내면,
+    /// AgentHub 가 이를 무시하지 않고 ChatService → AiProxyService.CallOpenAiAsync 까지 전달하여
+    /// 최종 OpenAI Chat Completions payload 의 `response_format` 필드에 동봉합니다.
+    /// </para>
+    /// <para>
+    /// 타입은 <see cref="JsonElement"/> (nullable) — nested JSON tree 를 raw 로 보존합니다.
+    /// 일반 채팅(자유 텍스트) 호출자는 설정하지 않습니다(기본 null).
+    /// </para>
+    /// </summary>
+    [JsonPropertyName("responseFormat")]
+    public JsonElement? ResponseFormat { get; set; }
 }
 
 public class ChatMessageItemDto

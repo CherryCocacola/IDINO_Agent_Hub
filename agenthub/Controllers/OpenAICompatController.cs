@@ -250,6 +250,9 @@ public class OpenAICompatController : ControllerBase
             Language               = "auto",
             Messages               = chatMessages,
             PreserveSystemMessage  = true,  // 호출자(DocUtil 등) 가 보낸 RAG context system prompt 보존
+            // 트랙 #106 결함 8 근본 fix — Structured Outputs (`response_format`) 을 OpenAI 까지 forward.
+            // DocUtil documents_v2 가 보고서 schema 강제 시 markdown fence/freetext 응답을 사전 차단.
+            ResponseFormat         = request.ResponseFormat,
         };
 
         var completionId = $"chatcmpl-{Guid.NewGuid():N}";
