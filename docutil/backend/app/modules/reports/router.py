@@ -465,27 +465,34 @@ async def get_report(
 
 @router.delete(
     "/reports/{report_id}",
-    status_code=status.HTTP_410_GONE,
+    status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
-    summary="[GONE] Delete a generated report — archive 보존 정책",
+    summary="Delete a generated report",
     responses={
-        410: {"description": "Endpoint removed — archive 는 읽기 전용."},
+        204: {"description": "Report deleted."},
+        404: {"description": "Report not found."},
     },
 )
 async def delete_report(
     report_id: UUID,
+    db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(_require_member),
 ) -> Response:
-    """보고서 삭제 — S2 D6 이후 410 Gone.
+    """보고서 삭제.
 
-    정책(옵션 2): ``tb_generated_reports_archive`` 는 읽기 전용으로 보존한다.
-    사용자가 실제로 제거를 원하면 S7 완전 제거 시점에 테이블 drop 과 함께
-    일괄 처리된다. 과거 405 회귀 이슈(H2) 대비, 라우트 자체는 존재시키되
-    410 Gone 을 반환해 FE 가 명확한 안내를 띄울 수 있게 한다.
+    트랙 #106 — 이전 S2 D6 정책으로 410 Gone 으로 차단됐으나, v2 (documents-v2)
+    에 보고서 삭제 대체 기능이 없어 사용자가 막혔던 결함 해소. ReportGenerationService
+    의 delete_report 가 실제 DB row + MinIO 파일 정리를 수행하므로 정상 활성화.
     """
-    _raise_gone()
-    # 정적 타입 체커 만족용 (실제로는 _raise_gone() 에서 예외 발생).
-    return Response(status_code=status.HTTP_410_GONE)
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="사용자가 조직에 소속되어 있지 않습니다.",
+        )
+    await ReportGenerationService.delete_report(
+        db=db, report_id=report_id, org_id=current_user.organization_id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # -- Download report -------------------------------------------------------
