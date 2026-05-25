@@ -298,8 +298,15 @@ class DocumentServiceV2:
             agent_prompt = agent.system_prompt
 
         # 4) 프롬프트 구성 ----------------------------------------------------
-        system_prompt = build_system_prompt(document_type, agent_prompt=agent_prompt)
-        user_prompt = build_user_prompt(prompt, context_text)
+        # 트랙 #106 — RAG context 를 system message 로 분리 전송:
+        # AgentHub BannedWordService 가 마지막 user message 만 검사하므로,
+        # RAG context 안의 일반어("자해", "다단계" 등)가 false positive 차단
+        # 일으키지 않도록 system 으로 이동. 사용자 prompt 만 user message 로.
+        # OpenAI Structured Outputs 정확도도 향상 (system 에 근거 명시).
+        system_prompt = build_system_prompt(
+            document_type, agent_prompt=agent_prompt, rag_context=context_text
+        )
+        user_prompt = build_user_prompt(prompt, "")
 
         # 5) LLM 클라이언트 (factory 경유 - P1) ------------------------------
         provider = (agent.llm_provider if agent and agent.llm_provider else None) or get_provider_for_task("report")

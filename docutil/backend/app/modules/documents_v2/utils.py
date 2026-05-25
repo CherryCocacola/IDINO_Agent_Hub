@@ -32,7 +32,11 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-def build_system_prompt(document_type: str, agent_prompt: str | None = None) -> str:
+def build_system_prompt(
+    document_type: str,
+    agent_prompt: str | None = None,
+    rag_context: str | None = None,
+) -> str:
     """DocumentType 별 시스템 프롬프트를 조합한다.
 
     Parameters
@@ -42,6 +46,11 @@ def build_system_prompt(document_type: str, agent_prompt: str | None = None) -> 
     agent_prompt:
         에이전트의 system_prompt. 있으면 타입 프롬프트보다 **앞**에 붙여
         역할·톤 설정을 선행시킨다.
+    rag_context:
+        RAG 검색 결과로 조립된 근거 문서 본문. 트랙 #106 결함 8 (자해/다단계 등
+        일반어 false positive 차단) 해소 위해 **system message 에 포함**한다.
+        AgentHub BannedWordService 는 마지막 user message 만 검사하므로
+        RAG context 안 일반어가 차단 트리거되지 않는다.
 
     Raises
     ------
@@ -61,6 +70,9 @@ def build_system_prompt(document_type: str, agent_prompt: str | None = None) -> 
         parts.append(agent_prompt.strip())
     parts.append(type_prompt)
     parts.append(COMMON_INSTRUCTIONS)
+    # 트랙 #106 — RAG context 를 system message 끝에 추가. user 검사 우회.
+    if rag_context and rag_context.strip():
+        parts.append("## 참고 문서 (근거)\n" + rag_context.strip())
     return "\n\n".join(parts)
 
 
