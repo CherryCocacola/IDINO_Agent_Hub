@@ -98,7 +98,7 @@ export function Header() {
 
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <img src="/g2-logo.png" alt="G2 SOFT" className="h-8 w-8 rounded object-contain" />
+          <img src="/idino-logo.png" alt="IDINO" className="h-8 w-8 rounded object-contain" />
           <span className="text-foreground text-xl font-bold">DocUtil</span>
         </div>
       </div>

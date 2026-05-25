@@ -96,7 +96,7 @@ export function AdminSidebar() {
       <div className="border-border flex h-14 items-center justify-between border-b px-4">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <img src="/g2-logo.png" alt="G2 SOFT" className="h-7 w-7 rounded object-contain" />
+            <img src="/idino-logo.png" alt="IDINO" className="h-7 w-7 rounded object-contain" />
             <h1 className="text-foreground text-lg font-semibold tracking-tight">DocUtil</h1>
           </div>
         )}
