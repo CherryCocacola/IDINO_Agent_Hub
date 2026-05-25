@@ -793,8 +793,29 @@ export default function ReportsPage() {
       setGenerateProgress(0);
       // 410 Gone 은 구 경로 잔존 호출에서만 발생. 이관 후엔 정상 경로이므로 일반 오류로 처리.
       if (!handleApi410(err)) {
-        const message = err instanceof Error ? err.message : "생성에 실패했습니다.";
-        addToast(message, "error");
+        // 트랙 #106 P0 — 422 ValidationError 는 LLM 일시적 형식 실패. 사용자 친화 메시지 +
+        // 디자이너 열기 (혼란 유발) 대신 "재시도" 액션 제공.
+        const isValidationError =
+          err instanceof Error &&
+          (err.message.includes("DocumentSchema 를 만족하지 못했습니다") ||
+            err.message.includes("스키마 검증 실패") ||
+            err.message.includes("422"));
+        if (isValidationError) {
+          toast({
+            title: "LLM 응답이 일시적으로 형식을 맞추지 못했습니다",
+            description:
+              "내부 자동 재시도까지 모두 실패했습니다. 잠시 후 다시 시도해 주세요. 같은 프롬프트를 반복하면 동일 결과가 나올 수 있어 표현을 조금 바꿔 보시는 것을 권장합니다.",
+            variant: "destructive",
+            action: (
+              <ToastAction altText="다시 시도" onClick={() => handleGenerate()}>
+                다시 시도
+              </ToastAction>
+            ),
+          });
+        } else {
+          const message = err instanceof Error ? err.message : "생성에 실패했습니다.";
+          addToast(message, "error");
+        }
       }
     }
   };

@@ -170,6 +170,56 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-25 (트랙 #106 P0 — DocumentSchema ValidationError ~50% 해소 코드 fix + 운영 closed-loop BLOCKED by OpenAI billing quota)
+
+**배경**: sdet-agent 의 `track106_reports_designer_diag.py` 진단으로 `/v2/documents` POST 가 LLM Structured Output 검증에서 ~50% 확률 422 (`ExecutiveSummary.bullets: List should have at least 3 items, not 2` 류). 근본 원인 정확 식별: OpenAI Structured Outputs 의 strict 모드가 `minItems`/`maxItems`/`minLength`/`maxLength`/`pattern` 등 JSON Schema 제약을 **무시** (공식 지원 키워드는 `enum`/`required` 뿐). 따라서 DocUtil 의 `schema_adapter._OPENAI_STRICT_UNSUPPORTED_KEYWORDS` 가 이미 그 제약들을 schema 에서 strip 하고 응답을 받은 후 Pydantic `validate_structured_output` 단계에서 재검증 → LLM 이 자주 위반 → ValidationError.
+
+**코드 수정 (4 파일, 모두 SFTP + docker build + force-recreate + nginx restart 완료)**:
+
+1. `docutil/backend/app/modules/documents_v2/schemas.py` — **9 개 list 필드에 `field_validator(mode="before")` 추가**로 padding/truncate 자동 보정:
+   - **`ExecutiveSummary.bullets` (min=3, max=5)** — 가장 빈번한 실패 케이스 (관측 ~50%). 2 개 이하면 `conclusion` 또는 마지막 bullet 으로 padding. 6 개 이상이면 truncate.
+   - `IconRow.items` (min=2, max=6), `ImageGrid.images` (min=2, max=4) — 1 개로 반환되면 마지막 item 복제.
+   - `ThreeColumn.columns` (정확 3 개) — 1~2 개면 padding, 4 개 이상이면 truncate.
+   - `BulletList.items` (max=12), `Timeline.events` (max=10), `RiskMatrix.risks` (max=12), `ActionItemList.items` (max=20), `AttendeeList.attendees` (max=50), `DataTable.headers` (max=8), `DataTable.rows` (max=20) — max 초과 시 truncate.
+   - `Page.components` (max=10), `DocumentSchema.pages` (max=20) — 동일.
+   - **로컬 pydantic 단위 테스트로 5 종 패턴 모두 PASS 확인** (ExecutiveSummary 1→3, IconRow 1→2, ImageGrid 1→2, ThreeColumn 1→3, BulletList 15→12).
+
+2. `docutil/backend/app/modules/documents_v2/service.py` — **1 회 자동 재시도 루프 추가**. `generate()` 의 LLM 호출이 `ValidationError` 던지면 system_prompt 끝에 첫 5 개 검증 실패 사유를 명시적으로 추가하여 1 회 재시도. 2 회째 실패 시 기존 흐름 (422 응답). stderr 로그로 retry 횟수 + 성공/실패 트랙.
+
+3. `docutil/backend/app/modules/documents_v2/constants.py` — `COMMON_INSTRUCTIONS` 에 list 컴포넌트 개수 제약 명시 (ExecutiveSummary.bullets 정확 3~5 개, IconRow.items 정확 2~6 개, ImageGrid.images 정확 2~4 개, ThreeColumn.columns 정확 3 개, BulletList.items 1~12 개, …). LLM 의 첫 시도 적중률 향상으로 retry 비용 감소.
+
+4. `docutil/frontend/src/app/(user)/reports/page.tsx` — `handleGenerate` 의 catch 절에서 422 ValidationError 패턴 (`DocumentSchema 를 만족하지 못했습니다`, `스키마 검증 실패`, `422`) 감지 시 toast 메시지 변경: "LLM 응답이 일시적으로 형식을 맞추지 못했습니다. 잠시 후 다시 시도해 주세요. 같은 프롬프트를 반복하면 동일 결과가 나올 수 있어 표현을 조금 바꿔 보시는 것을 권장합니다." + `ToastAction "다시 시도"` → `handleGenerate()` 재호출 (이전 흐름의 "디자이너 열기" 혼란 제거).
+
+**배포 (`tmp/deploy_track106_p0_fix.py` 신설, paramiko 기반)**:
+- SFTP 4 파일 → `docker compose build api frontend` → `docker compose up -d --force-recreate api celery-worker frontend` → **`docker restart docutil-nginx`** (force-recreate 후 nginx 가 새 api IP 를 resolve 못해서 모든 `/api/v1/*` 가 502 반환되는 운영 함정 회피 — 이번에 발견·기록).
+- 컨테이너 내부 `grep` 으로 코드 반영 확인: `_normalize_bullets` 1 건, `_max_attempts` 4 건, COMMON_INSTRUCTIONS 의 새 list rule 2 건.
+- 헬스: api/frontend healthy, `/api/v1/auth/login` POST 200 OK 회복.
+
+**운영 closed-loop e2e 검증 BLOCKED (사용자 신뢰 회복 미달성)**:
+- `tools/ui_e2e/full/track106_p0_validation_loop.py` 신설 — 동일 prompt 10 종 × document_type 골고루 (proposal × 3, one_pager × 2, slide_report, minutes, docx_report, weekly_status, freeform_doc), 각 iter 사이 65s sleep (AgentHub 사용자당 1 RPM 제한 회피).
+- 1 차 실행 (sleep 없음): iter 1 PASS / iter 2~10 FAIL — AgentHub 1 RPM 차단 (`status=429 "요청이 너무 많습니다. 60초 후 다시 시도해주세요."`).
+- 2 차 실행 (65s sleep 적용): **0/10 PASS** — 모든 iter 가 status=502 "LLM 호출에 실패". 더 깊은 원인 발견.
+- **근본 차단 사유 (agenthub 컨테이너 로그 직접 확인)**: 모든 호출이 `OpenAI API 429 Too Many Requests - "You exceeded your current quota, please check your plan and billing details"` 로 실패. 이는 **per-minute rate limit 이 아니라 OpenAI 계정의 월간 billing quota 초과**. 1 RPM throttling 과 무관하게 외부 LLM 자체가 모든 호출을 거부.
+- 결과: **코드 fix 는 (a) 로컬 단위 테스트로 5 종 padding 패턴 PASS, (b) 운영 배포 + 컨테이너 내부 grep 으로 반영 확인** 까지 완료. 그러나 운영 e2e 10 회 반복으로 ≥95% 성공률 입증은 **OpenAI 계정 billing 충전 / 다른 provider (Claude, Gemini) 로 임시 전환 / Nexus (LAN) 활성화** 중 하나가 선행되어야 가능.
+
+**사용자 영향 (현 상태)**:
+- 코드는 운영 배포 완료 — OpenAI quota 회복 즉시 ValidationError ~50% 자동 해소 + (남는 케이스도) 1 회 재시도로 흡수 + 사용자 친화 toast.
+- 단, **현재 모든 DocUtil 보고서 생성은 OpenAI quota 미충전으로 동작 불가** (502 또는 의도된 친화 메시지). 이는 본 트랙의 결함이 아니라 외부 의존 결함이며, 사용자에게 즉시 보고 필요.
+
+**산출물**:
+- 수정 파일 4 종 (위 명시).
+- `tmp/deploy_track106_p0_fix.py` (paramiko 배포).
+- `tools/ui_e2e/full/track106_p0_validation_loop.py` (10 회 closed-loop e2e runner — billing 회복 후 즉시 재실행 가능).
+- `tools/ui_e2e/full/track106_p0_validation_loop_results.json` (0/10 PASS, billing block 기록).
+- backend-specialist 메모리 3 종 신설 (`openai_structured_outputs_limits.md`, `agenthub_rate_limit_1rpm.md`, `docutil_nginx_dns_cache.md`) — 재발 방지.
+
+**다음 행동 (사용자 결정 필요)**:
+1. **OpenAI 계정 billing 충전** → `python tools/ui_e2e/full/track106_p0_validation_loop.py` 재실행 → 9.5/10 PASS 확인 후 사용자 보고.
+2. 또는 **다른 LLM provider 로 임시 전환** — AgentHub UI 에서 `docutil-report-generator` Agent 의 `LlmProvider` 를 `claude` 또는 `gemini` 로 변경 → 동일 e2e 재실행.
+3. 또는 **Nexus (LAN-only LLM) 활성화** — Phase 5 미완료 상태이므로 별도 트랙으로 의사결정.
+
+---
+
 ### 2026-05-25 (트랙 #106 결함 2-1 — DocUtil `/designer/[documentId]` 우측 사이드바·내보내기·문서 생성 stuck 결함 일괄 fix)
 
 **배경**: 사용자 보고 — `http://192.168.10.39:8041/designer/create` 에서 prompt 입력 후 생성 클릭 → (i) 우측 design-token-picker 의 브랜드 프리셋·primary color 변경이 작동 안 함, (ii) 문서 작성 진행 stuck (URL replace 안 됨), (iii) 내보내기 (PPTX/PDF) 도 작동 안 함.

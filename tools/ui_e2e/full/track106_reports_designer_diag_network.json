@@ -1,0 +1,165 @@
+{
+  "network": [
+    {
+      "kind": "req",
+      "method": "POST",
+      "url": "http://192.168.10.39:8041/api/v1/auth/login",
+      "ts": 1779712969.6008396
+    },
+    {
+      "kind": "resp",
+      "method": "POST",
+      "url": "http://192.168.10.39:8041/api/v1/auth/login",
+      "status": 200,
+      "body": "{\"access_token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWY1ZTZiMS00NjViLTRkZGUtODVhMC0yYjg4MDAyOTcwNGEiLCJlbWFpbCI6ImFkbWluQGV4YW1wbGUuY29tIiwicm9sZSI6ImFkbWluIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLWEwMDAtMDAwMDAwMDAwMDAxIiwidHlwZSI6ImFjY2VzcyIsImV4cCI6MTc3OTcxNDc3MCwiaWF0IjoxNzc5NzEyOTcwLCJqdGkiOiI3M2ZlNDBjNjkyM2Q0Y2RiODNmYmVhODBjMmY3ZTAyNSJ9.-Y1H5ThyAGOs804csxiMLgyb_pvnO6Ru96ghFTONNn4\",\"refresh_token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWY1ZTZiMS00NjViLTRkZGUtODVhMC0yYjg4MDAyOTcwNGEiLCJlbWFpbCI6ImFkbWluQGV4YW1wbGUuY29tIiwicm9sZSI6ImFkbWluIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLWEwMDAtMDAwMDAwMDAwMDAxIiwidHlwZSI6InJlZnJlc2giLCJleHAiOjE3ODAzMTc3NzAsImlhdCI6MTc3OTcxMjk3MCwianRpIjoiZjE2ZjczM2ZlYWNhNDM2ZGJhZWI3MGYxZDQ4MmVmMjkifQ.WbedW5l3GbGqjCvcqmHRuV9a-DtNLBqvcGYab1Et-R0\",\"token_type\":\"bearer\",\"user\":{\"id\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"username\":\"admin@example.com\",\"email\":\"admin@example.com\",\"role\":\"admin\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\"}}",
+      "ts": 1779712969.8969326
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/dashboard/metrics",
+      "ts": 1779712969.9891632
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/dashboard/upload-status",
+      "ts": 1779712969.9891632
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/dashboard/response-times",
+      "ts": 1779712969.9891632
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/dashboard/search-errors",
+      "ts": 1779712969.9891632
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/dashboard/search-errors",
+      "status": 200,
+      "body": "{\"dates\":[\"2026-05-18\",\"2026-05-19\",\"2026-05-20\",\"2026-05-21\",\"2026-05-22\",\"2026-05-23\",\"2026-05-24\"],\"error_counts\":[0,0,0,0,0,0,0]}",
+      "ts": 1779712970.0005548
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/dashboard/upload-status",
+      "status": 200,
+      "body": "{\"completed\":32,\"processing\":0,\"waiting\":0,\"error\":0}",
+      "ts": 1779712970.0082157
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/dashboard/response-times",
+      "status": 200,
+      "body": "{\"timestamps\":[\"2026-05-25T02:00:00+00:00\"],\"values\":[2800.0]}",
+      "ts": 1779712970.0227125
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/dashboard/metrics",
+      "status": 200,
+      "body": "{\"total_users\":132,\"active_users\":132,\"total_documents\":32,\"total_searches\":127,\"feature_usage\":{\"user\":127,\"assistant\":127}}",
+      "ts": 1779712970.0654807
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/projects/tree",
+      "ts": 1779712970.184622
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/documents?size=100",
+      "ts": 1779712970.184622
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/templates?page=1&size=100",
+      "ts": 1779712970.184622
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/agents?agent_type=report",
+      "ts": 1779712970.184622
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/projects/tree",
+      "status": 200,
+      "body": "[{\"id\":\"9ca4ce6e-f047-4e80-8e71-6daee6f20fac\",\"name\":\"미래기술연구소 권한 프로젝트\",\"boards\":[]},{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"boards\":[]}]",
+      "ts": 1779712970.2109723
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/agents?agent_type=report",
+      "status": 200,
+      "body": "{\"items\":[{\"id\":\"e9ff76e1-d0db-4309-81fe-d36d68cd0804\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"보고서 작성 AI\",\"description\":null,\"agent_type\":\"report\",\"system_prompt\":\"전문적인 업무 보고서를 작성하는 AI\",\"llm_provider\":null,\"llm_model\":\"gpt-4o\",\"temperature\":0.3,\"max_tokens\":4096,\"is_active\":true,\"created_by\":\"8baf9e41-20d9-4db6-b195-b04c8bab88f4\",\"created_at\":\"2026-03-25T03:40:41.413561Z\",\"updated_at\":\"2026-03-25T03:40:41.413561Z\"}],\"total\":1,\"page\":1,\"size\":20}",
+      "ts": 1779712970.215345
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/documents?size=100",
+      "status": 200,
+      "body": "{\"items\":[{\"id\":\"72eda99f-e022-4854-8cad-9dda94081fc9\",\"folder_id\":null,\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"PNU_AI_Assist_사용자_교육_자료.docx\",\"original_filename\":\"PNU_AI_Assist_사용자_교육_자료.docx\",\"format\":\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"file_size_bytes\":152271,\"status\":\"completed\",\"processing_error\":null,\"page_count\":null,\"chunk_count\":41,\"tags\":null,\"language\":\"ko\",\"uploaded_by\":\"00000000-0000-4000-a000-000000000002\",\"visibility\":\"public\",\"department_id\":null,\"project_id\":null,\"processing_started_at\":null,\"processing_completed_at\":null,\"created_at\":\"2026-05-21T01:15:45.063163Z\",\"updated_at\":\"2026-05-21T01:17:04.938282Z\"},{\"id\":\"27da7d81-d287-4fcc-b82d-99aa38016e57\",\"folder_id\":null,\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"AI_청소년_위기탐지_기술구현_제안서.docx\",\"original_filename\":\"AI_청소년_위기탐지_기술구현_제안서.docx\",\"format\":\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"file_size_bytes\":368616,\"status\":\"completed\",\"processing_error\":null,\"page_count\":null,\"chunk_count\":29,\"tags\":null,\"language\":\"ko\",\"uploaded_by\":\"bafe866b-b7e2-4d26-8165-af62295e62f0\",\"visibility\":\"public\",\"department_id\":null,\"project_id\":null,\"processing_started_at\":null,\"processing_completed_at\":null,\"created_at\":\"2026-05-20T05:13:24.587448Z\",\"updated_at\":\"2026-05-20T05:14:41.695115Z\"},{\"id\":\"ee37d069-4cb8-4efc-ac4c-44fe28d16c35\",\"folder_id\":null,\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"AI비서_예상구성도_IDINO.pptx\",\"original_filename\":\"AI비서_예상구성도_IDINO.pptx\",\"format\":\"application/vnd.openxmlformats-officedocument.presentationml.presentation\",\"file_size_bytes\":842963,\"status\":\"completed\",\"processing_error\":null,\"page_count\":null,\"chunk_count\":11,\"tags\":null,\"language\":\"ko\",\"uploaded_by\":\"00000000-0000-4000-a000-000000000002\",\"visibility\":\"department_only\",\"department_id\":\"724b95ad-9c7e-45cb-857d-91570b39fcb8\",\"project_id\":null,\"processing_started_at\":null,\"processing_completed_at\":null,\"created_at\":\"2026-04-27T00:17:54.752646Z\",\"updated_at\":\"2026-04-27T04:30:09.313708Z\"},{\"id\":\"bcad2f1c-01da-41d8-bee4-67102c05c42c\",\"folder_id\":null,\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"[붙임2-10] 부산지역 중소기업유망기술개발(소부장) 세부 지원내용.hwpx\",\"original_filename\":\"[붙임2-10] 부산지역 중소기업유망기술개발(소부장) 세부 지원내용.hwpx\",\"format\":\"application/octet-stream\",\"file_size_bytes\":272248,\"status\":\"completed\",\"processing_error\":null,\"page_count\":null,\"chunk_count\":12,\"tags\":null,\"language\":\"ko\",\"uploaded_by\":\"bafe866b-b7e2-4d26-8165-af62295e62f0\",\"visibility\":\"project_only\",\"department_id\":null,\"project_id\":\"9ca4ce6e-f047-4e80-8e71-6daee6f20fac\",\"processing_started_at\":null,\"processing_completed_at\":null,\"created_at\":\"2026-04-06T07:30:54.309282Z\",\"updated_at\":\"2026-04-27T09:14:58.123273Z\"},{\"id\":\"a3cc6886-42da-44b7-9b80-ed99c0b5bb2e\",\"folder_id\":null,\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"착수공문.docx\",\"original_filename\":\"착수공문.docx\",\"format\":\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"file_size_bytes\":55822,\"status\":\"completed\",\"processing_error\":null,\"page_count\":null,\"chunk_count\":2,\"tags\":null,\"language\":\"ko\",\"uploaded_by\":\"40811ca9-d838-4457-a8fe-a8a3cade70dd\",\"visibility\":\"public\",\"department_id\":\"08142c96-126b-45b0-8f4b-4cb466e15cda\",\"project_id\":null,\"processing_started_at\":null,\"processing_completed_at\":null,\"created_at\":\"2026-03-20T04:21:11.311315Z\",\"updated_at\":\"2026-04-27T04:30:09.134073Z\"},{\"id\":\"bd3099e8-84a0-4018-8fa5-03c58e6a2570\",\"folder_id\":null,\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"착수계.docx\",\"original_filename\":\"착수계.docx\",\"format\":\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"file_size_bytes\":49327,\"status\":\"completed\",\"processing_error\":null,\"page_count\":null,\"chunk_count\":1,\"tags\":null,\"language\":\"ko\",\"uploaded_by\":\"40811ca9-d838-4457-a8fe-a8a3cade70dd\",\"visibility\":\"public\",\"department_id\":\"08142c96-126b-45b0-8f4b-4cb466e15cda\",\"project_id\":",
+      "ts": 1779712970.2317963
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/templates?page=1&size=100",
+      "status": 200,
+      "body": "{\"items\":[{\"id\":\"a8d911bd-6fe3-48b1-8a01-21f1e4016b4d\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"보고서_양식\",\"description\":null,\"template_type\":\"\",\"tone\":\"formal\",\"output_format\":\"docx\",\"schema\":null,\"sample_prompt\":null,\"is_active\":true,\"created_by\":\"bafe866b-b7e2-4d26-8165-af62295e62f0\",\"created_at\":\"2026-05-20T06:49:30.566050Z\",\"updated_at\":\"2026-05-20T06:51:21.395314Z\",\"template_storage_path\":\"templates/00000000-0000-4000-a000-000000000001/a8d911bd-6fe3-48b1-8a01-21f1e4016b4d/보고서_양식.docx\",\"jinja2_variables\":{\"variables\":[{\"name\":\"보고처\",\"type\":\"string\",\"label\":\"보고처\",\"category\":\"ai_generated\",\"required\":true,\"field_type\":\"short\",\"description\":\"에디터에서 매핑된 변수: 보고처\"},{\"name\":\"보고서명\",\"type\":\"string\",\"label\":\"보고서명\",\"category\":\"user_input\",\"required\":true,\"field_type\":\"short\",\"description\":\"에디터에서 매핑된 변수: 보고서명\"},{\"name\":\"회의일자\",\"type\":\"date\",\"label\":\"회의일자\",\"category\":\"user_input\",\"required\":true,\"field_type\":\"short\",\"description\":\"에디터에서 매핑된 변수: 회의일자\"},{\"name\":\"장소\",\"type\":\"string\",\"label\":\"장소\",\"category\":\"user_input\",\"required\":true,\"field_type\":\"short\",\"description\":\"에디터에서 매핑된 변수: 장소\"},{\"name\":\"참석자\",\"type\":\"string\",\"label\":\"참석자\",\"category\":\"user_input\",\"required\":true,\"field_type\":\"short\",\"description\":\"에디터에서 매핑된 변수: 참석자\"}]},\"rendering_mode\":\"jinja2\",\"image_generation_config\":{\"enabled\":true,\"provider\":\"dalle3\"}},{\"id\":\"b1a2264a-24a1-48a8-8ef4-57ba47378a70\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"회의록_양식\",\"description\":null,\"template_type\":\"회의록\",\"tone\":\"formal\",\"output_format\":\"docx\",\"schema\":null,\"sample_prompt\":null,\"is_active\":true,\"created_by\":\"bafe866b-b7e2-4d26-8165-af62295e62f0\",\"created_at\":\"2026-04-22T00:22:54.610066Z\",\"updated_at\":\"2026-05-08T06:42:58.736408Z\",\"template_storage_path\":\"templates/00000000-0000-4000-a000-000000000001/b1a2264a-24a1-48a8-8ef4-57ba47378a70/회의록_양식.docx\",\"jinja2_variables\":{\"variables\":[{\"name\":\"문서제목\",\"type\":\"string\",\"label\":\"회의록\",\"category\":\"user_input\",\"required\":true,\"description\":\"문서 제목 — 짧은 제목만 입력 (회의록)\"},{\"name\":\"장소\",\"type\":\"string\",\"label\":\"장소\",\"category\":\"user_input\",\"required\":true,\"field_type\":\"short\",\"description\":\"표 입력란: 장소 (한 줄)\"},{\"name\":\"일시\",\"type\":\"date\",\"label\":\"일시\",\"category\":\"user_input\",\"required\":true,\"field_type\":\"short\",\"description\":\"표 입력란: 일시 (한 줄)\"},{\"name\":\"주제\",\"type\":\"string\",\"label\":\"주제\",\"category\":\"user_input\",\"required\":true,\"field_type\":\"short\",\"description\":\"표 입력란: 주제 (한 줄)\"},{\"name\":\"참석자\",\"type\":\"string\",\"label\":\"참석자\",\"category\":\"user_input\",\"required\":true,\"field_type\":\"short\",\"description\":\"표 입력란: 참석자 (한 줄)\"},{\"name\":\"회의내용\",\"type\":\"string\",\"label\":\"회의내용\",\"category\":\"ai_generated\",\"required\":false,\"field_type\":\"short\",\"description\":\"표 입력란: 회의내용 (한 줄)\"},{\"name\":\"특기사항\",\"type\":\"string\",\"label\":\"특기사항\",\"category\":\"ai_generated\",\"required\":false,\"field_type\":\"short\",\"description\":\"표 입력란: 특기사항 (한 줄)\"},{\"name\":\"미결사항\",\"type\":\"string\",\"label\":\"미결사항\",\"category\":\"ai_generated\",\"required\":false,\"field_type\":\"short\",\"description\":\"표 입력란: 미결사항 (한 줄)\"}]},\"rendering_mode\":\"jinja2\",\"image_generation_config\":null}],\"total\":2,\"page\":1,\"size\":100}",
+      "ts": 1779712970.2383225
+    },
+    {
+      "kind": "req",
+      "method": "POST",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents",
+      "ts": 1779712970.9229429
+    },
+    {
+      "kind": "resp",
+      "method": "POST",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents",
+      "status": 202,
+      "body": "{\"id\":\"ed334c40-a5cd-42ba-9550-ec7fb7b0a61b\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"generated_by_user_id\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"agent_id\":null,\"template_id\":null,\"document_type\":\"one_pager\",\"mode\":\"free_generation\",\"title\":\"ui-e2e-test-track106 envelope probe\",\"status\":\"completed\",\"error_message\":null,\"llm_provider\":\"report\",\"llm_model\":null,\"prompt_tokens\":null,\"completion_tokens\":null,\"created_at\":\"2026-05-25T12:42:59.976507Z\",\"completed_at\":\"2026-05-25T12:42:59.975885Z\",\"document_schema\":{\"mode\":\"free_generation\",\"type\":\"one_pager\",\"pages\":[{\"id\":\"p1\",\"title\":null,\"layout\":\"two_column\",\"locked\":false,\"page_kind\":\"section\",\"components\":[{\"id\":\"c1\",\"type\":\"Hero\",\"image\":null,\"title\":\"UI E2E 테스트 트랙\",\"anchor\":null,\"locked\":false,\"subtitle\":\"Envelope Probe\",\"background\":\"primary\"},{\"id\":\"c2\",\"type\":\"ExecutiveSummary\",\"anchor\":null,\"locked\":false,\"bullets\":[\"UI E2E 테스트의 중요성\",\"Envelope Probe의 역할\",\"테스트 자동화의 필요성\"],\"conclusion\":\"효과적인 UI E2E 테스트는 시스템 안정성을 보장합니다.\"},{\"id\":\"c3\",\"type\":\"KPI\",\"delta\":\"5%\",\"label\":\"테스트 커버리지\",\"value\":\"85%\",\"anchor\":null,\"locked\":false,\"description\":\"지난 분기 대비 증가\",\"delta_direction\":\"up\"},{\"id\":\"c4\",\"type\":\"KPI\",\"delta\":\"2%\",\"label\":\"버그 발견율\",\"value\":\"12%\",\"anchor\":null,\"locked\":false,\"description\":\"효율적인 테스트로 인한 감소\",\"delta_direction\":\"down\"},{\"id\":\"c5\",\"type\":\"BulletList\",\"items\":[{\"text\":\"테스트 자동화 도구 사용\",\"emphasis\":\"normal\",\"sub_items\":[]},{\"text\":\"정기적인 테스트 실행\",\"emphasis\":\"normal\",\"sub_items\":[]},{\"text\":\"테스트 결과 분석 및 피드백\",\"emphasis\":\"normal\",\"sub_items\":[]}],\"anchor\":null,\"locked\":false,\"numbered\":false}],\"speaker_notes\":null,\"page_number_visible\":false}],\"metadata\":{\"citations\":[],\"llm_model\":null,\"created_at\":\"2026-05-25T12:42:59.975885Z\",\"updated_at\":\"2026-05-25T12:42:59.975885Z\",\"llm_provider\":\"report\",\"prompt_tokens\":null,\"completion_tokens\":null,\"degraded_components\":[],\"source_document_ids\":[],\"generated_by_user_id\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"source_chat_session_id\":null},\"document_id\":\"ed334c40-a5cd-42ba-9550-ec7fb7b0a61b\",\"template_id\":null,\"design_tokens\":{\"spacing\":\"normal\",\"text_color\":\"#1F2937\",\"font_family\":\"Pretendard\",\"accent_color\":\"#FF6B35\",\"brand_preset\":\"idino_default\",\"primary_color\":\"#0A4FC2\",\"background_color\":\"#FFFFFF\"},\"schema_version\":\"1.0\"}}",
+      "ts": 1779712979.848586
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/agents?agent_type=report",
+      "ts": 1779712979.8993483
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/agents?agent_type=report",
+      "status": 200,
+      "body": "{\"items\":[{\"id\":\"e9ff76e1-d0db-4309-81fe-d36d68cd0804\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"보고서 작성 AI\",\"description\":null,\"agent_type\":\"report\",\"system_prompt\":\"전문적인 업무 보고서를 작성하는 AI\",\"llm_provider\":null,\"llm_model\":\"gpt-4o\",\"temperature\":0.3,\"max_tokens\":4096,\"is_active\":true,\"created_by\":\"8baf9e41-20d9-4db6-b195-b04c8bab88f4\",\"created_at\":\"2026-03-25T03:40:41.413561Z\",\"updated_at\":\"2026-03-25T03:40:41.413561Z\"}],\"total\":1,\"page\":1,\"size\":20}",
+      "ts": 1779712979.9312177
+    }
+  ],
+  "console": [
+    {
+      "type": "warning",
+      "text": "An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.",
+      "ts": 1779712979.9214032
+    }
+  ]
+}

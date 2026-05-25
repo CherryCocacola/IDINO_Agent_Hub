@@ -61,7 +61,26 @@ COMMON_INSTRUCTIONS: Final[str] = (
     "'00000000-0000-0000-0000-000000000000' 를 그대로 입력하세요. "
     "의미 있는 UUID 를 생성하거나 'doc_001' 같은 식별자 문자열을 사용하지 마세요.\n"
     "- 모든 한국어 텍스트는 자연스러운 비즈니스 문체를 유지하세요. "
-    "직역 표현, 존댓말과 평어의 혼용, 영어 직역투는 피하세요."
+    "직역 표현, 존댓말과 평어의 혼용, 영어 직역투는 피하세요.\n"
+    # ------------------------------------------------------------------
+    # 트랙 #106 P0 (2026-05-25) — OpenAI Structured Outputs 가 min/max items
+    # 미강제로 인한 ValidationError ~50% 발생을 prompt 수준에서도 보강.
+    # 서버 측 field_validator 가 1차 padding/truncate 로 흡수하지만, 명시 지시가
+    # LLM 의 첫 시도 적중률을 높여 retry 비용을 줄인다.
+    # ------------------------------------------------------------------
+    "- **list 컴포넌트의 항목 개수 제약을 엄격히 준수하세요** (반드시):\n"
+    "  · ExecutiveSummary.bullets: 정확히 3 ~ 5 개 (2 개 이하 또는 6 개 이상 금지)\n"
+    "  · IconRow.items: 정확히 2 ~ 6 개\n"
+    "  · ImageGrid.images: 정확히 2 ~ 4 개\n"
+    "  · ThreeColumn.columns: 정확히 3 개\n"
+    "  · Comparison.left.items / Comparison.right.items: 정확히 1 ~ 8 개\n"
+    "  · DataTable.headers: 1 ~ 8 개, DataTable.rows: 0 ~ 20 행 (각 행은 headers 개수와 동일한 길이)\n"
+    "  · Timeline.events: 1 ~ 10 개\n"
+    "  · BulletList.items: 1 ~ 12 개\n"
+    "  · 한 페이지의 components: 1 ~ 10 개 (10 개 초과 시 새 페이지로 분할)\n"
+    "  · 전체 pages: 1 ~ 20 페이지\n"
+    "- 위 개수 제약을 어기면 응답 전체가 거부되므로, 컨텐츠가 부족하더라도 최소 개수를 채워서 작성하세요. "
+    "예: ExecutiveSummary.bullets 가 자연스럽게 2 개만 나올 경우, 추가 요점을 1 개 더 작성해 정확히 3 개를 채우세요."
 )
 
 

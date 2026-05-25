@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-05-25T21:42:48.513147",
+  "allow_llm": true,
+  "steps": [
+    {
+      "name": "login_ok",
+      "ts": 1779712969.9210906,
+      "url": "http://192.168.10.39:8041/dashboard"
+    },
+    {
+      "name": "reports_loaded",
+      "ts": 1779712970.849136,
+      "url": "http://192.168.10.39:8041/reports"
+    },
+    {
+      "name": "reports_generate_button_search",
+      "ts": 1779712970.9192374,
+      "found": "button:has-text(\"생성\")"
+    },
+    {
+      "name": "envelope_probe",
+      "ts": 1779712979.846573,
+      "status": 202,
+      "top_level_keys": [
+        "id",
+        "organization_id",
+        "generated_by_user_id",
+        "agent_id",
+        "template_id",
+        "document_type",
+        "mode",
+        "title",
+        "status",
+        "error_message",
+        "llm_provider",
+        "llm_model",
+        "prompt_tokens",
+        "completion_tokens",
+        "created_at",
+        "completed_at",
+        "document_schema"
+      ],
+      "has_id": true,
+      "has_document_id_top": false,
+      "has_document_schema": true,
+      "document_schema_keys": [
+        "mode",
+        "type",
+        "pages",
+        "metadata",
+        "document_id",
+        "template_id",
+        "design_tokens",
+        "schema_version"
+      ],
+      "nested_document_id": "ed334c40-a5cd-42ba-9550-ec7fb7b0a61b",
+      "id_matches_nested": true,
+      "body_preview": "{\"id\":\"ed334c40-a5cd-42ba-9550-ec7fb7b0a61b\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"generated_by_user_id\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"agent_id\":null,\"template_id\":null,\"document_type\":\"one_pager\",\"mode\":\"free_generation\",\"title\":\"ui-e2e-test-track106 envelope probe\",\"status\":\"completed\",\"error_message\":null,\"llm_provider\":\"report\",\"llm_model\":null,\"prompt_tokens\":null,\"completion_tokens\":null,\"created_at\":\"2026-05-25T12:42:59.976507Z\",\"completed_at\":\"2026-05-25T12:42:59.975885Z\",\"document_schema\":{\"mode\":\"free_generation\",\"type\":\"one_pager\",\"pages\":[{\"id\":\"p1\",\"title\":null,\"layout\":\"two_column\",\"locked\":false,\"page_kind\":\"section\",\"components\":[{\"id\":\"c1\",\"type\":\"Hero\",\"image\":null,\"title\":\"UI E2E 테스트 트랙\",\"anchor\":null,\"locked\":false,\"subtitle\":\"Envelope Probe\",\"background\":\"primary\"},{\"id\":\"c2\",\"type\":\"ExecutiveSummary\",\"anchor\":null,\"locked\":false,\"bullets\":[\"UI E2E 테스트의 중요성\",\"Envelope Probe의 역할\",\"테스트 자동화의 필요성\"],\"conclusion\":\"효과적인 UI E2E 테스트는 시스템 안정성을 보장합니다.\"},{\"id\":\"c3\",\"type\":\"KPI\",\"delta\":\"5%\",\"label\":\"테스트 커버리지\",\"value\":\"85%\",\"anchor\":null,\"locked\":false,\"description\":\"지난 분기 대비 증가\",\"delta_direction\":\"up\"},{\"id\":\"c4\",\"type\":\"KPI\",\"delta\":\"2%\",\"label\":\"버그 발견율\",\"value\":\"12%\",\"anchor\":null,\"locked\":false,\"description\":\"효율적인 테스트로 인한 감소\",\"delta_direction\":\"down\"},{\"id\":\"c5\",\"type\":\"BulletList\",\"items\":[{\"text\":\"테스트 자동화 도구 사용\",\"emphasis\":\"normal\",\"sub_items\":[]},{\"text\":\"정기적인 테스트 실행\",\"emphasis\":\"normal\",\"sub_items\":[]},{\"text\":\"테스트 결과 분석 및 피드백\",\"e"
+    },
+    {
+      "name": "designer_create_loaded",
+      "ts": 1779712980.5706532,
+      "url": "http://192.168.10.39:8041/designer/create"
+    },
+    {
+      "name": "designer_create_templates_check",
+      "ts": 1779712982.6356814,
+      "templates_call_count": 0,
+      "templates_statuses": [],
+      "mode_switcher_warns": 0,
+      "templates_404_console_errors": 0,
+      "console_errors_sample": []
+    },
+    {
+      "name": "chunk_hashes_in_page",
+      "ts": 1779712982.6356814,
+      "count": 26,
+      "hashes": [
+        "15b43ecdb31fc973",
+        "1627bf2f54f2038d",
+        "1df28e8ecb1ba47f",
+        "202b956bc838ef27",
+        "2cf91591c5db3ab6",
+        "3c2673009670fd40",
+        "46a5c584bba4278f",
+        "4fc920dbc1ca2981",
+        "5bb4f01cf2a82bc6",
+        "61a42e35697bbfcf",
+        "61b29ad7ee8afb6c",
+        "6bb3f0e1596ccedd",
+        "8bdb6348d64c2bd7",
+        "8c851fa0ae072121",
+        "8fce2880421efc2c",
+        "936dadb8c85feaa7",
+        "99c8804c90f0f116",
+        "a4a10151574925fe",
+        "a6dad97d9634a72d",
+        "b05060ba9df57b8e",
+        "b77dba4f6346f8cb",
+        "c4bf3eb3b734663a",
+        "d6f1ca3235166640",
+        "eeb69353a8571f54",
+        "f52d3071f3b76116",
+        "ff1a16fafef87110"
+      ]
+    }
+  ],
+  "verdict": {
+    "reports_redirect_design": "code: reports/page.tsx:788 router.push(`/designer/${generated.document_id}`). generated = response.document_schema (documents-v2.ts:73). document_schema.document_id == DocumentV2.id (service.py:278+460 동일 UUID). 따라서 정상 흐름은 /designer/{uuid}. /designer/create 로 가는 경우는 (a) generated.document_id undefined (envelope unwrap 실패) 또는 (b) reports/page.tsx:261 의 fallback toast (POST 가 410 응답) 또는 (c) handleApi410 분기로 디자이너 열기 onClick.",
+    "v13_silent_fix_in_chunk": "확인 (별도 curl 검증): chunk eeb69353a8571f54.js 내 minified 코드 `Case().includes(\"not found\"))||console.warn(\"[ModeSwitcher] 템플릿 목록 로드 실패\"`. v13 fix 가 운영 빌드에 정확히 적용됨. 사용자가 본 console error 는 (1) 브라우저 cache 미갱신 또는 (2) ModeSwitcher 가 아닌 다른 코드 경로의 /v2/templates 호출 가능성.",
+    "templates_other_callers": "별도 grep 으로 확인 필요"
+  },
+  "network_log_count": 22,
+  "console_log_count": 1
+}

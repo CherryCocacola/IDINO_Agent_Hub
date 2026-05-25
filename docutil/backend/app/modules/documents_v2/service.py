@@ -322,18 +322,65 @@ class DocumentServiceV2:
         max_tokens = agent.max_tokens if agent else 16_384
 
         # 6) LLM 호출 + 스키마 검증 ------------------------------------------
+        # 트랙 #106 P0 fix — ValidationError 발생 시 1회 자동 재시도.
+        # OpenAI Structured Outputs 가 min/max items 미강제 → schemas.py 의
+        # field_validator(mode="before") 가 padding/truncate 로 1차 흡수하지만,
+        # padding 으로 해결 안 되는 케이스 (잘못된 enum, 잘못된 date 형식 등) 는
+        # system_prompt 에 실패 사유를 명시해 재요청한다.
+        import sys as _sys
+
+        _max_attempts = 2  # 초기 호출 + 1회 재시도
+        _last_validation_errors: list[dict] = []
+
         try:
-            schema = await llm_client.generate_with_schema(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                response_schema=DocumentSchema,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
+            schema = None  # type: ignore[assignment]
+            for _attempt in range(1, _max_attempts + 1):
+                _current_system = system_prompt
+                if _attempt > 1 and _last_validation_errors:
+                    _err_lines = []
+                    for e in _last_validation_errors[:5]:
+                        _loc = ".".join(str(x) for x in e.get("loc", []))
+                        _msg = e.get("msg", "?")
+                        _err_lines.append(f"  - {_loc}: {_msg}")
+                    _current_system = (
+                        system_prompt
+                        + "\n\n## 이전 응답이 스키마 검증에 실패했습니다. 반드시 다음 규칙을 준수하세요\n"
+                        + "\n".join(_err_lines)
+                        + "\n특히 list 필드의 min/max 개수 제약 (ExecutiveSummary.bullets 는 정확히 3~5 개, "
+                        + "IconRow.items 는 2~6 개, ImageGrid.images 는 2~4 개, "
+                        + "ThreeColumn.columns 는 정확히 3 개) 을 엄격히 지키세요. "
+                        + "또한 모든 date 필드는 'YYYY-MM-DD' 형식만 사용하세요."
+                    )
+                    print(
+                        f"[DOCUMENTS_V2 retry attempt={_attempt}] 재시도 with feedback, "
+                        f"prior_errors={len(_last_validation_errors)}",
+                        file=_sys.stderr, flush=True,
+                    )
+
+                try:
+                    schema = await llm_client.generate_with_schema(
+                        system_prompt=_current_system,
+                        user_prompt=user_prompt,
+                        response_schema=DocumentSchema,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    )
+                    if _attempt > 1:
+                        print(
+                            f"[DOCUMENTS_V2 retry SUCCESS] attempt={_attempt} 재시도 성공",
+                            file=_sys.stderr, flush=True,
+                        )
+                    break  # 성공 → 루프 종료
+                except ValidationError as _ve:
+                    if _attempt < _max_attempts:
+                        try:
+                            _last_validation_errors = _ve.errors()
+                        except Exception:
+                            _last_validation_errors = []
+                        continue
+                    # 최종 시도도 실패 → 원본 흐름으로 raise
+                    raise
         except ValidationError as exc:
-            # 트랙 #106 결함 8 v9 진단 — ValidationError 의 정확한 field 정보 stderr 출력
-            # + 사용자 detail 에 첫 3개 error 포함 (어떤 필드 실패인지 알아야 fix 가능)
-            import sys as _sys
             try:
                 _errors = exc.errors()
             except Exception:
@@ -346,7 +393,8 @@ class DocumentServiceV2:
                 _err_summary.append(f"{_loc}: {_msg} [{_typ}]")
             _detail_text = " | ".join(_err_summary) or str(exc)[:300]
             print(
-                f"[DOCUMENTS_V2 ValidationError] count={len(_errors)} first_errors={_err_summary}",
+                f"[DOCUMENTS_V2 ValidationError after {_max_attempts} attempts] "
+                f"count={len(_errors)} first_errors={_err_summary}",
                 file=_sys.stderr, flush=True,
             )
             await DocumentServiceV2._persist_failure(
@@ -367,7 +415,6 @@ class DocumentServiceV2:
             ) from exc
         except Exception as exc:  # noqa: BLE001 - 외부 호출은 포괄적으로 래핑
             # 트랙 #106 결함 8 v6 진단 — logger 가 STDOUT 으로 안 가는 환경 대응. stderr 강제 출력.
-            import sys as _sys
             import traceback as _tb
             print(
                 f"[DOCUMENTS_V2 LLM 호출 실패] type={type(exc).__name__} repr={exc!r}",

@@ -196,6 +196,14 @@ class BulletListComponent(ComponentBase):
     items: list[BulletItem] = Field(..., min_length=1, max_length=12)
     numbered: bool = False
 
+    # 트랙 #106 P0 — OpenAI Structured Outputs 가 max_length 미강제 → 초과 항목 truncate.
+    @field_validator("items", mode="before")
+    @classmethod
+    def _truncate_items(cls, v):
+        if isinstance(v, list) and len(v) > 12:
+            return v[:12]
+        return v
+
 
 # 8. KPI -------------------------------------------------------------------
 
@@ -218,6 +226,23 @@ class DataTableComponent(ComponentBase):
     rows: list[list[str]] = Field(..., min_length=0, max_length=20)
     emphasis_column_index: int | None = Field(default=None, ge=0)
     caption: str | None = None
+
+    # 트랙 #106 P0 — max_length truncate (headers 8, rows 20).
+    # rows 의 rectangular 검증은 model_validator 가 이후 단계에서 수행 — truncate 가 먼저 적용되어
+    # 이상한 차원이 들어와도 안전.
+    @field_validator("headers", mode="before")
+    @classmethod
+    def _truncate_headers(cls, v):
+        if isinstance(v, list) and len(v) > 8:
+            return v[:8]
+        return v
+
+    @field_validator("rows", mode="before")
+    @classmethod
+    def _truncate_rows(cls, v):
+        if isinstance(v, list) and len(v) > 20:
+            return v[:20]
+        return v
 
     @model_validator(mode="after")
     def _validate_rectangular(self) -> "DataTableComponent":
@@ -307,6 +332,14 @@ class TimelineComponent(ComponentBase):
     type: Literal["Timeline"] = "Timeline"
     events: list[TimelineEvent] = Field(..., min_length=1, max_length=10)
 
+    # 트랙 #106 P0 — max_length truncate (min_length=1 은 LLM 이 거의 비우지 않음).
+    @field_validator("events", mode="before")
+    @classmethod
+    def _truncate_events(cls, v):
+        if isinstance(v, list) and len(v) > 10:
+            return v[:10]
+        return v
+
 
 # 13. ImageGrid ------------------------------------------------------------
 
@@ -332,6 +365,21 @@ class ImageGridComponent(ComponentBase):
     type: Literal["ImageGrid"] = "ImageGrid"
     images: list[ImageGridItem] = Field(..., min_length=2, max_length=4)
 
+    # 트랙 #106 P0 — OpenAI Structured Outputs 가 min/max items 미강제.
+    # 부족하면 마지막 항목 복제 padding, 초과하면 truncate.
+    @field_validator("images", mode="before")
+    @classmethod
+    def _normalize_images(cls, v):
+        if not isinstance(v, list):
+            return v
+        if len(v) > 4:
+            return v[:4]
+        if 0 < len(v) < 2:
+            # 1 개만 반환된 경우 마지막을 복제. ImageGridItem 은 src/prompt 둘 다
+            # 보존되므로 placeholder 가 아닌 진짜 데이터로 채워짐.
+            v = list(v) + [v[-1]] * (2 - len(v))
+        return v
+
 
 # 14. IconRow --------------------------------------------------------------
 
@@ -352,6 +400,19 @@ class IconRowComponent(ComponentBase):
     type: Literal["IconRow"] = "IconRow"
     items: list[IconItem] = Field(..., min_length=2, max_length=6)
 
+    # 트랙 #106 P0 — OpenAI Structured Outputs 가 min/max items 미강제.
+    @field_validator("items", mode="before")
+    @classmethod
+    def _normalize_items(cls, v):
+        if not isinstance(v, list):
+            return v
+        if len(v) > 6:
+            return v[:6]
+        if 0 < len(v) < 2:
+            # 1 개만 반환된 경우 마지막을 복제. 비즈니스 의미 손상 위험 < ValidationError 차단.
+            v = list(v) + [v[-1]] * (2 - len(v))
+        return v
+
 
 # 15~17. Layout containers --------------------------------------------------
 #
@@ -369,6 +430,20 @@ class TwoColumnComponent(ComponentBase):
 class ThreeColumnComponent(ComponentBase):
     type: Literal["ThreeColumn"] = "ThreeColumn"
     columns: list[list["Component"]] = Field(..., min_length=3, max_length=3)
+
+    # 트랙 #106 P0 — OpenAI 가 ThreeColumn.columns 길이 (정확 3) 미강제.
+    # 4 개 이상이면 truncate, 2 개 이하면 마지막 column 복제. 빈 column 도 placeholder.
+    # 컴포넌트 의미상 정확 3 열 필수이므로 padding 이 비즈니스 손상보다 안전.
+    @field_validator("columns", mode="before")
+    @classmethod
+    def _normalize_columns(cls, v):
+        if not isinstance(v, list):
+            return v
+        if len(v) > 3:
+            v = v[:3]
+        elif len(v) < 3 and len(v) > 0:
+            v = list(v) + [v[-1]] * (3 - len(v))
+        return v
 
     @field_validator("columns")
     @classmethod
@@ -430,6 +505,26 @@ class ExecutiveSummaryComponent(ComponentBase):
     bullets: list[str] = Field(..., min_length=3, max_length=5)
     conclusion: str = Field(..., min_length=1)
 
+    # 트랙 #106 P0 결함 (사용자 영향 ~50% 422 실패) 근본 fix:
+    # OpenAI Structured Outputs 는 min/max items 미강제. LLM 이 2 개만 반환하는 경우
+    # 매우 빈번 (관측 ~50%). conclusion 을 마지막 bullet 으로 promote 하여 3개 보장.
+    # padding 이 어색하지 않게 conclusion 의 첫 문장만 가져오거나 그대로 사용.
+    @field_validator("bullets", mode="before")
+    @classmethod
+    def _normalize_bullets(cls, v, info):
+        if not isinstance(v, list):
+            return v
+        if len(v) > 5:
+            return v[:5]
+        if len(v) < 3:
+            # conclusion 또는 마지막 bullet 으로 padding. ValidationError 차단 우선.
+            data = info.data if hasattr(info, "data") else {}
+            conclusion = (data.get("conclusion") or "").strip()
+            pad_source = conclusion or (v[-1] if v else "(요약)")
+            while len(v) < 3:
+                v = list(v) + [pad_source]
+        return v
+
 
 # 20. RiskMatrix -----------------------------------------------------------
 
@@ -446,6 +541,14 @@ class RiskEntry(BaseModel):
 class RiskMatrixComponent(ComponentBase):
     type: Literal["RiskMatrix"] = "RiskMatrix"
     risks: list[RiskEntry] = Field(..., min_length=1, max_length=12)
+
+    # 트랙 #106 P0 — max_length truncate.
+    @field_validator("risks", mode="before")
+    @classmethod
+    def _truncate_risks(cls, v):
+        if isinstance(v, list) and len(v) > 12:
+            return v[:12]
+        return v
 
 
 # 21. ActionItemList -------------------------------------------------------
@@ -464,6 +567,14 @@ class ActionItemListComponent(ComponentBase):
     type: Literal["ActionItemList"] = "ActionItemList"
     items: list[ActionItem] = Field(..., min_length=1, max_length=20)
 
+    # 트랙 #106 P0 — max_length truncate. ActionItem.due 의 ISO date 검증은 유지 (비즈니스 핵심).
+    @field_validator("items", mode="before")
+    @classmethod
+    def _truncate_items(cls, v):
+        if isinstance(v, list) and len(v) > 20:
+            return v[:20]
+        return v
+
 
 # 22. AttendeeList ---------------------------------------------------------
 
@@ -479,6 +590,14 @@ class Attendee(BaseModel):
 class AttendeeListComponent(ComponentBase):
     type: Literal["AttendeeList"] = "AttendeeList"
     attendees: list[Attendee] = Field(..., min_length=1, max_length=50)
+
+    # 트랙 #106 P0 — max_length truncate.
+    @field_validator("attendees", mode="before")
+    @classmethod
+    def _truncate_attendees(cls, v):
+        if isinstance(v, list) and len(v) > 50:
+            return v[:50]
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -536,6 +655,14 @@ class Page(BaseModel):
     components: list[Component] = Field(..., min_length=1, max_length=10)
     speaker_notes: str | None = None
     page_number_visible: bool = True
+
+    # 트랙 #106 P0 — Page.components 길이 11+ 시 truncate (10 초과 시 빌더가 어차피 skip).
+    @field_validator("components", mode="before")
+    @classmethod
+    def _truncate_components(cls, v):
+        if isinstance(v, list) and len(v) > 10:
+            return v[:10]
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -596,6 +723,14 @@ class DocumentSchema(BaseModel):
     design_tokens: DesignTokens = Field(default_factory=DesignTokens)
     pages: list[Page] = Field(..., min_length=1, max_length=20)
     metadata: DocumentMetadata
+
+    # 트랙 #106 P0 — pages 21+ 시 truncate (LLM 이 freeform_doc 에서 overgenerate 경향).
+    @field_validator("pages", mode="before")
+    @classmethod
+    def _truncate_pages(cls, v):
+        if isinstance(v, list) and len(v) > 20:
+            return v[:20]
+        return v
 
     @model_validator(mode="after")
     def _template_id_consistency(self) -> "DocumentSchema":
