@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-05-25T19:33:12.795771",
+  "steps": [
+    {
+      "name": "login",
+      "url": "http://192.168.10.39:8041/dashboard",
+      "ok": true
+    },
+    {
+      "name": "designer_create_open",
+      "url": "http://192.168.10.39:8041/designer/create"
+    },
+    {
+      "name": "click_generate",
+      "ok": true
+    },
+    {
+      "name": "wait_doc_id",
+      "doc_id": "dc9b7edc-dce5-44f0-a69f-21f4755455a8",
+      "url": "http://192.168.10.39:8041/designer/dc9b7edc-dce5-44f0-a69f-21f4755455a8"
+    },
+    {
+      "name": "preset_buttons_visible",
+      "count": 3
+    },
+    {
+      "name": "click_preset",
+      "label": "IDINO 모노"
+    },
+    {
+      "name": "click_export_pptx",
+      "ok": true
+    }
+  ],
+  "verdict": {
+    "doc_generation": "PASS"
+  },
+  "network_count": 12,
+  "console_count": 6
+}

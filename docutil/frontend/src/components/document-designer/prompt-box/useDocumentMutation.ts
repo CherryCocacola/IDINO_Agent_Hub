@@ -94,15 +94,39 @@ export function useDocumentMutation(): UseDocumentMutationResult {
     async (input: UseDocumentMutationInput): Promise<GenerateDocumentResponse> => {
       setState({ isPending: true, error: null, data: null });
       try {
-        const response = await apiClient.post<GenerateDocumentResponse>(DOCUMENTS_V2_BASE, {
+        // 백엔드는 DocumentV2Response 래퍼 ({ id, document_schema, ... }) 를 반환한다.
+        // 실제 DocumentSchema 는 `document_schema` 필드 안에 있다 (router.py `_to_response`).
+        // 트랙 #106 결함 2-1 fix: 래퍼를 그대로 store 에 주입하면 `document_id`/`pages`/
+        // `design_tokens` 가 모두 undefined 가 되어 /designer/create → /designer/{id}
+        // redirect 와 PATCH 흐름이 깨진다. `documents-v2.ts.generateDocument` 와 동일하게
+        // `document_schema` 를 언랩한다.
+        // 요청 body 도 documents-v2.ts 와 정렬: `type` → `document_type` (backend Pydantic
+        // `extra='forbid'` 에 의해 거부되던 잠재 결함을 함께 차단).
+        const payload: Record<string, unknown> = {
           mode: "free_generation",
-          type: input.documentType,
+          document_type: input.documentType,
           prompt: input.prompt,
-          source_document_ids: input.sourceDocumentIds,
-          agent_id: input.agentId,
-        });
-        setState({ isPending: false, error: null, data: response });
-        return response;
+        };
+        if (input.sourceDocumentIds && input.sourceDocumentIds.length > 0) {
+          payload.source_document_ids = input.sourceDocumentIds;
+        }
+        if (input.agentId) {
+          payload.agent_id = input.agentId;
+        }
+
+        const envelope = await apiClient.post<{
+          id: string;
+          document_schema: GenerateDocumentResponse;
+        }>(DOCUMENTS_V2_BASE, payload);
+
+        const schema = envelope.document_schema;
+        if (!schema || !schema.document_id) {
+          throw new Error(
+            "백엔드 응답에서 DocumentSchema 를 찾을 수 없습니다 (document_schema 필드 누락).",
+          );
+        }
+        setState({ isPending: false, error: null, data: schema });
+        return schema;
       } catch (err) {
         // ApiError 는 status/detail 을 보존해 상위에서 403 쿼터 토스트 등
         // 특화 처리를 할 수 있게 그대로 재던진다 (Phase 4 S3 D5).

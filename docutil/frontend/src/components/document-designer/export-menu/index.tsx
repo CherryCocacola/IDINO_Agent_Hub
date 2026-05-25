@@ -55,15 +55,30 @@ export interface ExportMenuProps {
 // ─── 내부 유틸 ─────────────────────────────────────────────────────────────
 
 /**
- * 백엔드가 반환한 download_url 은 상대 경로(`/v2/documents/...`) 또는 절대 URL
- * 형태 모두 가능하다. `apiClient.getBlob` 은 상대 경로만 허용하므로 origin 을
- * 제거해 상대 경로로 정규화한다.
+ * 백엔드가 반환한 download_url 을 `apiClient.getBlob` 이 받을 수 있는
+ * "베이스 경로(/api/v1) 이후의 endpoint" 형태로 정규화한다.
+ *
+ * 백엔드 (`router.py` `download_export`) 는 download_url 을
+ * `/api/v1/v2/documents/exports/{job_id}/download` 형태로 반환한다 (절대 경로,
+ * Nginx 라우팅 prefix 포함). 그러나 `apiClient.getBlob` 은 내부에서 baseUrl
+ * (`/api/v1`) 을 다시 붙이므로, 이 경로를 그대로 전달하면
+ * `/api/v1/api/v1/v2/...` 가 되어 404 가 발생한다.
+ *
+ * 트랙 #106 결함 2-1 fix:
+ *   - 입력이 `/api/v1/...` 로 시작하면 prefix 를 제거한 부분만 반환.
+ *   - 입력이 절대 URL(http(s)://...) 이면 pathname 에서 동일 작업.
+ *   - 그 외 (`/v2/...` 같은 base-relative 경로) 는 그대로 반환.
  */
 function toApiRelativePath(url: string): string {
-  if (url.startsWith("/")) return url;
+  const stripApiPrefix = (path: string): string =>
+    path.startsWith("/api/v1/") ? path.slice("/api/v1".length) : path;
+
+  if (url.startsWith("/")) {
+    return stripApiPrefix(url);
+  }
   try {
     const parsed = new URL(url);
-    return parsed.pathname + parsed.search;
+    return stripApiPrefix(parsed.pathname + parsed.search);
   } catch {
     return url;
   }

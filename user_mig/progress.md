@@ -170,6 +170,47 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-25 (트랙 #106 결함 2-1 — DocUtil `/designer/[documentId]` 우측 사이드바·내보내기·문서 생성 stuck 결함 일괄 fix)
+
+**배경**: 사용자 보고 — `http://192.168.10.39:8041/designer/create` 에서 prompt 입력 후 생성 클릭 → (i) 우측 design-token-picker 의 브랜드 프리셋·primary color 변경이 작동 안 함, (ii) 문서 작성 진행 stuck (URL replace 안 됨), (iii) 내보내기 (PPTX/PDF) 도 작동 안 함.
+
+**진단 (운영 e2e Playwright + DevTools network/console)**:
+- Backend (`/api/v1/v2/documents` POST/PATCH/export) 는 모두 정상 (curl 직접 호출로 202/200/완료 확인).
+- 콘솔 에러: `[DesignerShell] patchTokens 실패 Error: 문서가 선택되지 않아 PATCH 를 수행할 수 없습니다.` — `use-document.ts:253` 의 가드. 즉 PATCH 호출 시 `documentId === null` 이었음.
+- 네트워크 캡처: POST `/v2/documents` 는 202 + envelope `{id, document_schema:{...}}` 정상 반환됐으나, URL 이 `/designer/{uuid}` 로 replace 안 됨 → frontend store 에 documentId 가 들어가지 않음.
+
+**근본 원인 (frontend 2건)**:
+1. **`useDocumentMutation.mutateAsync` 가 백엔드 envelope 을 unwrap 하지 않음**.
+   - 백엔드 `documents_v2/router.py::create_document` 는 `DocumentV2Response` 래퍼 (`{id, document_schema:{document_id, pages, design_tokens, ...}, ...}`) 를 반환.
+   - 그러나 hook 은 `apiClient.post<DocumentSchema>(...)` 로 받아 그대로 반환 → store 에 envelope 이 들어감 → `store.document?.document_id` 는 undefined (envelope 의 top-level 필드는 `id`).
+   - 결과: (a) `/designer/create/page.tsx` 의 `useEffect(() => router.replace(/designer/${documentId}))` 가 발화 안 됨 → URL stuck. (b) `DesignerShell` 의 `effectiveId = null` → `patchTokens` 가 가드에서 throw → 토큰 변경 실패. (c) `ExportMenu` 의 `disabled={!documentId}` → 버튼 영구 disabled.
+   - 사이드 효과로 body 도 `type` 키로 보냈는데 backend `GenerateDocumentRequest` 는 `document_type` 만 받음 (Pydantic `extra='forbid'`) — `documents-v2.ts::generateDocument` 와 정렬해 함께 fix.
+2. **`ExportMenu` 의 `toApiRelativePath` 가 `/api/v1` prefix 중복 차단 안 함**.
+   - Backend 가 반환하는 `download_url` 은 `/api/v1/v2/documents/exports/{job}/download` 형태 (절대 경로).
+   - `apiClient.getBlob(endpoint)` 는 내부에서 `${baseUrl}${endpoint}` = `/api/v1 + /api/v1/...` → `/api/v1/api/v1/v2/...` 호출 → 404 → "다운로드 실패" toast 만 노출되고 파일은 안 받아짐.
+
+**수정 파일 (2건)**:
+1. `docutil/frontend/src/components/document-designer/prompt-box/useDocumentMutation.ts` — `apiClient.post<{id, document_schema}>(...)` 으로 envelope 타입 명시 + `envelope.document_schema` 언랩 + `document_id` 누락 시 명시적 throw. 요청 body 도 `type` → `document_type` 으로 정렬, null 필드는 누락 (Pydantic `extra='forbid'` 호환).
+2. `docutil/frontend/src/components/document-designer/export-menu/index.tsx` — `toApiRelativePath` 에 `stripApiPrefix` 헬퍼 추가, 입력 경로가 `/api/v1/` 로 시작하면 prefix 를 잘라 `apiClient.getBlob` 의 base concat 과 중복되지 않도록 보정 (절대 URL 입력도 pathname 동일 처리).
+
+**배포 (`tmp/deploy_track106_designer_fix.py`)**:
+- SFTP 2 파일 → docker compose build `frontend` (Next.js standalone 이미지 rebuild) → `up -d --force-recreate frontend` → nginx restart (정적 캐시 회수).
+- container `docutil-frontend` healthy 확인, `/designer/create` HTTP 200 확인.
+
+**e2e 검증 (`tools/ui_e2e/full/track106_designer_diag.py` 재실행)**:
+- admin@example.com 로그인 → `/designer/create` 진입 → prompt 입력 ("ui-e2e-test-track106-diag …") → 생성 → **URL 이 `/designer/dc9b7edc-…` 로 replace 됨** (verdict.doc_generation = PASS) → 브랜드 프리셋 "IDINO 모노" 클릭 → **PATCH `/v2/documents/{id}` 200 응답** → 내보내기 PPTX 클릭 → POST `/export` 202 → GET `/exports/{job}` 폴링 → completed → **GET `/exports/{job}/download` 200 (Blob 수신)**.
+- 네트워크 12건 모두 의도대로 흐름. 콘솔 에러는 ModeSwitcher 템플릿 목록 404 잔존 (별개 결함, 본 트랙 범위 외).
+
+**산출물**:
+- `tools/ui_e2e/full/track106_designer_diag.py` (신설 e2e runner)
+- `tools/ui_e2e/full/track106_designer_diag_results.json` / `_network.json`
+- `tools/ui_e2e/screenshots/track106_designer/01_after_login.png` ~ `06_final_state.png`
+- `tmp/deploy_track106_designer_fix.py`
+
+**사용자 영향**: DocUtil 디자이너 모드 사용자(전 조직 admin/member) 즉시 효과 — 자유 생성 (Mode A) → 디자인 토큰 라이브 편집 → PPTX/DOCX/PDF/HTML 내보내기 까지의 핵심 흐름이 운영에서 처음으로 정상 동작.
+
+---
+
 ### 2026-05-24 (트랙 #106 결함 8 근본 fix — AgentHub `/v1/chat/completions` 가 OpenAI Structured Outputs `response_format` 무시 결함 해소)
 
 **배경**: 트랙 #106 결함 8 의 v1~v8 우회 fix(차단 단어 노출 / 메시지 보강 / markdown fence 제거 / unicode escape 디코딩)에도 불구하고, DocUtil documents_v2 보고서 생성 시 `json.loads` 실패 + `ValidationError` 502/422 가 잔존. 근본 원인 추적:

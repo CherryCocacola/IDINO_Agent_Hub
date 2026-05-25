@@ -1,0 +1,114 @@
+{
+  "network": [
+    {
+      "kind": "req",
+      "method": "POST",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents",
+      "ts": 1779705204.6741931
+    },
+    {
+      "kind": "resp",
+      "method": "POST",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents",
+      "status": 202,
+      "body_preview": "{\"id\":\"dc9b7edc-dce5-44f0-a69f-21f4755455a8\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"generated_by_user_id\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"agent_id\":null,\"template_id\":null,\"document_type\":\"slide_report\",\"mode\":\"free_generation\",\"title\":\"UI E2E 테스트 트랙 106 진단\",\"status\":\"completed\",\"error_message\":null,\"llm_provider\":\"report\",\"llm_model\":null,\"prompt_tokens\":null,\"completion_tokens\":null,\"created_at\":\"2026-05-25T10:33:37.286293Z\",\"completed_at\":\"2026-05-25T10:33:37.285727",
+      "ts": 1779705217.3070304
+    },
+    {
+      "kind": "req",
+      "method": "PATCH",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents/dc9b7edc-dce5-44f0-a69f-21f4755455a8",
+      "ts": 1779705220.130121
+    },
+    {
+      "kind": "resp",
+      "method": "PATCH",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents/dc9b7edc-dce5-44f0-a69f-21f4755455a8",
+      "status": 200,
+      "body_preview": "{\"id\":\"dc9b7edc-dce5-44f0-a69f-21f4755455a8\",\"organization_id\":\"00000000-0000-4000-a000-000000000001\",\"generated_by_user_id\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"agent_id\":null,\"template_id\":null,\"document_type\":\"slide_report\",\"mode\":\"free_generation\",\"title\":\"UI E2E 테스트 트랙 106 진단\",\"status\":\"completed\",\"error_message\":null,\"llm_provider\":\"report\",\"llm_model\":null,\"prompt_tokens\":null,\"completion_tokens\":null,\"created_at\":\"2026-05-25T10:33:37.286293Z\",\"completed_at\":\"2026-05-25T10:33:37.285727",
+      "ts": 1779705220.164632
+    },
+    {
+      "kind": "req",
+      "method": "POST",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents/dc9b7edc-dce5-44f0-a69f-21f4755455a8/export",
+      "ts": 1779705221.7720785
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents/exports/f791a5ed-ff63-43c6-a45b-959269a24ce8",
+      "ts": 1779705222.1780324
+    },
+    {
+      "kind": "resp",
+      "method": "POST",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents/dc9b7edc-dce5-44f0-a69f-21f4755455a8/export",
+      "status": 202,
+      "body_preview": "{\"job_id\":\"f791a5ed-ff63-43c6-a45b-959269a24ce8\"}",
+      "ts": 1779705222.1780324
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents/exports/f791a5ed-ff63-43c6-a45b-959269a24ce8",
+      "status": 200,
+      "body_preview": "{\"status\":\"pending\",\"progress\":0,\"download_url\":null,\"error\":null,\"degraded_components\":[]}",
+      "ts": 1779705222.188032
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents/exports/f791a5ed-ff63-43c6-a45b-959269a24ce8",
+      "ts": 1779705224.182739
+    },
+    {
+      "kind": "req",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents/exports/f791a5ed-ff63-43c6-a45b-959269a24ce8/download",
+      "ts": 1779705224.1967368
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents/exports/f791a5ed-ff63-43c6-a45b-959269a24ce8",
+      "status": 200,
+      "body_preview": "{\"status\":\"completed\",\"progress\":100,\"download_url\":\"/api/v1/v2/documents/exports/f791a5ed-ff63-43c6-a45b-959269a24ce8/download\",\"error\":null,\"degraded_components\":[]}",
+      "ts": 1779705224.1967368
+    },
+    {
+      "kind": "resp",
+      "method": "GET",
+      "url": "http://192.168.10.39:8041/api/v1/v2/documents/exports/f791a5ed-ff63-43c6-a45b-959269a24ce8/download",
+      "status": 200,
+      "body_preview": "",
+      "ts": 1779705224.2177355
+    }
+  ],
+  "console": [
+    {
+      "type": "warning",
+      "text": "An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing."
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "type": "warning",
+      "text": "[ModeSwitcher] 템플릿 목록 로드 실패 ApiError: Not Found\n    at Object.request (http://192.168.10.39:8041/_next/static/chunks/f52d3071f3b76116.js:1:18518)\n    at async http://192.168.10.39:8041/_next/static/chunks/7c6e7b35ae769fc9.js:1:67685"
+    },
+    {
+      "type": "warning",
+      "text": "An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing."
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "type": "warning",
+      "text": "[ModeSwitcher] 템플릿 목록 로드 실패 ApiError: Not Found\n    at Object.request (http://192.168.10.39:8041/_next/static/chunks/f52d3071f3b76116.js:1:18518)\n    at async http://192.168.10.39:8041/_next/static/chunks/7c6e7b35ae769fc9.js:1:67685"
+    }
+  ]
+}
