@@ -198,6 +198,20 @@ public class CachingService
             }
             return long.TryParse(raw, out var v) ? v : 0L;
         }
+        catch (StackExchange.Redis.RedisServerException ex) when (ex.Message.Contains("WRONGTYPE", StringComparison.Ordinal))
+        {
+            // 트랙 #110 (2026-05-26): version-key 가 raw INCR 등 외부 도구로 string 타입으로
+            // 직접 SET 된 경우 IDistributedCache(hash 형식) 와 비호환 → WRONGTYPE.
+            // 자가복구: 결함 key 자동 DEL + 0 반환(호출자에 새 cache key 생성 유도).
+            _logger.LogWarning(ex,
+                "Redis WRONGTYPE (version key {Key}) — 자동 DEL + 0 폴백 (다음 IncrementVersion 시 정상 hash 재생성)",
+                key);
+            try { await _cache.RemoveAsync(key); } catch (Exception removeEx)
+            {
+                _logger.LogWarning(removeEx, "WRONGTYPE DEL 실패 (key={Key}) — 다음 호출 시 재시도", key);
+            }
+            return 0L;
+        }
         catch (System.Net.Sockets.SocketException ex)
         {
             _logger.LogWarning(ex, "Redis 연결 오류 (version key {Key}) — 폴백 0 반환", key);
@@ -252,6 +266,34 @@ public class CachingService
 
             _logger.LogDebug("캐시 버전 증가 - namespace={Namespace}, newVersion={Version}", ns, next);
             return next;
+        }
+        catch (StackExchange.Redis.RedisServerException ex) when (ex.Message.Contains("WRONGTYPE", StringComparison.Ordinal))
+        {
+            // 트랙 #110 (2026-05-26): 자가복구 — WRONGTYPE 감지 시 결함 key DEL + retry 1회.
+            // 원인: 운영 진단 중 redis-cli INCR / SET 등 외부 도구로 version-key 가 string
+            // 타입 직접 생성된 후 IDistributedCache(hash 형식) SetAsync 가 차단됨.
+            _logger.LogWarning(ex,
+                "Redis WRONGTYPE (version key {Key}) — 자동 DEL + retry 1회 (다음 SetAsync 가 hash 형식 재생성)",
+                key);
+            try
+            {
+                await _cache.RemoveAsync(key);
+                // DEL 후 retry — 새 hash 형식 1L 로 SET
+                const long retryVersion = 1L;
+                await _cache.SetStringAsync(
+                    key,
+                    retryVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    new DistributedCacheEntryOptions());
+                _logger.LogInformation(
+                    "WRONGTYPE 자가복구 성공 — namespace={Namespace}, newVersion={Version}", ns, retryVersion);
+                return retryVersion;
+            }
+            catch (Exception retryEx)
+            {
+                _logger.LogError(retryEx,
+                    "WRONGTYPE 자가복구 retry 실패 (key={Key}) — 무효화 효과 0, 다음 호출 시 재시도", key);
+                return 0L;
+            }
         }
         catch (System.Net.Sockets.SocketException ex)
         {

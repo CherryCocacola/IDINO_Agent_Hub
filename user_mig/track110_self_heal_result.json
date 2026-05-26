@@ -1,0 +1,7 @@
+{
+  "track": "#110 CachingService WRONGTYPE 자가복구",
+  "ran_at": "2026-05-26T17:35:52",
+  "scenario": "intentional cv:docutil-collections string SET → ADD → DELETE",
+  "add_self_heal": true,
+  "delete_invalidate": true
+}
