@@ -1,0 +1,228 @@
+{
+  "track": "A1 Phase B — 3 BFF + 3 Vue 배포 + smoke",
+  "ran_at": "2026-05-25T23:58:28",
+  "base_url": "http://192.168.10.39:64005",
+  "files_deployed": [
+    "agenthub/Controllers/AdminDocUtilSettingsController.cs",
+    "agenthub/Controllers/AdminDocUtilQuickGuideController.cs",
+    "agenthub/Controllers/AdminDocUtilSearchTestController.cs",
+    "agenthub/Services/IDocUtilClient.cs",
+    "agenthub/Services/DocUtilClient.cs",
+    "agenthub/ClientApp/src/views/admin/AdminDocUtilSettings.vue",
+    "agenthub/ClientApp/src/views/admin/AdminDocUtilQuickGuide.vue",
+    "agenthub/ClientApp/src/views/admin/AdminDocUtilSearchTest.vue",
+    "agenthub/ClientApp/src/services/docutilService.ts",
+    "agenthub/ClientApp/src/router/index.ts",
+    "agenthub/ClientApp/src/layouts/MainLayout.vue",
+    "agenthub/ClientApp/src/i18n/locales/ko.json",
+    "agenthub/ClientApp/src/i18n/locales/en.json",
+    "agenthub/ClientApp/src/i18n/locales/vi.json"
+  ],
+  "endpoints_tested": [
+    {
+      "path": "/api/admin/docutil/settings",
+      "method": "GET",
+      "name": "settings.get"
+    },
+    {
+      "path": "/api/admin/docutil/quick-guide",
+      "method": "GET",
+      "name": "quickguide.get"
+    },
+    {
+      "path": "/api/admin/docutil/search-test/history",
+      "method": "GET",
+      "name": "searchtest.history"
+    },
+    {
+      "path": "/api/admin/docutil/search-test/scopes",
+      "method": "GET",
+      "name": "searchtest.scopes"
+    }
+  ],
+  "accounts": [
+    {
+      "label": "SuperAdmin",
+      "expect_admin_access": true
+    },
+    {
+      "label": "UserLegacy",
+      "expect_admin_access": false
+    },
+    {
+      "label": "EmployeeHslee",
+      "expect_admin_access": false
+    },
+    {
+      "label": "EmployeeShbaek",
+      "expect_admin_access": true
+    }
+  ],
+  "results": [
+    {
+      "account": "SuperAdmin",
+      "endpoint": "/api/admin/docutil/settings",
+      "name": "settings.get",
+      "method": "GET",
+      "status": 502,
+      "body_head": "{\"message\":\"시스템 설정을 불러오지 못했습니다.\",\"errorCode\":\"DOCUTIL_UPSTREAM_ERROR\",\"details\":{\"upstream\":\"DocUtil 호출이 실패했습니다 (HTTP 404). 입력값 또는 권한을 �",
+      "verdict": "FAIL",
+      "reason": "비정상 (502)"
+    },
+    {
+      "account": "SuperAdmin",
+      "endpoint": "/api/admin/docutil/quick-guide",
+      "name": "quickguide.get",
+      "method": "GET",
+      "status": 200,
+      "body_head": "{\"title\":\"퀵 가이드\",\"subtitle\":\"시스템 사용 방법을 빠르게 익혀보세요\",\"guides\":[{\"icon\":\"FileText\",\"title\":\"문서 업로드\",\"description\":\"PDF, DOCX, TXT 등 다양한 형식의",
+      "verdict": "PASS",
+      "reason": "200 OK"
+    },
+    {
+      "account": "SuperAdmin",
+      "endpoint": "/api/admin/docutil/search-test/history",
+      "name": "searchtest.history",
+      "method": "GET",
+      "status": 200,
+      "body_head": "[{\"id\":\"83f229bd-ef87-4089-8491-3479824449a2\",\"query\":\"사용자 요청:\\n회사 비전 2030 — 5년 후 모습 한 페이지 정리.\\n\\n관련 근거:\\n(관련 근거 문서가 없습니다. 사용�",
+      "verdict": "PASS",
+      "reason": "200 OK"
+    },
+    {
+      "account": "SuperAdmin",
+      "endpoint": "/api/admin/docutil/search-test/scopes",
+      "name": "searchtest.scopes",
+      "method": "GET",
+      "status": 200,
+      "body_head": "[{\"id\":\"8a0f9f0f-c195-4a96-822c-f3fd7173e4b3\",\"name\":\"기본 범위 TEST\",\"locationPath\":null}]",
+      "verdict": "PASS",
+      "reason": "200 OK"
+    },
+    {
+      "account": "UserLegacy",
+      "endpoint": "/api/admin/docutil/settings",
+      "name": "settings.get",
+      "method": "GET",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부 (403)"
+    },
+    {
+      "account": "UserLegacy",
+      "endpoint": "/api/admin/docutil/quick-guide",
+      "name": "quickguide.get",
+      "method": "GET",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부 (403)"
+    },
+    {
+      "account": "UserLegacy",
+      "endpoint": "/api/admin/docutil/search-test/history",
+      "name": "searchtest.history",
+      "method": "GET",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부 (403)"
+    },
+    {
+      "account": "UserLegacy",
+      "endpoint": "/api/admin/docutil/search-test/scopes",
+      "name": "searchtest.scopes",
+      "method": "GET",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부 (403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "endpoint": "/api/admin/docutil/settings",
+      "name": "settings.get",
+      "method": "GET",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부 (403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "endpoint": "/api/admin/docutil/quick-guide",
+      "name": "quickguide.get",
+      "method": "GET",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부 (403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "endpoint": "/api/admin/docutil/search-test/history",
+      "name": "searchtest.history",
+      "method": "GET",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부 (403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "endpoint": "/api/admin/docutil/search-test/scopes",
+      "name": "searchtest.scopes",
+      "method": "GET",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부 (403)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "endpoint": "/api/admin/docutil/settings",
+      "name": "settings.get",
+      "method": "GET",
+      "status": 502,
+      "body_head": "{\"message\":\"시스템 설정을 불러오지 못했습니다.\",\"errorCode\":\"DOCUTIL_UPSTREAM_ERROR\",\"details\":{\"upstream\":\"DocUtil 호출이 실패했습니다 (HTTP 404). 입력값 또는 권한을 �",
+      "verdict": "FAIL",
+      "reason": "비정상 (502)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "endpoint": "/api/admin/docutil/quick-guide",
+      "name": "quickguide.get",
+      "method": "GET",
+      "status": 200,
+      "body_head": "{\"title\":\"퀵 가이드\",\"subtitle\":\"시스템 사용 방법을 빠르게 익혀보세요\",\"guides\":[{\"icon\":\"FileText\",\"title\":\"문서 업로드\",\"description\":\"PDF, DOCX, TXT 등 다양한 형식의",
+      "verdict": "PASS",
+      "reason": "200 OK"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "endpoint": "/api/admin/docutil/search-test/history",
+      "name": "searchtest.history",
+      "method": "GET",
+      "status": 200,
+      "body_head": "[{\"id\":\"83f229bd-ef87-4089-8491-3479824449a2\",\"query\":\"사용자 요청:\\n회사 비전 2030 — 5년 후 모습 한 페이지 정리.\\n\\n관련 근거:\\n(관련 근거 문서가 없습니다. 사용�",
+      "verdict": "PASS",
+      "reason": "200 OK"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "endpoint": "/api/admin/docutil/search-test/scopes",
+      "name": "searchtest.scopes",
+      "method": "GET",
+      "status": 200,
+      "body_head": "[{\"id\":\"8a0f9f0f-c195-4a96-822c-f3fd7173e4b3\",\"name\":\"기본 범위 TEST\",\"locationPath\":null}]",
+      "verdict": "PASS",
+      "reason": "200 OK"
+    }
+  ],
+  "summary": {
+    "total": 16,
+    "pass": 14,
+    "fail": 2
+  }
+}

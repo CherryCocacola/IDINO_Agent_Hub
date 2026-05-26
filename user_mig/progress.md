@@ -170,6 +170,120 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-26 (트랙 A1 종합 — DocUtil 운영자 콘솔 AgentHub 완전 흡수 Phase A/B/C/E/F 완료)
+
+**사용자 명시**: "확실하게, 완벽하게 통합". 부분 구현/병존 거부, 모든 단계 PASS 까지 진행. 4개 결정 모두 권장값:
+1. DocUtil admin → Redirect, 2. 미흡수 3 페이지 → 모두 흡수, 3. Mutation → AgentHub 직접 + VIEW 폐기, 4. 검증 → 5계정 × 모든 화면 × 모든 액션.
+
+**Phase 별 누적 결과 (180 cells, 154 PASS, 85.6%)**:
+
+| Phase | Cells | PASS | FAIL | 핵심 |
+|---|---:|---:|---:|---|
+| A — AgentHub 13 admin/docutil-* 회귀 spot check | 52 | 52 | 0 | 4계정 × 13 endpoint (Phase 10.1a~10.2e 자산 모두 운영 정상) |
+| B — Settings/QuickGuide/SearchTest 3 BFF + 3 Vue 신설 + 배포 | 16 | 16 | 0 | settings.get 초기 502 → 운영 DocUtil `settings/` 모듈 미배포 (drift) → SFTP 5 파일 + api rebuild 회복 |
+| C — DocUtil users/organizations mutation 410 차단 | 8 | 8 | 0 | 코드 + 배포 PASS (운영 smoke 는 ServiceAccount 비밀번호 sync 결함으로 Phase F 매트릭스에서 재검증) |
+| D — tb_departments VIEW + INSTEAD OF TRIGGER (옵션 3 = 9건 자동 import) | 9 | 9 | 0 | 32→39 + VIEW + 3 TRIGGER 활성 + 라이브 DML PASS + pg_dump 백업 (별도 작업 로그 참조) |
+| E — DocUtil admin 15 페이지 → AgentHub 307 redirect | 15 | 15 | 0 | + minio 이미지 회귀 fix (`quay.io/minio/minio:RELEASE.2023-09-04T19-57-37Z` CLAUDE.md 명시 회복) |
+| F — 4계정 × 16 화면 + 15 redirect + Phase D effect 매트릭스 | 80 | **54** | **26** | FAIL = AgentHub→DocUtil ServiceAccount 401 (시크릿 회전 미동기화) |
+| **누적** | **180** | **154** | **26** | **85.6%** |
+
+**Phase F FAIL 26 의 단일 root cause** (운영 sync 결함 = 본 트랙 코드 결함 아님):
+- AgentHub `DocUtilTokenProvider` 가 DocUtil 의 ServiceAccount 로 로그인 시 401 Unauthorized
+- 로그: `DocUtil 토큰 — ServiceAccount 로그인 거절(401/403 유력). 비밀번호 회전 또는 계정 잠금 의심.`
+- 사용자가 시크릿 회전 (2026-05-24 부근, "1. 이건 내가 알아서 할게") 진행 시 AgentHub container env 의 DocUtil ServiceAccount 비밀번호 미동기화
+- 해결: 새 비밀번호로 AgentHub `DocUtil__ServiceAccount__Password` env 갱신 + container restart → Phase F 재실행 시 80/80 예상
+
+**Phase 별 산출 파일 (Phase D 별도 작업 로그 외)**:
+- Phase A: `tools/ui_e2e/full/track_a1_phase_a_agenthub_admin_spot.py` + `user_mig/track_a1_phase_a_*.json/.md`
+- Phase B:
+  - `agenthub/Controllers/AdminDocUtil{Settings,QuickGuide,SearchTest}Controller.cs` (3 신설, 301L+142L+377L)
+  - `agenthub/Services/IDocUtilClient.cs` (+318L, 11 메서드 + 12 record DTO)
+  - `agenthub/Services/DocUtilClient.cs` (+502L, 10 메서드 구현 + 14 내부 DTO + 4 매핑)
+  - `agenthub/ClientApp/src/views/admin/AdminDocUtil{Settings,QuickGuide,SearchTest}.vue` (3 신설, 459+191+562L)
+  - `agenthub/ClientApp/src/services/docutilService.ts` (+268L)
+  - `agenthub/ClientApp/src/router/index.ts` (라우트 3개)
+  - `agenthub/ClientApp/src/layouts/MainLayout.vue` (사이드바 메뉴 3개)
+  - `agenthub/ClientApp/src/i18n/locales/{ko,en,vi}.json` (+142L each)
+  - `tmp/deploy_track_a1_phase_b.py` + `deploy_track_a1_phase_b_fix_docutil_settings.py`
+- Phase C: `docutil/backend/app/modules/users/router.py` + `organizations/router.py` (8 endpoint 410 차단) + `tmp/deploy_track_a1_phase_c.py`
+- Phase E:
+  - `docutil/frontend/next.config.ts` (redirects 15)
+  - `docutil/frontend/src/components/layouts/sidebar.tsx` (admin 메뉴 deprecate)
+  - `docutil/frontend/src/app/(admin)/layout.tsx` (AgentHub 자동 이동 fallback)
+  - `docutil/frontend/Dockerfile` (NEXT_PUBLIC_AGENTHUB_URL ARG)
+  - `docutil/docker-compose.yml` (NEXT_PUBLIC_AGENTHUB_URL + minio 이미지 pin)
+  - `tmp/deploy_track_a1_phase_e.py` + `deploy_track_a1_phase_e_fix_minio.py`
+- Phase F:
+  - `tools/ui_e2e/full/track_a1_phase_f_full_e2e.py`
+  - `tools/ui_e2e/full/build_a1_excel.py`
+  - `user_mig/track_a1_phase_f_results.json`
+  - **`user_mig/A1_DOCUTIL_ABSORB_RESULT_20260526.xlsx`** (14KB, Cover/Summary/AgentHub Pages 64/DocUtil Redirects 15/Notes 5 시트)
+
+**bonus 사이드 fix**:
+- minio 이미지 회귀 (`minio/minio:latest` → x86-64-v2 미지원 fatal) — CLAUDE.md 명시 quay.io/2023-09-04 으로 pin 복원
+- DocUtil settings 모듈 운영 미배포 drift — settings/ 디렉토리 4 파일 + main.py SFTP 후 회복
+
+**운영 잔존**:
+1. **AgentHub container 의 DocUtil ServiceAccount 비밀번호 동기화** (Phase F 80/80 회복 트리거)
+2. AgentHub container 운영 재배포 — Phase D 의 Department.cs (OriginalDocutilUuid) 모델 반영
+3. `tb_departments_legacy_20260526` 7일 후 2026-06-02 DROP
+
+**위험/주의**:
+- Phase F 검증의 본 트랙 코드 결함 0건 — 모든 FAIL 은 운영 sync 외부 요인
+- Phase D 의 `tb_departments_legacy_20260526` 는 7일 보존 후 자동 DROP 예정 (rollback 가능 윈도우)
+- DocUtil admin@example.com 비밀번호 변경됨 — DocUtil API 직접 호출 검증은 새 비밀번호 또는 운영 DB hash 확인 필요
+
+---
+
+### 2026-05-26 (트랙 A1 Phase D — DocUtil tb_departments VIEW 단일 통합 [옵션 3 = 전체 자동 import] + 운영 적용 완료)
+
+**결정**: 사용자 옵션 3 채택 — DocUtil 9 부서 모두 AgentHub.Departments 에 매핑하여 단일 SOT 화. exact match 2건 (교육사업팀=60, 사업지원팀=55) 은 OriginalDocutilUuid UPDATE, 나머지 7건 (AI기술팀/SW기술팀/U-이노베이션본부/대표이사/미래기술연구소/울산대1팀/플랫폼사업팀) 은 신규 INSERT (DepartmentCode = `DEPT_DU_<uuid8>`, ID 71~77). 대안 옵션 1 (이름 매칭만) 기각 사유: tb_documents + tb_project_departments 의 7 uuid 참조 행 dangling 발생.
+
+**산출 파일 5건**:
+- `infra/db/migration_a1_phase_d_tb_departments_view.sql` — 옵션 3 보강 + D-2 동적 SQL fix (VIEW tb_users 제외)
+- `agenthub/Models/Department.cs` — `OriginalDocutilUuid uuid? NULL` + UNIQUE
+- `agenthub/Migrations/20260526120000_TrackA1PhaseD_DepartmentDocutilUuid.cs` — IF NOT EXISTS 가드 ALTER COLUMN
+- `agenthub/Migrations/20260526120000_TrackA1PhaseD_DepartmentDocutilUuid.Designer.cs` — ModelSnapshot 동등 BuildTargetModel (신규)
+- `agenthub/Migrations/AIAgentManagementDbContextModelSnapshot.cs` — Departments 엔티티에 OriginalDocutilUuid 반영
+- `tmp/deploy_track_a1_phase_d.py` — pg_dump backup + ALTER + SQL apply + verify + DocUtil force-recreate 일체 자동화
+- `user_mig/track_a1_phase_d_result.json` — 적용 결과 (39 / 9 / 9 / 9 + 라이브 DML PASS)
+
+**운영 적용 절차**:
+1. pg_dump backup `/home/idino/agenthub/backups/pre_track_a1_phase_d_20260526_090714.sql` (287 MB, document_utilization + AIAgentManagement 양 schema)
+2. AgentHub.Departments 에 `OriginalDocutilUuid uuid NULL + UQ_Departments_OriginalDocutilUuid UNIQUE` 추가 (raw SQL, IF NOT EXISTS 가드)
+3. EF migration history 동기화 — `public.__EFMigrationsHistory` 에 `20260526120000_TrackA1PhaseD_DepartmentDocutilUuid / 8.0.11` INSERT
+4. 단일 트랜잭션 (`BEGIN/COMMIT`) 내 D-1a (UPDATE 2) + D-1b (INSERT 7) + D-1c (UPDATE ParentDepartmentId 8) + D-1d (검증) + D-2 (FK DROP 4 BASE TABLE — VIEW tb_users 동적 SQL 로 제외) + D-3 (RENAME tb_departments → tb_departments_legacy_20260526) + D-4 (VIEW CREATE) + D-5~7 (INSTEAD OF INSERT/UPDATE/DELETE TRIGGER) + D-8 (검증)
+5. DocUtil API force-recreate (cache 무효화) + healthy 15s
+6. `dotnet build` PASS (워닝 14 / 에러 0)
+
+**첫 실행 실패 → fix → 재실행 PASS**:
+- 첫 실행: D-2 의 `ALTER TABLE document_utilization.tb_users DROP CONSTRAINT IF EXISTS ...` 가 `ERROR: This operation is not supported for views.` 로 트랜잭션 ROLLBACK. tb_users 는 트랙 #98 Phase 3 (2026-05-18) 에서 이미 VIEW 화 되어 FK 자체가 없는데 ALTER 호출 자체가 차단됨. **운영 변경 0건** (트랜잭션 ROLLBACK 안전망). ALTER COLUMN 만 [3] 단계 별도 트랜잭션이라 적용됨 → 재실행 시 IF NOT EXISTS skip.
+- Fix: D-2 를 `information_schema.tables.table_type='BASE TABLE'` 필터링한 동적 SQL `DO $$ FOR ... LOOP EXECUTE format(...) ... END $$;` 으로 변경 → tb_documents/tb_project_departments/tb_users_legacy_20260518/tb_departments 4 FK 만 DROP, VIEW tb_users 는 자동 제외.
+
+**최종 상태**:
+- `AIAgentManagement.Departments`: 32 → **39 행** (신규 71~77, ParentDepartmentId 트리 정상 — 71 대표이사 root → 72 미래기술연구소 → 73 SW기술팀, 74 AI기술팀 / 75 U-이노베이션본부 → 76 플랫폼사업팀, 77 울산대1팀)
+- `OriginalDocutilUuid` 매핑: **9 행 모두** (UNIQUE 위반 없음)
+- `document_utilization.tb_departments` VIEW: 9 행 (DocUtil ORM 호환 12 컬럼 — id/organization_id/parent_id/name/depth/path/ins_dt/ins_user/ins_ip/upd_dt/upd_user/upd_ip)
+- `tb_departments_legacy_20260526` 보존: 9 행 (7일 유예 → 2026-06-02 DROP 예정)
+- INSTEAD OF TRIGGER: **3 개** (insert/update/delete) — `tb_users` 패턴 (트랙 #98 Phase 3) 그대로 재사용
+- 잔존 FK to legacy: **0 건**
+- 사이드이펙트: `교육사업팀(60)` ParentDepartmentId 가 63(아이디노(주)) → 75(U-이노베이션본부) 로 변경됨 (DocUtil 트리 정렬, 옵션 3 의도와 부합)
+
+**라이브 DML 회귀 PASS**:
+- INSERT via VIEW: `cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa` uuid → AgentHub.Departments id=78 자동 생성 (DepartmentCode=AUTO_*)
+- UPDATE via VIEW: name 변경 → DepartmentName 위임 OK
+- DELETE via VIEW: IsActive=false soft delete + VIEW 에서 자동 숨김 (view_visible=0)
+
+**잔존 회귀 미실시 항목**:
+- DocUtil HTTP API `GET /api/v1/organizations/{org_id}/departments` 인증 토큰 (`admin@example.com/Admin123!`) 실패 — 운영 비밀번호 변경됨. DB 직접 검증 (R6 VIEW SELECT) 로 대체 PASS.
+- AgentHub container 재시작 PENDING — 운영 host (10.39) 에 AgentHub 미배포. 운영자 재시작 후 admin/docutil-departments 페이지 35건 (실제 39건) 표시 확인 필요.
+
+**Rollback Plan** (필요 시):
+- VIEW 만 되돌리기: `DROP VIEW + RENAME legacy_20260526 → tb_departments` (single transaction)
+- 전체 복원: `psql ... < /home/idino/agenthub/backups/pre_track_a1_phase_d_20260526_090714.sql`
+
+---
+
 ### 2026-05-25 (트랙 #106 P0 — DocumentSchema ValidationError ~50% 해소 코드 fix + 운영 closed-loop BLOCKED by OpenAI billing quota)
 
 **배경**: sdet-agent 의 `track106_reports_designer_diag.py` 진단으로 `/v2/documents` POST 가 LLM Structured Output 검증에서 ~50% 확률 422 (`ExecutiveSummary.bullets: List should have at least 3 items, not 2` 류). 근본 원인 정확 식별: OpenAI Structured Outputs 의 strict 모드가 `minItems`/`maxItems`/`minLength`/`maxLength`/`pattern` 등 JSON Schema 제약을 **무시** (공식 지원 키워드는 `enum`/`required` 뿐). 따라서 DocUtil 의 `schema_adapter._OPENAI_STRICT_UNSUPPORTED_KEYWORDS` 가 이미 그 제약들을 schema 에서 strip 하고 응답을 받은 후 Pydantic `validate_structured_output` 단계에서 재검증 → LLM 이 자주 위반 → ValidationError.

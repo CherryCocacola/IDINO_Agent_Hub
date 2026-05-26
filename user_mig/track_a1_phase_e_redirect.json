@@ -1,0 +1,117 @@
+{
+  "track": "A1 Phase E fix — minio 이미지 회복 + redirect 재검증",
+  "ran_at": "2026-05-26T00:22:27",
+  "minio_image": "quay.io/minio/minio:RELEASE.2023-09-04T19-57-37Z",
+  "results": [
+    {
+      "path": "/admin-accounts",
+      "expect_dest": "/admin/docutil-users",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-users",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/departments",
+      "expect_dest": "/admin/docutil-departments",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-departments",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/projects",
+      "expect_dest": "/admin/docutil-projects",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-projects",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/dashboard",
+      "expect_dest": "/admin/docutil-dashboard",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-dashboard",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/api-keys",
+      "expect_dest": "/admin/docutil-api-keys",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-api-keys",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/agents",
+      "expect_dest": "/admin/docutil-doc-agents",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-doc-agents",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/documents",
+      "expect_dest": "/admin/docutil-documents-v2",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-documents-v2",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/templates",
+      "expect_dest": "/admin/docutil-templates",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-templates",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/search-scopes",
+      "expect_dest": "/admin/docutil-search-scopes",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-search-scopes",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/evaluation",
+      "expect_dest": "/admin/docutil-evaluation",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-evaluation",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/help",
+      "expect_dest": "/admin/docutil-faq",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-faq",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/settings",
+      "expect_dest": "/admin/docutil-settings",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-settings",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/quick-guide",
+      "expect_dest": "/admin/docutil-quick-guide",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-quick-guide",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/search-test",
+      "expect_dest": "/admin/docutil-search-test",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-search-test",
+      "verdict": "PASS"
+    },
+    {
+      "path": "/quotas",
+      "expect_dest": "/admin/docutil-departments",
+      "status": 307,
+      "location": "http://192.168.10.39:64005/admin/docutil-departments",
+      "verdict": "PASS"
+    }
+  ],
+  "summary": {
+    "pass": 15,
+    "fail": 0,
+    "total": 15
+  }
+}

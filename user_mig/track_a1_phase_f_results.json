@@ -1,0 +1,723 @@
+{
+  "track": "A1 Phase F — 4계정 × 16 화면 + 15 redirect + Phase D 검증",
+  "ran_at": "2026-05-26T09:46:40",
+  "agenthub_base": "http://192.168.10.39:64005",
+  "docutil_nginx": "http://192.168.10.39:8041",
+  "results": {
+    "agenthub_pages": [
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-users",
+        "endpoint": "/api/admin/docutil/users",
+        "phase": "A",
+        "status": 200,
+        "verdict": "PASS"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-departments",
+        "endpoint": "/api/admin/docutil/departments",
+        "phase": "A",
+        "status": 200,
+        "verdict": "PASS"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-projects",
+        "endpoint": "/api/admin/docutil/projects",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-dashboard",
+        "endpoint": "/api/admin/docutil/dashboard/metrics",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-audit",
+        "endpoint": "/api/admin/docutil/audit-logs",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-search-scopes",
+        "endpoint": "/api/admin/docutil/search-scopes",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-evaluation",
+        "endpoint": "/api/admin/docutil/evaluation/config",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-faq",
+        "endpoint": "/api/admin/docutil/faq",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-reports",
+        "endpoint": "/api/admin/docutil/reports",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-templates",
+        "endpoint": "/api/admin/docutil/templates",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-api-keys",
+        "endpoint": "/api/admin/docutil/api-keys",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-doc-agents",
+        "endpoint": "/api/admin/docutil/agents",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-documents-v2",
+        "endpoint": "/api/admin/docutil/documents-v2",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-settings",
+        "endpoint": "/api/admin/docutil/settings",
+        "phase": "B",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-quick-guide",
+        "endpoint": "/api/admin/docutil/quick-guide",
+        "phase": "B",
+        "status": 200,
+        "verdict": "PASS"
+      },
+      {
+        "account": "SuperAdmin",
+        "admin": true,
+        "route": "/admin/docutil-search-test",
+        "endpoint": "/api/admin/docutil/search-test/history",
+        "phase": "B",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-users",
+        "endpoint": "/api/admin/docutil/users",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-departments",
+        "endpoint": "/api/admin/docutil/departments",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-projects",
+        "endpoint": "/api/admin/docutil/projects",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-dashboard",
+        "endpoint": "/api/admin/docutil/dashboard/metrics",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-audit",
+        "endpoint": "/api/admin/docutil/audit-logs",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-search-scopes",
+        "endpoint": "/api/admin/docutil/search-scopes",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-evaluation",
+        "endpoint": "/api/admin/docutil/evaluation/config",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-faq",
+        "endpoint": "/api/admin/docutil/faq",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-reports",
+        "endpoint": "/api/admin/docutil/reports",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-templates",
+        "endpoint": "/api/admin/docutil/templates",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-api-keys",
+        "endpoint": "/api/admin/docutil/api-keys",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-doc-agents",
+        "endpoint": "/api/admin/docutil/agents",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-documents-v2",
+        "endpoint": "/api/admin/docutil/documents-v2",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-settings",
+        "endpoint": "/api/admin/docutil/settings",
+        "phase": "B",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-quick-guide",
+        "endpoint": "/api/admin/docutil/quick-guide",
+        "phase": "B",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "UserLegacy",
+        "admin": false,
+        "route": "/admin/docutil-search-test",
+        "endpoint": "/api/admin/docutil/search-test/history",
+        "phase": "B",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-users",
+        "endpoint": "/api/admin/docutil/users",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-departments",
+        "endpoint": "/api/admin/docutil/departments",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-projects",
+        "endpoint": "/api/admin/docutil/projects",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-dashboard",
+        "endpoint": "/api/admin/docutil/dashboard/metrics",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-audit",
+        "endpoint": "/api/admin/docutil/audit-logs",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-search-scopes",
+        "endpoint": "/api/admin/docutil/search-scopes",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-evaluation",
+        "endpoint": "/api/admin/docutil/evaluation/config",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-faq",
+        "endpoint": "/api/admin/docutil/faq",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-reports",
+        "endpoint": "/api/admin/docutil/reports",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-templates",
+        "endpoint": "/api/admin/docutil/templates",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-api-keys",
+        "endpoint": "/api/admin/docutil/api-keys",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-doc-agents",
+        "endpoint": "/api/admin/docutil/agents",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-documents-v2",
+        "endpoint": "/api/admin/docutil/documents-v2",
+        "phase": "A",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-settings",
+        "endpoint": "/api/admin/docutil/settings",
+        "phase": "B",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-quick-guide",
+        "endpoint": "/api/admin/docutil/quick-guide",
+        "phase": "B",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeHslee",
+        "admin": false,
+        "route": "/admin/docutil-search-test",
+        "endpoint": "/api/admin/docutil/search-test/history",
+        "phase": "B",
+        "status": 403,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-users",
+        "endpoint": "/api/admin/docutil/users",
+        "phase": "A",
+        "status": 200,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-departments",
+        "endpoint": "/api/admin/docutil/departments",
+        "phase": "A",
+        "status": 200,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-projects",
+        "endpoint": "/api/admin/docutil/projects",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-dashboard",
+        "endpoint": "/api/admin/docutil/dashboard/metrics",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-audit",
+        "endpoint": "/api/admin/docutil/audit-logs",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-search-scopes",
+        "endpoint": "/api/admin/docutil/search-scopes",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-evaluation",
+        "endpoint": "/api/admin/docutil/evaluation/config",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-faq",
+        "endpoint": "/api/admin/docutil/faq",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-reports",
+        "endpoint": "/api/admin/docutil/reports",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-templates",
+        "endpoint": "/api/admin/docutil/templates",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-api-keys",
+        "endpoint": "/api/admin/docutil/api-keys",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-doc-agents",
+        "endpoint": "/api/admin/docutil/agents",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-documents-v2",
+        "endpoint": "/api/admin/docutil/documents-v2",
+        "phase": "A",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-settings",
+        "endpoint": "/api/admin/docutil/settings",
+        "phase": "B",
+        "status": 502,
+        "verdict": "FAIL"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-quick-guide",
+        "endpoint": "/api/admin/docutil/quick-guide",
+        "phase": "B",
+        "status": 200,
+        "verdict": "PASS"
+      },
+      {
+        "account": "EmployeeShbaek",
+        "admin": true,
+        "route": "/admin/docutil-search-test",
+        "endpoint": "/api/admin/docutil/search-test/history",
+        "phase": "B",
+        "status": 502,
+        "verdict": "FAIL"
+      }
+    ],
+    "docutil_redirects": [
+      {
+        "path": "/admin-accounts",
+        "expect_dest": "/admin/docutil-users",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-users",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/departments",
+        "expect_dest": "/admin/docutil-departments",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-departments",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/projects",
+        "expect_dest": "/admin/docutil-projects",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-projects",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/dashboard",
+        "expect_dest": "/admin/docutil-dashboard",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-dashboard",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/api-keys",
+        "expect_dest": "/admin/docutil-api-keys",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-api-keys",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/agents",
+        "expect_dest": "/admin/docutil-doc-agents",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-doc-agents",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/documents",
+        "expect_dest": "/admin/docutil-documents-v2",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-documents-v2",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/templates",
+        "expect_dest": "/admin/docutil-templates",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-templates",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/search-scopes",
+        "expect_dest": "/admin/docutil-search-scopes",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-search-scopes",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/evaluation",
+        "expect_dest": "/admin/docutil-evaluation",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-evaluation",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/help",
+        "expect_dest": "/admin/docutil-faq",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-faq",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/settings",
+        "expect_dest": "/admin/docutil-settings",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-settings",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/quick-guide",
+        "expect_dest": "/admin/docutil-quick-guide",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-quick-guide",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/search-test",
+        "expect_dest": "/admin/docutil-search-test",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-search-test",
+        "verdict": "PASS"
+      },
+      {
+        "path": "/quotas",
+        "expect_dest": "/admin/docutil-departments",
+        "status": 307,
+        "location": "http://192.168.10.39:64005/admin/docutil-departments",
+        "verdict": "PASS"
+      }
+    ],
+    "phase_d_effect": {
+      "check": "AgentHub Departments count",
+      "count": 39,
+      "expect_min": 32,
+      "expect_after_phase_d": 39,
+      "verdict": "PASS"
+    }
+  },
+  "summary": {
+    "agenthub": {
+      "total": 64,
+      "pass": 38,
+      "fail": 26
+    },
+    "redirect": {
+      "total": 15,
+      "pass": 15,
+      "fail": 0
+    },
+    "phase_d": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    "grand_total": {
+      "total": 80,
+      "pass": 54,
+      "fail": 26,
+      "pass_rate": 67.5
+    }
+  }
+}

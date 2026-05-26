@@ -1,0 +1,609 @@
+{
+  "track": "A1 Phase A — AgentHub 13 admin/docutil-* spot check",
+  "ran_at": "2026-05-25T23:37:55",
+  "base_url": "http://192.168.10.39:64005",
+  "accounts": [
+    {
+      "label": "SuperAdmin",
+      "agenthub_role": "Admin,SuperAdmin",
+      "expect_admin_access": true
+    },
+    {
+      "label": "UserLegacy",
+      "agenthub_role": "User",
+      "expect_admin_access": false
+    },
+    {
+      "label": "EmployeeHslee",
+      "agenthub_role": "User",
+      "expect_admin_access": false
+    },
+    {
+      "label": "EmployeeShbaek",
+      "agenthub_role": "Admin",
+      "expect_admin_access": true
+    }
+  ],
+  "screens": [
+    {
+      "route": "/admin/docutil-users",
+      "endpoint": "/api/admin/docutil/users"
+    },
+    {
+      "route": "/admin/docutil-departments",
+      "endpoint": "/api/admin/docutil/departments"
+    },
+    {
+      "route": "/admin/docutil-projects",
+      "endpoint": "/api/admin/docutil/projects"
+    },
+    {
+      "route": "/admin/docutil-dashboard",
+      "endpoint": "/api/admin/docutil/dashboard/metrics"
+    },
+    {
+      "route": "/admin/docutil-audit",
+      "endpoint": "/api/admin/docutil/audit-logs"
+    },
+    {
+      "route": "/admin/docutil-search-scopes",
+      "endpoint": "/api/admin/docutil/search-scopes"
+    },
+    {
+      "route": "/admin/docutil-evaluation",
+      "endpoint": "/api/admin/docutil/evaluation/config"
+    },
+    {
+      "route": "/admin/docutil-faq",
+      "endpoint": "/api/admin/docutil/faq"
+    },
+    {
+      "route": "/admin/docutil-reports",
+      "endpoint": "/api/admin/docutil/reports"
+    },
+    {
+      "route": "/admin/docutil-templates",
+      "endpoint": "/api/admin/docutil/templates"
+    },
+    {
+      "route": "/admin/docutil-api-keys",
+      "endpoint": "/api/admin/docutil/api-keys"
+    },
+    {
+      "route": "/admin/docutil-doc-agents",
+      "endpoint": "/api/admin/docutil/agents"
+    },
+    {
+      "route": "/admin/docutil-documents-v2",
+      "endpoint": "/api/admin/docutil/documents-v2"
+    }
+  ],
+  "results": [
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-users",
+      "endpoint": "/api/admin/docutil/users",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"username\":\"admin@example.com\",\"email\":\"admin@example.com\",\"role\":\"admin\",\"status\":\"active\",\"organizationId\":\"00000000-0000-4000-a000-00000000000",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-departments",
+      "endpoint": "/api/admin/docutil/departments",
+      "status": 200,
+      "body_head": "[{\"id\":\"63\",\"organizationId\":\"IDINO\",\"parentId\":null,\"name\":\"아이디노(주)\",\"depth\":0,\"path\":\"/63/\",\"createdAt\":\"2026-05-18T07:18:50.152283Z\"},{\"id\":\"32\",\"organizationId\":\"IDINO\",\"parentId\":\"63\",\"",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-projects",
+      "endpoint": "/api/admin/docutil/projects",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"description\":\"연구과제 문서 관리\",\"allowOriginalDownload\":false,\"organizationId\":\"00000000-0000-4000-a000-00000000",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-dashboard",
+      "endpoint": "/api/admin/docutil/dashboard/metrics",
+      "status": 200,
+      "body_head": "{\"totalUsers\":132,\"activeUsers\":132,\"totalDocuments\":32,\"totalSearches\":127,\"featureUsage\":{\"user\":127,\"assistant\":127}}",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-audit",
+      "endpoint": "/api/admin/docutil/audit-logs",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"2fb85f05-484b-4aa8-9b2d-a56650225f1b\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"userId\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"action\":\"auth.login\",\"resourceType\":\"aut",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-search-scopes",
+      "endpoint": "/api/admin/docutil/search-scopes",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"8a0f9f0f-c195-4a96-822c-f3fd7173e4b3\",\"name\":\"기본 범위 TEST\",\"description\":\"default\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"createdBy\":\"de3587d2-600a-4248-b2dc-",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-evaluation",
+      "endpoint": "/api/admin/docutil/evaluation/config",
+      "status": 200,
+      "body_head": "{\"id\":\"15fd5542-200a-48c1-9eb5-d502443a62fb\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"contextRelevancyWeight\":0.25,\"answerFaithfulnessWeight\":0.3,\"answerRelevancyWeight\":0.25,\"hallucin",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-faq",
+      "endpoint": "/api/admin/docutil/faq",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"399eb36c-4c96-4ceb-84a0-bd546b74b5bb\",\"searchScopeId\":null,\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"question\":\"FAQ 테스트입니다\",\"answer\":\"테스트입니다\",\"c",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-reports",
+      "endpoint": "/api/admin/docutil/reports",
+      "status": 200,
+      "body_head": "{\"items\":[],\"total\":0,\"page\":1,\"size\":20}",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-templates",
+      "endpoint": "/api/admin/docutil/templates",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"a8d911bd-6fe3-48b1-8a01-21f1e4016b4d\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"보고서_양식\",\"description\":null,\"templateType\":\"\",\"tone\":\"formal\",\"outputFor",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-api-keys",
+      "endpoint": "/api/admin/docutil/api-keys",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"ae43f053-2279-48b7-85ea-56ba9c4bfabd\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"llmName\":\"openai\",\"apiKeyPrefix\":\"sk-proj-****\",\"isVerified\":true,\"registeredBy\":\"000000",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-doc-agents",
+      "endpoint": "/api/admin/docutil/agents",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"e90df318-70de-4137-b1ba-ea15cb54c52a\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"회의록 작성 AI\",\"description\":null,\"agentType\":\"minutes\",\"systemPrompt\":\"정",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "SuperAdmin",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-documents-v2",
+      "endpoint": "/api/admin/docutil/documents-v2",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"ba7ca0fa-2a14-4b44-9dd9-22cc0b3c292a\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"generatedByUserId\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"agentId\":null,\"templateId\":nu",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-users",
+      "endpoint": "/api/admin/docutil/users",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-departments",
+      "endpoint": "/api/admin/docutil/departments",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-projects",
+      "endpoint": "/api/admin/docutil/projects",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-dashboard",
+      "endpoint": "/api/admin/docutil/dashboard/metrics",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-audit",
+      "endpoint": "/api/admin/docutil/audit-logs",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-search-scopes",
+      "endpoint": "/api/admin/docutil/search-scopes",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-evaluation",
+      "endpoint": "/api/admin/docutil/evaluation/config",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-faq",
+      "endpoint": "/api/admin/docutil/faq",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-reports",
+      "endpoint": "/api/admin/docutil/reports",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-templates",
+      "endpoint": "/api/admin/docutil/templates",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-api-keys",
+      "endpoint": "/api/admin/docutil/api-keys",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-doc-agents",
+      "endpoint": "/api/admin/docutil/agents",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "UserLegacy",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-documents-v2",
+      "endpoint": "/api/admin/docutil/documents-v2",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-users",
+      "endpoint": "/api/admin/docutil/users",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-departments",
+      "endpoint": "/api/admin/docutil/departments",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-projects",
+      "endpoint": "/api/admin/docutil/projects",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-dashboard",
+      "endpoint": "/api/admin/docutil/dashboard/metrics",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-audit",
+      "endpoint": "/api/admin/docutil/audit-logs",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-search-scopes",
+      "endpoint": "/api/admin/docutil/search-scopes",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-evaluation",
+      "endpoint": "/api/admin/docutil/evaluation/config",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-faq",
+      "endpoint": "/api/admin/docutil/faq",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-reports",
+      "endpoint": "/api/admin/docutil/reports",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-templates",
+      "endpoint": "/api/admin/docutil/templates",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-api-keys",
+      "endpoint": "/api/admin/docutil/api-keys",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-doc-agents",
+      "endpoint": "/api/admin/docutil/agents",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeHslee",
+      "expect_admin_access": false,
+      "route": "/admin/docutil-documents-v2",
+      "endpoint": "/api/admin/docutil/documents-v2",
+      "status": 403,
+      "body_head": "",
+      "verdict": "PASS",
+      "reason": "정상 거부됨 (status=403)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-users",
+      "endpoint": "/api/admin/docutil/users",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"username\":\"admin@example.com\",\"email\":\"admin@example.com\",\"role\":\"admin\",\"status\":\"active\",\"organizationId\":\"00000000-0000-4000-a000-00000000000",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-departments",
+      "endpoint": "/api/admin/docutil/departments",
+      "status": 200,
+      "body_head": "[{\"id\":\"63\",\"organizationId\":\"IDINO\",\"parentId\":null,\"name\":\"아이디노(주)\",\"depth\":0,\"path\":\"/63/\",\"createdAt\":\"2026-05-18T07:18:50.152283Z\"},{\"id\":\"32\",\"organizationId\":\"IDINO\",\"parentId\":\"63\",\"",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-projects",
+      "endpoint": "/api/admin/docutil/projects",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"description\":\"연구과제 문서 관리\",\"allowOriginalDownload\":false,\"organizationId\":\"00000000-0000-4000-a000-00000000",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-dashboard",
+      "endpoint": "/api/admin/docutil/dashboard/metrics",
+      "status": 200,
+      "body_head": "{\"totalUsers\":132,\"activeUsers\":132,\"totalDocuments\":32,\"totalSearches\":127,\"featureUsage\":{\"user\":127,\"assistant\":127}}",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-audit",
+      "endpoint": "/api/admin/docutil/audit-logs",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"2fb85f05-484b-4aa8-9b2d-a56650225f1b\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"userId\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"action\":\"auth.login\",\"resourceType\":\"aut",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-search-scopes",
+      "endpoint": "/api/admin/docutil/search-scopes",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"8a0f9f0f-c195-4a96-822c-f3fd7173e4b3\",\"name\":\"기본 범위 TEST\",\"description\":\"default\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"createdBy\":\"de3587d2-600a-4248-b2dc-",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-evaluation",
+      "endpoint": "/api/admin/docutil/evaluation/config",
+      "status": 200,
+      "body_head": "{\"id\":\"15fd5542-200a-48c1-9eb5-d502443a62fb\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"contextRelevancyWeight\":0.25,\"answerFaithfulnessWeight\":0.3,\"answerRelevancyWeight\":0.25,\"hallucin",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-faq",
+      "endpoint": "/api/admin/docutil/faq",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"399eb36c-4c96-4ceb-84a0-bd546b74b5bb\",\"searchScopeId\":null,\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"question\":\"FAQ 테스트입니다\",\"answer\":\"테스트입니다\",\"c",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-reports",
+      "endpoint": "/api/admin/docutil/reports",
+      "status": 200,
+      "body_head": "{\"items\":[],\"total\":0,\"page\":1,\"size\":20}",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-templates",
+      "endpoint": "/api/admin/docutil/templates",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"a8d911bd-6fe3-48b1-8a01-21f1e4016b4d\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"보고서_양식\",\"description\":null,\"templateType\":\"\",\"tone\":\"formal\",\"outputFor",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-api-keys",
+      "endpoint": "/api/admin/docutil/api-keys",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"ae43f053-2279-48b7-85ea-56ba9c4bfabd\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"llmName\":\"openai\",\"apiKeyPrefix\":\"sk-proj-****\",\"isVerified\":true,\"registeredBy\":\"000000",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-doc-agents",
+      "endpoint": "/api/admin/docutil/agents",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"e90df318-70de-4137-b1ba-ea15cb54c52a\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"name\":\"회의록 작성 AI\",\"description\":null,\"agentType\":\"minutes\",\"systemPrompt\":\"정",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    },
+    {
+      "account": "EmployeeShbaek",
+      "expect_admin_access": true,
+      "route": "/admin/docutil-documents-v2",
+      "endpoint": "/api/admin/docutil/documents-v2",
+      "status": 200,
+      "body_head": "{\"items\":[{\"id\":\"ba7ca0fa-2a14-4b44-9dd9-22cc0b3c292a\",\"organizationId\":\"00000000-0000-4000-a000-000000000001\",\"generatedByUserId\":\"aaf5e6b1-465b-4dde-85a0-2b880029704a\",\"agentId\":null,\"templateId\":nu",
+      "verdict": "PASS",
+      "reason": "Admin 접근 정상 (200)"
+    }
+  ],
+  "summary": {
+    "total": 52,
+    "pass": 52,
+    "fail": 0,
+    "skip": 0
+  }
+}

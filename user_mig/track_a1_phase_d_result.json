@@ -1,0 +1,156 @@
+{
+  "track": "A1 Phase D — tb_departments VIEW 단일 통합 (옵션 3)",
+  "applied_at": "2026-05-26T00:07:14Z",
+  "operator": "database-architect agent",
+  "decision": {
+    "option": "옵션 3 = 전체 자동 import",
+    "rationale": "DocUtil 9건 모두 AgentHub.Departments 에 매핑 (exact match 2 + INSERT 7) → tb_documents/tb_project_departments 의 7 uuid 참조 행 dangling 방지",
+    "alternatives_rejected": [
+      "옵션 1 (이름 매칭만 + nullable FK): 7개 dangling 발생",
+      "옵션 2 (수동 매핑 우선): 운영자 결정 지연으로 보류"
+    ]
+  },
+  "preflight": {
+    "agenthub_departments_before": 32,
+    "docutil_tb_departments_before": 9,
+    "exact_name_match": 2,
+    "name_match_details": [
+      {"docutil_name": "교육사업팀", "docutil_id": "e2740e58-76f9-47a1-a7b4-0c2e5bcaa39f", "agenthub_id": 60},
+      {"docutil_name": "사업지원팀", "docutil_id": "39bc8bdd-56c6-4446-8686-d67b9f116f09", "agenthub_id": 55}
+    ],
+    "unmapped_to_insert": 7,
+    "unmapped_details": [
+      "AI기술팀 (6534247e-...)",
+      "SW기술팀 (50fab2ad-...)",
+      "U-이노베이션본부 (dfa33ea3-...)",
+      "대표이사 (fa312738-...)",
+      "미래기술연구소 (724b95ad-...)",
+      "울산대1팀 (08142c96-...)",
+      "플랫폼사업팀 (798abf93-...)"
+    ],
+    "fk_referencing_tb_departments": [
+      "document_utilization.tb_departments.parent_id (self FK)",
+      "document_utilization.tb_documents.department_id",
+      "document_utilization.tb_project_departments.department_id",
+      "document_utilization.tb_users_legacy_20260518.department_id (legacy table)"
+    ]
+  },
+  "execution": {
+    "pg_dump_backup": {
+      "path": "/home/idino/agenthub/backups/pre_track_a1_phase_d_20260526_090714.sql",
+      "size_bytes": 287463998,
+      "schemas": ["document_utilization", "AIAgentManagement"]
+    },
+    "ef_column_added": {
+      "table": "AIAgentManagement.Departments",
+      "column": "OriginalDocutilUuid uuid NULL",
+      "constraint": "UQ_Departments_OriginalDocutilUuid UNIQUE",
+      "method": "raw SQL (EF migration history 별도 등록)"
+    },
+    "ef_history_synced": {
+      "migration_id": "20260526120000_TrackA1PhaseD_DepartmentDocutilUuid",
+      "product_version": "8.0.11",
+      "schema": "public",
+      "table": "__EFMigrationsHistory"
+    },
+    "transaction": "BEGIN/COMMIT 단일 트랜잭션 — 트리거 + 매핑 + VIEW 일체",
+    "steps_executed_in_order": [
+      "D-1a: UPDATE OriginalDocutilUuid (exact match 2 rows)",
+      "D-1b: INSERT 신규 7 rows (DEPT_DU_<uuid8> 코드)",
+      "D-1c: UPDATE ParentDepartmentId (parent_id uuid → int 변환, 8 rows)",
+      "D-1d: 매핑 검증 PASS (DocUtil 9 모두 매핑)",
+      "D-2: FK DROP (4 BASE TABLE — VIEW 인 tb_users 는 동적 SQL 로 제외)",
+      "D-3: tb_departments → tb_departments_legacy_20260526 RENAME",
+      "D-4: tb_departments VIEW CREATE (12 columns alias)",
+      "D-5: INSTEAD OF INSERT TRIGGER",
+      "D-6: INSTEAD OF UPDATE TRIGGER",
+      "D-7: INSTEAD OF DELETE TRIGGER (soft delete IsActive=false)",
+      "D-8: 검증 PASS"
+    ],
+    "first_attempt_failure": {
+      "step": "D-2 ALTER tb_users",
+      "error": "ALTER action DROP CONSTRAINT cannot be performed on relation tb_users — This operation is not supported for views.",
+      "cause": "tb_users 는 트랙 #98 Phase 3 (2026-05-18) 에서 이미 VIEW 화 — VIEW 에 FK 자체 없음",
+      "resolution": "D-2 를 information_schema 동적 SQL 로 변경하여 BASE TABLE 만 대상으로 FK DROP",
+      "rollback_safety": "트랜잭션 자동 ROLLBACK — 운영 변경 0건. ALTER 컬럼만 [3] 단계 별도 트랜잭션이라 적용됨 (재실행 시 IF NOT EXISTS 가드로 skip)"
+    }
+  },
+  "post_state": {
+    "agenthub_departments_total": 39,
+    "agenthub_departments_mapped_to_docutil": 9,
+    "docutil_tb_departments_view_rows": 9,
+    "docutil_tb_departments_legacy_rows": 9,
+    "triggers_installed": 3,
+    "trigger_names": [
+      "tb_departments_instead_insert",
+      "tb_departments_instead_update",
+      "tb_departments_instead_delete"
+    ],
+    "remaining_fks_to_legacy": 0,
+    "new_department_ids": [71, 72, 73, 74, 75, 76, 77],
+    "new_department_names": [
+      "대표이사 (71, ParentDepartmentId=NULL, DEPT_DU_fa312738)",
+      "미래기술연구소 (72, parent=71, DEPT_DU_724b95ad)",
+      "SW기술팀 (73, parent=72, DEPT_DU_50fab2ad)",
+      "AI기술팀 (74, parent=72, DEPT_DU_6534247e)",
+      "U-이노베이션본부 (75, parent=71, DEPT_DU_dfa33ea3)",
+      "플랫폼사업팀 (76, parent=75, DEPT_DU_798abf93)",
+      "울산대1팀 (77, parent=75, DEPT_DU_08142c96)"
+    ],
+    "parent_remapping_side_effects": [
+      "교육사업팀(60): ParentDepartmentId 63(아이디노(주)) → 75(U-이노베이션본부) — DocUtil 트리에 정렬",
+      "사업지원팀(55): ParentDepartmentId 변경 없음 (DocUtil parent=대표이사 71)"
+    ]
+  },
+  "live_dml_test_pass": {
+    "insert_via_view": {
+      "test_uuid": "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa",
+      "result": "PASS — AgentHub.Departments 에 new_dept_id=78 자동 INSERT (DepartmentCode=AUTO_...)"
+    },
+    "update_via_view": {
+      "result": "PASS — name 변경이 DepartmentName 에 위임됨"
+    },
+    "delete_via_view": {
+      "result": "PASS — IsActive=false soft delete + VIEW 에서 자동 숨김"
+    }
+  },
+  "regression": {
+    "R1_pg_counts": "PASS — AgentHub_total=39, mapped=9, view=9, legacy=9",
+    "R4_agenthub_departments_list": "PASS — 39 rows, OriginalDocutilUuid 9 rows TRUE",
+    "R5_tb_users_view_sanity": "PASS — 132 rows (트랙 #98 Phase 3 무영향)",
+    "R6_view_direct_select": "PASS — DocUtil ORM 호환 12 columns 정상 (id/parent_id uuid 매핑)",
+    "R2_R3_docutil_api_http": "SKIP — admin@example.com/Admin123! 인증 실패 (운영 비밀번호 변경됨). DB 직접 검증으로 대체"
+  },
+  "dotnet_build": {
+    "status": "PASS",
+    "warnings": 14,
+    "errors": 0,
+    "designer_file_added": "20260526120000_TrackA1PhaseD_DepartmentDocutilUuid.Designer.cs (ModelSnapshot 동등 BuildTargetModel)"
+  },
+  "containers": {
+    "docutil_api_force_recreate": "Started + healthy (15s)",
+    "agenthub_restart": "PENDING — 운영 host 다름 (10.39 에 미배포). 운영자 수동 재시작 필요"
+  },
+  "rollback_plan": {
+    "if_view_breaks_docutil": [
+      "BEGIN;",
+      "DROP VIEW document_utilization.tb_departments CASCADE;",
+      "ALTER TABLE document_utilization.tb_departments_legacy_20260526 RENAME TO tb_departments;",
+      "-- FK 재설치는 application-level 무결성으로 충분 (옵션 3)",
+      "COMMIT;"
+    ],
+    "if_full_rollback_needed": [
+      "psql -U AGENT_HUB -d AGENT_HUB < /home/idino/agenthub/backups/pre_track_a1_phase_d_20260526_090714.sql",
+      "-- 두 schema 동시 복원 (document_utilization + AIAgentManagement)"
+    ],
+    "legacy_drop_eta": "2026-06-02 (7일 유예 후 DROP TABLE tb_departments_legacy_20260526)"
+  },
+  "files_changed": [
+    "infra/db/migration_a1_phase_d_tb_departments_view.sql (옵션 3 보강 + D-2 동적 SQL fix)",
+    "agenthub/Models/Department.cs (OriginalDocutilUuid 컬럼)",
+    "agenthub/Migrations/20260526120000_TrackA1PhaseD_DepartmentDocutilUuid.cs (이전 dry-run agent)",
+    "agenthub/Migrations/20260526120000_TrackA1PhaseD_DepartmentDocutilUuid.Designer.cs (신규 — ModelSnapshot 동등)",
+    "agenthub/Migrations/AIAgentManagementDbContextModelSnapshot.cs (OriginalDocutilUuid 반영)",
+    "tmp/deploy_track_a1_phase_d.py (이전 dry-run agent)"
+  ]
+}

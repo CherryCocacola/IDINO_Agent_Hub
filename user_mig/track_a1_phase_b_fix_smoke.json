@@ -1,0 +1,46 @@
+{
+  "track": "A1 Phase B fix — DocUtil settings 모듈 운영 배포",
+  "ran_at": "2026-05-26T00:02:17",
+  "files": [
+    "docutil/backend/app/modules/settings/__init__.py",
+    "docutil/backend/app/modules/settings/router.py",
+    "docutil/backend/app/modules/settings/schemas.py",
+    "docutil/backend/app/modules/settings/service.py",
+    "docutil/backend/app/main.py"
+  ],
+  "results": [
+    {
+      "account": "SuperAdmin",
+      "status": 200,
+      "expect": 200,
+      "verdict": "PASS",
+      "body": "{\"general\":{\"defaultLanguage\":\"ko\",\"maintenanceMode\":false},\"security\":{\"passwordMinLength\":8,\"passwordRequireUppercase\":true,\"passwordRequireNumber\":true,\"passwordRequireSpecial\":true,\"sessionTimeout"
+    },
+    {
+      "account": "UserLegacy",
+      "status": 403,
+      "expect": 403,
+      "verdict": "PASS",
+      "body": ""
+    },
+    {
+      "account": "EmployeeHslee",
+      "status": 403,
+      "expect": 403,
+      "verdict": "PASS",
+      "body": ""
+    },
+    {
+      "account": "EmployeeShbaek",
+      "status": 200,
+      "expect": 200,
+      "verdict": "PASS",
+      "body": "{\"general\":{\"defaultLanguage\":\"ko\",\"maintenanceMode\":false},\"security\":{\"passwordMinLength\":8,\"passwordRequireUppercase\":true,\"passwordRequireNumber\":true,\"passwordRequireSpecial\":true,\"sessionTimeout"
+    }
+  ],
+  "summary": {
+    "pass": 4,
+    "fail": 0,
+    "total": 4
+  }
+}

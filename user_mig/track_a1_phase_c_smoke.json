@@ -1,0 +1,92 @@
+{
+  "track": "A1 Phase C — DocUtil mutation 410 차단",
+  "ran_at": "2026-05-26T00:42:47",
+  "files": [
+    "docutil/backend/app/modules/users/router.py",
+    "docutil/backend/app/modules/organizations/router.py"
+  ],
+  "results": [
+    {
+      "method": "POST",
+      "path": "/api/v1/users",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Could not validate credentials.\"}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/users/00000000-0000-0000-0000-000000000001",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Could not validate credentials.\"}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/users/00000000-0000-0000-0000-000000000001",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Could not validate credentials.\"}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/users/00000000-0000-0000-0000-000000000001/status",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Could not validate credentials.\"}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/organizations/00000000-0000-4000-a000-000000000001",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Could not validate credentials.\"}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/organizations/00000000-0000-4000-a000-000000000001/departments",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Could not validate credentials.\"}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/organizations/00000000-0000-4000-a000-000000000001/departments/00000000-0000-0000-0000-000000000002",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Could not validate credentials.\"}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/organizations/00000000-0000-4000-a000-000000000001/departments/00000000-0000-0000-0000-000000000002",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Could not validate credentials.\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/users?org_id=00000000-0000-4000-a000-000000000001",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/organizations/00000000-0000-4000-a000-000000000001",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/organizations/00000000-0000-4000-a000-000000000001/departments",
+      "status": 401,
+      "verdict": "FAIL",
+      "body": ""
+    }
+  ],
+  "summary": {
+    "pass": 0,
+    "fail": 11,
+    "total": 11
+  }
+}
