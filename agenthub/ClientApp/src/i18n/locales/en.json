@@ -57,6 +57,8 @@
     "docutilSettings": "DocUtil Settings",
     "docutilQuickGuide": "DocUtil Quick Guide",
     "docutilSearchTest": "DocUtil Search Test",
+    "docutilUserSearch": "DocUtil Search (User)",
+    "docutilUserChat": "DocUtil Chat (User)",
     "apiKeys": "API Key Management",
     "bannedWords": "Banned Words Management",
     "piiProtection": "PII Protection Settings",

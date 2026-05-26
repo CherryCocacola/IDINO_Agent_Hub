@@ -57,6 +57,8 @@
     "docutilSettings": "Cài đặt DocUtil",
     "docutilQuickGuide": "Hướng dẫn nhanh DocUtil",
     "docutilSearchTest": "Kiểm tra tìm kiếm DocUtil",
+    "docutilUserSearch": "Tìm kiếm DocUtil (Người dùng)",
+    "docutilUserChat": "Chatbot DocUtil (Người dùng)",
     "apiKeys": "Quản lý API Key",
     "bannedWords": "Quản lý từ cấm",
     "piiProtection": "Cài đặt bảo vệ thông tin cá nhân",

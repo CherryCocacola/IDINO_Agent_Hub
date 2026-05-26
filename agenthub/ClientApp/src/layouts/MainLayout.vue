@@ -54,6 +54,20 @@
                 <i :class="item.icon"></i>
                 <span v-if="!sidebarCollapsed">{{ item.name }}<span class="badge-coming-soon">준비중</span></span>
               </span>
+              <!-- 외부 SSO 메뉴 (DocUtil 사용자 화면) — 트랙 1-5 -->
+              <a
+                v-else-if="item.external"
+                href="#"
+                class="menu-link"
+                :title="sidebarCollapsed ? item.name + ' (외부)' : 'DocUtil 사용자 화면 (자동 로그인)'"
+                @click.prevent="handleExternalNavigate(item)"
+              >
+                <i :class="item.icon"></i>
+                <span v-if="!sidebarCollapsed">
+                  {{ item.name }}
+                  <i class="bi bi-box-arrow-up-right ms-1 external-icon" aria-hidden="true"></i>
+                </span>
+              </a>
               <!-- 일반 메뉴 -->
               <router-link
                 v-else
@@ -206,6 +220,20 @@
                 <i :class="item.icon"></i>
                 <span>{{ item.name }}<span class="badge-coming-soon">준비중</span></span>
               </span>
+              <!-- 외부 SSO 메뉴 (DocUtil 사용자 화면) — 트랙 1-5 -->
+              <a
+                v-else-if="item.external"
+                href="#"
+                class="menu-link"
+                title="DocUtil 사용자 화면 (자동 로그인)"
+                @click.prevent="handleExternalNavigate(item); mobileSidebarOpen = false"
+              >
+                <i :class="item.icon"></i>
+                <span>
+                  {{ item.name }}
+                  <i class="bi bi-box-arrow-up-right ms-1 external-icon" aria-hidden="true"></i>
+                </span>
+              </a>
               <!-- 일반 메뉴 -->
               <router-link
                 v-else
@@ -235,8 +263,11 @@ import { safeGetLocalStorage, safeSetLocalStorage } from '@/utils/storage'
 import type { SupportedLocale } from '@/i18n'
 // 트랙 #88 C2: 만료 5분 전 사전 토큰 갱신 — 무알림 강제 로그아웃 방지
 import { useTokenAutoRefresh } from '@/composables/useTokenAutoRefresh'
+// 트랙 1-5 SSO 옵션 A (2026-05-26): AgentHub → DocUtil 사용자 화면 진입 시 JWT cookie/fragment 전달.
+import { useDocUtilSso } from '@/composables/useDocUtilSso'
 
 useTokenAutoRefresh()
+const { redirectToDocUtil } = useDocUtilSso()
 
 const router = useRouter()
 const route = useRoute()
@@ -255,6 +286,9 @@ const expandedCategories = ref<Record<string, boolean>>({
   management: false,
   analytics: false,
   system: false,
+  // 트랙 1-5 SSO (2026-05-26): docutilUser 카테고리 — 기본 펼침 (사용자 노출도 우선)
+  docutilUser: true,
+  myAccount: false,
   docutil: false,
   admin: false,
   settings: false
@@ -295,6 +329,11 @@ interface MenuItem {
   icon: string
   roles?: string[]  // undefined = 모든 역할 허용
   comingSoon?: boolean
+  // 트랙 1-5 SSO 옵션 A (2026-05-26): 외부 시스템(DocUtil 사용자 화면 등) 진입용.
+  // external=true 면 router-link 대신 onClick 핸들러로 외부 URL 이동 (SSO 토큰 cookie/fragment 동봉).
+  external?: boolean
+  // external=true 일 때 DocUtil 의 내부 경로 (예: '/search', '/chat')
+  ssoTarget?: string
 }
 
 interface MenuCategory {
@@ -380,6 +419,30 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         name: t('nav.workflows'),
         path: '/workflows',
         icon: 'bi bi-diagram-2'
+      }
+    ]
+  },
+  // 트랙 1-5 SSO 옵션 A (2026-05-26): DocUtil 사용자 화면 (RAG 검색 / 챗봇) 진입.
+  // 일반 사용자도 접근 — 클릭 시 useDocUtilSso 가 JWT cookie/fragment 동봉 후 외부 URL 이동.
+  // DocUtil 의 sso-bootstrap 이 토큰 수신 → localStorage 저장 → 자동 로그인.
+  {
+    id: 'docutilUser',
+    name: 'DocUtil',
+    icon: 'bi bi-search',
+    items: [
+      {
+        name: t('nav.docutilUserSearch'),
+        path: '/search',
+        icon: 'bi bi-search',
+        external: true,
+        ssoTarget: '/search'
+      },
+      {
+        name: t('nav.docutilUserChat'),
+        path: '/chat',
+        icon: 'bi bi-chat-dots',
+        external: true,
+        ssoTarget: '/chat'
       }
     ]
   },
@@ -687,6 +750,23 @@ const toggleCategory = (categoryId: string) => {
   expandedCategories.value[categoryId] = !expandedCategories.value[categoryId]
 }
 
+/**
+ * 외부 SSO 메뉴 클릭 핸들러 (트랙 1-5).
+ *
+ * useDocUtilSso 의 redirectToDocUtil 을 호출해 cookie + URL fragment 에 JWT 를 동봉한 뒤
+ * 외부 URL (http://192.168.10.39:8041/...) 로 이동한다. DocUtil 의 sso-bootstrap 컴포넌트가
+ * 토큰을 받아 localStorage('auth-storage') 에 주입 → useAuth 인메모리 갱신 → 자동 로그인.
+ *
+ * @param item 메뉴 항목 (external=true 이고 ssoTarget 보유)
+ */
+const handleExternalNavigate = (item: MenuItem) => {
+  if (!item.external || !item.ssoTarget) {
+    console.warn('[MainLayout] external 메뉴인데 ssoTarget 누락:', item)
+    return
+  }
+  redirectToDocUtil(item.ssoTarget)
+}
+
 const currentLanguage = computed(() => locale.value)
 // 트랙 #97-pre2-2 (2026-05-15): 베트남어 추가 — 우상단 토글 / 페이지 타이틀 등 표시용.
 const currentLanguageName = computed(() => {
@@ -950,6 +1030,14 @@ async function handleLogout() {
   color: #ffc107;
   vertical-align: middle;
   letter-spacing: 0.02em;
+}
+
+/* 트랙 1-5 SSO (2026-05-26): 외부 시스템 이동 메뉴 (DocUtil 사용자 화면) 의 작은 아이콘.
+   사용자가 "외부로 이동"임을 시각적으로 인지할 수 있게 메뉴 라벨 옆에 표시. */
+.external-icon {
+  font-size: 0.7rem;
+  opacity: 0.65;
+  vertical-align: middle;
 }
 
 .sidebar.collapsed .menu-link {

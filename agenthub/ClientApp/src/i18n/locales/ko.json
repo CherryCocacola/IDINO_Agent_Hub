@@ -57,6 +57,8 @@
     "docutilSettings": "DocUtil 설정",
     "docutilQuickGuide": "DocUtil 퀵 가이드",
     "docutilSearchTest": "DocUtil 검색 테스트",
+    "docutilUserSearch": "DocUtil 검색 (사용자)",
+    "docutilUserChat": "DocUtil 챗봇 (사용자)",
     "apiKeys": "API 키 관리",
     "bannedWords": "금칙어 관리",
     "piiProtection": "개인정보 보호 설정",
