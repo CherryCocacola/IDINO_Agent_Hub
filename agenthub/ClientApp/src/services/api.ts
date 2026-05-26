@@ -34,6 +34,20 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+
+    // 트랙 #111 (2026-05-27): GET 응답 브라우저 cache 차단.
+    // AgentHub API 응답에 Cache-Control 헤더가 없어 브라우저 heuristic cache 가
+    // mutation (POST/DELETE) 후 GET 응답을 stale 로 보여주는 결함 해소.
+    // - Cache-Control: no-cache → 매 요청 server 재검증
+    // - Pragma: no-cache → HTTP/1.0 호환
+    // - cache buster query param (?_t=) → CDN/proxy 우회
+    const method = (config.method || 'get').toLowerCase()
+    if (method === 'get') {
+      config.headers['Cache-Control'] = 'no-cache'
+      config.headers['Pragma'] = 'no-cache'
+      config.params = { ...(config.params || {}), _t: Date.now() }
+    }
+
     return config
   },
   (error) => {

@@ -645,6 +645,27 @@ app.UseRateLimiter();
 // Activity Logging Middleware (인증 후에 실행되어야 함)
 app.UseMiddleware<AIAgentManagement.Middleware.ActivityLoggingMiddleware>();
 
+// 트랙 #111 (2026-05-27): /api/* 응답 브라우저 cache 차단.
+// AgentHub API 응답에 Cache-Control 부재 → 브라우저 heuristic cache 가 mutation 후
+// GET 응답을 stale 로 보여주는 결함 (사용자 보고: 1회 mutation 후 list 갱신 안 되고
+// 2회째 mutation 후 반영) 해소. /api/* prefix 응답 직전에 Cache-Control 강제 부착.
+app.Use(async (ctx, next) =>
+{
+    var path = ctx.Request.Path.Value;
+    var isApi = path != null && path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase);
+    if (isApi)
+    {
+        ctx.Response.OnStarting(() =>
+        {
+            ctx.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+            ctx.Response.Headers["Pragma"] = "no-cache";
+            ctx.Response.Headers["Expires"] = "0";
+            return Task.CompletedTask;
+        });
+    }
+    await next();
+});
+
 app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat").RequireAuthorization();
 app.MapHub<NotificationHub>("/hubs/notification").RequireAuthorization();

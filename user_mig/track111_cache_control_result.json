@@ -1,0 +1,7 @@
+{
+  "track": "#111 Cache-Control 부재 — frontend axios + backend middleware",
+  "ran_at": "2026-05-27T08:51:25",
+  "response_headers_includes_cache_control": true,
+  "add_1st_call_reflected": true,
+  "delete_1st_call_reflected": true
+}
