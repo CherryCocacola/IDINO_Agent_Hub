@@ -58,9 +58,12 @@ surya-ocr>=0.8.0
 
 # -- Security --
 python-jose[cryptography]>=3.3.0
+# 트랙 #107 (2026-05-26): bcrypt 5.x 는 passlib 1.7.4 와 비호환
+# (AttributeError: module 'bcrypt' has no attribute '__about__' + 72byte strict).
+# 모든 password verify 가 ERR → DocUtil 로그인 401. bcrypt 4.x 로 상한 pin 으로 해소.
 passlib[bcrypt]>=1.7.4
 cryptography>=44.0.0
-bcrypt>=4.2.1
+bcrypt>=4.2.1,<5.0
 
 # -- Validation & Settings --
 pydantic>=2.10.4
