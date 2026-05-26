@@ -1,0 +1,92 @@
+{
+  "track": "#109 username 우선순위 통일 (FullName 우선)",
+  "ran_at": "2026-05-26T13:56:46",
+  "users": [
+    {
+      "email": "ikjung@idino.co.kr",
+      "expected": "정일규",
+      "got": "정일규",
+      "verdict": "PASS"
+    },
+    {
+      "email": "jwseong@idino.co.kr",
+      "expected": "성지우",
+      "got": "성지우",
+      "verdict": "PASS"
+    },
+    {
+      "email": "mhkim@idino.co.kr",
+      "expected": "김문혁",
+      "got": "김문혁",
+      "verdict": "PASS"
+    },
+    {
+      "email": "swkim@idino.co.kr",
+      "expected": "김성원",
+      "got": "김성원",
+      "verdict": "PASS"
+    },
+    {
+      "email": "yhkim@idino.co.kr",
+      "expected": "김용휴",
+      "got": "김용휴",
+      "verdict": "PASS"
+    },
+    {
+      "email": "hslee@idino.co.kr",
+      "expected": "이현수",
+      "got": "이현수",
+      "verdict": "PASS"
+    }
+  ],
+  "department_members": [
+    {
+      "email": "ikjung@idino.co.kr",
+      "dept_id": "54",
+      "expected": "정일규",
+      "got": "정일규",
+      "verdict": "PASS"
+    },
+    {
+      "email": "jwseong@idino.co.kr",
+      "dept_id": "54",
+      "expected": "성지우",
+      "got": "성지우",
+      "verdict": "PASS"
+    },
+    {
+      "email": "mhkim@idino.co.kr",
+      "dept_id": "54",
+      "expected": "김문혁",
+      "got": "김문혁",
+      "verdict": "PASS"
+    },
+    {
+      "email": "swkim@idino.co.kr",
+      "dept_id": "42",
+      "expected": "김성원",
+      "got": "김성원",
+      "verdict": "PASS"
+    },
+    {
+      "email": "yhkim@idino.co.kr",
+      "dept_id": "38",
+      "expected": "김용휴",
+      "got": "김용휴",
+      "verdict": "PASS"
+    },
+    {
+      "email": "hslee@idino.co.kr",
+      "dept_id": "40",
+      "expected": "이현수",
+      "got": "이현수",
+      "verdict": "PASS"
+    }
+  ],
+  "summary": {
+    "users_pass": 6,
+    "users_total": 6,
+    "dept_pass": 6,
+    "dept_total": 6
+  }
+}

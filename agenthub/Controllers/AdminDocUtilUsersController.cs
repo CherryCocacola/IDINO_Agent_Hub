@@ -93,11 +93,14 @@ public class AdminDocUtilUsersController : ControllerBase
         var statusLower = string.IsNullOrEmpty(u.Status)
             ? "active"
             : u.Status.ToLowerInvariant();
+        // 트랙 #109 (2026-05-26): username 우선순위 = FullName (한글) → DocutilUsername (영문 prefix) → Email.
+        // 사용자 요청: "부서 트리 멤버 이름을 사용자 관리 출력 이름과 통일" — 일부 user 의 DocutilUsername 이
+        // 영문 prefix (swkim/mhkim/ikjung/jwseong) 로 저장되어 있어 한글 FullName(김성원/김문혁/정일규/성지우) 우선 표기.
         return new DocUtilUserSummary(
             Id: u.OriginalDocutilUuid?.ToString() ?? u.UserId.ToString(),
-            Username: !string.IsNullOrWhiteSpace(u.DocutilUsername)
-                ? u.DocutilUsername!
-                : (!string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : u.Email),
+            Username: !string.IsNullOrWhiteSpace(u.FullName)
+                ? u.FullName!
+                : (!string.IsNullOrWhiteSpace(u.DocutilUsername) ? u.DocutilUsername : u.Email),
             Email: u.Email,
             Role: string.IsNullOrWhiteSpace(roleName) ? "member" : roleName.ToLowerInvariant(),
             Status: statusLower,

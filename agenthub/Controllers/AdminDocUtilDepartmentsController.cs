@@ -511,12 +511,14 @@ public class AdminDocUtilDepartmentsController : ControllerBase
                         g => (string?)g.OrderBy(ur => ur.RoleId).First().Role?.RoleName);
             }
 
+            // 트랙 #109 (2026-05-26): username 우선순위 = FullName (한글) → DocutilUsername (영문 prefix) → Email.
+            // AdminDocUtilUsersController.MapUserToSummary 와 일치 — 두 화면이 동일 user 에 같은 이름 표시.
             var members = users
                 .Select(u => new DocUtilDepartmentMember(
                     Id: u.OriginalDocutilUuid?.ToString() ?? u.UserId.ToString(),
-                    Username: !string.IsNullOrWhiteSpace(u.DocutilUsername)
-                        ? u.DocutilUsername!
-                        : (!string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : u.Email),
+                    Username: !string.IsNullOrWhiteSpace(u.FullName)
+                        ? u.FullName!
+                        : (!string.IsNullOrWhiteSpace(u.DocutilUsername) ? u.DocutilUsername : u.Email),
                     Email: u.Email,
                     Role: (topRoles.GetValueOrDefault(u.UserId) ?? "member").ToLowerInvariant()))
                 .ToList();
