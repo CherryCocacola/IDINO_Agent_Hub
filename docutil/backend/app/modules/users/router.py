@@ -20,6 +20,28 @@ router = APIRouter(prefix="", tags=["users"])
 
 
 # ---------------------------------------------------------------------------
+# 트랙 A1 Phase C (2026-05-26): DocUtil 사용자 mutation 차단
+# ---------------------------------------------------------------------------
+# 운영자 콘솔이 AgentHub `/admin/docutil-users` 로 단일화됨 (Phase A~E).
+# 본 router 의 POST/PUT/DELETE 는 410 Gone 으로 응답하여 외부에서 직접 호출
+# 시에도 AgentHub 콘솔로 안내한다. 일반 사용자 화면(/profile 등)에서 호출
+# 하는 GET 은 영향 없음.
+#
+# 참고: 트랙 #98 phase 3 이후 tb_users 가 VIEW + INSTEAD OF TRIGGER 로
+# AgentHub.Users 에 자동 위임되므로, 운영자가 본 endpoint 우회로 호출해도
+# 데이터는 AgentHub 마스터로 가지만 UX 일관성을 위해 명시 차단.
+
+_GONE_DETAIL_KO = (
+    "DocUtil 사용자/부서 mutation 은 AgentHub 운영자 콘솔로 통합되었습니다. "
+    "AgentHub `/admin/docutil-users` 또는 `/admin/docutil-departments` 를 사용해 주세요."
+)
+
+
+def _raise_gone() -> None:
+    raise HTTPException(status_code=status.HTTP_410_GONE, detail=_GONE_DETAIL_KO)
+
+
+# ---------------------------------------------------------------------------
 # Small helper schema for the status-update endpoint
 # ---------------------------------------------------------------------------
 
@@ -93,7 +115,8 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
     _current_user: TokenData = Depends(require_role(["admin", "super_admin"])),
 ):
-    """Create a new user within an organisation."""
+    """[Deprecated 트랙 A1 Phase C] AgentHub 운영자 콘솔로 이전."""
+    _raise_gone()
     user = await UserService.create_user(db, user_data)
 
     # 감사 로그: 사용자 생성 성공 기록
@@ -140,7 +163,8 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_role(["admin", "super_admin"])),
 ):
-    """Update an existing user's details."""
+    """[Deprecated 트랙 A1 Phase C] AgentHub 운영자 콘솔로 이전."""
+    _raise_gone()
     user = await UserService.update_user(db, user_id, user_data)
     return UserResponse.model_validate(user)
 
@@ -157,7 +181,8 @@ async def delete_user(
     db: AsyncSession = Depends(get_db),
     _current_user: TokenData = Depends(require_role(["admin", "super_admin"])),
 ):
-    """Permanently delete a user."""
+    """[Deprecated 트랙 A1 Phase C] AgentHub 운영자 콘솔로 이전."""
+    _raise_gone()
     await UserService.delete_user(db, user_id)
 
     # 감사 로그: 사용자 삭제 성공 기록
@@ -187,7 +212,8 @@ async def update_user_status(
     db: AsyncSession = Depends(get_db),
     _current_user: TokenData = Depends(require_role(["admin", "super_admin"])),
 ):
-    """Set a user's status to active, inactive, or locked."""
+    """[Deprecated 트랙 A1 Phase C] AgentHub 운영자 콘솔로 이전."""
+    _raise_gone()
     user = await UserService.update_status(db, user_id, body.status)
 
     # 감사 로그: 사용자 상태 변경 성공 기록

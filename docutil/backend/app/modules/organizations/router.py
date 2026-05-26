@@ -33,6 +33,23 @@ router = APIRouter(prefix="", tags=["organizations"])
 
 
 # ---------------------------------------------------------------------------
+# 트랙 A1 Phase C (2026-05-26): DocUtil 조직/부서 mutation 차단
+# ---------------------------------------------------------------------------
+# AgentHub `/admin/docutil-departments` 가 단일 진입점.
+# 본 router 의 조직/부서 mutation 은 410 Gone — AgentHub 콘솔로 안내.
+# quotas mutation 은 별도 정책에 따라 유지(별도 트랙).
+
+_GONE_DETAIL_KO = (
+    "DocUtil 조직/부서 mutation 은 AgentHub 운영자 콘솔로 통합되었습니다. "
+    "AgentHub `/admin/docutil-departments` 를 사용해 주세요."
+)
+
+
+def _raise_gone() -> None:
+    raise HTTPException(status_code=status.HTTP_410_GONE, detail=_GONE_DETAIL_KO)
+
+
+# ---------------------------------------------------------------------------
 # Organisation endpoints
 # ---------------------------------------------------------------------------
 
@@ -63,7 +80,8 @@ async def update_organization(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_role(["admin", "super_admin"])),
 ):
-    """Update an organisation's name, description, or settings."""
+    """[Deprecated 트랙 A1 Phase C] AgentHub 운영자 콘솔로 이전."""
+    _raise_gone()
     org = await OrganizationService.update_organization(db, org_id, data)
     return OrganizationResponse.model_validate(org)
 
@@ -109,7 +127,8 @@ async def create_department(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_role(["admin", "super_admin"])),
 ):
-    """Create a new department under the given organisation."""
+    """[Deprecated 트랙 A1 Phase C] AgentHub 운영자 콘솔로 이전."""
+    _raise_gone()
     department = await DepartmentService.create_department(db, org_id, data)
     return DepartmentResponse.model_validate(department)
 
@@ -126,7 +145,8 @@ async def update_department(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_role(["admin", "super_admin"])),
 ):
-    """Update a department's name or parent."""
+    """[Deprecated 트랙 A1 Phase C] AgentHub 운영자 콘솔로 이전."""
+    _raise_gone()
     department = await DepartmentService.update_department(db, dept_id, data)
 
     # Verify the department belongs to the specified organisation
@@ -151,13 +171,8 @@ async def delete_department(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_role(["admin", "super_admin"])),
 ):
-    """Delete a department and all its children (cascade).
-
-    트랙 #106 결함 2' 이후: read 경로는 AgentHub 마스터로 옮겼지만 본 write
-    경로는 DocUtil ``tb_departments`` 를 그대로 사용한다. AgentHub schema
-    에 대한 write 권한은 별도 트랙에서 다루며, 현재 운영 콘솔에서는 부서
-    삭제 트리거가 사실상 호출되지 않는다.
-    """
+    """[Deprecated 트랙 A1 Phase C] AgentHub 운영자 콘솔로 이전."""
+    _raise_gone()
     # AgentHub 마스터 기준 존재 여부 확인.
     departments = await DepartmentService.get_departments(db, org_id)
     dept_ids = {d["id"] for d in departments}
