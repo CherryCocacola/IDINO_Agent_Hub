@@ -3,6 +3,7 @@ using System;
 using AIAgentManagement.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AIAgentManagement.Migrations
 {
     [DbContext(typeof(AIAgentManagementDbContext))]
-    partial class AIAgentManagementDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260526120000_TrackA1PhaseD_DepartmentDocutilUuid")]
+    partial class TrackA1PhaseD_DepartmentDocutilUuid
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -53,6 +53,14 @@ public class Department
     [Required]
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// 트랙 A1 Phase D (2026-05-26) — DocUtil tb_departments.id (uuid) 와의 매핑.
+    /// NULL 허용 (DocUtil 미사용 부서). UNIQUE 제약 — 한 AgentHub Department 는
+    /// 한 DocUtil 부서에만 매핑. tb_departments 가 VIEW 화 되면서 alias 의 id 컬럼이
+    /// 이 값을 그대로 반환한다 (DocUtil ORM 호환 보장).
+    /// </summary>
+    public Guid? OriginalDocutilUuid { get; set; }
+
     /// <summary>레코드 생성 시각 (UTC).</summary>
     [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
