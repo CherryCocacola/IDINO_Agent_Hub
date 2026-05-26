@@ -1,0 +1,36 @@
+{
+  "track": "#107 tb_users VIEW schema 명시 fix",
+  "ran_at": "2026-05-26T11:51:22",
+  "backup": "/home/idino/agenthub/backups/pre_track107_view_fix_20260526_115051.sql",
+  "results": [
+    {
+      "username": "admin@example.com",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+    },
+    {
+      "username": "hslee",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+    },
+    {
+      "username": "shbaek",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+    },
+    {
+      "username": "user@example.com",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+    }
+  ],
+  "summary": {
+    "pass": 0,
+    "fail": 4,
+    "total": 4
+  }
+}

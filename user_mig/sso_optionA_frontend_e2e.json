@@ -1,0 +1,39 @@
+{
+  "track": "1-5 SSO 옵션 A frontend e2e",
+  "ran_at": "2026-05-26T13:12:39",
+  "results": [
+    {
+      "email": "admin@example.com",
+      "ah_token_len": 555,
+      "du_status": 200,
+      "verdict": "PASS",
+      "du_body_head": "{\"items\":[{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"description\":\"연구과제 문서 관리\",\"all"
+    },
+    {
+      "email": "user@example.com",
+      "ah_token_len": 552,
+      "du_status": 200,
+      "verdict": "PASS",
+      "du_body_head": "{\"items\":[{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"description\":\"연구과제 문서 관리\",\"all"
+    },
+    {
+      "email": "hslee@idino.co.kr",
+      "ah_token_len": 556,
+      "du_status": 200,
+      "verdict": "PASS",
+      "du_body_head": "{\"items\":[{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"description\":\"연구과제 문서 관리\",\"all"
+    },
+    {
+      "email": "shbaek@idino.co.kr",
+      "ah_token_len": 559,
+      "du_status": 200,
+      "verdict": "PASS",
+      "du_body_head": "{\"items\":[{\"id\":\"c6955ce6-de61-4611-8eff-213c8101d82f\",\"name\":\"연구과제\",\"description\":\"연구과제 문서 관리\",\"all"
+    }
+  ],
+  "summary": {
+    "pass": 4,
+    "fail": 0,
+    "total": 4
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "track": "1-5 SSO Option A backend",
+  "started_at": "2026-05-26T04:03:20.796188Z",
+  "agenthub": "http://192.168.10.39:64005",
+  "docutil": "http://192.168.10.39:8041",
+  "deploy": {
+    "deployed_files": [
+      "/home/idino/docutil/backend/app/core/security.py"
+    ]
+  },
+  "env_update": {
+    "env_before_prefix": "JWT_SECRET_KEY=22da6fb6b562015217943ea635af341c9c554dcc0b67b",
+    "env_after_prefix": "JWT_SECRET_KEY=22da6fb6b562015217943ea635af341c9c554dcc0b67b"
+  },
+  "api_recreate": {
+    "recreate_state_tail": "healthy\n"
+  },
+  "nginx_restart": {
+    "nginx_restart": "docutil-nginx"
+  },
+  "verify": [
+    {
+      "email": "admin@example.com",
+      "expected_role": "admin",
+      "login_status": 200,
+      "login_user_email": "admin@example.com",
+      "jwt_prefix": "eyJhbGciOiJIUzI1NiIsInR5...",
+      "projects_status": 200,
+      "docutil_uuid": "aaf5e6b1-465b-4dde-85a0-2b880029704a",
+      "user_status": 200,
+      "user_email": "admin@example.com",
+      "user_role": "admin",
+      "pass": true
+    },
+    {
+      "email": "developer@example.com",
+      "expected_role": "admin",
+      "login_status": 200,
+      "login_user_email": "developer@example.com",
+      "jwt_prefix": "eyJhbGciOiJIUzI1NiIsInR5...",
+      "projects_status": 200,
+      "docutil_uuid": "859f9bc4-9116-4b04-9176-0a0d08916e58",
+      "user_status": 200,
+      "user_email": "developer@example.com",
+      "user_role": "developer",
+      "pass": true
+    },
+    {
+      "email": "user@example.com",
+      "expected_role": "user",
+      "login_status": 200,
+      "login_user_email": "user@example.com",
+      "jwt_prefix": "eyJhbGciOiJIUzI1NiIsInR5...",
+      "projects_status": 200,
+      "docutil_uuid": "ef5aa277-2ca0-4ab1-bd8f-41ef5e2540a5",
+      "user_status": 403,
+      "pass": true
+    },
+    {
+      "email": "hslee@idino.co.kr",
+      "expected_role": "user",
+      "login_status": 200,
+      "login_user_email": "hslee@idino.co.kr",
+      "jwt_prefix": "eyJhbGciOiJIUzI1NiIsInR5...",
+      "projects_status": 200,
+      "docutil_uuid": "b54f6c80-85f4-4810-bf5a-ecc4452e68ca",
+      "user_status": 403,
+      "pass": true
+    }
+  ],
+  "finished_at": "2026-05-26T04:04:06.663147Z",
+  "overall_pass": 4,
+  "overall_total": 4
+}

@@ -1,0 +1,35 @@
+{
+  "track": "#108 DocUtil DATABASE_URL drift fix",
+  "ran_at": "2026-05-26T12:36:36",
+  "results": [
+    {
+      "username": "admin@example.com",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body": "Internal Server Error"
+    },
+    {
+      "username": "hslee",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body": "Internal Server Error"
+    },
+    {
+      "username": "shbaek",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body": "Internal Server Error"
+    },
+    {
+      "username": "user@example.com",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body": "Internal Server Error"
+    }
+  ],
+  "summary": {
+    "pass": 0,
+    "fail": 4,
+    "total": 4
+  }
+}

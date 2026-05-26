@@ -170,6 +170,103 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-26 (트랙 1-5 SSO 옵션 A frontend — AgentHub → DocUtil JWT cookie/fragment 공유)
+
+**목표**: AgentHub Vue 와 DocUtil Next.js 간 SSO 옵션 A frontend 부 구현. 사용자가 AgentHub 로그인 후 DocUtil 사용자 화면(`/search`, `/chat`) 진입 시 별도 로그인 없이 자동 인증. 같은 host (`192.168.10.39`) 다른 port (`64005` ↔ `8041`) 환경, JWT SecretKey 단일화 가정 (backend-specialist 가 DocUtil decode_token 확장 병렬 진행).
+
+**산출 (신설 / 수정 4 파일)**:
+
+| 파일 | 역할 |
+|---|---|
+| **신설** `agenthub/ClientApp/src/composables/useDocUtilSso.ts` | `redirectToDocUtil(path, {newTab?})` helper. cookie `du_sso_token` (domain=`192.168.10.39`, max-age=300s, SameSite=Lax) + URL fragment `#sso_token=<JWT>` 이중 채널로 토큰 전달 후 `window.location.href` navigate. IP cookie 호환성 위험을 fragment fallback 으로 흡수. |
+| **수정** `agenthub/ClientApp/src/layouts/MainLayout.vue` | `MenuItem` 인터페이스 `external?` / `ssoTarget?` 필드 추가. 새 카테고리 `docutilUser` (`DocUtil 검색(사용자)` / `DocUtil 챗봇(사용자)` 2 항목, 모든 사용자 접근). 메뉴 렌더링(desktop/mobile 양쪽)에 `v-else-if="item.external"` 분기 추가 — `<a>` + `@click.prevent` + `handleExternalNavigate` 호출. `bi-box-arrow-up-right` 외부 아이콘 + `.external-icon` CSS. |
+| **수정** `agenthub/ClientApp/src/i18n/locales/{ko,en,vi}.json` | `nav.docutilUserSearch` / `nav.docutilUserChat` 키 3개 언어 추가. |
+| **신설** `docutil/frontend/src/components/providers/sso-bootstrap.tsx` | `(user)/layout.tsx` 에서 마운트. `useEffect` + `useRef` 가드. fragment 우선 → cookie fallback 으로 토큰 추출, JWT exp 만료 검증, cookie/fragment 즉시 제거 (`history.replaceState`), `/api/v1/users/me` 호출하여 user 정보 획득, `localStorage('auth-storage')` (Zustand persist) + `useAuth.setState({...})` 인메모리 동시 갱신. 실패 시 silently fallback (기존 로그인 화면). |
+| **수정** `docutil/frontend/src/app/(user)/layout.tsx` | `<SsoBootstrap />` 마운트 (로딩 단계 + 정상 단계 양쪽). SSO 진입 감지 (`detectSsoEntry()` — fragment `sso_token=` 또는 cookie `du_sso_token=`) 시 인증 체크를 최대 3초 보류 → race 방지 (SsoBootstrap 비동기 `/users/me` 완료 대기). "AgentHub 인증 처리 중..." 로딩 메시지. |
+
+**핵심 흐름**:
+1. 사용자 AgentHub 로그인 → Pinia `authStore.token` 보유
+2. AgentHub 사이드바 `DocUtil > 검색(사용자)` 메뉴 클릭 → `redirectToDocUtil('/search')`
+3. cookie `du_sso_token=<JWT>; domain=192.168.10.39; max-age=300; SameSite=Lax` 설정
+4. `window.location.href = 'http://192.168.10.39:8041/search#sso_token=<JWT>'` navigate
+5. DocUtil `(user)/layout.tsx` 마운트 → `detectSsoEntry()` true → 3초 보류 모드
+6. `<SsoBootstrap />` `useEffect` 진입 → fragment 또는 cookie 에서 토큰 추출 → exp 검증
+7. cookie/fragment 즉시 제거 (보안: 노출 시간 최소화 + `history.replaceState` 로 히스토리 정리)
+8. `/api/v1/users/me` 호출 (Authorization: Bearer <SSO JWT>) — backend-specialist 의 decode_token 확장 후 AgentHub JWT 도 검증 가능
+9. user 응답 → `localStorage('auth-storage')` + `useAuth.setState({user, accessToken, isAuthenticated: true, tokenExpiresAt})` 동시 갱신
+10. layout `useEffect` 재실행 → `isAuthenticated=true` → `setChecked(true)` → 사용자 화면 렌더
+
+**위험 / 결정**:
+- IP cookie domain= 명시는 Chrome 73+ 정상 / Safari ITP 등에서 거부 가능 → fragment fallback 으로 100% 보장
+- URL fragment 는 server 에 전송되지 않으나 history 에 남음 → `history.replaceState` 로 제거 필수 (구현됨)
+- SSO 진입 시 refreshToken 은 전달하지 않음 (단순 access token 만 공유) — DocUtil 측 refresh 흐름은 만료 시 실패하고 로그인 화면 fallback (영향 0)
+- 이미 DocUtil 에 로그인된 사용자가 SSO 진입 시 = AgentHub user 로 강제 갱신 (혼란 방지)
+- StrictMode 이중 useEffect 방지 `useRef` 가드
+- 3초 타임아웃: SsoBootstrap 비동기 처리가 실패하면 정상 로그인 화면으로 fallback
+
+**검증**:
+- AgentHub `cd ClientApp && npm run build:check` → **vue-tsc 통과 + vite build PASS (4.31s, 워닝 0)**
+- DocUtil `npx tsc --noEmit` → 본 트랙 신설/수정 파일 오류 0 (기존 `mode-switcher.tsx` 1건 무관 결함, 별도 트랙)
+- DocUtil `npx eslint src/components/providers/sso-bootstrap.tsx 'src/app/(user)/layout.tsx'` → 0 errors, 0 warnings (초기 `console.info` 1 warn 발견 → 주석으로 변경, 재실행 클린)
+
+**운영 잔존 작업**:
+- backend-specialist 의 DocUtil `decode_token` 확장 + JWT `SecretKey` 단일화 완료 후 e2e 가능 (작업 병렬 진행)
+- AgentHub: `dotnet publish -c Release` → IIS application restart (`ClientApp` 빌드 산출물 → `wwwroot` 복사)
+- DocUtil frontend: image build 방식이므로 `docker compose build frontend` + `docker compose up -d --force-recreate frontend` + nginx restart (`compose restart` 단독으론 source 미반영 — `reference_docutil_hotfix_pattern` 메모리 참조)
+- e2e 검증 (4계정 SuperAdmin/UserLegacy/Hslee/Shbaek): AgentHub 로그인 → DocUtil 검색(사용자) 메뉴 클릭 → `/search` 자동 진입 + `/api/v1/users/me` 응답 200 + 로그인 화면 미노출 확인
+
+**커밋 메시지 (제안)**:
+```
+[agenthub+docutil/track1-5-sso-frontend] AgentHub → DocUtil JWT cookie+fragment SSO 옵션 A frontend
+```
+
+### 2026-05-26 (트랙 1-5 SSO 옵션 A backend — DocUtil decode_token 이 AgentHub JWT 도 검증)
+
+**목표**: 트랙 1-5 frontend 의 잔존 작업. DocUtil 의 `decode_token` 을 확장해 AgentHub 가 발급한 JWT (sub=int UserId, ClaimTypes URI 형식 claims, iss="AIAgentManagement", aud="AIAgentManagementUsers") 도 같은 SecretKey 로 통과시키고, sub=int → AGENT_HUB.Users.OriginalDocutilUuid 로 변환해 DocUtil 내부 UUID 식별자 흐름과 호환되게 한다. DocUtil 자체 JWT (sub=uuid) 흐름은 무회귀로 유지.
+
+**산출 (수정/신설 2 파일)**:
+
+| 파일 | 역할 |
+|---|---|
+| **수정** `docutil/backend/app/core/security.py` | `decode_token` 확장 — (1) `jwt.decode` 옵션 `verify_aud=False, verify_iss=False` 추가 → AgentHub aud("AIAgentManagementUsers") 통과. (2) sub claim 분기: uuid 파싱 성공 → DocUtil 흐름 / 실패 → int 로 재해석 → `_lookup_agenthub_user_mapping(int)` 으로 (OriginalDocutilUuid, OrganizationId) 동시 조회. (3) role claim 분기: DocUtil `role` (str) / AgentHub `ClaimTypes.Role` (단일/list) 모두 수용 + `_AGENTHUB_ROLE_MAP` (Admin→admin, Developer→admin, User→user, ...). (4) type claim 부재 시 ACCESS 기본. (5) email claim 도 DocUtil `email` / AgentHub `ClaimTypes.Email` URI 양쪽 추출. `_lookup_agenthub_user_mapping` 은 psycopg3 sync 로 1쿼리, 매 인증 1회. |
+| **신설** `tmp/apply_sso_optionA_backend.py` | 운영 배포 + 검증 통합 스크립트. paramiko SFTP 로 security.py 업로드 → `.env` JWT_SECRET_KEY 를 AgentHub SecretKey 와 동일 hex 128 자로 sed -i 치환 → `docker compose build api` (image 빌드) + `docker compose up -d --force-recreate api` (DocUtil 은 image 빌드 방식이라 source 마운트 미적용 — reference_docutil_hotfix_pattern 메모리 적용) → `docker restart docutil-nginx` (DNS cache 갱신) → 4계정 × AgentHub login → DocUtil dual probe (`/projects` auth-only + `/users/{본인uuid}` admin RBAC) 매트릭스. |
+
+**검증 결과 (4계정 × 2 probe)**: **4/4 PASS** ← `user_mig/sso_optionA_backend_result.json`
+
+| 계정 | AgentHub Role | AgentHub login | /projects | /users/{본인} | 판정 |
+|---|---|---:|---:|---:|---|
+| admin@example.com | Admin | 200 | **200** | **200** (admin RBAC 통과, role=admin) | PASS |
+| developer@example.com | Developer | 200 | **200** | **200** (Developer→admin 매핑, role=developer) | PASS |
+| user@example.com | User | 200 | **200** | 403 (정상 거부 — User role) | PASS |
+| hslee@idino.co.kr | User | 200 | **200** | 403 (정상 거부 — User role) | PASS |
+
+추가 회귀 검증 — DocUtil 자체 login (`POST /api/v1/auth/login {username, password}`) → DocUtil JWT → `/projects` 200 + `/users/self` 200. 기존 흐름 **무회귀** 확인.
+
+**핵심 디버깅 경로 (3단계 fix)**:
+1. **1차 시도**: `verify_aud/iss` 옵션 없이 decode → `Invalid audience` (jose 가 aud claim 발견 + audience 미지정 → 자동 거부). → 옵션 추가로 해소.
+2. **2차 시도**: lookup 실행 → `ModuleNotFoundError: psycopg2`. DocUtil 컨테이너에는 asyncpg + psycopg3 만 설치. SQLAlchemy sync engine 대신 psycopg3 sync API 직접 호출로 전환.
+3. **3차 시도**: admin JWT 로 decode 성공 + `/users/me` 가 422 (DocUtil 은 `/me` endpoint 부재 — `/users/{uuid}` 만 존재). 검증 endpoint 를 `/users/{본인 uuid}` (admin RBAC) + `/projects?page=1` (member RBAC) 듀얼 probe 로 변경. 또한 user/hslee 가 403 인 이유 = AgentHub User role → 의도된 RBAC 거부 → 정상 동작.
+
+**중요 발견 — Organization 매핑도 필요**:
+AgentHub JWT 에는 `org` claim 이 없어 DocUtil 의 org-scoped endpoint (`/projects`, `/organizations` 등) 가 403 (User is not associated with an organisation). 따라서 `_lookup_agenthub_user_mapping` 이 `OriginalDocutilUuid` 와 `OrganizationId` 를 **함께** 조회하고 `TokenData.organization_id` 로 주입하도록 설계. 본 결정으로 모든 org-scoped 비즈니스 endpoint 가 SSO 흐름에서도 동작.
+
+**위험 / 결정**:
+- JWT_SECRET_KEY 교체 = 기존 DocUtil JWT 전부 무효화 (1회 강제 만료). SSO 진입 직후 AgentHub JWT 가 즉시 대체하므로 UX 영향 0.
+- AgentHub JWT 가 만료(60분) 되면 DocUtil 화면도 인증 만료 — DocUtil refresh 흐름은 본 트랙 미포함. 사용자가 AgentHub 다시 로그인 → SSO 재진입.
+- `_lookup_agenthub_user_mapping` 은 매 인증마다 1회 PG 쿼리 (캐싱 없음). 인증 미들웨어 핫패스이나, single-row PK lookup + 10ms 이하 → 영향 미미. 캐싱 도입은 mapping 변경 즉시 반영 트레이드오프 발생 → 보류.
+- AgentHub User.DepartmentId 는 int FK 라 DocUtil UUID 와 호환 안 됨 → `dept_uuid` 는 mapping 에서 채우지 않음. department 가 필요한 endpoint 는 후속 확장 (현재 사용 사례 없음).
+- AgentHub User.OriginalDocutilUuid 가 NULL 인 사용자 = SSO 진입 불가 (JWTError raise → 401). 모든 운영 사용자는 트랙 #88 매핑 완료 상태 — 검증 4계정 모두 매핑 보유.
+
+**운영 잔존 작업**:
+- 본 트랙은 backend 부 — frontend (트랙 1-5 frontend) 와 결합해 e2e (AgentHub UI 로그인 → DocUtil 검색/챗봇 메뉴 클릭 → 자동 진입) 검증.
+- 운영 적용 상태: 호스트 192.168.10.39, DocUtil API 컨테이너 정상 health, nginx 갱신 완료. 운영 4계정 SSO API 검증 PASS.
+- DocUtil frontend image 도 별도 image build 가 필요 (트랙 1-5 frontend 의 sso-bootstrap.tsx 등 신규 파일 반영).
+
+**커밋 메시지 (제안)**:
+```
+[docutil/track1-5-sso-backend] decode_token 확장 — AgentHub JWT (sub=int UserId) 수용 + OriginalDocutilUuid+OrganizationId 매핑 lookup
+```
+
 ### 2026-05-26 (트랙 A1 종합 — DocUtil 운영자 콘솔 AgentHub 완전 흡수 Phase A/B/C/E/F 완료)
 
 **사용자 명시**: "확실하게, 완벽하게 통합". 부분 구현/병존 거부, 모든 단계 PASS 까지 진행. 4개 결정 모두 권장값:

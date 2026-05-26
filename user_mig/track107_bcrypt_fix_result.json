@@ -1,0 +1,35 @@
+{
+  "track": "#107 DocUtil bcrypt 5.x 비호환 fix (v2 polling)",
+  "ran_at": "2026-05-26T11:42:22",
+  "results": [
+    {
+      "username": "admin@example.com",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body_head": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+    },
+    {
+      "username": "hslee",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body_head": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+    },
+    {
+      "username": "shbaek",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body_head": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+    },
+    {
+      "username": "user@example.com",
+      "token_len": 0,
+      "verdict": "FAIL",
+      "body_head": "{\"detail\":\"Invalid credentials or account is locked.\"}"
+    }
+  ],
+  "summary": {
+    "pass": 0,
+    "fail": 4,
+    "total": 4
+  }
+}
