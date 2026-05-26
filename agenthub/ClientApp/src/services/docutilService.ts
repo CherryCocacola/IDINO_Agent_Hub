@@ -2482,6 +2482,259 @@ function parseDocumentV2FileName(disposition: string | undefined, jobId: string)
   return fallback
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// 트랙 A1 Phase B (2026-05-25): DocUtil 설정 / 퀵 가이드 / 검색 테스트 운영자 BFF
+//
+// 진입점: AgentHub `/api/admin/docutil/{settings|quick-guide|search-test}/*`
+// 목적:
+//   DocUtil 운영자 콘솔의 미흡수 3 페이지(settings/quick-guide/search-test)를
+//   AgentHub 단일 운영자 진입점으로 흡수 (R2 통합 비전 + 운영자 UI 일원화).
+//
+// 인증/권한:
+//   - 컨트롤러 레벨 [Authorize(Roles="Admin,SuperAdmin")] 적용 (BFF)
+//   - DocUtil 측 운영자 토큰은 IDocUtilTokenProvider 4단계 폴백으로 자동 부착
+// ════════════════════════════════════════════════════════════════════════════
+
+// ─── A1.1: Settings (시스템 설정) ────────────────────────────────────────────
+
+/** DocUtil 일반 설정 — `GET/PUT /api/v1/settings/general` 매핑. */
+export interface DocUtilGeneralSettings {
+  /** 기본 표시 언어(예: "ko" | "en" | "vi" | "ja" | "zh"). */
+  defaultLanguage: string
+  /** 유지보수 모드 활성화 여부 — true 시 사용자에게 유지보수 페이지 표시. */
+  maintenanceMode: boolean
+}
+
+/** DocUtil 보안 설정 — `GET/PUT /api/v1/settings/security` 매핑. */
+export interface DocUtilSecuritySettings {
+  passwordMinLength: number
+  passwordRequireUppercase: boolean
+  passwordRequireNumber: boolean
+  passwordRequireSpecial: boolean
+  sessionTimeoutMinutes: number
+}
+
+/** DocUtil 스토리지 설정 — `GET/PUT /api/v1/settings/storage` 매핑 (read-heavy). */
+export interface DocUtilStorageSettings {
+  minioConnected: boolean
+  minioEndpoint: string
+  totalStorageBytes: number
+  usedStorageBytes: number
+}
+
+/** DocUtil 시스템 설정 통합 응답. */
+export interface DocUtilSettingsBundle {
+  general: DocUtilGeneralSettings
+  security: DocUtilSecuritySettings
+  storage: DocUtilStorageSettings
+}
+
+const SETTINGS_BASE = '/admin/docutil/settings'
+
+/** 시스템 설정 전체 조회. */
+export async function getDocUtilSettings(): Promise<DocUtilSettingsBundle> {
+  const { data } = await api.get<DocUtilSettingsBundle>(SETTINGS_BASE)
+  return data
+}
+
+/** 일반 설정 저장. */
+export async function updateDocUtilGeneralSettings(
+  request: DocUtilGeneralSettings
+): Promise<DocUtilGeneralSettings> {
+  const { data } = await api.put<DocUtilGeneralSettings>(
+    `${SETTINGS_BASE}/general`,
+    request
+  )
+  return data
+}
+
+/** 보안 설정 저장. */
+export async function updateDocUtilSecuritySettings(
+  request: DocUtilSecuritySettings
+): Promise<DocUtilSecuritySettings> {
+  const { data } = await api.put<DocUtilSecuritySettings>(
+    `${SETTINGS_BASE}/security`,
+    request
+  )
+  return data
+}
+
+/**
+ * 스토리지 설정 저장 — 백엔드가 운영자 변경을 허용하는 경우에만 호출.
+ * 현재 UI 는 read-only 표시지만 향후 확장을 위해 함수는 유지.
+ */
+export async function updateDocUtilStorageSettings(
+  request: DocUtilStorageSettings
+): Promise<DocUtilStorageSettings> {
+  const { data } = await api.put<DocUtilStorageSettings>(
+    `${SETTINGS_BASE}/storage`,
+    request
+  )
+  return data
+}
+
+// ─── A1.2: Quick Guide (퀵 가이드) ───────────────────────────────────────────
+
+/**
+ * 퀵 가이드 카드 한 항목.
+ * 백엔드는 정적 콘텐츠를 반환하며 i18n 은 프론트엔드에서 fallback 으로 처리.
+ */
+export interface DocUtilQuickGuideEntry {
+  /** 카드 식별 키(예: "documentUpload"). */
+  key?: string | null
+  /** Bootstrap Icons 클래스(예: "bi bi-file-earmark-arrow-up"). */
+  icon?: string | null
+  /** 카드 제목. */
+  title?: string | null
+  /** 카드 설명. */
+  description?: string | null
+  /** 단계 배열. */
+  steps?: string[] | null
+}
+
+/** 퀵 가이드 응답 — `GET /api/admin/docutil/quick-guide`. */
+export interface DocUtilQuickGuideResponse {
+  guides: DocUtilQuickGuideEntry[]
+}
+
+const QUICK_GUIDE_BASE = '/admin/docutil/quick-guide'
+
+/**
+ * 퀵 가이드 조회. 404 / 5xx 는 throw — 화면 측에서 i18n 정적 fallback 으로 분기.
+ */
+export async function getDocUtilQuickGuide(): Promise<DocUtilQuickGuideResponse> {
+  const { data } = await api.get<DocUtilQuickGuideResponse>(QUICK_GUIDE_BASE)
+  return data
+}
+
+// ─── A1.3: Search Test (검색 테스트) ────────────────────────────────────────
+
+/** 검색 범위 dropdown 옵션 — `GET /api/admin/docutil/search-test/scopes`. */
+export interface DocUtilSearchTestScopeOption {
+  id: string
+  name: string
+  /** "프로젝트/보드/폴더" 형식의 사람이 읽을 수 있는 위치 경로(선택). */
+  locationPath?: string | null
+}
+
+/** chunk 검색 결과 한 행 (hybrid / keyword / admin-test). */
+export interface DocUtilSearchTestChunkResult {
+  id: string
+  documentName: string
+  content: string
+  score: number
+  /** 검색 매치 강조 HTML 조각 배열(XSS 방지를 위해 화면에서 stripHtml 처리). */
+  highlights: string[]
+  metadata?: Record<string, unknown> | null
+}
+
+/** chat 응답의 인용 한 건. */
+export interface DocUtilSearchTestCitation {
+  documentName: string
+  content: string
+  page?: number | null
+}
+
+/** chat / qa 검색 결과. */
+export interface DocUtilSearchTestChatResult {
+  answer: string
+  citations: DocUtilSearchTestCitation[]
+  /** qa 모드에서만 채워짐 (0~1 범위, 높을수록 환각 가능성 큼). */
+  hallucinationScore?: number | null
+}
+
+/** 검색 히스토리 한 항목. */
+export interface DocUtilSearchTestHistoryEntry {
+  id: string
+  query: string
+  searchType: string
+  scopeName?: string | null
+  timestamp: string
+  resultCount?: number | null
+}
+
+/** chunk / chat 공통 요청 페이로드. */
+export interface DocUtilSearchTestRequest {
+  searchScopeId: string | null
+  query: string
+}
+
+const SEARCH_TEST_BASE = '/admin/docutil/search-test'
+
+/** 검색 범위 옵션 목록 조회. */
+export async function listSearchTestScopes(): Promise<DocUtilSearchTestScopeOption[]> {
+  const { data } = await api.get<DocUtilSearchTestScopeOption[]>(
+    `${SEARCH_TEST_BASE}/scopes`
+  )
+  return data
+}
+
+/** Hybrid 검색 실행. */
+export async function searchTestHybrid(
+  request: DocUtilSearchTestRequest
+): Promise<DocUtilSearchTestChunkResult[]> {
+  const { data } = await api.post<DocUtilSearchTestChunkResult[]>(
+    `${SEARCH_TEST_BASE}/hybrid`,
+    request
+  )
+  return data
+}
+
+/** Chatbot 응답 검색 실행. */
+export async function searchTestChatbot(
+  request: DocUtilSearchTestRequest
+): Promise<DocUtilSearchTestChatResult> {
+  const { data } = await api.post<DocUtilSearchTestChatResult>(
+    `${SEARCH_TEST_BASE}/chatbot`,
+    request
+  )
+  return data
+}
+
+/** Q&A(엄격 + hallucination score) 검색 실행. */
+export async function searchTestQa(
+  request: DocUtilSearchTestRequest
+): Promise<DocUtilSearchTestChatResult> {
+  const { data } = await api.post<DocUtilSearchTestChatResult>(
+    `${SEARCH_TEST_BASE}/qa`,
+    request
+  )
+  return data
+}
+
+/** Keyword(BM25 only) 검색 실행. */
+export async function searchTestKeyword(
+  request: DocUtilSearchTestRequest
+): Promise<DocUtilSearchTestChunkResult[]> {
+  const { data } = await api.post<DocUtilSearchTestChunkResult[]>(
+    `${SEARCH_TEST_BASE}/keyword`,
+    request
+  )
+  return data
+}
+
+/**
+ * Admin Bypass 검색 실행 — DocUtil 의 `/search/test` 와 동일.
+ * 운영자가 권한/필터 우회로 진단할 때 사용.
+ */
+export async function searchTestAdminTest(
+  request: DocUtilSearchTestRequest
+): Promise<DocUtilSearchTestChunkResult[]> {
+  const { data } = await api.post<DocUtilSearchTestChunkResult[]>(
+    `${SEARCH_TEST_BASE}/admin-test`,
+    request
+  )
+  return data
+}
+
+/** 검색 히스토리 조회 — 사용자별 최근 N 건. */
+export async function listSearchTestHistory(): Promise<DocUtilSearchTestHistoryEntry[]> {
+  const { data } = await api.get<DocUtilSearchTestHistoryEntry[]>(
+    `${SEARCH_TEST_BASE}/history`
+  )
+  return data
+}
+
 export default {
   listDocuments,
   uploadDocument,
@@ -2594,5 +2847,18 @@ export default {
   patchDocumentV2,
   requestDocumentV2Export,
   getDocumentV2ExportStatus,
-  downloadDocumentV2Export
+  downloadDocumentV2Export,
+  // 트랙 A1 Phase B — Settings / Quick Guide / Search Test
+  getDocUtilSettings,
+  updateDocUtilGeneralSettings,
+  updateDocUtilSecuritySettings,
+  updateDocUtilStorageSettings,
+  getDocUtilQuickGuide,
+  listSearchTestScopes,
+  searchTestHybrid,
+  searchTestChatbot,
+  searchTestQa,
+  searchTestKeyword,
+  searchTestAdminTest,
+  listSearchTestHistory
 }

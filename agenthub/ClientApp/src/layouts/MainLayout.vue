@@ -489,6 +489,27 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         path: '/admin/docutil-documents-v2',
         icon: 'bi bi-easel2',
         roles: ['Admin', 'SuperAdmin']
+      },
+      // 트랙 A1 Phase B (2026-05-25): DocUtil 설정 / 퀵 가이드 / 검색 테스트 흡수.
+      // 미흡수 3 페이지(/admin/docutil-settings, /admin/docutil-quick-guide,
+      // /admin/docutil-search-test) 를 운영자 콘솔 카테고리에 등록.
+      {
+        name: t('nav.docutilSettings'),
+        path: '/admin/docutil-settings',
+        icon: 'bi bi-gear',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      {
+        name: t('nav.docutilQuickGuide'),
+        path: '/admin/docutil-quick-guide',
+        icon: 'bi bi-book',
+        roles: ['Admin', 'SuperAdmin']
+      },
+      {
+        name: t('nav.docutilSearchTest'),
+        path: '/admin/docutil-search-test',
+        icon: 'bi bi-search-heart',
+        roles: ['Admin', 'SuperAdmin']
       }
     ]
   },

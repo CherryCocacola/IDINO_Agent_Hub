@@ -54,6 +54,9 @@
     "docutilApiKeys": "DocUtil LLM API Keys",
     "docutilDocAgents": "DocUtil Agents",
     "docutilDocumentsV2": "DocUtil Documents V2",
+    "docutilSettings": "DocUtil Settings",
+    "docutilQuickGuide": "DocUtil Quick Guide",
+    "docutilSearchTest": "DocUtil Search Test",
     "apiKeys": "API Key Management",
     "bannedWords": "Banned Words Management",
     "piiProtection": "PII Protection Settings",
@@ -1846,5 +1849,144 @@
       },
       "confirmDelete": "Delete provider LLM key \"{name}\"? It will be removed from the pool immediately."
     }
+  },
+  "adminDocutilSettings": {
+    "title": "DocUtil System Settings",
+    "subtitle": "Configure DocUtil general, security, storage, and maintenance options.",
+    "refresh": "Refresh",
+    "tabsLabel": "Settings tabs",
+    "tabGeneral": "General",
+    "tabSecurity": "Security",
+    "tabStorage": "Storage",
+    "tabMaintenance": "Maintenance",
+    "generalTitle": "General Settings",
+    "defaultLanguage": "Default Language",
+    "langKo": "Korean",
+    "langEn": "English",
+    "langVi": "Vietnamese",
+    "langJa": "Japanese",
+    "langZh": "Chinese",
+    "maintenanceMode": "Maintenance Mode",
+    "maintenanceModeDesc": "When enabled, a maintenance page is shown to end users.",
+    "saveGeneral": "Save General Settings",
+    "saveGeneralSuccess": "General settings saved successfully.",
+    "securityTitle": "Security Settings",
+    "passwordPolicy": "Password Policy",
+    "passwordMinLength": "Minimum length",
+    "passwordRequireUppercase": "Require uppercase letter",
+    "passwordRequireNumber": "Require number",
+    "passwordRequireSpecial": "Require special character",
+    "sessionTimeoutMinutes": "Session Timeout (minutes)",
+    "sessionTimeoutDesc": "Users are automatically logged out after this period of inactivity.",
+    "saveSecurity": "Save Security Settings",
+    "saveSecuritySuccess": "Security settings saved successfully.",
+    "storageTitle": "Storage Settings",
+    "minioConnection": "MinIO Connection",
+    "minioConnected": "Connected",
+    "minioDisconnected": "Disconnected",
+    "minioEndpointNone": "Not configured",
+    "storageUsed": "Used",
+    "storageUsageLabel": "Storage usage",
+    "storageUsagePercent": "{percent}% of total storage used",
+    "storageTotal": "Total Capacity",
+    "storageAvailable": "Available",
+    "storageReadonlyHint": "Storage metrics reflect the DocUtil MinIO instance status (read-only).",
+    "maintenanceTitle": "Maintenance",
+    "maintenanceHint": "Run system maintenance tasks. Use with care — data loss risk.",
+    "orphanCleanupTitle": "Orphan Vector Cleanup",
+    "orphanCleanupDesc": "Clean up vectors in Qdrant whose source documents were deleted from the database.",
+    "orphanCleanupBackendNote": "This action will be enabled after backend policy confirmation.",
+    "comingSoon": "Coming soon",
+    "errorUnknown": "An unknown error occurred."
+  },
+  "adminDocutilQuickGuide": {
+    "title": "DocUtil Quick Guide",
+    "subtitle": "Learn how to use the system quickly.",
+    "refresh": "Refresh",
+    "guides": {
+      "documentUpload": {
+        "title": "Document Upload",
+        "description": "Upload and manage PDF, DOCX, TXT, and other document formats.",
+        "steps": [
+          "Go to Documents menu",
+          "Select project / board / folder",
+          "Click 'Upload Document'",
+          "Pick a file and upload"
+        ]
+      },
+      "searchScope": {
+        "title": "Configure Search Scope",
+        "description": "Limit search to specific documents for more precise results.",
+        "steps": [
+          "Go to Search Scope menu",
+          "Click 'New Search Scope'",
+          "Pick documents / folders to include",
+          "Configure search mode and save"
+        ]
+      },
+      "aiChat": {
+        "title": "AI Chat",
+        "description": "Chat with AI grounded on your uploaded documents.",
+        "steps": [
+          "Go to Chat menu",
+          "Pick a search scope (optional)",
+          "Enter your question",
+          "Review answer and citations"
+        ]
+      },
+      "apiKeys": {
+        "title": "API Key Management",
+        "description": "Register and manage LLM API keys.",
+        "steps": [
+          "Go to API Keys menu",
+          "Click 'Register Key'",
+          "Pick the LLM provider",
+          "Paste API key and submit"
+        ]
+      }
+    },
+    "moreHelpTitle": "Additional Help",
+    "moreHelpDesc": "For more detailed instructions, see:",
+    "helpLink": "Help page"
+  },
+  "adminDocutilSearchTest": {
+    "title": "DocUtil Search Test",
+    "subtitle": "Operator search quality testing — 4 modes (Hybrid / Chatbot / Q&A / Keyword) plus admin bypass.",
+    "refresh": "Refresh",
+    "toggleHistory": "Toggle history panel",
+    "showHistory": "Show History",
+    "hideHistory": "Hide History",
+    "scope": "Search Scope",
+    "scopeNone": "(All)",
+    "scopeEmpty": "No search scopes registered.",
+    "searchTypeLabel": "Search Mode",
+    "modes": {
+      "hybrid": "Hybrid",
+      "chatbot": "Chatbot",
+      "qa": "Q&A",
+      "keyword": "Keyword",
+      "admin-test": "Admin Bypass"
+    },
+    "query": "Query",
+    "queryPlaceholderSearch": "Enter search keywords...",
+    "queryPlaceholderChat": "Ask a question...",
+    "queryRequired": "Please enter a query.",
+    "searchButton": "Search",
+    "searching": "Searching...",
+    "results": "Results",
+    "emptyState": "Select a scope, choose a mode, and enter a query to begin.",
+    "noResults": "No results found.",
+    "noAnswer": "No answer could be generated.",
+    "noCitations": "No citations were returned.",
+    "score": "Score",
+    "highlights": "Highlights",
+    "answer": "Answer",
+    "citations": "Citations",
+    "hallucinationScore": "Hallucination Score",
+    "historyTitle": "Recent Queries",
+    "historyEmpty": "No recent queries.",
+    "historyResultCount": "{count} result(s)",
+    "refreshHistory": "Refresh history",
+    "errorUnknown": "An unknown error occurred."
   }
 }

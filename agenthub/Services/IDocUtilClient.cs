@@ -1371,6 +1371,107 @@ public interface IDocUtilClient
     Task<DocUtilDocumentV2Download> DownloadDocumentV2ExportAsync(
         string jobId,
         CancellationToken cancellationToken = default);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Phase 트랙 A1 Phase B (2026-05-25) — Settings + SearchTest BFF 흡수
+    //
+    // DocUtil OpenAPI 매핑:
+    //   Settings (4):
+    //     GET    /api/v1/settings            (admin/super_admin)        → SettingsData
+    //     PUT    /api/v1/settings/general   (GeneralSettings)           → {status, saved} (stub)
+    //     PUT    /api/v1/settings/security  (SecuritySettings)          → {status, saved} (stub)
+    //     PUT    /api/v1/settings/storage   (StorageSettings)           → {status, saved} (stub)
+    //   SearchTest (7 — 6 search + 1 scopes 재사용):
+    //     POST   /api/v1/search             (SearchRequest)             → SearchResponse        (hybrid)
+    //     POST   /api/v1/search/chatbot     (ChatbotSearchRequest)      → ChatbotSearchResponse
+    //     POST   /api/v1/search/qa          (QASearchRequest)           → QASearchResponse
+    //     POST   /api/v1/search/keyword     (KeywordSearchRequest)      → SearchResponse        (BM25)
+    //     POST   /api/v1/search/test        (SearchTestRequest, admin)  → SearchResponse        (visibility bypass)
+    //     GET    /api/v1/search/history?page&size                       → SearchHistoryItem[]
+    //     GET    /api/v1/search-scopes/options  (재사용 — 기존 ListSearchScopeOptionsAsync)
+    //
+    // 주의:
+    //   - QuickGuide 는 DocUtil 측 endpoint 없음 — AgentHub Controller 가 정적 콘텐츠 자체 반환.
+    //     IDocUtilClient 메서드 불필요.
+    //   - search 결과는 BFF 캐시 X (사용자 입력별 1회성). search/history 만 30초 TTL.
+    // ════════════════════════════════════════════════════════════════════════
+
+    // ── Settings (4) ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 시스템 설정 전체 조회 — GET /api/v1/settings.
+    /// general/security/storage 3 영역을 한 번에 반환(운영자 콘솔 초기 로드).
+    /// </summary>
+    Task<DocUtilSettings> GetSettingsAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 일반 설정 저장 — PUT /api/v1/settings/general (현재 DocUtil 측 stub).
+    /// </summary>
+    Task UpdateSettingsGeneralAsync(
+        DocUtilGeneralSettings payload,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 보안 설정 저장 — PUT /api/v1/settings/security (현재 DocUtil 측 stub).
+    /// </summary>
+    Task UpdateSettingsSecurityAsync(
+        DocUtilSecuritySettings payload,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 스토리지 설정 저장 — PUT /api/v1/settings/storage (현재 DocUtil 측 stub).
+    /// </summary>
+    Task UpdateSettingsStorageAsync(
+        DocUtilStorageSettings payload,
+        CancellationToken cancellationToken = default);
+
+    // ── SearchTest (6) ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 하이브리드 검색 실행 — POST /api/v1/search (사용자 진입점 동일, as_user_view=True).
+    /// </summary>
+    Task<DocUtilSearchHybridResult> SearchHybridAsync(
+        DocUtilSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 챗봇 검색 — POST /api/v1/search/chatbot (검색 + LLM 응답 + FAQ 옵션).
+    /// </summary>
+    Task<DocUtilSearchChatbotResult> SearchChatbotAsync(
+        DocUtilSearchChatbotRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// QA 검색 — POST /api/v1/search/qa (인용 enforce + hallucination score).
+    /// </summary>
+    Task<DocUtilSearchQaResult> SearchQaAsync(
+        DocUtilSearchQaRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 키워드(BM25) 검색 — POST /api/v1/search/keyword.
+    /// </summary>
+    Task<DocUtilSearchHybridResult> SearchKeywordAsync(
+        DocUtilSearchKeywordRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 운영자 검색 테스트 — POST /api/v1/search/test (admin bypass, as_user_view=False).
+    /// 실제 사용자 화면과 동일한 결과를 visibility 검사 없이 평가.
+    /// </summary>
+    Task<DocUtilSearchHybridResult> SearchAdminTestAsync(
+        DocUtilSearchTestRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 검색 이력 조회 — GET /api/v1/search/history?page&amp;size.
+    /// 호출 운영자(JWT) 자신의 이력만 반환.
+    /// </summary>
+    Task<List<DocUtilSearchHistoryItem>> SearchHistoryAsync(
+        int page,
+        int size,
+        CancellationToken cancellationToken = default);
 }
 
 // ── DocUtil DTO (FastAPI 응답 1:1 매핑, snake_case 직렬화는 DocUtilClient 에서 처리) ──
@@ -2935,3 +3036,221 @@ public sealed record DocUtilDocumentV2Download(
     Stream Stream,
     string ContentType,
     string FileName);
+
+// ════════════════════════════════════════════════════════════════════════════
+// 트랙 A1 Phase B (2026-05-25) — Settings + SearchTest DTO record
+//
+// 모든 record 는 DocUtil FastAPI Pydantic 스키마와 1:1 매핑(snake_case <-> PascalCase).
+// JsonNamingPolicy.SnakeCaseLower 가 DocUtilClient 에서 일관 적용.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Settings ────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// 일반 설정 — DocUtil GeneralSettings 매핑.
+/// </summary>
+/// <param name="DefaultLanguage">기본 언어 코드(예: "ko").</param>
+/// <param name="MaintenanceMode">시스템 점검 모드 여부.</param>
+public sealed record DocUtilGeneralSettings(
+    string DefaultLanguage,
+    bool MaintenanceMode);
+
+/// <summary>
+/// 보안 설정 — DocUtil SecuritySettings 매핑.
+/// </summary>
+/// <param name="PasswordMinLength">최소 비밀번호 길이(4~128).</param>
+/// <param name="PasswordRequireUppercase">대문자 포함 필수.</param>
+/// <param name="PasswordRequireNumber">숫자 포함 필수.</param>
+/// <param name="PasswordRequireSpecial">특수문자 포함 필수.</param>
+/// <param name="SessionTimeoutMinutes">세션 만료(분, 5~1440).</param>
+public sealed record DocUtilSecuritySettings(
+    int PasswordMinLength,
+    bool PasswordRequireUppercase,
+    bool PasswordRequireNumber,
+    bool PasswordRequireSpecial,
+    int SessionTimeoutMinutes);
+
+/// <summary>
+/// 스토리지 설정 — DocUtil StorageSettings 매핑.
+/// </summary>
+/// <param name="MinioConnected">MinIO 연결 정상 여부.</param>
+/// <param name="MinioEndpoint">MinIO endpoint URL(빈 문자열 가능).</param>
+/// <param name="TotalStorageBytes">총 용량(바이트).</param>
+/// <param name="UsedStorageBytes">사용량(바이트).</param>
+public sealed record DocUtilStorageSettings(
+    bool MinioConnected,
+    string MinioEndpoint,
+    long TotalStorageBytes,
+    long UsedStorageBytes);
+
+/// <summary>
+/// 시스템 설정 전체 — DocUtil SettingsData 매핑.
+/// 운영자 콘솔 /settings 페이지의 초기 데이터.
+/// </summary>
+public sealed record DocUtilSettings(
+    DocUtilGeneralSettings General,
+    DocUtilSecuritySettings Security,
+    DocUtilStorageSettings Storage);
+
+// ── SearchTest — Request ────────────────────────────────────────────────────
+
+/// <summary>
+/// 하이브리드 검색 요청 — DocUtil SearchRequest 매핑.
+/// </summary>
+/// <param name="Query">자연어 쿼리(1~2000자).</param>
+/// <param name="SearchScopeId">검색 범위 UUID(선택).</param>
+/// <param name="DocumentIds">제한 문서 ID 배열(선택).</param>
+/// <param name="SearchType">"hybrid" | "keyword" | "semantic" (기본 hybrid).</param>
+/// <param name="MaxResults">최대 결과 수(1~100, 기본 10).</param>
+/// <param name="IncludeCitations">citation 포함 여부(기본 true).</param>
+/// <param name="Filters">date_from/date_to/formats/tags 등 free-form dict(선택).</param>
+/// <param name="Agentic">Agentic mode 활성화(기본 false).</param>
+public sealed record DocUtilSearchRequest(
+    string Query,
+    string? SearchScopeId = null,
+    string[]? DocumentIds = null,
+    string SearchType = "hybrid",
+    int MaxResults = 10,
+    bool IncludeCitations = true,
+    IDictionary<string, object?>? Filters = null,
+    bool Agentic = false);
+
+/// <summary>
+/// 챗봇 검색 요청 — DocUtil ChatbotSearchRequest 매핑.
+/// </summary>
+/// <param name="Query">사용자 질문(1~2000자).</param>
+/// <param name="SearchScopeId">검색 범위 UUID(필수).</param>
+/// <param name="IncludeFaq">FAQ 우선 확인 여부(기본 true).</param>
+public sealed record DocUtilSearchChatbotRequest(
+    string Query,
+    string SearchScopeId,
+    bool IncludeFaq = true);
+
+/// <summary>
+/// QA 검색 요청 — DocUtil QASearchRequest 매핑.
+/// </summary>
+/// <param name="Query">질문(1~2000자).</param>
+/// <param name="SearchScopeId">검색 범위 UUID(선택).</param>
+/// <param name="DocumentIds">제한 문서 ID 배열(선택).</param>
+public sealed record DocUtilSearchQaRequest(
+    string Query,
+    string? SearchScopeId = null,
+    string[]? DocumentIds = null);
+
+/// <summary>
+/// 키워드(BM25) 검색 요청 — DocUtil KeywordSearchRequest 매핑.
+/// </summary>
+/// <param name="Query">키워드 쿼리(1~2000자).</param>
+/// <param name="SearchScopeId">검색 범위 UUID(선택).</param>
+/// <param name="Filters">메타데이터 필터 dict(선택).</param>
+public sealed record DocUtilSearchKeywordRequest(
+    string Query,
+    string? SearchScopeId = null,
+    IDictionary<string, object?>? Filters = null);
+
+/// <summary>
+/// 운영자 검색 테스트 요청 — DocUtil SearchTestRequest 매핑(admin-only, visibility bypass).
+/// </summary>
+/// <param name="SearchScopeId">테스트 대상 검색 범위 UUID(필수).</param>
+/// <param name="Query">테스트 쿼리(1~2000자).</param>
+/// <param name="SearchType">"hybrid" | "keyword" | "semantic" (기본 hybrid).</param>
+public sealed record DocUtilSearchTestRequest(
+    string SearchScopeId,
+    string Query,
+    string SearchType = "hybrid");
+
+// ── SearchTest — Response ───────────────────────────────────────────────────
+
+/// <summary>
+/// 검색 결과 한 행 — DocUtil SearchResult 매핑.
+/// </summary>
+/// <param name="DocumentId">문서 UUID.</param>
+/// <param name="DocumentName">문서 이름.</param>
+/// <param name="ChunkId">청크 UUID.</param>
+/// <param name="ChunkIndex">청크 인덱스.</param>
+/// <param name="Content">청크 본문.</param>
+/// <param name="Score">융합 관련도 점수(높을수록 관련성 높음).</param>
+/// <param name="PageNumber">페이지 번호(선택).</param>
+/// <param name="SectionTitle">섹션 제목(선택).</param>
+/// <param name="ChunkType">청크 유형(text/table/image_caption 등, 기본 "text").</param>
+/// <param name="Highlights">하이라이트 발췌(선택).</param>
+public sealed record DocUtilSearchResultItem(
+    string DocumentId,
+    string DocumentName,
+    string ChunkId,
+    int ChunkIndex,
+    string Content,
+    double Score,
+    int? PageNumber,
+    string? SectionTitle,
+    string ChunkType,
+    string[]? Highlights);
+
+/// <summary>
+/// 인용 — DocUtil Citation 매핑(챗봇/QA 검색).
+/// </summary>
+/// <param name="DocumentId">문서 UUID.</param>
+/// <param name="DocumentName">문서 이름.</param>
+/// <param name="PageNumber">페이지 번호(선택).</param>
+/// <param name="Snippet">원문 또는 발췌.</param>
+/// <param name="RelevanceScore">관련도(0~1).</param>
+public sealed record DocUtilSearchCitation(
+    string DocumentId,
+    string DocumentName,
+    int? PageNumber,
+    string Snippet,
+    double RelevanceScore);
+
+/// <summary>
+/// 하이브리드/키워드/관리자 테스트 검색 응답 — DocUtil SearchResponse 매핑.
+/// </summary>
+/// <param name="Query">실행된 쿼리.</param>
+/// <param name="Results">결과 배열.</param>
+/// <param name="TotalResults">결과 수.</param>
+/// <param name="SearchType">사용된 전략(hybrid/keyword/semantic).</param>
+/// <param name="LatencyMs">서버 측 처리 시간(밀리초).</param>
+public sealed record DocUtilSearchHybridResult(
+    string Query,
+    DocUtilSearchResultItem[] Results,
+    int TotalResults,
+    string SearchType,
+    int LatencyMs);
+
+/// <summary>
+/// 챗봇 검색 응답 — DocUtil ChatbotSearchResponse 매핑.
+/// </summary>
+/// <param name="Answer">LLM 응답.</param>
+/// <param name="Citations">인용 배열.</param>
+/// <param name="FaqMatches">FAQ 매칭 결과(free-form dict 배열, 선택).</param>
+public sealed record DocUtilSearchChatbotResult(
+    string Answer,
+    DocUtilSearchCitation[] Citations,
+    IDictionary<string, object?>[]? FaqMatches);
+
+/// <summary>
+/// QA 검색 응답 — DocUtil QASearchResponse 매핑.
+/// </summary>
+/// <param name="Answer">LLM 응답(인용 enforce).</param>
+/// <param name="Citations">인용 배열.</param>
+/// <param name="HallucinationScore">환각 추정값(0=충실, 1=의심).</param>
+/// <param name="ModelUsed">사용된 모델 식별자.</param>
+public sealed record DocUtilSearchQaResult(
+    string Answer,
+    DocUtilSearchCitation[] Citations,
+    double HallucinationScore,
+    string ModelUsed);
+
+/// <summary>
+/// 검색 이력 한 행 — DocUtil SearchHistoryItem 매핑.
+/// </summary>
+/// <param name="Id">이력 UUID.</param>
+/// <param name="Query">실행된 쿼리.</param>
+/// <param name="SearchType">검색 전략.</param>
+/// <param name="ResultCount">결과 수.</param>
+/// <param name="CreatedAt">실행 시각(DB ins_dt).</param>
+public sealed record DocUtilSearchHistoryItem(
+    string Id,
+    string Query,
+    string SearchType,
+    int ResultCount,
+    DateTime CreatedAt);

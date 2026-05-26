@@ -5862,6 +5862,508 @@ public class DocUtilClient : IDocUtilClient
         [JsonPropertyName("error")] public string? Error { get; set; }
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // 트랙 A1 Phase B (2026-05-25) — Settings + SearchTest 12 메서드 구현
+    // ══════════════════════════════════════════════════════════════════════
+
+    // ── Settings (4) ───────────────────────────────────────────────────────
+
+    public async Task<DocUtilSettings> GetSettingsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        const string path = "/api/v1/settings";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SettingsDataResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 설정 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+        return MapSettings(dto);
+    }
+
+    public async Task UpdateSettingsGeneralAsync(
+        DocUtilGeneralSettings payload,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        const string path = "/api/v1/settings/general";
+        var body = new GeneralSettingsRequestDto
+        {
+            DefaultLanguage = payload.DefaultLanguage,
+            MaintenanceMode = payload.MaintenanceMode,
+        };
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    public async Task UpdateSettingsSecurityAsync(
+        DocUtilSecuritySettings payload,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        const string path = "/api/v1/settings/security";
+        var body = new SecuritySettingsRequestDto
+        {
+            PasswordMinLength = payload.PasswordMinLength,
+            PasswordRequireUppercase = payload.PasswordRequireUppercase,
+            PasswordRequireNumber = payload.PasswordRequireNumber,
+            PasswordRequireSpecial = payload.PasswordRequireSpecial,
+            SessionTimeoutMinutes = payload.SessionTimeoutMinutes,
+        };
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    public async Task UpdateSettingsStorageAsync(
+        DocUtilStorageSettings payload,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        const string path = "/api/v1/settings/storage";
+        var body = new StorageSettingsRequestDto
+        {
+            MinioConnected = payload.MinioConnected,
+            MinioEndpoint = payload.MinioEndpoint,
+            TotalStorageBytes = payload.TotalStorageBytes,
+            UsedStorageBytes = payload.UsedStorageBytes,
+        };
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Put, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+    }
+
+    // ── SearchTest (6) ─────────────────────────────────────────────────────
+
+    public async Task<DocUtilSearchHybridResult> SearchHybridAsync(
+        DocUtilSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Query))
+        {
+            throw new ArgumentException("query 가 비어 있습니다.", nameof(request));
+        }
+
+        const string path = "/api/v1/search";
+        var body = MapSearchTestSearchRequest(request);
+        return await SendSearchTestHybridAsync(path, body, cancellationToken);
+    }
+
+    public async Task<DocUtilSearchChatbotResult> SearchChatbotAsync(
+        DocUtilSearchChatbotRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Query))
+        {
+            throw new ArgumentException("query 가 비어 있습니다.", nameof(request));
+        }
+        if (string.IsNullOrWhiteSpace(request.SearchScopeId))
+        {
+            throw new ArgumentException("search_scope_id 가 비어 있습니다.", nameof(request));
+        }
+
+        const string path = "/api/v1/search/chatbot";
+        var body = new SearchTestChatbotRequestDto
+        {
+            Query = request.Query,
+            SearchScopeId = request.SearchScopeId,
+            IncludeFaq = request.IncludeFaq,
+        };
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SearchTestChatbotResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 챗봇 검색 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var citations = (dto.Citations ?? Array.Empty<SearchTestCitationDto>())
+            .Select(MapSearchTestCitation).ToArray();
+        IDictionary<string, object?>[]? faqMatches = null;
+        if (dto.FaqMatches is { } arr && arr.Length > 0)
+        {
+            faqMatches = arr
+                .Where(e => e.ValueKind == JsonValueKind.Object)
+                .Select(e => ConvertJsonElementToDict(e))
+                .ToArray();
+        }
+        return new DocUtilSearchChatbotResult(
+            dto.Answer ?? string.Empty,
+            citations,
+            faqMatches);
+    }
+
+    public async Task<DocUtilSearchQaResult> SearchQaAsync(
+        DocUtilSearchQaRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Query))
+        {
+            throw new ArgumentException("query 가 비어 있습니다.", nameof(request));
+        }
+
+        const string path = "/api/v1/search/qa";
+        var body = new SearchTestQaRequestDto
+        {
+            Query = request.Query,
+            SearchScopeId = request.SearchScopeId,
+            DocumentIds = request.DocumentIds,
+        };
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SearchTestQaResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil QA 검색 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var citations = (dto.Citations ?? Array.Empty<SearchTestCitationDto>())
+            .Select(MapSearchTestCitation).ToArray();
+        return new DocUtilSearchQaResult(
+            dto.Answer ?? string.Empty,
+            citations,
+            dto.HallucinationScore,
+            dto.ModelUsed ?? string.Empty);
+    }
+
+    public async Task<DocUtilSearchHybridResult> SearchKeywordAsync(
+        DocUtilSearchKeywordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Query))
+        {
+            throw new ArgumentException("query 가 비어 있습니다.", nameof(request));
+        }
+
+        const string path = "/api/v1/search/keyword";
+        var body = new SearchTestKeywordRequestDto
+        {
+            Query = request.Query,
+            SearchScopeId = request.SearchScopeId,
+            Filters = request.Filters,
+        };
+        return await SendSearchTestHybridAsync(path, body, cancellationToken);
+    }
+
+    public async Task<DocUtilSearchHybridResult> SearchAdminTestAsync(
+        DocUtilSearchTestRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Query))
+        {
+            throw new ArgumentException("query 가 비어 있습니다.", nameof(request));
+        }
+        if (string.IsNullOrWhiteSpace(request.SearchScopeId))
+        {
+            throw new ArgumentException("search_scope_id 가 비어 있습니다.", nameof(request));
+        }
+
+        const string path = "/api/v1/search/test";
+        var body = new SearchTestAdminRequestDto
+        {
+            SearchScopeId = request.SearchScopeId,
+            Query = request.Query,
+            SearchType = string.IsNullOrWhiteSpace(request.SearchType) ? "hybrid" : request.SearchType,
+        };
+        return await SendSearchTestHybridAsync(path, body, cancellationToken);
+    }
+
+    public async Task<List<DocUtilSearchHistoryItem>> SearchHistoryAsync(
+        int page,
+        int size,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 100) size = 20;
+
+        var path = $"/api/v1/search/history?page={page}&size={size}";
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Get, path, body: null, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var arr = await JsonSerializer.DeserializeAsync<SearchTestHistoryItemDto[]>(stream, JsonOptions, cancellationToken);
+        if (arr is null)
+        {
+            return new List<DocUtilSearchHistoryItem>();
+        }
+        return arr.Select(MapSearchTestHistoryItem).ToList();
+    }
+
+    // ── 공통 헬퍼 ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 하이브리드/키워드/관리자 테스트 검색 — 공통 POST + SearchResponse 디시리얼라이즈 + 매핑.
+    /// </summary>
+    private async Task<DocUtilSearchHybridResult> SendSearchTestHybridAsync(
+        string path,
+        object body,
+        CancellationToken cancellationToken)
+    {
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var httpRequest = await BuildJsonRequestAsync(HttpMethod.Post, path, body, cancellationToken);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        await EnsureSuccessOrThrowKoreanAsync(response, path, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var dto = await JsonSerializer.DeserializeAsync<SearchTestHybridResponseDto>(stream, JsonOptions, cancellationToken);
+        if (dto is null)
+        {
+            throw new InvalidOperationException("DocUtil 검색 응답을 디시리얼라이즈하지 못했습니다.");
+        }
+
+        var results = (dto.Results ?? Array.Empty<SearchTestResultDto>())
+            .Select(MapSearchTestResultItem).ToArray();
+        return new DocUtilSearchHybridResult(
+            dto.Query ?? string.Empty,
+            results,
+            dto.TotalResults,
+            dto.SearchType ?? string.Empty,
+            dto.LatencyMs);
+    }
+
+    private static SearchTestSearchRequestDto MapSearchTestSearchRequest(DocUtilSearchRequest req) => new()
+    {
+        Query = req.Query,
+        SearchScopeId = req.SearchScopeId,
+        DocumentIds = req.DocumentIds,
+        SearchType = string.IsNullOrWhiteSpace(req.SearchType) ? "hybrid" : req.SearchType,
+        MaxResults = req.MaxResults < 1 ? 10 : (req.MaxResults > 100 ? 100 : req.MaxResults),
+        IncludeCitations = req.IncludeCitations,
+        Filters = req.Filters,
+        Agentic = req.Agentic,
+    };
+
+    private static DocUtilSettings MapSettings(SettingsDataResponseDto dto)
+    {
+        var g = dto.General ?? new GeneralSettingsResponseDto();
+        var s = dto.Security ?? new SecuritySettingsResponseDto();
+        var st = dto.Storage ?? new StorageSettingsResponseDto();
+        return new DocUtilSettings(
+            new DocUtilGeneralSettings(
+                g.DefaultLanguage ?? "ko",
+                g.MaintenanceMode),
+            new DocUtilSecuritySettings(
+                s.PasswordMinLength,
+                s.PasswordRequireUppercase,
+                s.PasswordRequireNumber,
+                s.PasswordRequireSpecial,
+                s.SessionTimeoutMinutes),
+            new DocUtilStorageSettings(
+                st.MinioConnected,
+                st.MinioEndpoint ?? string.Empty,
+                st.TotalStorageBytes,
+                st.UsedStorageBytes));
+    }
+
+    private static DocUtilSearchResultItem MapSearchTestResultItem(SearchTestResultDto dto) => new(
+        dto.DocumentId ?? string.Empty,
+        dto.DocumentName ?? string.Empty,
+        dto.ChunkId ?? string.Empty,
+        dto.ChunkIndex,
+        dto.Content ?? string.Empty,
+        dto.Score,
+        dto.PageNumber,
+        dto.SectionTitle,
+        string.IsNullOrWhiteSpace(dto.ChunkType) ? "text" : dto.ChunkType!,
+        dto.Highlights);
+
+    private static DocUtilSearchCitation MapSearchTestCitation(SearchTestCitationDto dto) => new(
+        dto.DocumentId ?? string.Empty,
+        dto.DocumentName ?? string.Empty,
+        dto.PageNumber,
+        dto.Snippet ?? string.Empty,
+        dto.RelevanceScore);
+
+    private static DocUtilSearchHistoryItem MapSearchTestHistoryItem(SearchTestHistoryItemDto dto) => new(
+        dto.Id ?? string.Empty,
+        dto.Query ?? string.Empty,
+        dto.SearchType ?? string.Empty,
+        dto.ResultCount,
+        dto.CreatedAt);
+
+    // ── 직렬화 DTO (snake_case) ────────────────────────────────────────────
+
+    private sealed class GeneralSettingsResponseDto
+    {
+        [JsonPropertyName("default_language")] public string? DefaultLanguage { get; set; } = "ko";
+        [JsonPropertyName("maintenance_mode")] public bool MaintenanceMode { get; set; }
+    }
+
+    private sealed class SecuritySettingsResponseDto
+    {
+        [JsonPropertyName("password_min_length")] public int PasswordMinLength { get; set; } = 8;
+        [JsonPropertyName("password_require_uppercase")] public bool PasswordRequireUppercase { get; set; } = true;
+        [JsonPropertyName("password_require_number")] public bool PasswordRequireNumber { get; set; } = true;
+        [JsonPropertyName("password_require_special")] public bool PasswordRequireSpecial { get; set; } = true;
+        [JsonPropertyName("session_timeout_minutes")] public int SessionTimeoutMinutes { get; set; } = 30;
+    }
+
+    private sealed class StorageSettingsResponseDto
+    {
+        [JsonPropertyName("minio_connected")] public bool MinioConnected { get; set; }
+        [JsonPropertyName("minio_endpoint")] public string? MinioEndpoint { get; set; } = string.Empty;
+        [JsonPropertyName("total_storage_bytes")] public long TotalStorageBytes { get; set; }
+        [JsonPropertyName("used_storage_bytes")] public long UsedStorageBytes { get; set; }
+    }
+
+    private sealed class SettingsDataResponseDto
+    {
+        [JsonPropertyName("general")] public GeneralSettingsResponseDto? General { get; set; }
+        [JsonPropertyName("security")] public SecuritySettingsResponseDto? Security { get; set; }
+        [JsonPropertyName("storage")] public StorageSettingsResponseDto? Storage { get; set; }
+    }
+
+    private sealed class GeneralSettingsRequestDto
+    {
+        [JsonPropertyName("default_language")] public string? DefaultLanguage { get; set; }
+        [JsonPropertyName("maintenance_mode")] public bool MaintenanceMode { get; set; }
+    }
+
+    private sealed class SecuritySettingsRequestDto
+    {
+        [JsonPropertyName("password_min_length")] public int PasswordMinLength { get; set; }
+        [JsonPropertyName("password_require_uppercase")] public bool PasswordRequireUppercase { get; set; }
+        [JsonPropertyName("password_require_number")] public bool PasswordRequireNumber { get; set; }
+        [JsonPropertyName("password_require_special")] public bool PasswordRequireSpecial { get; set; }
+        [JsonPropertyName("session_timeout_minutes")] public int SessionTimeoutMinutes { get; set; }
+    }
+
+    private sealed class StorageSettingsRequestDto
+    {
+        [JsonPropertyName("minio_connected")] public bool MinioConnected { get; set; }
+        [JsonPropertyName("minio_endpoint")] public string? MinioEndpoint { get; set; }
+        [JsonPropertyName("total_storage_bytes")] public long TotalStorageBytes { get; set; }
+        [JsonPropertyName("used_storage_bytes")] public long UsedStorageBytes { get; set; }
+    }
+
+    // 주의: 클래스 이름은 SearchTest* prefix 로 격리 — 기존 SearchResponseDto/SearchHitDto(RagService 용)
+    //       와 충돌 회피. 트랙 A1 Phase B 의 검색 테스트 전용.
+
+    private sealed class SearchTestSearchRequestDto
+    {
+        [JsonPropertyName("query")] public string? Query { get; set; }
+        [JsonPropertyName("search_scope_id")] public string? SearchScopeId { get; set; }
+        [JsonPropertyName("document_ids")] public string[]? DocumentIds { get; set; }
+        [JsonPropertyName("search_type")] public string? SearchType { get; set; }
+        [JsonPropertyName("max_results")] public int MaxResults { get; set; }
+        [JsonPropertyName("include_citations")] public bool IncludeCitations { get; set; }
+        [JsonPropertyName("filters")] public IDictionary<string, object?>? Filters { get; set; }
+        [JsonPropertyName("agentic")] public bool Agentic { get; set; }
+    }
+
+    private sealed class SearchTestChatbotRequestDto
+    {
+        [JsonPropertyName("query")] public string? Query { get; set; }
+        [JsonPropertyName("search_scope_id")] public string? SearchScopeId { get; set; }
+        [JsonPropertyName("include_faq")] public bool IncludeFaq { get; set; }
+    }
+
+    private sealed class SearchTestQaRequestDto
+    {
+        [JsonPropertyName("query")] public string? Query { get; set; }
+        [JsonPropertyName("search_scope_id")] public string? SearchScopeId { get; set; }
+        [JsonPropertyName("document_ids")] public string[]? DocumentIds { get; set; }
+    }
+
+    private sealed class SearchTestKeywordRequestDto
+    {
+        [JsonPropertyName("query")] public string? Query { get; set; }
+        [JsonPropertyName("search_scope_id")] public string? SearchScopeId { get; set; }
+        [JsonPropertyName("filters")] public IDictionary<string, object?>? Filters { get; set; }
+    }
+
+    private sealed class SearchTestAdminRequestDto
+    {
+        [JsonPropertyName("search_scope_id")] public string? SearchScopeId { get; set; }
+        [JsonPropertyName("query")] public string? Query { get; set; }
+        [JsonPropertyName("search_type")] public string? SearchType { get; set; }
+    }
+
+    private sealed class SearchTestResultDto
+    {
+        [JsonPropertyName("document_id")] public string? DocumentId { get; set; }
+        [JsonPropertyName("document_name")] public string? DocumentName { get; set; }
+        [JsonPropertyName("chunk_id")] public string? ChunkId { get; set; }
+        [JsonPropertyName("chunk_index")] public int ChunkIndex { get; set; }
+        [JsonPropertyName("content")] public string? Content { get; set; }
+        [JsonPropertyName("score")] public double Score { get; set; }
+        [JsonPropertyName("page_number")] public int? PageNumber { get; set; }
+        [JsonPropertyName("section_title")] public string? SectionTitle { get; set; }
+        [JsonPropertyName("chunk_type")] public string? ChunkType { get; set; } = "text";
+        [JsonPropertyName("highlights")] public string[]? Highlights { get; set; }
+    }
+
+    private sealed class SearchTestHybridResponseDto
+    {
+        [JsonPropertyName("query")] public string? Query { get; set; }
+        [JsonPropertyName("results")] public SearchTestResultDto[]? Results { get; set; }
+        [JsonPropertyName("total_results")] public int TotalResults { get; set; }
+        [JsonPropertyName("search_type")] public string? SearchType { get; set; }
+        [JsonPropertyName("latency_ms")] public int LatencyMs { get; set; }
+    }
+
+    private sealed class SearchTestCitationDto
+    {
+        [JsonPropertyName("document_id")] public string? DocumentId { get; set; }
+        [JsonPropertyName("document_name")] public string? DocumentName { get; set; }
+        [JsonPropertyName("page_number")] public int? PageNumber { get; set; }
+        [JsonPropertyName("snippet")] public string? Snippet { get; set; }
+        [JsonPropertyName("relevance_score")] public double RelevanceScore { get; set; }
+    }
+
+    private sealed class SearchTestChatbotResponseDto
+    {
+        [JsonPropertyName("answer")] public string? Answer { get; set; }
+        [JsonPropertyName("citations")] public SearchTestCitationDto[]? Citations { get; set; }
+        [JsonPropertyName("faq_matches")] public JsonElement[]? FaqMatches { get; set; }
+    }
+
+    private sealed class SearchTestQaResponseDto
+    {
+        [JsonPropertyName("answer")] public string? Answer { get; set; }
+        [JsonPropertyName("citations")] public SearchTestCitationDto[]? Citations { get; set; }
+        [JsonPropertyName("hallucination_score")] public double HallucinationScore { get; set; }
+        [JsonPropertyName("model_used")] public string? ModelUsed { get; set; }
+    }
+
+    private sealed class SearchTestHistoryItemDto
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("query")] public string? Query { get; set; }
+        [JsonPropertyName("search_type")] public string? SearchType { get; set; }
+        [JsonPropertyName("result_count")] public int ResultCount { get; set; }
+        [JsonPropertyName("created_at")] public DateTime CreatedAt { get; set; }
+    }
+
     private sealed class HttpResponseOwnedStream : Stream
     {
         private readonly Stream _inner;

@@ -263,6 +263,27 @@ const routes = [
         component: () => import('@/views/admin/AdminDocUtilDocumentsV2.vue'),
         meta: { requiresAuth: true, role: 'Admin' }
       },
+      // 트랙 A1 Phase B (2026-05-25): DocUtil 시스템 설정 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-settings',
+        name: 'AdminDocUtilSettings',
+        component: () => import('@/views/admin/AdminDocUtilSettings.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
+      // 트랙 A1 Phase B (2026-05-25): DocUtil 퀵 가이드 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-quick-guide',
+        name: 'AdminDocUtilQuickGuide',
+        component: () => import('@/views/admin/AdminDocUtilQuickGuide.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
+      // 트랙 A1 Phase B (2026-05-25): DocUtil 검색 테스트 운영자 콘솔 (BFF 패턴)
+      {
+        path: 'admin/docutil-search-test',
+        name: 'AdminDocUtilSearchTest',
+        component: () => import('@/views/admin/AdminDocUtilSearchTest.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
       {
         path: 'reports',
         name: 'Reports',

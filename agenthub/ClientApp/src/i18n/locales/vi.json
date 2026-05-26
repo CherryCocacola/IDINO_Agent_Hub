@@ -54,6 +54,9 @@
     "docutilApiKeys": "DocUtil LLM API Key",
     "docutilDocAgents": "DocUtil Agent",
     "docutilDocumentsV2": "Tài liệu DocUtil V2",
+    "docutilSettings": "Cài đặt DocUtil",
+    "docutilQuickGuide": "Hướng dẫn nhanh DocUtil",
+    "docutilSearchTest": "Kiểm tra tìm kiếm DocUtil",
     "apiKeys": "Quản lý API Key",
     "bannedWords": "Quản lý từ cấm",
     "piiProtection": "Cài đặt bảo vệ thông tin cá nhân",
@@ -1824,5 +1827,144 @@
       },
       "confirmDelete": "\"{name}\" 외부 LLM 키를 xóa하시겠습니까? 풀에서 즉시 제외됩니다."
     }
+  },
+  "adminDocutilSettings": {
+    "title": "Cài đặt hệ thống DocUtil",
+    "subtitle": "Cấu hình các tùy chọn chung / bảo mật / lưu trữ / bảo trì của DocUtil.",
+    "refresh": "Làm mới",
+    "tabsLabel": "Tab cài đặt",
+    "tabGeneral": "Chung",
+    "tabSecurity": "Bảo mật",
+    "tabStorage": "Lưu trữ",
+    "tabMaintenance": "Bảo trì",
+    "generalTitle": "Cài đặt chung",
+    "defaultLanguage": "Ngôn ngữ mặc định",
+    "langKo": "Tiếng Hàn",
+    "langEn": "Tiếng Anh",
+    "langVi": "Tiếng Việt",
+    "langJa": "Tiếng Nhật",
+    "langZh": "Tiếng Trung",
+    "maintenanceMode": "Chế độ bảo trì",
+    "maintenanceModeDesc": "Khi bật, hệ thống sẽ hiển thị trang bảo trì cho người dùng cuối.",
+    "saveGeneral": "Lưu cài đặt chung",
+    "saveGeneralSuccess": "Đã lưu cài đặt chung.",
+    "securityTitle": "Cài đặt bảo mật",
+    "passwordPolicy": "Chính sách mật khẩu",
+    "passwordMinLength": "Độ dài tối thiểu",
+    "passwordRequireUppercase": "Bắt buộc chữ in hoa",
+    "passwordRequireNumber": "Bắt buộc chữ số",
+    "passwordRequireSpecial": "Bắt buộc ký tự đặc biệt",
+    "sessionTimeoutMinutes": "Hết hạn phiên (phút)",
+    "sessionTimeoutDesc": "Người dùng sẽ tự động đăng xuất sau khoảng thời gian không hoạt động này.",
+    "saveSecurity": "Lưu cài đặt bảo mật",
+    "saveSecuritySuccess": "Đã lưu cài đặt bảo mật.",
+    "storageTitle": "Cài đặt lưu trữ",
+    "minioConnection": "Kết nối MinIO",
+    "minioConnected": "Đã kết nối",
+    "minioDisconnected": "Mất kết nối",
+    "minioEndpointNone": "Chưa cấu hình",
+    "storageUsed": "Đã sử dụng",
+    "storageUsageLabel": "Sử dụng lưu trữ",
+    "storageUsagePercent": "Đã sử dụng {percent}% tổng dung lượng",
+    "storageTotal": "Tổng dung lượng",
+    "storageAvailable": "Còn trống",
+    "storageReadonlyHint": "Thông tin lưu trữ phản ánh trạng thái MinIO của DocUtil (chỉ đọc).",
+    "maintenanceTitle": "Bảo trì",
+    "maintenanceHint": "Chạy các tác vụ bảo trì hệ thống. Cẩn trọng — có thể gây mất dữ liệu.",
+    "orphanCleanupTitle": "Dọn vector mồ côi",
+    "orphanCleanupDesc": "Dọn các vector trong Qdrant mà tài liệu nguồn đã bị xóa khỏi CSDL.",
+    "orphanCleanupBackendNote": "Tác vụ này sẽ được kích hoạt sau khi backend xác nhận chính sách.",
+    "comingSoon": "Sắp ra mắt",
+    "errorUnknown": "Đã xảy ra lỗi không xác định."
+  },
+  "adminDocutilQuickGuide": {
+    "title": "Hướng dẫn nhanh DocUtil",
+    "subtitle": "Tìm hiểu nhanh cách sử dụng hệ thống.",
+    "refresh": "Làm mới",
+    "guides": {
+      "documentUpload": {
+        "title": "Tải tài liệu",
+        "description": "Tải lên và quản lý tài liệu PDF, DOCX, TXT và các định dạng khác.",
+        "steps": [
+          "Vào menu Tài liệu",
+          "Chọn dự án / bảng / thư mục",
+          "Nhấn 'Tải tài liệu'",
+          "Chọn tệp và tải lên"
+        ]
+      },
+      "searchScope": {
+        "title": "Cấu hình phạm vi tìm kiếm",
+        "description": "Giới hạn tìm kiếm trong tập tài liệu cụ thể để có kết quả chính xác hơn.",
+        "steps": [
+          "Vào menu Phạm vi tìm kiếm",
+          "Nhấn 'Phạm vi mới'",
+          "Chọn tài liệu / thư mục để bao gồm",
+          "Cấu hình chế độ và lưu"
+        ]
+      },
+      "aiChat": {
+        "title": "Trò chuyện AI",
+        "description": "Trò chuyện với AI dựa trên các tài liệu đã tải lên.",
+        "steps": [
+          "Vào menu Trò chuyện",
+          "Chọn phạm vi tìm kiếm (tùy chọn)",
+          "Nhập câu hỏi",
+          "Kiểm tra câu trả lời và trích dẫn"
+        ]
+      },
+      "apiKeys": {
+        "title": "Quản lý API Key",
+        "description": "Đăng ký và quản lý API key cho các nhà cung cấp LLM.",
+        "steps": [
+          "Vào menu API Keys",
+          "Nhấn 'Đăng ký key'",
+          "Chọn nhà cung cấp LLM",
+          "Dán API key và xác nhận"
+        ]
+      }
+    },
+    "moreHelpTitle": "Trợ giúp bổ sung",
+    "moreHelpDesc": "Để biết thêm chi tiết, xem:",
+    "helpLink": "Trang trợ giúp"
+  },
+  "adminDocutilSearchTest": {
+    "title": "Kiểm tra tìm kiếm DocUtil",
+    "subtitle": "Kiểm thử chất lượng tìm kiếm — 4 chế độ (Hybrid / Chatbot / Q&A / Keyword) và Admin Bypass.",
+    "refresh": "Làm mới",
+    "toggleHistory": "Bật/tắt lịch sử",
+    "showHistory": "Hiện lịch sử",
+    "hideHistory": "Ẩn lịch sử",
+    "scope": "Phạm vi tìm kiếm",
+    "scopeNone": "(Tất cả)",
+    "scopeEmpty": "Chưa có phạm vi tìm kiếm nào.",
+    "searchTypeLabel": "Chế độ tìm kiếm",
+    "modes": {
+      "hybrid": "Hybrid",
+      "chatbot": "Chatbot",
+      "qa": "Q&A",
+      "keyword": "Keyword",
+      "admin-test": "Admin Bypass"
+    },
+    "query": "Truy vấn",
+    "queryPlaceholderSearch": "Nhập từ khóa tìm kiếm...",
+    "queryPlaceholderChat": "Đặt câu hỏi...",
+    "queryRequired": "Vui lòng nhập truy vấn.",
+    "searchButton": "Tìm kiếm",
+    "searching": "Đang tìm...",
+    "results": "Kết quả",
+    "emptyState": "Chọn phạm vi, chế độ và nhập truy vấn để bắt đầu.",
+    "noResults": "Không có kết quả phù hợp.",
+    "noAnswer": "Không thể tạo câu trả lời.",
+    "noCitations": "Không có trích dẫn nào được trả về.",
+    "score": "Điểm",
+    "highlights": "Đoạn nhấn",
+    "answer": "Câu trả lời",
+    "citations": "Trích dẫn",
+    "hallucinationScore": "Điểm ảo giác",
+    "historyTitle": "Truy vấn gần đây",
+    "historyEmpty": "Chưa có lịch sử truy vấn.",
+    "historyResultCount": "{count} kết quả",
+    "refreshHistory": "Làm mới lịch sử",
+    "errorUnknown": "Đã xảy ra lỗi không xác định."
   }
 }
