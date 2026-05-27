@@ -936,14 +936,12 @@ body {
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   nav-pills .nav-link 시인성 강화 (트랙 #116, 2026-05-27)
+   nav-pills .nav-link 시인성 강화 + 보색 글자 (트랙 #116 + #117, 2026-05-27)
    문제: Bootstrap nav-pills 의 비활성 nav-link 가 transparent + 옅은 회색 →
          페이지 배경(--ai-bg-page #F1F5F9) 위에서 거의 보이지 않음.
-   Fix:
-   - 비활성: 흰 배경 + 진한 회색 border + 진한 회색 text → 카드/탭 명확 식별
-   - 활성: --ai-primary 배경 + 흰 text + 약한 그림자 (기존 패턴 유지)
-   - hover: 옅은 fill + 진한 border
-   전역 적용 = 모든 nav-pills 사용 화면 (docutil-projects 의 '목록/트리' 탭 등)
+   트랙 #117 추가: 글자색을 배경의 보색(complementary)으로 변경:
+   - 비활성 흰 배경 (#FFFFFF) → 보색 = 검정 (#000000) 글자
+   - 활성 indigo 배경 (--ai-primary #4F46E5) → 보색 = amber (#FBBF24) 글자
    ──────────────────────────────────────────────────────────────────── */
 .nav-pills .nav-link {
   display: inline-flex;
@@ -951,9 +949,9 @@ body {
   gap: 6px;
   padding: 8px 18px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--font-sans);
-  color: #374151;
+  color: #000000;            /* 트랙 #117: 흰 배경의 보색 = 검정 */
   background: #FFFFFF;
   border: 1.5px solid #9CA3AF;
   border-radius: var(--ai-radius-lg);
@@ -965,13 +963,13 @@ body {
 .nav-pills .nav-link:hover:not(.active) {
   background: #F3F4F6;
   border-color: #6B7280;
-  color: #1F2937;
+  color: #000000;
   transform: translateY(-1px);
   box-shadow: var(--ai-shadow-sm);
 }
 .nav-pills .nav-link.active,
 .nav-pills .show > .nav-link {
-  color: #FFFFFF;
+  color: #FBBF24;            /* 트랙 #117: indigo (#4F46E5) 배경의 보색 = amber */
   background: var(--ai-primary);
   border-color: var(--ai-primary);
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
