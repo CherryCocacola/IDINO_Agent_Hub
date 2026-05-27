@@ -468,17 +468,12 @@ public class AdminDocUtilDepartmentsController : ControllerBase
             return BadRequest(ErrorResponseDto.BadRequest("부서 식별자가 비어 있습니다."));
         }
 
-        var version = await _cachingService.GetVersionAsync(CacheVersionNamespace);
-        var cacheKey = $"{CacheKeyPrefix}v{version}:members:{deptId}";
-
-        var cached = await _cachingService.GetAsync<CachedMemberListDto>(cacheKey);
-        if (cached?.Items != null)
-        {
-            _logger.LogDebug("DocUtil 부서 멤버 캐시 hit - key={Key}, count={Count}", cacheKey, cached.Items.Length);
-            return Ok(cached.Items.ToList());
-        }
-        _logger.LogDebug("DocUtil 부서 멤버 캐시 miss - key={Key}", cacheKey);
-
+        // 트랙 #123 (2026-05-27): 부서 멤버 list cache 제거 — mutation→GET 정합성 보장.
+        // 원인: 사용자가 멤버 제거 (UpdateUser DepartmentId 변경) 시 AdminDocUtilUsersController
+        // 가 `docutil-users` namespace 만 invalidate. 본 컨트롤러는 `docutil-departments`
+        // namespace cache 사용 → cross-namespace invalidate 누락 → 멤버 list 가 stale.
+        // 트랙 #113 (프로젝트 멤버) 와 정합: cache 제거 = 정합성 > 성능 trade-off 정당
+        // (호출 빈도 낮음 + DB query 빠름, AgentHub Users 직접 read).
         try
         {
             // 트랙 #106 — AgentHub Users 직접 조회. deptId 는 int 문자열(Departments.DepartmentId).
@@ -523,10 +518,8 @@ public class AdminDocUtilDepartmentsController : ControllerBase
                     Role: (topRoles.GetValueOrDefault(u.UserId) ?? "member").ToLowerInvariant()))
                 .ToList();
 
-            await _cachingService.SetAsync(cacheKey, new CachedMemberListDto { Items = members.ToArray() }, CacheTtl);
-
             _logger.LogInformation(
-                "AgentHub 부서별 멤버 직접 쿼리 - deptId={DeptId}, count={Count}",
+                "AgentHub 부서별 멤버 직접 쿼리 (cache 미사용) - deptId={DeptId}, count={Count}",
                 deptIdInt, members.Count);
 
             return Ok(members);
