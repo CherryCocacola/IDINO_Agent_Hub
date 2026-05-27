@@ -1,0 +1,7 @@
+{
+  "track": "#112 SPA index.html no-cache + asset immutable",
+  "ran_at": "2026-05-27T09:02:21",
+  "html_no_cache_attached": true,
+  "index_headers": "Cache-Control: no-store, no-cache, must-revalidate\r\nETag: \"1dced6bff03e251\"\r\nExpires: 0\r\nPragma: no-cache",
+  "spa_fallback_headers": "Cache-Control: no-store, no-cache, must-revalidate\r\nETag: \"1dced6bff03e251\"\r\nExpires: 0\r\nPragma: no-cache"
+}

@@ -628,8 +628,32 @@ else
     {
         OnPrepareResponse = ctx =>
         {
-            // 정적 파일이 성공적으로 제공되면 로깅 (선택사항)
-            // ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=31536000");
+            // 트랙 #112 (2026-05-27): SPA cache 정책 분리 (file name 기반).
+            // - .html (index.html, SPA shell): no-cache → 사용자가 새 chunk hash reference
+            //   를 즉시 받도록 강제 (브라우저 ETag/Last-Modified default 사용 시 stale 결함).
+            // - .js/.css/이미지 (hashed asset): 1년 immutable → chunk hash 변경 시에만 재요청.
+            //
+            // 주의: Request.Path 가 아닌 ctx.File.Name 으로 판정 — MapFallbackToFile 이
+            // /admin/docutil-projects 같은 SPA 경로에 index.html 응답 시 path 는 원본
+            // 그대로 유지되어 path.EndsWith(".html") 매칭 실패. ctx.File.Name 은
+            // 실제 응답 파일 이름이라 fallback 도 정확 판정.
+            //
+            // 결함 사례: 트랙 #111 axios cache-buster fix 가 새 chunk 에 포함됐으나, 사용자
+            // 브라우저가 cached index.html (이전 chunk reference) 사용 → fix 코드 도달 안 함
+            // → DELETE 2회 후 반영 결함 재발.
+            var fileName = ctx.File?.Name ?? string.Empty;
+            var isHtml = fileName.EndsWith(".html", StringComparison.OrdinalIgnoreCase);
+            if (isHtml)
+            {
+                ctx.Context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+                ctx.Context.Response.Headers["Pragma"] = "no-cache";
+                ctx.Context.Response.Headers["Expires"] = "0";
+            }
+            else
+            {
+                // hashed asset (vite 가 파일명에 hash 부착) — 1년 immutable cache.
+                ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+            }
         }
     });
 }
@@ -645,24 +669,29 @@ app.UseRateLimiter();
 // Activity Logging Middleware (인증 후에 실행되어야 함)
 app.UseMiddleware<AIAgentManagement.Middleware.ActivityLoggingMiddleware>();
 
-// 트랙 #111 (2026-05-27): /api/* 응답 브라우저 cache 차단.
-// AgentHub API 응답에 Cache-Control 부재 → 브라우저 heuristic cache 가 mutation 후
-// GET 응답을 stale 로 보여주는 결함 (사용자 보고: 1회 mutation 후 list 갱신 안 되고
-// 2회째 mutation 후 반영) 해소. /api/* prefix 응답 직전에 Cache-Control 강제 부착.
+// 트랙 #111 + #112 (2026-05-27): cache 정책 통합 middleware.
+// /api/* + HTML 응답 (index.html / SPA fallback) → no-cache 강제 부착.
+// hashed asset (.js/.css) 은 UseStaticFiles 의 OnPrepareResponse 가 immutable 처리.
+//
+// 핵심: MapFallbackToFile + UseDefaultFiles 는 StaticFiles 의 OnPrepareResponse 를
+// 우회하는 경로 — Content-Type 기반으로 응답 직전 헤더 강제 부착이 정공법.
 app.Use(async (ctx, next) =>
 {
-    var path = ctx.Request.Path.Value;
-    var isApi = path != null && path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase);
-    if (isApi)
+    ctx.Response.OnStarting(() =>
     {
-        ctx.Response.OnStarting(() =>
+        var path = ctx.Request.Path.Value;
+        var isApi = path != null && path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase);
+        var contentType = ctx.Response.ContentType ?? string.Empty;
+        var isHtml = contentType.Contains("text/html", StringComparison.OrdinalIgnoreCase);
+
+        if (isApi || isHtml)
         {
             ctx.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
             ctx.Response.Headers["Pragma"] = "no-cache";
             ctx.Response.Headers["Expires"] = "0";
-            return Task.CompletedTask;
-        });
-    }
+        }
+        return Task.CompletedTask;
+    });
     await next();
 });
 
