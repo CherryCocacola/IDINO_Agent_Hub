@@ -344,6 +344,12 @@ class ProjectService:
             ) from exc
         await db.refresh(member)
 
+        # 트랙 #113 (2026-05-27): 명시적 commit — get_db() cleanup 이 yield 후
+        # commit 하므로 HTTP 201 응답 후에야 transaction commit 됨. AgentHub 가
+        # 즉시 GET 호출 시 commit 전 SELECT → stale (PostgreSQL Read Committed).
+        # 명시 commit 으로 HTTP 응답 전에 transaction 가시화 보장.
+        await db.commit()
+
         return {
             "id": member.id,
             "project_id": member.project_id,
@@ -387,6 +393,10 @@ class ProjectService:
                 ),
             )
         await db.flush()
+        # 트랙 #113 (2026-05-27): 명시적 commit — get_db() cleanup 이 yield 후 commit
+        # 하므로 HTTP 204 응답 후에야 transaction commit. AgentHub 즉시 GET 시 stale.
+        # 명시 commit 으로 HTTP 응답 전 transaction 가시화.
+        await db.commit()
 
 
 # ---------------------------------------------------------------------------

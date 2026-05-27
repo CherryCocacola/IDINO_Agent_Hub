@@ -1,0 +1,43 @@
+{
+  "track": "#113 멤버 list cache 제거 + 10회 stability",
+  "ran_at": "2026-05-27T09:15:10",
+  "pass": 7,
+  "total": 10,
+  "fails": [
+    {
+      "iter": 2,
+      "add_status": "201",
+      "del_status": "204",
+      "after_add": [
+        "user"
+      ],
+      "after_del": [
+        "user"
+      ]
+    },
+    {
+      "iter": 4,
+      "add_status": "201",
+      "del_status": "204",
+      "after_add": [
+        "user"
+      ],
+      "after_del": [
+        "user"
+      ]
+    },
+    {
+      "iter": 5,
+      "add_status": "201",
+      "del_status": "204",
+      "after_add": [
+        "user",
+        "이동건"
+      ],
+      "after_del": [
+        "user",
+        "이동건"
+      ]
+    }
+  ]
+}

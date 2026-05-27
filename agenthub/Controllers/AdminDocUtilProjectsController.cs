@@ -377,21 +377,16 @@ public class AdminDocUtilProjectsController : ControllerBase
             return BadRequest(ErrorResponseDto.BadRequest("프로젝트 식별자가 비어 있습니다."));
         }
 
-        var version = await _cachingService.GetVersionAsync(CacheVersionNamespace);
-        var cacheKey = $"{CacheKeyPrefix}v{version}:members:{projectId}";
-
-        var cached = await _cachingService.GetAsync<CachedProjectMemberListDto>(cacheKey);
-        if (cached?.Items != null)
-        {
-            _logger.LogDebug("DocUtil 프로젝트 멤버 캐시 hit - key={Key}, count={Count}", cacheKey, cached.Items.Length);
-            return Ok(cached.Items.ToList());
-        }
-        _logger.LogDebug("DocUtil 프로젝트 멤버 캐시 miss - key={Key}", cacheKey);
-
+        // 트랙 #113 (2026-05-27): 멤버 list cache 제거 — mutation→GET 정합성 완벽 보장.
+        // 원인: 트랙 #110(WRONGTYPE 자가복구) + #111(/api/* no-cache) + #112(SPA html no-cache)
+        // 후에도 사용자 보고 "DELETE 2회 후 반영" 재발. backend 의 cv version invalidate timing
+        // race 또는 IDistributedCache 의 잠시 stale 가능성. 멤버 list 호출 빈도 낮고 DocUtil
+        // 응답 ~10ms 이므로 cache 제거가 정합성 > 성능 trade-off 정당.
         try
         {
             var members = await _docUtilClient.GetProjectMembersAsync(projectId, ct);
-            await _cachingService.SetAsync(cacheKey, new CachedProjectMemberListDto { Items = members.ToArray() }, CacheTtl);
+            _logger.LogDebug("DocUtil 프로젝트 멤버 조회 (cache 미사용) - projectId={Pid}, count={Count}",
+                projectId, members.Count);
             return Ok(members);
         }
         catch (InvalidOperationException ex)
