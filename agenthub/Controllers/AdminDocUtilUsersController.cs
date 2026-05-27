@@ -378,48 +378,145 @@ public class AdminDocUtilUsersController : ControllerBase
             }
         }
 
+        // 트랙 #122 (2026-05-27): AgentHub Users 직접 UPDATE 로 refactor.
+        // 원인: 이전에 DocUtil 위임 → DocUtil 가 user_id/department_id UUID 만 수용 → AgentHub
+        //   id 는 int (예: "265") 또는 UUID 혼합 → AgentHub Users.OriginalDocutilUuid NULL 인 user
+        //   추가/수정 시 DocUtil 422. 또한 AgentHub Departments.DepartmentId 는 int 인데 DocUtil 은
+        //   UUID 기대 → 부서 매핑 시도시 무조건 422.
+        // Fix: 트랙 A1 Phase C mutation refactor 패턴 — AgentHub Users + UserRoles DbContext 직접
+        //   UPDATE. DocUtil 호출 0 (단방향 = AgentHub 가 단일 SOT). path id 는 UUID/int 둘 다 수용.
         try
         {
-            var docUtilRequest = new DocUtilUpdateUserRequest(
-                Email: request.Email,
-                Role: request.Role,
-                DepartmentId: request.DepartmentId,
-                Language: request.Language,
-                Status: request.Status?.ToLowerInvariant());
+            // id 가 UUID 면 OriginalDocutilUuid 매칭, int 면 UserId 매칭 — 둘 다 수용
+            // ControllerBase.User (ClaimsPrincipal) 와 ambiguous 회피 위해 Models.User 명시.
+            Models.User? user = null;
+            if (Guid.TryParse(id, out var idGuid))
+            {
+                user = await _db.Users.FirstOrDefaultAsync(u => u.OriginalDocutilUuid == idGuid && !u.IsDeleted, ct);
+            }
+            else if (int.TryParse(id, out var idInt))
+            {
+                user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == idInt && !u.IsDeleted, ct);
+            }
+            if (user is null)
+            {
+                return NotFound(ErrorResponseDto.NotFound("사용자를 찾을 수 없습니다."));
+            }
 
-            var result = await _docUtilClient.UpdateUserAsync(id, docUtilRequest, ct);
+            // departmentId: 빈 문자열 = 해제(NULL), int string = AgentHub DepartmentId, UUID 도 수용
+            // 시 OriginalDocutilUuid 매핑 lookup (트랙 A1 Phase D 의 import 후엔 정상 동작).
+            if (request.DepartmentId is not null)
+            {
+                if (request.DepartmentId.Length == 0)
+                {
+                    user.DepartmentId = null;
+                }
+                else if (int.TryParse(request.DepartmentId, out var deptInt))
+                {
+                    user.DepartmentId = deptInt;
+                }
+                else if (Guid.TryParse(request.DepartmentId, out var deptGuid))
+                {
+                    var dept = await _db.Departments.FirstOrDefaultAsync(
+                        d => d.OriginalDocutilUuid == deptGuid, ct);
+                    if (dept is null)
+                    {
+                        return BadRequest(ErrorResponseDto.BadRequest(
+                            "지정한 부서를 찾을 수 없습니다 (departmentId)."));
+                    }
+                    user.DepartmentId = dept.DepartmentId;
+                }
+                else
+                {
+                    return BadRequest(ErrorResponseDto.BadRequest(
+                        "departmentId 형식이 올바르지 않습니다 (int 또는 UUID 또는 빈 문자열)."));
+                }
+            }
+
+            if (request.Email is not null)
+            {
+                user.Email = request.Email;
+            }
+            if (request.Status is not null)
+            {
+                // 화이트리스트는 위에서 검증됨. PascalCase 변환 (DB CHECK constraint: Active/Pending/Inactive)
+                // DocUtil 의 active/inactive/locked → AgentHub Active/Inactive/Pending 매핑
+                user.Status = request.Status.ToLowerInvariant() switch
+                {
+                    "active" => "Active",
+                    "inactive" => "Inactive",
+                    "locked" or "pending" => "Pending",
+                    _ => user.Status,
+                };
+            }
+            if (request.Language is not null)
+            {
+                user.Language = request.Language;
+            }
+
+            // role 변경 시 UserRoles 교체 (단일 role 명시)
+            if (!string.IsNullOrWhiteSpace(request.Role))
+            {
+                var roleLower = request.Role.ToLowerInvariant();
+                var role = await _db.Roles.FirstOrDefaultAsync(r => r.RoleName.ToLower() == roleLower, ct);
+                if (role is null)
+                {
+                    return BadRequest(ErrorResponseDto.BadRequest(
+                        $"허용되지 않는 권한입니다: {request.Role}"));
+                }
+                var existing = await _db.UserRoles.Where(ur => ur.UserId == user.UserId).ToListAsync(ct);
+                _db.UserRoles.RemoveRange(existing);
+                _db.UserRoles.Add(new Models.UserRole
+                {
+                    UserId = user.UserId,
+                    RoleId = role.RoleId,
+                    AssignedAt = DateTime.UtcNow,
+                });
+            }
+
+            user.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
 
             _logger.LogInformation(
-                "운영자 DocUtil 사용자 정보 수정 성공 - UserId={UserId}, Fields=[email={E},role={R},dept={D},lang={L},status={S}]",
-                id,
+                "AgentHub 사용자 정보 수정 성공 (직접 update) - UserId={UserId}, Fields=[email={E},role={R},dept={D},lang={L},status={S}]",
+                user.UserId,
                 request.Email is null ? "-" : "set",
                 request.Role ?? "-",
-                request.DepartmentId is null ? "-" : (request.DepartmentId.Length == 0 ? "clear" : "set"),
+                request.DepartmentId is null ? "-" : (request.DepartmentId.Length == 0 ? "clear" : request.DepartmentId),
                 request.Language ?? "-",
                 request.Status ?? "-");
 
             await InvalidateUsersCacheAsync();
-            return Ok(result);
+
+            // 응답: 갱신된 user 를 DocUtilUserDetail 형식으로 반환 (frontend 호환)
+            var roleName = await _db.UserRoles
+                .Where(ur => ur.UserId == user.UserId)
+                .Join(_db.Roles, ur => ur.RoleId, r => r.RoleId, (ur, r) => r.RoleName)
+                .OrderBy(rn => rn)
+                .FirstOrDefaultAsync(ct);
+            var resp = new DocUtilUserDetail(
+                Id: user.OriginalDocutilUuid?.ToString() ?? user.UserId.ToString(),
+                Username: !string.IsNullOrWhiteSpace(user.FullName)
+                    ? user.FullName!
+                    : (!string.IsNullOrWhiteSpace(user.DocutilUsername) ? user.DocutilUsername : user.Email),
+                Email: user.Email,
+                Role: (roleName ?? "member").ToLowerInvariant(),
+                Status: (user.Status ?? "Active").ToLowerInvariant(),
+                OrganizationId: user.OrganizationId?.ToString() ?? string.Empty,
+                DepartmentId: user.DepartmentId?.ToString(),
+                Language: user.Language,
+                LastLoginAt: user.LastLoginAt,
+                CreatedAt: user.CreatedAt);
+            return Ok(resp);
         }
-        catch (DocUtilUpstreamException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "DocUtil 사용자 정보 수정 실패 - errorCode={ErrorCode}, status={Status}, id={Id}",
-                ex.ErrorCode, (int)ex.StatusCode, id);
+            _logger.LogError(ex, "AgentHub 사용자 정보 수정 실패 (id={Id})", id);
             await InvalidateUsersCacheAsync();
-            return StatusCode(
-                ErrorResponseDto.MapDocUtilUpstreamToStatusCode(ex),
-                ErrorResponseDto.FromDocUtilUpstream(ex,
-                    "사용자 정보 수정에 실패했습니다. " + ex.Message));
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogError(ex, "DocUtil 사용자 정보 수정 실패 (id={Id})", id);
-            await InvalidateUsersCacheAsync();
-            return StatusCode(502, new ErrorResponseDto(
+            return StatusCode(500, new ErrorResponseDto(
                 "사용자 정보 수정에 실패했습니다.",
-                "DOCUTIL_UPSTREAM_ERROR",
-                new { upstream = ex.Message }));
+                "INTERNAL_ERROR",
+                new { error = ex.Message }));
         }
     }
 
