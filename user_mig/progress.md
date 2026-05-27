@@ -209,6 +209,8 @@
 **관련 패턴 비고**:
 - 트랙 #117/#118 의 nav-pills 색상 결함 (사용자 보고 → 즉시 fix) 와 동일 패턴 — "코드 정의 ≠ 실제 표시/작동" (`MEMORY.md feedback_ui_verification`). 운영 화면에서 실측한 사용자 보고가 빌드/타입 검사보다 강한 신호.
 
+**커밋**: `3cb374a` (push 보류 — 사용자 명시 승인 후만 진행).
+
 ### 2026-05-26 (트랙 1-5 SSO 옵션 A frontend — AgentHub → DocUtil JWT cookie/fragment 공유)
 
 **목표**: AgentHub Vue 와 DocUtil Next.js 간 SSO 옵션 A frontend 부 구현. 사용자가 AgentHub 로그인 후 DocUtil 사용자 화면(`/search`, `/chat`) 진입 시 별도 로그인 없이 자동 인증. 같은 host (`192.168.10.39`) 다른 port (`64005` ↔ `8041`) 환경, JWT SecretKey 단일화 가정 (backend-specialist 가 DocUtil decode_token 확장 병렬 진행).
