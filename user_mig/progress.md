@@ -170,6 +170,45 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-27 (트랙 #124 — AdminDocUtilTemplates modal 흰 화면 fix [vue-i18n placeholder syntax 위반 2건])
+
+**사용자 보고 (순차 2건)**:
+1. modal 안 **"Jinja2 변환" 탭 → "변환 실행"** 버튼 클릭 시 흰 화면 + 콘솔 `SyntaxError: Invalid token in placeholder: '"replacements":'` (vue-vendor)
+2. modal 안 **"변수 매핑" 탭** 클릭 시 흰 화면 + 콘솔 `SyntaxError: Not allowed nest placeholder` (vue-vendor)
+
+**Root cause** (단일 결함의 두 패턴):
+- vue-i18n 9+ message compiler 가 `{` 를 placeholder 시작으로 해석
+- 결함 1: `adminDocutilTemplates.convertAnalysisHelp` 가 raw JSON `{ "replacements": [ ... ] }` 포함 → `"replacements":` 가 placeholder name 으로 파싱 시도 → `:` invalid token
+- 결함 2: `adminDocutilTemplates.mappingHint` / `uploadStandardHint` / `uploadSmartHint` 가 `{{ ... }}` (Jinja2 시각 표기) 포함 → nested placeholder 로 해석 → "Not allowed nest placeholder"
+- ko/en/vi 3 locale 모두 동일 패턴 (i18n 동기화 일관성으로 모두 결함)
+- 빌드 시 잡히지 않고 런타임 메시지 컴파일 시점 (탭 클릭/버튼 클릭) 에만 폭발 → 컴포넌트 unmount → 흰 화면
+
+**Fix** (3 locale × 4 키 = 12 항목):
+| 키 | 변경 |
+|---|---|
+| `convertAnalysisHelp` | JSON 예시 제거 → "JSON 예시는 입력란 placeholder 를 참고하세요" (예시는 textarea `convertPlaceholder` TS const 와 중복이므로 i18n 안내문에서는 단순화) |
+| `mappingHint` | `{{ 변수명 }}` → `Jinja2 변수 자리표시자` |
+| `uploadStandardHint` | `{{ }}` → `Jinja2 변수 자리표시자` |
+| `uploadSmartHint` | `{{ }}` → `Jinja2 자리표시자 패턴` |
+
+**파일**:
+- `agenthub/ClientApp/src/i18n/locales/ko.json` (4 키)
+- `agenthub/ClientApp/src/i18n/locales/en.json` (4 키)
+- `agenthub/ClientApp/src/i18n/locales/vi.json` (4 키)
+- `tmp/deploy_track124_i18n_convert_fix.py` (SFTP + agenthub build + force-recreate + nginx restart + i18n 잔존 검증)
+
+**검증**:
+- 빌드 산출물에 새 메시지 ("입력란 placeholder") 포함 확인 (grep)
+- i18n 전체 `{{` 패턴 0건 (재 grep) — convertPlaceholder TS const 는 textarea attribute 라 vue-i18n 무관
+- 사용자 운영 검증: "변환 실행" 버튼 + "변수 매핑" 탭 클릭 시 흰 화면 없음, modal 정상 동작 PASS
+
+**근본 예방 후보** (별도 트랙 #125 검토):
+- ESLint `vue-i18n/no-raw-text` 또는 `@intlify/vue-i18n` lint 도입 → i18n 메시지 placeholder syntax 위반을 빌드 시 차단
+- 같은 결함 잠재 위치: i18n 메시지에 raw `{` 가 의도적 placeholder 가 아닌 형태로 포함된 경우 모두 위험
+
+**관련 패턴 비고**:
+- 트랙 #117/#118 의 nav-pills 색상 결함 (사용자 보고 → 즉시 fix) 와 동일 패턴 — "코드 정의 ≠ 실제 표시/작동" (`MEMORY.md feedback_ui_verification`). 운영 화면에서 실측한 사용자 보고가 빌드/타입 검사보다 강한 신호.
+
 ### 2026-05-26 (트랙 1-5 SSO 옵션 A frontend — AgentHub → DocUtil JWT cookie/fragment 공유)
 
 **목표**: AgentHub Vue 와 DocUtil Next.js 간 SSO 옵션 A frontend 부 구현. 사용자가 AgentHub 로그인 후 DocUtil 사용자 화면(`/search`, `/chat`) 진입 시 별도 로그인 없이 자동 인증. 같은 host (`192.168.10.39`) 다른 port (`64005` ↔ `8041`) 환경, JWT SecretKey 단일화 가정 (backend-specialist 가 DocUtil decode_token 확장 병렬 진행).
