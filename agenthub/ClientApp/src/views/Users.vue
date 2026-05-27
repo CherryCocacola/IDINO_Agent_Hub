@@ -281,6 +281,26 @@
                   <input type="tel" class="form-control user-form-control" v-model="newUser.phoneNumber" placeholder="010-0000-0000">
                 </div>
               </div>
+              <!-- 트랙 #121 (2026-05-27): 신규 사용자 권한 선택 (다중 선택 체크박스) -->
+              <div class="user-form-group">
+                <label class="user-form-label">권한</label>
+                <div class="d-flex flex-wrap gap-3 mt-1">
+                  <div v-for="role in availableRoles" :key="role.roleId" class="form-check">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      :id="`new-role-${role.roleId}`"
+                      :value="role.roleId"
+                      v-model="newUser.roleIds"
+                    >
+                    <label class="form-check-label" :for="`new-role-${role.roleId}`">
+                      {{ role.roleName }}
+                      <small v-if="role.description" class="text-muted ms-1">({{ role.description }})</small>
+                    </label>
+                  </div>
+                </div>
+                <small class="text-muted">미선택 시 기본 권한이 부여됩니다.</small>
+              </div>
             </form>
           </div>
           <div class="modal-footer user-modal-footer">
@@ -332,6 +352,26 @@
                   <option value="Pending">대기</option>
                   <option value="Inactive">비활성</option>
                 </select>
+              </div>
+              <!-- 트랙 #121 (2026-05-27): 사용자 권한 변경 (다중 선택 체크박스) -->
+              <div class="mb-3" v-if="editingUser">
+                <label class="form-label">권한</label>
+                <div class="d-flex flex-wrap gap-3 mt-1">
+                  <div v-for="role in availableRoles" :key="role.roleId" class="form-check">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      :id="`edit-role-${role.roleId}`"
+                      :value="role.roleId"
+                      v-model="editingUserRoleIds"
+                    >
+                    <label class="form-check-label" :for="`edit-role-${role.roleId}`">
+                      {{ role.roleName }}
+                      <small v-if="role.description" class="text-muted ms-1">({{ role.description }})</small>
+                    </label>
+                  </div>
+                </div>
+                <small class="text-muted">체크 해제 시 해당 권한이 제거됩니다.</small>
               </div>
               <div class="mb-3" v-if="editingUser">
                 <label class="form-label">새 비밀번호 (변경 시에만 입력)</label>
@@ -433,6 +473,14 @@ interface CreateUserData {
   passwordConfirm: string
   department?: string
   phoneNumber?: string
+  roleIds?: number[]    // 트랙 #121 (2026-05-27): 신규 사용자 권한 선택
+}
+
+// 트랙 #121: /api/roles GET 응답 형식 (RolesController)
+interface RoleDto {
+  roleId: number
+  roleName: string
+  description?: string | null
 }
 
 const users = ref<UserDto[]>([])
@@ -458,8 +506,23 @@ const newUser = ref<CreateUserData>({
   password: '',
   passwordConfirm: '',
   department: '',
-  phoneNumber: ''
+  phoneNumber: '',
+  roleIds: []
 })
+
+// 트랙 #121: 사용자 권한 카탈로그 + 수정 modal 의 선택된 권한 id
+const availableRoles = ref<RoleDto[]>([])
+const editingUserRoleIds = ref<number[]>([])
+
+const fetchRoles = async () => {
+  try {
+    const { data } = await api.get<RoleDto[]>('/roles')
+    availableRoles.value = data || []
+  } catch (err) {
+    console.error('Error loading roles:', err)
+    availableRoles.value = []
+  }
+}
 
 const stats = computed<UserStats>(() => {
   const total = users.value.length
@@ -566,6 +629,10 @@ const onPageSizeChange = () => {
 const editUser = (user: UserDto | null) => {
   if (!user) return
   editingUser.value = { ...user }
+  // 트랙 #121: 기존 role 이름(string[]) → roleId(number[]) 매핑 (case-insensitive)
+  editingUserRoleIds.value = (user.roles || [])
+    .map(rn => availableRoles.value.find(r => r.roleName.toLowerCase() === rn.toLowerCase())?.roleId)
+    .filter((id): id is number => typeof id === 'number')
   showEditModal.value = true
 }
 
@@ -602,9 +669,12 @@ const handleAddUser = async () => {
       email: newUser.value.email,
       password: newUser.value.password,
       department: newUser.value.department || undefined,
-      phoneNumber: newUser.value.phoneNumber || undefined
+      phoneNumber: newUser.value.phoneNumber || undefined,
+      roleIds: newUser.value.roleIds && newUser.value.roleIds.length > 0
+        ? newUser.value.roleIds
+        : undefined    // 트랙 #121: 미선택 시 backend default 적용
     })
-    
+
     showAddModal.value = false
     newUser.value = {
       fullName: '',
@@ -612,7 +682,8 @@ const handleAddUser = async () => {
       password: '',
       passwordConfirm: '',
       department: '',
-      phoneNumber: ''
+      phoneNumber: '',
+      roleIds: []
     }
     await loadUsers()
   } catch (error: any) {
@@ -629,9 +700,11 @@ const handleUpdateUser = async () => {
       fullName: editingUser.value.fullName || '',
       department: editingUser.value.department || undefined,
       phoneNumber: editingUser.value.phoneNumber || undefined,
-      status: editingUser.value.status || 'Active'
+      status: editingUser.value.status || 'Active',
+      // 트랙 #121: 권한 변경 전송 (빈 배열도 명시 전송 = 모든 권한 제거)
+      roleIds: editingUserRoleIds.value
     }
-    
+
     // 비밀번호가 입력된 경우만 포함
     if (editingUserNewPassword.value) {
       updateData.password = editingUserNewPassword.value
@@ -739,6 +812,7 @@ const getStatusText = (status: string): string => {
 }
 
 onMounted(() => {
+  fetchRoles()    // 트랙 #121: 권한 카탈로그 prefetch (modal 열기 전 준비)
   loadUsers()
 })
 </script>
