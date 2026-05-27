@@ -17,7 +17,10 @@ public class UpdateUserRequestDto
     [MaxLength(500)]
     public string? Bio { get; set; }
 
-    [RegularExpression("^(Active|Inactive|Suspended)$", ErrorMessage = "Status는 Active, Inactive, Suspended 중 하나여야 합니다.")]
+    // 트랙 #120 (2026-05-27): DB CHECK constraint (Active/Pending/Inactive) 와 일치.
+    // 이전: Suspended 가 잘못 정의됐고 Pending 누락 → 사용자 상태 '대기' 변경 시 400 결함.
+    // Pending = 신규 가입 후 관리자 승인 대기 (CreateUser default 상태).
+    [RegularExpression("^(Active|Pending|Inactive)$", ErrorMessage = "Status는 Active, Pending, Inactive 중 하나여야 합니다.")]
     public string? Status { get; set; }
 
     public string? CurrentPassword { get; set; }
