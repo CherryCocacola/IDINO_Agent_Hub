@@ -26,14 +26,21 @@ public class UserService : IUserService
             query = query.Where(u => u.Email.Contains(search) || u.FullName.Contains(search));
         }
 
+        // 트랙 #119 (2026-05-27): role/status filter case-insensitive 비교.
+        // 원인: frontend Users.vue select option value 가 소문자 (admin/user/developer,
+        // active/pending/inactive) 이지만 DB Roles.RoleName + Users.Status 는 PascalCase
+        // (Admin/User/Developer, Active/Pending/Inactive). exact == 비교 시 0 결과.
+        // Fix: ToLower() 양쪽 — EF Core 가 PostgreSQL LOWER() 함수로 변환.
         if (!string.IsNullOrEmpty(status))
         {
-            query = query.Where(u => u.Status == status);
+            var statusLower = status.ToLower();
+            query = query.Where(u => u.Status.ToLower() == statusLower);
         }
 
         if (!string.IsNullOrEmpty(role))
         {
-            query = query.Where(u => u.UserRoles.Any(ur => ur.Role.RoleName == role));
+            var roleLower = role.ToLower();
+            query = query.Where(u => u.UserRoles.Any(ur => ur.Role.RoleName.ToLower() == roleLower));
         }
 
         var users = await query
