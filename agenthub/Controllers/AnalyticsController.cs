@@ -39,8 +39,15 @@ public class AnalyticsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// 사용량 통계 — myAccount 카테고리 "통계" 메뉴 (MainLayout.vue:451 코멘트 참조).
+    /// <para>
+    /// 트랙 #132 (2026-05-29): 일반 사용자 본인 통계 접근 허용. 종전 Authorize(Roles="Admin")
+    /// 으로 일반 user 403 결함 → AgentsController.cs:52 패턴 일관 — Admin 아니면 본인 userId
+    /// 강제 필터, Admin 은 userId 자유 (전체 또는 지정 사용자).
+    /// </para>
+    /// </summary>
     [HttpGet("usage")]
-    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<List<UsageStatsDto>>> GetUsageStats(
         [FromQuery] DateTime? startDate,
         [FromQuery] DateTime? endDate,
@@ -48,6 +55,12 @@ public class AnalyticsController : ControllerBase
     {
         try
         {
+            if (!User.IsInRole("Admin"))
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (int.TryParse(userIdClaim, out var currentUserId))
+                    userId = currentUserId;
+            }
             var stats = await _analyticsService.GetUsageStatsAsync(startDate, endDate, userId);
             return Ok(stats);
         }
@@ -75,12 +88,21 @@ public class AnalyticsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Top N 사용자 사용량 — Admin 콘솔 비교 분석용.
+    /// <para>
+    /// 트랙 #132 패턴 일관 (2026-05-29): top-users 는 의미상 Admin 전용 (다른 사용자
+    /// 순위 비교). 일반 user 호출 시 403 대신 빈 배열 반환 — Analytics.vue 가 일반
+    /// user 화면에서 본 차트를 graceful 처리 (데이터 없음).
+    /// </para>
+    /// </summary>
     [HttpGet("top-users")]
-    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<List<UserUsageDto>>> GetTopUsers([FromQuery] int top = 10)
     {
         try
         {
+            if (!User.IsInRole("Admin"))
+                return Ok(new List<UserUsageDto>());
             var users = await _analyticsService.GetTopUsersAsync(top);
             return Ok(users);
         }
