@@ -288,10 +288,13 @@ const expandedCategories = ref<Record<string, boolean>>({
   system: false,
   // 트랙 1-5 SSO (2026-05-26): docutilUser 카테고리 — 기본 펼침 (사용자 노출도 우선)
   docutilUser: true,
-  myAccount: false,
+  // 트랙 #126 (2026-05-29): myAccount + settings 기본 펼침 — 사용자 본인 관련 메뉴는
+  // 모든 사용자에게 항상 노출되는 게 자연스러움. settings 카테고리가 접힘 상태로
+  // 가장 마지막에 위치하여 "설정 메뉴가 안 보인다" 결함 사용자 보고 발생.
+  myAccount: true,
   docutil: false,
   admin: false,
-  settings: false
+  settings: true
 })
 
 // 결함 트랙 #89 M6 (2026-05-13): 토글 핸들러 일원화.
