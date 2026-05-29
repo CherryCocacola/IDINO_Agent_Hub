@@ -212,7 +212,7 @@
 - 운영 빌드 산출물 grep — `settings:!0` (vite minify `true` → `!0`) 확인
 - 사용자 컨펌 (이후 트랙 #126b root cause 발견으로 결함 보고 지속, 본 트랙은 사이드바 자체 펼침은 정상)
 
-**커밋**: TBD.
+**커밋**: `25b32ed`.
 
 ### 2026-05-29 (트랙 #125 — AdminDocUtilDepartments mutation AgentHub 직접 전환 [DocUtil 위임 폐지])
 
@@ -238,7 +238,7 @@
 
 **관련 트랙 일관**: 트랙 #122 (Users mutation) + 트랙 #123 (멤버 list cache 제거) + 트랙 A1 Phase C (DocUtil mutation 차단). Phase C 의 "Users/Departments mutation AgentHub 직접 전환" 후속 완성.
 
-**커밋**: TBD.
+**커밋**: `217d6db`.
 
 ### 2026-05-27 (트랙 #124 — AdminDocUtilTemplates modal 흰 화면 fix [vue-i18n placeholder syntax 위반 2건])
 
