@@ -170,6 +170,96 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-29 (트랙 #130 — 사이드바 접힘 시 toggle 버튼 시각 미노출 fix)
+
+**사용자 보고**: 사이드바 접었을 때 펼치는 버튼이 클릭은 되지만 시각적으로 안 보임 — UX 개선 필요.
+
+**Root cause**: `.sidebar-header` 가 flex 가로 `space-between` 으로 brand + toggle 배치되는데 `.sidebar.collapsed` width 70px (가로 패딩 32px 차감 후 콘텐츠 38px) 한계 + `aside.sidebar overflow:hidden` 으로 sidebar-toggle (32px) 이 사이드바 우측 너머로 밀려나 잘림.
+
+**Fix** (MainLayout.vue styles 영역):
+- `.sidebar.collapsed .sidebar-header` — `flex-direction: column` 세로 배치 + 중앙 정렬 + padding 압축
+- `.sidebar.collapsed .sidebar-brand` — gap 0, 중앙 정렬 (텍스트는 v-if 로 숨김, 아이콘만 노출)
+- `.sidebar.collapsed .sidebar-toggle` — 36x36 + 옅은 배경 (rgba 0.06) + 테두리 (rgba 0.12) — 버튼임을 시각적으로 명확화
+- hover state — 배경/테두리 강화
+
+**파일**: `agenthub/ClientApp/src/layouts/MainLayout.vue`
+
+**검증** (Playwright 자동):
+- 펼침 (260px): toggle rect = {x:204, y:17, 36×36}
+- 접힘 (70px) Fix 후: toggle rect = {x:17, y:58, 36×36} — 사이드바 영역 안 정상
+- toggle 가 사이드바 영역 안에 위치 (이전 overflow 잘림 해소)
+- 사용자 운영 검증 PASS
+
+**커밋**: `eab22fe`.
+
+### 2026-05-29 (트랙 #129 — DocUtil GET /users/me endpoint 신설)
+
+**사용자 보고**: DocUtil 검색(사용자) 진입 시 React error #418 + `/api/v1/users/me` 오류.
+
+**Root cause**: DocUtil `users/router.py` 에 `/me` endpoint 부재 → FastAPI 가 `/users/me` 를 `/users/{user_id: UUID}` 로 매칭 → `me` 를 UUID 파싱 시도 → 422 Unprocessable Entity. frontend 가 user 미확보 상태에서 SSR/CSR 충돌 → React error #418 (hydration mismatch).
+
+**Fix** (users/router.py):
+- `@router.get("/me")` endpoint 신설 — `get_current_user_self` 함수
+- `/{user_id}` 보다 먼저 등록 (FastAPI 라우트 매칭은 등록 순서)
+- `get_current_user` 의존성으로 JWT 의 user_id 사용 — SSO 옵션 A (트랙 1-5) 의 AgentHub JWT 호환 (Phase D tb_users VIEW + Users.OriginalDocutilUuid 통합과 정합)
+- 권한 가드 없음 — 인증된 모든 사용자가 자신 정보 조회 가능
+
+**파일**: `docutil/backend/app/modules/users/router.py`
+
+**검증**:
+- no auth → 401 (정상)
+- AgentHub JWT → 200 + admin user 정보 (id/email/role/organization_id/language 등)
+- 컨테이너 안 router.py 에 트랙 #129 코멘트 + `/me` 키워드 반영 확인 (`docker compose build api + force-recreate` 필수 — volume mount 아님, `MEMORY.md reference_docutil_hotfix_pattern` 적용)
+
+**잔존 결함 (후순위 보류 — 사용자 결정 A)**: React error #418 (hydration mismatch) 는 동작 정상이라 후순위. DocUtil S6/S7 frontend 전반 점검 시 통합 처리.
+
+**커밋**: `efdc0c3`.
+
+### 2026-05-29 (트랙 #128 — WorkflowBuilder 노드 연결(edge) 해제 UI 추가)
+
+**사용자 보고**: `/workflows/builder?id=1` 에서 노드 연결 후 해제 기능 부재.
+
+**Root cause**: WorkflowBuilder.vue 의 VueFlow 에 `@connect` (생성) 핸들러만 있고 edge 선택/삭제 명시적 UI 없음. VueFlow 기본 Delete/Backspace 키만 가능하여 마우스 사용자에게 진입점 미노출.
+
+**Fix** (WorkflowBuilder.vue):
+- VueFlow `@edge-click="onEdgeClick"` 추가, `@pane-click` 통합 핸들러
+- `selectedEdge` ref + `onEdgeClick` / `onPaneClick` / `deleteSelectedEdge` 함수
+- `edgeSourceLabel` / `edgeTargetLabel` computed — 노드 id 대신 사용자 이해 가능한 라벨 + 타입 표시 (Condition true/false 분기 핸들 포함)
+- 우측 패널에 "연결 정보" 카드 신설 (selectedEdge 시) — 출발/도착 + 분기 핸들 + "연결 해제" 빨간 버튼 + Delete/Backspace 키 안내. 노드 설정 패널은 `v-else-if` mutually exclusive
+- import 에 `computed` 추가
+
+**파일**: `agenthub/ClientApp/src/views/workflow/WorkflowBuilder.vue`
+
+**검증**: 빌드 산출물에 "연결 정보" + "연결 해제" 한국어 string 포함 확인. 사용자 운영 검증 PASS.
+
+**커밋**: `af91fea`.
+
+### 2026-05-29 (트랙 #127 — /agents 에이전트 선택 소유권 라벨 + 필터)
+
+**사용자 질문**: 관리자가 다른 사용자가 만든 Agent 까지 보여주는 게 설계 의도?
+
+**확인 결과**: **의도된 동작**. `AgentsController.cs:52` 의 `if (!User.IsInRole("Admin"))` 분기로 Admin role 만 userId 필터 우회 — `.claude/rules/domain-model.md` 의 RBAC 정의 (Admin = "운영자 콘솔 모든 기능") 와 일관. 사용자 결정 **옵션 D (UI 시각 구분 강화)** — 운영자 화면 혼란 방지 + 본인 vs 타인 Agent 명시.
+
+**Fix** (AgentSelect.vue):
+- 카드 좌상단 ribbon 동적 라벨 — `getRibbonLabel` / `getRibbonClass`:
+  | 케이스 | 라벨 | 색상 |
+  |---|---|---|
+  | 본인 작성 비공개 | "내 Agent" | indigo (#4F46E5) |
+  | 본인 작성 공개 | "내 Agent · Public" | indigo→green 그라데이션 |
+  | 타인 작성 공개 | "Public" | green (#198754) |
+  | 타인 작성 비공개 | "타인" | gray (#6c757d, Admin 한정) |
+- 필터 영역 `ownerFilter` select 추가 — '모든 / 내 / Public / 타인 Agent'
+- `filteredAgents` computed + `showEmpty` 조건 보강
+
+**파일**: `agenthub/ClientApp/src/views/agent/AgentSelect.vue`
+
+**검증** (Playwright 자동):
+- 소유권 select 4 옵션 + 34 카드 ribbon 라벨 분포 정확
+- '내 Agent' 필터 → 33건 (타인 제외) / 'Public Agent' → 15건 / '타인 Agent' → 1건
+- 사용자 운영 검증 PASS
+
+**커밋**: `f987c98`.
+
 ### 2026-05-29 (트랙 #126b — Settings.vue 프로필 탭 우측 form 빈 영역 fix [CSS `.settings-tab { display: none }` 잔존 결함])
 
 **사용자 보고**: 트랙 #126 (사이드바 settings 카테고리 펼침) fix 후에도 `/settings` 진입 시 우측 form 영역이 빈 화면. 콘솔 에러 0건. 사용자 진단: "프로필 누렀을 때 작동하는 코드가 연결되지 않음".
