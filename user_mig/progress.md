@@ -170,6 +170,47 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-29 (트랙 #133 — AgentSelect 공유 modal 신설 + 운영 HTTP 환경 clipboard fallback)
+
+**사용자 보고 (순차 2건)**:
+1. `/agents` 공유 버튼 클릭 시 새 탭 `/agent-test/:code` 진입 → 로그인 redirect 결함
+2. 공유 modal 의 복사 버튼이 정상 동작 안 함
+
+**공유 기능 설계 정리 (3개 라우트)**:
+| 라우트 | 인증 | 의도 |
+|---|---|---|
+| `/chatbot/:code` (AgentPublicChat) | 불필요 | 외부 사용자/게스트 공유 채팅 |
+| `/embed/:code` (AgentEmbed) | 불필요 | iframe 임베드 |
+| `/agent-test/:code` (AgentTestPage) | 필요 | 운영자 테스트 + 공유 링크 발급 페이지 |
+
+**Root cause**:
+- **#133**: AgentSelect 공유 버튼 `<a target="_blank">` → 새 탭에서 sessionStorage 의 JWT 가 탭별 격리 (트랙 1-5 SSO per-tab 보안 정책) → 토큰 부재 → 라우트 가드 `requiresAuth=true` 발동 → `/login` redirect.
+- **#133b**: 운영 URL 이 HTTP (`http://192.168.10.39:64005`) — `navigator.clipboard` API 는 Web 표준상 secure context (HTTPS/localhost) 에서만 동작 → HTTP 환경 throw → "복사 실패" alert.
+
+**Fix** (사용자 결정 옵션 B 공유 modal + 3단계 clipboard fallback):
+- 공유 버튼 `<a target="_blank">` → `<button @click="openShareModal">` (modal 트리거)
+- 신규 modal — 현재 화면 유지:
+  - 공유 URL (`${origin}/chatbot/:code`)
+  - QR 이미지 (`/api/agents/public/:code/qr` — public endpoint)
+  - iframe 임베드 (`<iframe src=".../embed/:code" .../>`)
+  - 복사 버튼 3개 + 보조 "전체 테스트 페이지 열기" same-tab 링크 (`router-link` — sessionStorage 토큰 유지)
+- `copyToClipboard()` 헬퍼 3단계 fallback:
+  1. `navigator.clipboard.writeText` (secure context only — HTTPS/localhost)
+  2. `document.execCommand('copy')` — textarea 동적 생성 + select + copy (deprecated 지만 HTTP 환경 광범위 지원)
+  3. 텍스트 표시 alert (수동 복사 안내)
+
+**파일**: `agenthub/ClientApp/src/views/agent/AgentSelect.vue`
+
+**검증** (Playwright 자동):
+- 공유 버튼 33개 (본인 Agent 만 노출) → click → modal 1개 노출
+- 공유 URL = `http://.../chatbot/{code}` + QR 이미지 src 정상
+- iframe 임베드 코드 자동 생성 + 복사 버튼 동작
+- 보조 "전체 테스트 페이지" link `target=None` (same-tab) → 인증 유지
+- 빌드 산출물에 `execCommand` 키워드 포함 확인
+- 사용자 운영 검증 PASS (HTTP 환경에서 복사 정상 동작)
+
+**커밋**: `92a4479` (트랙 #133 + #133b 묶음 — 같은 흐름 sequential fix).
+
 ### 2026-05-29 (트랙 #132 — Analytics `/usage` + `/top-users` 일반 사용자 접근 분기)
 
 **사용자 보고 (순차 2건)**:
