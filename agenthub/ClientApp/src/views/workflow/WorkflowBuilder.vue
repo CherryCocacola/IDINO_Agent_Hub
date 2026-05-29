@@ -79,7 +79,8 @@
             fit-view-on-init
             @connect="onConnect"
             @node-click="onNodeClick"
-            @pane-click="selectedNode = null"
+            @edge-click="onEdgeClick"
+            @pane-click="onPaneClick"
           >
             <Background pattern-color="#dee2e6" :gap="20" />
             <Controls />
@@ -111,8 +112,35 @@
           </VueFlow>
         </div>
 
+        <!-- 트랙 #128 (2026-05-29): 연결(edge) 정보 + 해제 버튼 -->
+        <div class="wfb-props" v-if="selectedEdge">
+          <div class="wfb-props-title">
+            <i class="bi bi-link-45deg" style="color: #6366f1"></i>
+            연결 정보
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">출발 노드</label>
+            <input type="text" class="form-control form-control-sm" :value="edgeSourceLabel" readonly>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">도착 노드</label>
+            <input type="text" class="form-control form-control-sm" :value="edgeTargetLabel" readonly>
+          </div>
+          <div class="mb-3" v-if="selectedEdge.sourceHandle">
+            <label class="form-label fw-semibold">분기 핸들</label>
+            <input type="text" class="form-control form-control-sm" :value="selectedEdge.sourceHandle" readonly>
+            <small class="text-muted">Condition 노드의 true/false 분기 식별자</small>
+          </div>
+          <button type="button" class="btn btn-danger w-100" @click="deleteSelectedEdge">
+            <i class="bi bi-trash"></i> 연결 해제
+          </button>
+          <div class="text-muted small mt-2">
+            <i class="bi bi-info-circle"></i> 또는 연결 선택 후 <kbd>Delete</kbd> / <kbd>Backspace</kbd> 키로 삭제.
+          </div>
+        </div>
+
         <!-- 노드 속성 편집기 (오른쪽) -->
-        <div class="wfb-props" v-if="selectedNode">
+        <div class="wfb-props" v-else-if="selectedNode">
           <div class="wfb-props-title">
             <i :class="getNodeIcon(selectedNode.data.nodeType)" :style="{ color: getNodeColor(selectedNode.data.nodeType) }"></i>
             노드 설정
@@ -323,7 +351,7 @@
 <script setup lang="ts">
 // Phase 3 후속 트랙 (D-1) 완료 — @vue-flow/core 의 NodeMouseEvent 시그니처 + Position enum
 // 을 정확한 타입으로 import 하여 strict 게이트 통과. (@ts-nocheck 해제, 트랙 #9)
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VueFlow, useVueFlow, Handle, Position } from '@vue-flow/core'
 import type { NodeMouseEvent } from '@vue-flow/core'
@@ -417,6 +445,42 @@ const onConnect = (params: any) => {
   }])
   markDirty()
 }
+
+// ── 트랙 #128 (2026-05-29): 연결(edge) 선택/해제 ────────────────────────────
+// VueFlow 의 edges-deletable 기본값(true)은 Delete/Backspace 키만 지원하므로
+// 마우스만 쓰는 운영자를 위해 명시적 "연결 해제" 버튼을 우측 패널에 추가한다.
+// 추가로 Edge 클릭 시 selectedNode 와 mutually exclusive 하게 selectedEdge 만 유지.
+const selectedEdge = ref<any>(null)
+
+const onEdgeClick = ({ edge }: { event: MouseEvent; edge: any }) => {
+  selectedEdge.value = edge
+  selectedNode.value = null
+}
+
+const onPaneClick = () => {
+  selectedNode.value = null
+  selectedEdge.value = null
+}
+
+const deleteSelectedEdge = () => {
+  if (!selectedEdge.value) return
+  const id = selectedEdge.value.id
+  flowEdges.value = flowEdges.value.filter((e: any) => e.id !== id)
+  selectedEdge.value = null
+  markDirty()
+}
+
+// 우측 패널의 출발/도착 라벨 — 노드 id 대신 사용자가 이해 가능한 이름 + 타입.
+const edgeSourceLabel = computed(() => {
+  if (!selectedEdge.value) return ''
+  const n = flowNodes.value.find((nd: any) => nd.id === selectedEdge.value.source)
+  return n ? `${n.data?.label || '이름 없음'} (${n.data?.nodeType || '?'})` : selectedEdge.value.source
+})
+const edgeTargetLabel = computed(() => {
+  if (!selectedEdge.value) return ''
+  const n = flowNodes.value.find((nd: any) => nd.id === selectedEdge.value.target)
+  return n ? `${n.data?.label || '이름 없음'} (${n.data?.nodeType || '?'})` : selectedEdge.value.target
+})
 
 // ── 노드 클릭 ──────────────────────────────────────────────────────────────────
 // @vue-flow/core 의 nodeClick emit 시그니처: (event: NodeMouseEvent) => void
