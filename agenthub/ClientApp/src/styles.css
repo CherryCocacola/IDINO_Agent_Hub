@@ -1026,13 +1026,12 @@ a:hover {
 
 /* ========================================
    설정 페이지
-   ======================================== */
+   ========================================
+   트랙 #126b (2026-05-29): Settings.vue 는 v-if 로 활성 탭 DOM 자체를 분기하므로
+   CSS .settings-tab { display: none } 은 잔존 결함이었음 (Vue 가 .active 클래스를
+   부착하지 않음 → 무조건 hidden → 우측 form 영역 빈 화면). v-if 가 이미 표시/숨김
+   을 처리하므로 display 규칙 제거. fadeIn 애니메이션만 유지. */
 .settings-tab {
-    display: none;
-}
-
-.settings-tab.active {
-    display: block;
     animation: fadeIn 0.3s ease;
 }
 
