@@ -40,6 +40,15 @@
             {{ service.serviceName }}
           </option>
         </select>
+        <!-- 트랙 #127 (2026-05-29): 소유권 필터. Admin 은 다른 사용자가 만든 Agent 까지 보이는
+             설계(AgentsController.cs:52)라 운영 화면이 혼잡할 수 있음. 본 select 로 관점 전환
+             가능 — "내 Agent" / "Public Agent" / "타인 Agent" / "모든 Agent". -->
+        <select class="ag-select" v-model="ownerFilter" @change="filterAgents">
+          <option value="all">모든 Agent</option>
+          <option value="mine">내 Agent</option>
+          <option value="public">Public Agent</option>
+          <option value="others">타인 Agent</option>
+        </select>
       </div>
       <div class="ag-filter-right">
         <div class="ag-view-btns">
@@ -100,7 +109,9 @@
         class="ag-card"
         :style="{ '--ag-color': getAgentDisplayColor(agent.colorCode), '--ag-text': getAgentContrastTextColor(agent.colorCode) }"
       >
-        <div class="ag-card-ribbon" v-if="isMyAgent(agent)">커스텀</div>
+        <!-- 트랙 #127 (2026-05-29): 소유권/공개 라벨 동적 표시. 본인 작성 vs Public vs 타인
+             구분을 카드 좌상단 ribbon 으로 노출. Admin 운영 화면 혼란 방지. -->
+        <div class="ag-card-ribbon" :class="getRibbonClass(agent)">{{ getRibbonLabel(agent) }}</div>
         <div class="ag-card-body" @click="startAgent(agent)">
           <div class="ag-icon-wrap ag-icon-dynamic">
             <i :class="agent.iconClass || 'bi bi-robot'"></i>
@@ -197,6 +208,10 @@ const services = ref<ApiServiceDto[]>([])
 const loading = ref(false)
 const searchText = ref('')
 const serviceFilter = ref('')
+// 트랙 #127 (2026-05-29): 소유권 필터 — 'all'/'mine'/'public'/'others'.
+// Admin 은 backend AgentsController.cs:52 분기로 다른 사용자 Agent 까지 받으므로
+// 화면 혼잡 방지용 관점 전환 select.
+const ownerFilter = ref<'all' | 'mine' | 'public' | 'others'>('all')
 const viewMode = ref<'grid' | 'list'>('grid')
 
 const filteredAgents = computed(() => {
@@ -217,10 +232,24 @@ const filteredAgents = computed(() => {
     )
   }
 
+  // 트랙 #127: 소유권 필터 적용.
+  if (ownerFilter.value !== 'all') {
+    result = result.filter(agent => {
+      const mine = isMyAgent(agent)
+      if (ownerFilter.value === 'mine') return mine
+      if (ownerFilter.value === 'public') return !!agent.isPublic
+      if (ownerFilter.value === 'others') return !mine
+      return true
+    })
+  }
+
   return result
 })
 
-const showEmpty = computed(() => filteredAgents.value.length === 0 && (searchText.value || serviceFilter.value))
+const showEmpty = computed(() =>
+  filteredAgents.value.length === 0 &&
+  (searchText.value || serviceFilter.value || ownerFilter.value !== 'all')
+)
 
 const loadAgents = async () => {
   try {
@@ -257,6 +286,27 @@ const startAgent = (agent: AgentDto) => {
 // 본인이 만든 Agent 인지 확인
 const isMyAgent = (agent: AgentDto): boolean => {
   return authStore.user?.userId === agent.createdBy
+}
+
+// 트랙 #127 (2026-05-29): 카드 좌상단 ribbon 라벨/스타일.
+// - 본인 작성 + Public: "내 Agent · Public" (mine primary + public success 혼합)
+// - 본인 작성 비공개: "내 Agent" (primary)
+// - 타인 작성 Public: "Public" (success)
+// - 타인 작성 비공개: "타인" (secondary, Admin 한정 노출 케이스)
+const getRibbonLabel = (agent: AgentDto): string => {
+  const mine = isMyAgent(agent)
+  if (mine && agent.isPublic) return '내 Agent · Public'
+  if (mine) return '내 Agent'
+  if (agent.isPublic) return 'Public'
+  return '타인'
+}
+
+const getRibbonClass = (agent: AgentDto): string => {
+  const mine = isMyAgent(agent)
+  if (mine && agent.isPublic) return 'ag-ribbon-mine-public'
+  if (mine) return 'ag-ribbon-mine'
+  if (agent.isPublic) return 'ag-ribbon-public'
+  return 'ag-ribbon-others'
 }
 
 // 정식 빌더로 redirect — 신규 Agent 생성
@@ -303,4 +353,11 @@ onMounted(() => {
 .ag-header-right { flex-shrink: 0; }
 /* 카드 풋터의 삭제 버튼 — 호버 시 빨간색 강조 */
 .ag-btn-delete-card:hover { color: var(--bs-danger, #dc3545); }
+
+/* 트랙 #127 (2026-05-29): 카드 좌상단 ribbon 소유권/공개 라벨 색상. */
+.ag-card-ribbon { color: #ffffff; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; border-radius: 0 0 6px 0; }
+.ag-card-ribbon.ag-ribbon-mine         { background-color: #4F46E5; }  /* primary indigo — 본인 */
+.ag-card-ribbon.ag-ribbon-public       { background-color: #198754; }  /* success green — 공개 */
+.ag-card-ribbon.ag-ribbon-mine-public  { background: linear-gradient(90deg, #4F46E5 0%, #198754 100%); }  /* 혼합 */
+.ag-card-ribbon.ag-ribbon-others       { background-color: #6c757d; }  /* secondary gray — 타인(Admin only) */
 </style>
