@@ -137,6 +137,40 @@ async def create_user(
     return UserResponse.model_validate(user)
 
 
+# ---------------------------------------------------------------------------
+# 트랙 #129 (2026-05-29): /users/me — 본인 정보 조회 endpoint
+# ---------------------------------------------------------------------------
+# DocUtil frontend (Next.js) 가 GET /api/v1/users/me 를 호출하지만 router 에
+# me endpoint 부재로 /users/{user_id} 매칭 → me 를 UUID 로 파싱 시도 → 422
+# (Unprocessable Entity) 결함. 운영 사용자 화면에서 React error #418
+# (hydration mismatch) 동반 발생.
+# Fix: /me endpoint 신설 + /{user_id} 보다 먼저 등록 (FastAPI 라우트 매칭은
+# 등록 순서). AgentHub `/api/users/me` 패턴과 일관.
+# 권한: require_role 없음 — 인증된 모든 사용자가 자신의 정보 조회 가능.
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Get current authenticated user (self)",
+)
+async def get_current_user_self(
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+) -> UserResponse:
+    """현재 인증된 사용자 자신의 정보 반환.
+
+    트랙 #129 — /users/me 부재 결함 해소. SSO 옵션 A (트랙 1-5) 의
+    AgentHub JWT 와도 호환 — current_user.user_id 가 AgentHub Users.OriginalDocutilUuid
+    (Phase D 통합) 와 매핑되므로 동일 user 정보 조회 가능.
+    """
+    user = await UserService.get_user(db, user_id=current_user.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    return UserResponse.model_validate(user)
+
+
 @router.get(
     "/{user_id}",
     response_model=UserResponse,
