@@ -337,7 +337,19 @@ public class AdminDocUtilDepartmentsController : ControllerBase
     }
 
     /// <summary>
-    /// 부서 생성 — DocUtil `/api/v1/organizations/{org_id}/departments` (POST).
+    /// 부서 생성 — AgentHub `Departments` 직접 INSERT (트랙 #125, 2026-05-27).
+    /// <para>
+    /// 트랙 A1 Phase D 에서 DocUtil `departments/router.py` 자체가 폐지됨 →
+    /// 이전 DocUtil 위임 호출이 upstream 404 → 502. 트랙 #122 (UpdateUser) 와 동일
+    /// 패턴으로 AgentHub 단일 SOT 직접 INSERT 전환.
+    /// </para>
+    /// <para>
+    /// 매핑: request.Name → DepartmentName, request.ParentId (UUID/int 둘 다 수용) →
+    /// ParentDepartmentId. TenantId 는 첫 활성 Tenant (단일 조직 가정 — ListDepartments
+    /// 와 동일). DepartmentCode 는 name slug + 6자리 GUID 접미사로 자동 생성 (DB UNIQUE).
+    /// OriginalDocutilUuid 는 NewGuid() 부여 (DocUtil ORM 호환 유지 — tb_departments VIEW
+    /// 가 이 컬럼을 id 로 alias).
+    /// </para>
     /// 성공 시 캐시 일괄 무효화.
     /// </summary>
     [HttpPost("departments")]
@@ -356,28 +368,99 @@ public class AdminDocUtilDepartmentsController : ControllerBase
 
         try
         {
-            var created = await _docUtilClient.CreateDepartmentAsync(request, ct);
-            _logger.LogInformation("운영자 DocUtil 부서 생성 성공 - DeptId={Id}, Name={Name}", created.Id, created.Name);
+            // parentId 정규화 — UUID 면 OriginalDocutilUuid 조회 → DepartmentId 변환.
+            // int 면 직접 DepartmentId. 빈 문자열/null 이면 최상위 부서(parent 없음).
+            int? parentDeptId = null;
+            if (!string.IsNullOrWhiteSpace(request.ParentId))
+            {
+                if (Guid.TryParse(request.ParentId, out var parentUuid))
+                {
+                    var parent = await _db.Departments
+                        .FirstOrDefaultAsync(d => d.OriginalDocutilUuid == parentUuid && d.IsActive, ct);
+                    if (parent == null)
+                    {
+                        return BadRequest(ErrorResponseDto.BadRequest(
+                            $"상위 부서를 찾을 수 없습니다(parentId={request.ParentId})."));
+                    }
+                    parentDeptId = parent.DepartmentId;
+                }
+                else if (int.TryParse(request.ParentId, out var parentIdInt))
+                {
+                    var exists = await _db.Departments
+                        .AnyAsync(d => d.DepartmentId == parentIdInt && d.IsActive, ct);
+                    if (!exists)
+                    {
+                        return BadRequest(ErrorResponseDto.BadRequest(
+                            $"상위 부서를 찾을 수 없습니다(parentId={request.ParentId})."));
+                    }
+                    parentDeptId = parentIdInt;
+                }
+                else
+                {
+                    return BadRequest(ErrorResponseDto.BadRequest(
+                        $"상위 부서 식별자 형식이 올바르지 않습니다(parentId={request.ParentId})."));
+                }
+            }
+
+            // 첫 활성 Tenant — ListDepartments 와 동일 단일 조직 가정.
+            var tenant = await _db.Tenants
+                .AsNoTracking()
+                .Where(t => t.IsActive)
+                .OrderBy(t => t.TenantId)
+                .FirstOrDefaultAsync(ct);
+            if (tenant == null)
+            {
+                return StatusCode(500, new ErrorResponseDto(
+                    "활성 조직(Tenant)이 없습니다.", "TENANT_MISSING", null));
+            }
+
+            // DepartmentCode 자동 생성 — name 기반 slug 가 UNIQUE 보장 어려워 GUID 접미사 부여.
+            // 형식: "dept-{6자리}" — 운영 가독성 무관(외부 노출용 식별자, name 으로 표시됨).
+            var codeSuffix = Guid.NewGuid().ToString("N").Substring(0, 6);
+            var deptCode = $"dept-{codeSuffix}";
+
+            var newDept = new Department
+            {
+                DepartmentCode = deptCode,
+                DepartmentName = request.Name.Trim(),
+                TenantId = tenant.TenantId,
+                ParentDepartmentId = parentDeptId,
+                IsActive = true,
+                OriginalDocutilUuid = Guid.NewGuid(),
+                CreatedAt = DateTime.UtcNow,
+            };
+            _db.Departments.Add(newDept);
+            await _db.SaveChangesAsync(ct);
+
+            _logger.LogInformation(
+                "AgentHub 부서 생성 성공 - DeptId={Id}, Name={Name}, ParentId={Parent}",
+                newDept.DepartmentId, newDept.DepartmentName, parentDeptId);
             await InvalidateDepartmentsCacheAsync();
+
+            // 응답 — DocUtilDepartment 호환(Vue 화면 spec). depth/path 는 신규 단일 부서이므로 0/$"/id/".
+            var depth = parentDeptId.HasValue ? 1 : 0;
+            var path = parentDeptId.HasValue
+                ? $"/{parentDeptId.Value}/{newDept.DepartmentId}/"
+                : $"/{newDept.DepartmentId}/";
+            var created = MapDepartmentToDto(newDept, depth, path, tenant.TenantCode);
             return CreatedAtAction(nameof(ListDepartments), new { }, created);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex, "DocUtil 부서 생성 실패 (name={Name})", request.Name);
-            // 실패 시에도 invalidate — 5xx 중간 단절 시 부분 생성된 부서가 DocUtil 측에
-            // 남아있을 수 있어(예: 트랜잭션 실패 전 row 생성), 다음 GET 에서 그것이 즉시
-            // 반영되도록 캐시 무효화.
+            _logger.LogError(ex, "AgentHub 부서 생성 실패 (name={Name})", request.Name);
             await InvalidateDepartmentsCacheAsync();
-            return StatusCode(502, new ErrorResponseDto(
+            return StatusCode(500, new ErrorResponseDto(
                 "부서 생성에 실패했습니다.",
-                "DOCUTIL_UPSTREAM_ERROR",
-                new { upstream = ex.Message }));
+                "DEPARTMENT_CREATE_ERROR",
+                new { error = ex.Message }));
         }
     }
 
     /// <summary>
-    /// 부서 수정 — DocUtil `/api/v1/organizations/{org_id}/departments/{dept_id}` (PUT).
-    /// 성공 시 캐시 일괄 무효화.
+    /// 부서 수정 — AgentHub `Departments` 직접 UPDATE (트랙 #125, 2026-05-27).
+    /// CreateDepartment 와 동일 사유 — DocUtil 위임 폐지. partial update (name/parentId).
+    /// deptId: UUID (OriginalDocutilUuid) / int (DepartmentId) 모두 수용.
+    /// parentId: "" / null (해제) / int / UUID 모두 수용.
     /// </summary>
     [HttpPut("departments/{deptId}")]
     public async Task<ActionResult<DocUtilDepartment>> UpdateDepartment(
@@ -401,31 +484,112 @@ public class AdminDocUtilDepartmentsController : ControllerBase
 
         try
         {
-            var updated = await _docUtilClient.UpdateDepartmentAsync(deptId, request, ct);
-            _logger.LogInformation("운영자 DocUtil 부서 수정 성공 - DeptId={Id}", updated.Id);
+            Department? dept = null;
+            if (Guid.TryParse(deptId, out var deptUuid))
+            {
+                dept = await _db.Departments
+                    .FirstOrDefaultAsync(d => d.OriginalDocutilUuid == deptUuid && d.IsActive, ct);
+            }
+            else if (int.TryParse(deptId, out var deptIdInt))
+            {
+                dept = await _db.Departments
+                    .FirstOrDefaultAsync(d => d.DepartmentId == deptIdInt && d.IsActive, ct);
+            }
+            if (dept == null)
+            {
+                return NotFound(ErrorResponseDto.NotFound($"부서를 찾을 수 없습니다(id={deptId})."));
+            }
+
+            if (request.Name is not null)
+            {
+                var trimmed = request.Name.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed))
+                {
+                    return BadRequest(ErrorResponseDto.BadRequest("부서 이름이 비어 있습니다."));
+                }
+                dept.DepartmentName = trimmed;
+            }
+
+            if (request.ParentId is not null)
+            {
+                // 빈 문자열 = parent 해제(최상위로 이동).
+                if (string.IsNullOrWhiteSpace(request.ParentId))
+                {
+                    dept.ParentDepartmentId = null;
+                }
+                else
+                {
+                    int? parentDeptId;
+                    if (Guid.TryParse(request.ParentId, out var parentUuid))
+                    {
+                        var parent = await _db.Departments
+                            .FirstOrDefaultAsync(d => d.OriginalDocutilUuid == parentUuid && d.IsActive, ct);
+                        if (parent == null)
+                        {
+                            return BadRequest(ErrorResponseDto.BadRequest(
+                                $"상위 부서를 찾을 수 없습니다(parentId={request.ParentId})."));
+                        }
+                        parentDeptId = parent.DepartmentId;
+                    }
+                    else if (int.TryParse(request.ParentId, out var parentIdInt))
+                    {
+                        var exists = await _db.Departments
+                            .AnyAsync(d => d.DepartmentId == parentIdInt && d.IsActive, ct);
+                        if (!exists)
+                        {
+                            return BadRequest(ErrorResponseDto.BadRequest(
+                                $"상위 부서를 찾을 수 없습니다(parentId={request.ParentId})."));
+                        }
+                        parentDeptId = parentIdInt;
+                    }
+                    else
+                    {
+                        return BadRequest(ErrorResponseDto.BadRequest(
+                            $"상위 부서 식별자 형식이 올바르지 않습니다(parentId={request.ParentId})."));
+                    }
+                    // 자기 자신을 parent 로 지정 차단.
+                    if (parentDeptId == dept.DepartmentId)
+                    {
+                        return BadRequest(ErrorResponseDto.BadRequest(
+                            "자기 자신을 상위 부서로 지정할 수 없습니다."));
+                    }
+                    dept.ParentDepartmentId = parentDeptId;
+                }
+            }
+
+            dept.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            _logger.LogInformation(
+                "AgentHub 부서 수정 성공 - DeptId={Id}, Name={Name}, ParentId={Parent}",
+                dept.DepartmentId, dept.DepartmentName, dept.ParentDepartmentId);
             await InvalidateDepartmentsCacheAsync();
-            return Ok(updated);
+
+            // 응답 — depth/path 재계산 (수정된 트리 좌표 반영).
+            var allActive = await _db.Departments.AsNoTracking()
+                .Where(d => d.IsActive).ToListAsync(ct);
+            var coords = BuildTreeCoords(allActive);
+            var (depth, path) = coords.GetValueOrDefault(dept.DepartmentId, (0, $"/{dept.DepartmentId}/"));
+            var tenantCode = (await _db.Tenants.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.TenantId == dept.TenantId, ct))?.TenantCode ?? string.Empty;
+            return Ok(MapDepartmentToDto(dept, depth, path, tenantCode));
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex, "DocUtil 부서 수정 실패 (id={Id})", deptId);
-            // 실패 시에도 invalidate — 5xx 중간 단절 시 부분 변경이 발생했을 수 있어,
-            // 캐시가 DocUtil 실제 상태와 어긋나지 않도록 안전 차원에서 무효화.
+            _logger.LogError(ex, "AgentHub 부서 수정 실패 (id={Id})", deptId);
             await InvalidateDepartmentsCacheAsync();
-            return StatusCode(502, new ErrorResponseDto(
+            return StatusCode(500, new ErrorResponseDto(
                 "부서 수정에 실패했습니다.",
-                "DOCUTIL_UPSTREAM_ERROR",
-                new { upstream = ex.Message }));
+                "DEPARTMENT_UPDATE_ERROR",
+                new { error = ex.Message }));
         }
     }
 
     /// <summary>
-    /// 부서 삭제 — DocUtil `/api/v1/organizations/{org_id}/departments/{dept_id}` (DELETE).
-    /// <para>
-    /// 캐시 무효화는 성공/실패 모두 수행한다. 실패(예: 404 = 이미 DocUtil 측에서 삭제됨,
-    /// 409 = 자식 부서 존재) 의 경우 AgentHub 캐시가 DocUtil 의 실제 상태와 어긋날 수
-    /// 있으므로(DocUtil 에 없는 부서가 캐시에 남아있는 ghost), 안전을 위해 invalidate.
-    /// </para>
+    /// 부서 삭제 — AgentHub `Departments` soft-delete (트랙 #125, 2026-05-27).
+    /// CreateDepartment/UpdateDepartment 와 동일 사유 — DocUtil 위임 폐지.
+    /// soft-delete (IsActive = false) — User.DepartmentId FK 보존, 자식 부서 존재 시 409.
+    /// deptId: UUID / int 모두 수용.
     /// </summary>
     [HttpDelete("departments/{deptId}")]
     public async Task<IActionResult> DeleteDepartment(string deptId, CancellationToken ct = default)
@@ -437,21 +601,60 @@ public class AdminDocUtilDepartmentsController : ControllerBase
 
         try
         {
-            await _docUtilClient.DeleteDepartmentAsync(deptId, ct);
-            _logger.LogInformation("운영자 DocUtil 부서 삭제 성공 - DeptId={Id}", deptId);
+            Department? dept = null;
+            if (Guid.TryParse(deptId, out var deptUuid))
+            {
+                dept = await _db.Departments
+                    .FirstOrDefaultAsync(d => d.OriginalDocutilUuid == deptUuid && d.IsActive, ct);
+            }
+            else if (int.TryParse(deptId, out var deptIdInt))
+            {
+                dept = await _db.Departments
+                    .FirstOrDefaultAsync(d => d.DepartmentId == deptIdInt && d.IsActive, ct);
+            }
+            if (dept == null)
+            {
+                return NotFound(ErrorResponseDto.NotFound($"부서를 찾을 수 없습니다(id={deptId})."));
+            }
+
+            // 자식 부서 존재 시 차단.
+            var hasChildren = await _db.Departments
+                .AnyAsync(d => d.ParentDepartmentId == dept.DepartmentId && d.IsActive, ct);
+            if (hasChildren)
+            {
+                return Conflict(new ErrorResponseDto(
+                    "하위 부서가 존재하여 삭제할 수 없습니다. 하위 부서를 먼저 정리하세요.",
+                    "DEPARTMENT_HAS_CHILDREN",
+                    new { departmentId = dept.DepartmentId }));
+            }
+
+            // 소속 사용자 존재 시 차단(운영자에게 명시적 정리 요구).
+            var hasUsers = await _db.Users
+                .AnyAsync(u => u.DepartmentId == dept.DepartmentId && !u.IsDeleted, ct);
+            if (hasUsers)
+            {
+                return Conflict(new ErrorResponseDto(
+                    "소속 사용자가 존재하여 삭제할 수 없습니다. 멤버를 먼저 다른 부서로 이동하세요.",
+                    "DEPARTMENT_HAS_MEMBERS",
+                    new { departmentId = dept.DepartmentId }));
+            }
+
+            dept.IsActive = false;
+            dept.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            _logger.LogInformation("AgentHub 부서 삭제(soft) 성공 - DeptId={Id}", dept.DepartmentId);
             await InvalidateDepartmentsCacheAsync();
             return NoContent();
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex, "DocUtil 부서 삭제 실패 (id={Id})", deptId);
-            // 실패 시에도 invalidate — DocUtil 측 상태 변동 가능성(예: 404 로 사라진 부서)을
-            // 캐시에 즉시 반영하여 ghost 부서가 GET 응답에 남는 일이 없도록 한다.
+            _logger.LogError(ex, "AgentHub 부서 삭제 실패 (id={Id})", deptId);
             await InvalidateDepartmentsCacheAsync();
-            return StatusCode(502, new ErrorResponseDto(
+            return StatusCode(500, new ErrorResponseDto(
                 "부서 삭제에 실패했습니다.",
-                "DOCUTIL_UPSTREAM_ERROR",
-                new { upstream = ex.Message }));
+                "DEPARTMENT_DELETE_ERROR",
+                new { error = ex.Message }));
         }
     }
 
