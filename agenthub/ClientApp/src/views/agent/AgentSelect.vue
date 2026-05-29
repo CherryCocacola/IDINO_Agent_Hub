@@ -150,16 +150,19 @@
           >
             <i class="bi bi-trash"></i>
           </button>
-          <a
+          <!-- 트랙 #133 (2026-05-29): 공유 버튼이 새 탭으로 /agent-test/:code 이동했으나
+               sessionStorage per-tab 격리로 토큰 부재 → 로그인 redirect 결함.
+               Modal 로 공유 URL/QR/복사 즉시 노출하여 현재 화면 유지 + 인증 우회.
+               전체 테스트 페이지는 modal 안 보조 링크로 제공 (같은 탭 이동). -->
+          <button
             v-if="isMyAgent(agent) && agent.agentCode"
-            :href="`/agent-test/${agent.agentCode}`"
-            target="_blank"
+            type="button"
             class="ag-btn-edit"
-            title="테스트 & 공유 링크"
-            @click.stop
+            title="공유 링크"
+            @click.stop="openShareModal(agent)"
           >
             <i class="bi bi-share"></i>
-          </a>
+          </button>
         </div>
       </div>
 
@@ -171,6 +174,62 @@
           </div>
           <h5 class="ag-add-title">새 Agent 생성</h5>
           <p class="ag-add-desc">정식 빌더에서 LLM 라우팅·RAG 권위·공유 설정을 함께 구성합니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 트랙 #133: 공유 modal — Agent 의 외부 공유 URL + QR + 복사. -->
+    <div v-if="shareAgent" class="ag-share-modal-backdrop" @click="shareAgent = null">
+      <div class="ag-share-modal" @click.stop>
+        <div class="ag-share-modal-header">
+          <h5 class="mb-0">
+            <i class="bi bi-share me-2"></i>{{ shareAgent.agentName }} 공유
+          </h5>
+          <button type="button" class="btn-close" @click="shareAgent = null"></button>
+        </div>
+        <div class="ag-share-modal-body">
+          <div class="ag-share-section">
+            <label class="form-label small fw-semibold">공유 URL</label>
+            <div class="ag-share-url-row">
+              <input type="text" class="form-control form-control-sm" :value="shareUrl" readonly>
+              <button type="button" class="btn btn-primary btn-sm" @click="copyShareUrl">
+                <i class="bi bi-copy"></i> 복사
+              </button>
+            </div>
+            <small class="text-muted">외부 사용자가 인증 없이 이 Agent 와 대화할 수 있는 공개 링크입니다.</small>
+          </div>
+          <div class="ag-share-section">
+            <label class="form-label small fw-semibold">QR 코드</label>
+            <div class="ag-share-qr">
+              <img :src="`/api/agents/public/${shareAgent.agentCode}/qr?size=160`" alt="QR" width="160" height="160" />
+              <div class="d-flex flex-column gap-2">
+                <a :href="`/api/agents/public/${shareAgent.agentCode}/qr?size=400`"
+                   download="qr-code.png" class="btn btn-outline-secondary btn-sm">
+                  <i class="bi bi-download"></i> QR 이미지 다운로드
+                </a>
+                <small class="text-muted">QR 스캔 시 공유 URL 로 이동합니다.</small>
+              </div>
+            </div>
+          </div>
+          <div class="ag-share-section">
+            <label class="form-label small fw-semibold">iframe 임베드</label>
+            <div class="ag-share-url-row">
+              <input type="text" class="form-control form-control-sm" :value="embedUrl" readonly>
+              <button type="button" class="btn btn-secondary btn-sm" @click="copyEmbedUrl">
+                <i class="bi bi-copy"></i> 복사
+              </button>
+            </div>
+            <small class="text-muted">외부 사이트에 iframe 으로 삽입할 때 사용합니다.</small>
+          </div>
+        </div>
+        <div class="ag-share-modal-footer">
+          <router-link
+            :to="`/agent-test/${shareAgent.agentCode}`"
+            class="btn btn-outline-primary btn-sm"
+          >
+            <i class="bi bi-box-arrow-up-right me-1"></i>전체 테스트 페이지 열기
+          </router-link>
+          <button type="button" class="btn btn-secondary btn-sm" @click="shareAgent = null">닫기</button>
         </div>
       </div>
     </div>
@@ -301,6 +360,60 @@ const getRibbonLabel = (agent: AgentDto): string => {
   return '타인'
 }
 
+// 트랙 #133 (2026-05-29): 공유 modal — 새 탭 진입 시 sessionStorage per-tab
+// 격리로 토큰 부재 결함 회피. 현재 화면에서 공유 URL/QR/iframe 임베드 즉시 노출.
+const shareAgent = ref<AgentDto | null>(null)
+const shareUrl = computed(() =>
+  shareAgent.value ? `${window.location.origin}/chatbot/${shareAgent.value.agentCode}` : ''
+)
+const embedUrl = computed(() =>
+  shareAgent.value
+    ? `<iframe src="${window.location.origin}/embed/${shareAgent.value.agentCode}" width="400" height="600" frameborder="0"></iframe>`
+    : ''
+)
+const openShareModal = (agent: AgentDto) => {
+  shareAgent.value = agent
+}
+// 트랙 #133b (2026-05-29): 운영 URL 이 HTTP (192.168.10.39:64005) 라 navigator.clipboard
+// 가 secure context 제약으로 동작 안 함. document.execCommand('copy') fallback +
+// 최종 실패 시 input 자동 선택 안내.
+const copyToClipboard = async (text: string, successMessage: string): Promise<void> => {
+  // 1차: 현대 API — secure context (HTTPS/localhost) 에서만 동작
+  if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text)
+      alert(successMessage)
+      return
+    } catch {
+      // fallback 으로 진행
+    }
+  }
+  // 2차: 레거시 execCommand — HTTP 환경에서도 동작 (deprecated 지만 광범위 지원)
+  try {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    textarea.setAttribute('readonly', '')
+    document.body.appendChild(textarea)
+    textarea.select()
+    textarea.setSelectionRange(0, text.length)
+    const ok = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    if (ok) {
+      alert(successMessage)
+      return
+    }
+  } catch {
+    // 최종 fallback
+  }
+  // 3차: 사용자에게 수동 복사 안내
+  alert(`자동 복사에 실패했습니다. 아래 텍스트를 직접 선택해 복사해 주세요:\n\n${text}`)
+}
+
+const copyShareUrl = () => copyToClipboard(shareUrl.value, '공유 URL 이 복사되었습니다.')
+const copyEmbedUrl = () => copyToClipboard(embedUrl.value, 'iframe 임베드 코드가 복사되었습니다.')
+
 const getRibbonClass = (agent: AgentDto): string => {
   const mine = isMyAgent(agent)
   if (mine && agent.isPublic) return 'ag-ribbon-mine-public'
@@ -360,4 +473,31 @@ onMounted(() => {
 .ag-card-ribbon.ag-ribbon-public       { background-color: #198754; }  /* success green — 공개 */
 .ag-card-ribbon.ag-ribbon-mine-public  { background: linear-gradient(90deg, #4F46E5 0%, #198754 100%); }  /* 혼합 */
 .ag-card-ribbon.ag-ribbon-others       { background-color: #6c757d; }  /* secondary gray — 타인(Admin only) */
+
+/* 트랙 #133 (2026-05-29): 공유 modal */
+.ag-share-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+  z-index: 1050; display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+.ag-share-modal {
+  background: #ffffff; border-radius: 12px; width: 540px; max-width: 92vw;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+.ag-share-modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb;
+}
+.ag-share-modal-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; }
+.ag-share-modal-footer {
+  display: flex; justify-content: space-between; gap: 0.5rem;
+  padding: 0.75rem 1.25rem; border-top: 1px solid #e5e7eb; background: #f9fafb;
+}
+.ag-share-section { display: flex; flex-direction: column; gap: 0.35rem; }
+.ag-share-url-row { display: flex; gap: 0.5rem; align-items: stretch; }
+.ag-share-url-row input { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+.ag-share-qr { display: flex; gap: 1rem; align-items: center; }
+.ag-share-qr img { border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px; background: #fff; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
