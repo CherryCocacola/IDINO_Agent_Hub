@@ -170,6 +170,76 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-29 (트랙 #126b — Settings.vue 프로필 탭 우측 form 빈 영역 fix [CSS `.settings-tab { display: none }` 잔존 결함])
+
+**사용자 보고**: 트랙 #126 (사이드바 settings 카테고리 펼침) fix 후에도 `/settings` 진입 시 우측 form 영역이 빈 화면. 콘솔 에러 0건. 사용자 진단: "프로필 누렀을 때 작동하는 코드가 연결되지 않음".
+
+**Root cause**: Playwright DOM/CSS 진단으로 확정:
+- `.settings-tab` computed style = `display: none` (BoundingClientRect = 0×0, visible=False)
+- `styles.css:1030` 의 `.settings-tab { display: none } / .settings-tab.active { display: block }` 잔존 규칙
+- Settings.vue 의 `<div v-if="activeTab === ...'" class="settings-tab">` 은 `.active` 클래스 부착 안 함 (v-if 가 이미 DOM 분기 처리) → 무조건 `display: none` → 우측 form 영역 빈 화면
+
+**Fix**: `styles.css:1027-1037` 의 `.settings-tab { display: none }` + `.settings-tab.active { display: block; animation: fadeIn }` 두 규칙 → `.settings-tab { animation: fadeIn 0.3s ease }` 로 단순화 (v-if 가 표시/숨김 담당, fadeIn 만 유지).
+
+**파일**: `agenthub/ClientApp/src/styles.css`
+
+**검증**:
+- Playwright 재검증 — `.settings-tab` visible=True + 1194×547px + form 1010,260 855×406px 정상 표시
+- 스크린샷 — 프로필 form (이름/이메일/전화번호/부서/자기소개/저장) 완전 노출
+- "환경 설정" + "보안" 탭 클릭 시 각 form 정상 표시 예상 (CSS 동일 클래스)
+
+**진단 과정 메모** (참고):
+- backend `/api/users/me` HTTP 200, `/api/userpreferences` HTTP 200 — backend 정상
+- 빌드 chunk `Settings-BanoTa4A.js` 14,927 bytes — Vue 컴포넌트 + form 완전 컴파일
+- nginx 응답 정상 (immutable cache + index.html no-cache)
+- 사용자 보고 4회 (단답 진단) 후 Playwright 자동 DOM 검증으로 `display: none` 발견 — UI 결함은 코드/빌드/네트워크 모두 정상이어도 CSS 1줄로 화면 깨질 수 있음 (`MEMORY.md feedback_ui_verification` 적용 사례)
+
+**커밋**: `f1aa468` (push 보류 — 사용자 명시 승인 후만 진행).
+
+### 2026-05-29 (트랙 #126 — 사이드바 settings + myAccount 카테고리 기본 펼침)
+
+**사용자 보고**: `/settings` 진입 경로를 사이드바에서 찾지 못함 ("설정 메뉴가 사이드바에 안 보임").
+
+**Root cause**: `MainLayout.vue:294` 의 `expandedCategories.settings: false` → 카테고리가 기본 접힘 상태 + 카테고리 list 의 가장 마지막에 위치 → 사용자가 카테고리 헤더 클릭(펼치기) 전까지 "설정"+"도움말" 항목 자체 비표시.
+
+**Fix** (`MainLayout.vue:291-294`):
+- `expandedCategories.settings: false` → `true`
+- `expandedCategories.myAccount: false` → `true` (보강 — 사용자 본인 메뉴 즉시 노출이 자연스러움)
+
+**파일**: `agenthub/ClientApp/src/layouts/MainLayout.vue`
+
+**검증**:
+- 운영 빌드 산출물 grep — `settings:!0` (vite minify `true` → `!0`) 확인
+- 사용자 컨펌 (이후 트랙 #126b root cause 발견으로 결함 보고 지속, 본 트랙은 사이드바 자체 펼침은 정상)
+
+**커밋**: TBD.
+
+### 2026-05-29 (트랙 #125 — AdminDocUtilDepartments mutation AgentHub 직접 전환 [DocUtil 위임 폐지])
+
+**사용자 보고**: `/admin/docutil-departments` 신규 부서 생성 (최상위 지정) 시 `POST /api/admin/docutil/departments` → **HTTP 502 Bad Gateway**.
+
+**Root cause**: AgentHub Controller `CreateDepartment` (line 343) 가 `_docUtilClient.CreateDepartmentAsync` 위임 호출 → DocUtil `POST /api/v1/organizations/{org_id}/departments` 시도. **DocUtil 의 `departments/router.py` 자체가 트랙 A1 Phase D 에서 폐지됨** (`docutil/backend/app/modules/` 디렉토리 list 에 departments 부재) → upstream 404 → `InvalidOperationException` → 502 변환.
+
+**Fix**: 트랙 #122 (UpdateUser AgentHub 직접 update) 와 동일 패턴 일관 — 3 endpoint (POST/PUT/DELETE `/departments`) 모두 AgentHub `_db.Departments` 직접 mutation 으로 refactor.
+
+- **POST CreateDepartment**: name + (parentId UUID/int 둘 다 수용) → DepartmentCode 자동 생성 (`dept-{6자리guid}`) + OriginalDocutilUuid NewGuid + 첫 활성 Tenant + CreatedAt UTC
+- **PUT UpdateDepartment**: deptId UUID/int + partial update (name/parentId, "" = 해제) + 자기 자신 parent 차단
+- **DELETE DeleteDepartment**: soft-delete (`IsActive = false`) + 자식 부서 존재 시 409 + 소속 사용자 존재 시 409
+
+**파일**: `agenthub/Controllers/AdminDocUtilDepartmentsController.cs`
+
+**검증** (`tmp/deploy_track125_dept_direct_mutation.py` 자동):
+1. POST 최상위 부서 (parentId=null) → HTTP 201 + dept id=79 + depth=0 + path=`/79/`
+2. POST 하위 부서 (parentId="79" int) → HTTP 201 + dept id=80 + depth=1 + path=`/79/80/`
+3. PUT 이름 변경 → HTTP 200 (DB 에 `...-renamed` 반영)
+4. DELETE 자식 있는 부모 → **HTTP 409** (자식 보호 차단 동작 정상)
+5. DB 직접 — Departments 2 rows + ParentDepartmentId FK 매핑 + IsActive=true
+6. cleanup — `DELETE 2` (ui-e2e-test-* prefix hard-delete)
+
+**관련 트랙 일관**: 트랙 #122 (Users mutation) + 트랙 #123 (멤버 list cache 제거) + 트랙 A1 Phase C (DocUtil mutation 차단). Phase C 의 "Users/Departments mutation AgentHub 직접 전환" 후속 완성.
+
+**커밋**: TBD.
+
 ### 2026-05-27 (트랙 #124 — AdminDocUtilTemplates modal 흰 화면 fix [vue-i18n placeholder syntax 위반 2건])
 
 **사용자 보고 (순차 2건)**:
