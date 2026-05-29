@@ -170,6 +170,52 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-29 (트랙 #132 — Analytics `/usage` + `/top-users` 일반 사용자 접근 분기)
+
+**사용자 보고 (순차 2건)**:
+1. 일반 사용자로 `/analytics` 진입 시 `GET /api/analytics/usage` → **403 Forbidden**
+2. `GET /api/analytics/top-users` → **403 Forbidden**
+
+**Root cause**: `AnalyticsController` 의 두 endpoint 가 `[Authorize(Roles="Admin")]` 가드. `MainLayout.vue:451` 의 myAccount 카테고리 설계 의도 ("백엔드 컨트롤러는 user role 시 본인 데이터, admin role 시 전체 데이터 분기") 와 backend 가드 불일치.
+
+**Fix** (AgentsController.cs:52 패턴 일관):
+
+| endpoint | 변경 |
+|---|---|
+| `/usage` | `Authorize(Roles)` 제거 + Admin 아니면 본인 userId 강제 필터 (일반 user 도 본인 데이터 받음) |
+| `/top-users` | `Authorize(Roles)` 제거 + 일반 user 시 빈 배열 반환 (top user 는 의미상 Admin 전용 비교 분석 — frontend 차트 graceful) |
+
+**파일**: `agenthub/Controllers/AnalyticsController.cs`
+
+**검증**:
+- Admin `/usage` → 200 + 정상 데이터
+- Admin `/top-users` → 200 + 데이터 (admin/hslee 등)
+- Admin + userId=999 (없는 사용자) → 200 + 빈 배열
+- 사용자 운영 검증 PASS (재로그인 후 다른 403 발생 안 함, 별개 `/api/agents` 401 은 세션 만료 — 종결)
+
+**잠재 잔존** (사용자 추가 보고 시 동일 패턴 적용): `/team-stats`, `/usage-summary`, `/usage-history`, `/user-usage/{userId}` 등 Admin 가드 endpoint. 일반 user 호출 발생 위치 확인 후 결함 보고 시 일괄 fix.
+
+**커밋**: `d6360c1`.
+
+### 2026-05-29 (트랙 #131 — Settings 환경설정 theme 옵션 disable + "준비 중" 라벨)
+
+**사용자 보고**: `/settings` 환경설정에서 테마(라이트/다크/시스템) 변경 + 저장해도 화면 테마 변경 안 됨.
+
+**Root cause**: `handleSavePreferences` 가 theme 을 DB + localStorage 저장만 하고 DOM 적용 함수 부재. `aiuiux-theme.css` 의 300+ CSS 변수에 다크모드 페어 정의 부재 + `App.vue`/`main.ts` 의 `data-bs-theme` 부착 코드 부재 = **다크모드 자체가 미구현 상태**. theme select 가 form 에 표시되지만 실제 기능 0.
+
+**Fix** (사용자 결정 옵션 C — 도움말 보류 패턴 일관, 정직한 미구현 노출):
+- label 옆 회색 "준비 중" badge 추가
+- select `disabled` 항상
+- helper text: "다크모드는 정식 구현 예정입니다. 현재 라이트 모드로 고정됩니다."
+
+**파일**: `agenthub/ClientApp/src/views/Settings.vue`
+
+**검증**: 빌드 산출물에 "준비 중" / "다크모드는 정식 구현" 한국어 string 포함. 사용자 운영 검증 PASS.
+
+**정식 다크모드 구현 (후순위 트랙)**: `aiuiux-theme.css` CSS 변수 다크 페어 정의 + Bootstrap `data-bs-theme` 부착 + `prefers-color-scheme auto` 감지 + 전체 페이지 검증 (1~2일).
+
+**커밋**: `cd56827`.
+
 ### 2026-05-29 (트랙 #130 — 사이드바 접힘 시 toggle 버튼 시각 미노출 fix)
 
 **사용자 보고**: 사이드바 접었을 때 펼치는 버튼이 클릭은 되지만 시각적으로 안 보임 — UX 개선 필요.
