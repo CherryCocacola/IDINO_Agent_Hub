@@ -214,17 +214,27 @@
                     <option value="UTC">UTC</option>
                   </select>
                 </div>
+                <!-- 트랙 #131 (2026-05-29): theme 옵션 disable + "준비 중" 라벨.
+                     Root cause: theme 값은 DB 저장되지만 화면 적용 코드(data-bs-theme
+                     또는 자체 CSS 변수 다크 매핑) 가 부재 → 변경해도 시각 효과 0.
+                     정식 다크모드 구현은 별도 트랙 (aiuiux-theme.css 의 300+ CSS 변수
+                     다크 페어 정의 + Bootstrap data-bs-theme + prefers-color-scheme
+                     auto 감지 + 전체 페이지 검증) 으로 후순위. -->
                 <div class="mb-3">
-                  <label class="form-label">테마</label>
+                  <label class="form-label">
+                    테마
+                    <span class="badge bg-secondary ms-1">준비 중</span>
+                  </label>
                   <select
                     class="form-select"
                     v-model="preferences.theme"
-                    :disabled="preferencesSaving"
+                    disabled
                   >
                     <option value="light">라이트</option>
                     <option value="dark">다크</option>
                     <option value="auto">시스템 설정</option>
                   </select>
+                  <small class="text-muted">다크모드는 정식 구현 예정입니다. 현재 라이트 모드로 고정됩니다.</small>
                 </div>
                 <div class="text-end">
                   <button
