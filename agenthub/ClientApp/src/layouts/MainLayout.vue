@@ -857,6 +857,32 @@ async function handleLogout() {
   width: 70px;
 }
 
+/* 트랙 #130 (2026-05-29): 사이드바 접힘 시 sidebar-header 의 brand + toggle 이
+   가로 space-between 으로 배치되어 toggle 버튼이 width 70px 한계 + overflow:hidden
+   으로 시각적으로 가려지는 결함 fix. 세로 배치 + 중앙 정렬로 brand 아이콘과
+   toggle 버튼 모두 노출. */
+.sidebar.collapsed .sidebar-header {
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.5rem;
+  min-height: auto;
+}
+.sidebar.collapsed .sidebar-brand {
+  gap: 0;
+  justify-content: center;
+}
+.sidebar.collapsed .sidebar-toggle {
+  width: 36px;
+  height: 36px;
+  /* 접힘 상태 시각 가독성 — 옅은 배경 + 테두리로 버튼임을 명확히 인지 */
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.sidebar.collapsed .sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
 /* 사이드바가 접혔을 때 메인 컨텐츠 영역 조정 */
 .sidebar-collapsed .main-content {
   margin-left: 70px;
