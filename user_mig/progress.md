@@ -170,6 +170,24 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-31 (트랙 #135 — Analytics `/usage-history` + `/usage-summary` 일반 사용자 접근 분기)
+
+**진행 배경**: 트랙 #132 의 점검 표에서 식별된 잠재 결함 선제 적용 — `Dashboard.vue:272` 와 `UsageHistory.vue:407/471` 이 호출하는 두 endpoint 가 `[Authorize(Roles="Admin")]` 가드. 일반 user 진입 시 UsageHistory 메뉴 (myAccount 카테고리) 403 발생 가능. 사용자 보고 전 선제 fix.
+
+**Fix** (트랙 #132 / AgentsController.cs:52 패턴 일관):
+- `/usage-history`: `Authorize(Roles)` 제거 + Admin 아니면 userId 강제 본인 필터
+- `/usage-summary`: 동일 분기
+
+**유지 (Admin 전용)**: `/team-stats` (운영자 대시보드 비교 분석), `/user-usage/{userId}` (운영자가 다른 사용자 사용량 조회). `/agents/{id}/daily` 는 이미 소유자 분기 처리됨 (line 275-277).
+
+**파일**: `agenthub/Controllers/AnalyticsController.cs`
+
+**검증**:
+- Admin `/usage-history?take=5` → HTTP 200 + 정상 데이터
+- Admin `/usage-summary` → HTTP 200 + KPI (totalCalls 585 / Tokens 1,110,338 / Cost $31.75)
+
+**커밋**: `f92a0b8`.
+
 ### 2026-05-31 (트랙 #134 — Agent 마켓플레이스에서 본인 작성 Agent 제외)
 
 **사용자 의문**: "개인이 공유 형태가 아닌데 만든 사람에게 보여줄 필요가 있어?" — 본인이 만든 Public Agent 가 본인의 마켓플레이스에 노출되는 게 UX 측면에서 부적절.
