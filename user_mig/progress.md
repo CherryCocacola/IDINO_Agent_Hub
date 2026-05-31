@@ -170,6 +170,62 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-06-01 (Phase 5α + 5γ — Nexus 클라이언트 정합성 fix + 운영 e2e 검증)
+
+**진행 배경** (사용자 결정 D3 → E3 → F1): Phase 5 (AgentHub Nexus provider + LlmRouting + 진짜 SSE) 진입. 5.0 운영 가용성 확인 시 **Phase 5.1~5.6 인프라가 이미 사전 완료** 상태 발견 (트랙 #92 추정). 5α (정합성 fix) + 5γ (e2e) 만 남음.
+
+**Phase 5.0 Nexus 가용성 + 명세 확인**:
+| LAN host:port | 역할 |
+|---|---|
+| `192.168.22.28:8001` | vLLM 모델 서버 (OpenAI 호환) — 직접 호출 X |
+| `192.168.22.28:8002` | 임베딩 서버 (multilingual-e5-large 1024D) |
+| **`https://192.168.22.223:8443`** | **Nexus 본체** (HTTPS, 자체서명) — agenthub 컨테이너에서 정상 접근 |
+
+**운영 Nexus API 검증** (5.0):
+- `POST /v1/chat` → 200 + 1.31초 + 응답 schema `{session_id, response, tool_calls, usage: {input_tokens, output_tokens, total_tokens}}`
+- `POST /v1/chat/stream` SSE → `text/event-stream` + `X-Session-ID` 응답 헤더 + event types: `stream_request_start / message_start / text_delta / message_stop / usage_update / stream_request_end`
+- `/v1/models`: nexus-phase3 (primary, Qwen 3.5 27B) / exaone-7.8b (auxiliary) / multilingual-e5-large
+- `/v1/tenants`: default 1건
+- 인증: API key 식별 용도, 거부 미들웨어 없음 (AgentHub 측 책임)
+
+**5α Root cause (사전 NexusClient 정합성 결함)**:
+1. `NexusUsage(PromptTokens, CompletionTokens, ...)` 가 SnakeCaseLower → `prompt_tokens/completion_tokens` 매핑 → 운영의 `input_tokens/output_tokens` 와 불일치 → 디시리얼라이즈 후 모두 0
+2. `SendChatStreamAsync` 의 종료 신호가 `"done"` / `[DONE]` 가정 → 운영의 `stream_request_end` 미감지
+
+**5α Fix** (agenthub/Services/INexusClient.cs + NexusClient.cs):
+- `NexusUsage` 의 모든 필드에 `[property: JsonPropertyName]` attribute 부착 — input_tokens/output_tokens/total_tokens 운영 schema 직접 매핑 + 호출자(AiProxyService) 의 PromptTokens 참조 코드 호환성 유지
+- SSE 종료 신호에 `stream_request_end` 추가 (기존 done/[DONE] 호환 유지)
+- `NexusStreamEvent` type 카탈로그 주석 갱신 (실측 6 type)
+
+**5γ 운영 e2e 검증**:
+- Internal Agent (id=30 "career 액션 추천기", ServiceId=32 nexus) `POST /api/agents/30/chat` → **HTTP 200 + 3.65초** + Nexus 27B 한국어 응답 ("안녕하세요! 저는 진로 코칭 챗봇 Nexus입니다...") + tokensUsed=**2124** (5α 효과)
+- 로그: `라우팅 적용: AgentId=30, Reason=internal_routing, ServiceId 32 → 32 (ServiceCode=nexus)`
+- Named HttpClient "nexus" 정상 동작 (`System.Net.Http.HttpClient.nexus.LogicalHandler/ClientHandler`)
+- HybridRouter 결정 출력 정상: `AgentId=22, Decision=external, Reason=empty_policy` (정책 빈 폴백)
+
+**운영 데이터**: External 25 / Internal **1** / Hybrid **10** (LlmRouting 컬럼 운영 활용 중)
+
+**파일**: `agenthub/Services/INexusClient.cs`, `agenthub/Services/NexusClient.cs`
+
+**커밋**: `a93a96d`.
+
+**Phase 5 완료 상태**:
+| 단계 | 상태 |
+|---|---|
+| 5.1 NexusClient 인프라 | ✓ 사전 완료 + 5α fix |
+| 5.2 AiProxyService.CallNexusAsync + 진짜 SSE | ✓ 사전 완료 |
+| 5.3 Agent.LlmRouting / RoutingPolicyJson 컬럼 | ✓ 사전 완료 |
+| 5.4 HybridRouter (4 룰) | ✓ 사전 완료 |
+| 5.5 nexus ApiServices 시드 + AgentBuilder UI | ✓ 사전 완료 (ServiceId=32 "Project Nexus" 활성) |
+| 5.6 진짜 SSE Vue 호환성 | ✓ 5.2 통합 |
+| 5.7 환경 분기 + 검증 매트릭스 | 부분 완료 (e2e Internal/Hybrid 1건씩 검증) — 전체 매트릭스 후속 트랙 |
+
+**후속 트랙** (Phase 5+ 운영 적용 전):
+- `Nexus:SharedSecret` 미설정 경고 — 운영 인증 강화
+- `RoutingPolicyJson` 운영 보강 — 10건 Hybrid Agent 모두 빈 정책 → External 폴백 500 잔존
+- HybridRouter 4 룰 단위 테스트
+- Phase 5.7 자동 검증 매트릭스 (3 환경 × 3 라우팅 × Agent 5개)
+
 ### 2026-05-31 (트랙 #136 — 운영자 콘솔 FAQ + 튜토리얼 관리 UI 신설 + 도움말 보류 해제)
 
 **진행 배경**: 트랙 #126x 도움말 결함 (Faqs/Tutorials/ExamplePrompts 모두 0행 + 운영자 콘솔 CRUD UI 부재) 후순위 보류 해제. backend `FaqsController` / `TutorialsController` 의 POST/PUT/DELETE Admin 가드 기존 활용 — 별도 BFF 신설 불필요.
