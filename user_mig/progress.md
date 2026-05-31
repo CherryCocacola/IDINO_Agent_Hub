@@ -170,6 +170,60 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-31 (트랙 #134 — Agent 마켓플레이스에서 본인 작성 Agent 제외)
+
+**사용자 의문**: "개인이 공유 형태가 아닌데 만든 사람에게 보여줄 필요가 있어?" — 본인이 만든 Public Agent 가 본인의 마켓플레이스에 노출되는 게 UX 측면에서 부적절.
+
+**진단**: 운영 데이터 — Admin `/agents?isPublic=true` 응답 16건 중 본인(admin) 작성 **15건**이 마켓플레이스 차지 + 타인 작성 1건. 마켓플레이스 의도는 "다른 사용자가 공유한 Public Agent 둘러보고 가져다 쓰는 곳" 인데 본인 작성이 중복 표시되어 혼란.
+
+**설계 정리**:
+| 화면 | 노출 정책 |
+|---|---|
+| `/agents` (에이전트 선택) | 본인 작성 (Public/비공개) + 타인 Public — 본인 관리 + 둘러보기 |
+| `/agents/marketplace` | **타인 작성 Public 만** — 마켓플레이스 의도 명확화 (본 트랙 fix) |
+| `/chatbot/:code` (외부 공유) | `IsPublic && AllowGuestChat && IsActive` |
+
+**Fix** (frontend filter — backend 변경 없음 + 다른 호출자 영향 X):
+- `useAuthStore` import
+- `isOthersAgent(a) = a.createdBy !== authStore.user?.userId`
+- `filteredAgents` computed: `a.isPublic && isOthersAgent(a)`
+- `totalPages` computed: 동일 필터 적용
+
+**파일**: `agenthub/ClientApp/src/views/agent/AgentMarketplace.vue`
+
+**검증** (Playwright 자동, Admin 진입):
+- 운영 16 Public 중 본인 15 + 타인 1 ("국문학 전문가")
+- 마켓플레이스 카드 **1개만** 노출 (본인 15건 제외)
+- 우상단 카운터 "전체 1개" 일치
+- 사용자 운영 검증 PASS
+
+**커밋**: `596d2ff`.
+
+### 2026-05-31 (트랙 #133c — AgentSelect 공유 modal 사전 조건 체크 + 즉시 활성화 버튼)
+
+**사용자 보고**: AgentSelect 공유 URL 복사 후 새 창에서 열었을 때 "챗봇을 찾을 수 없습니다 존재하지 않거나 비공개 챗봇입니다" 표시.
+
+**Root cause**: `AgentsController.cs:818` 의 `GetPublicAgentInfo` 가 `IsActive && IsPublic && AllowGuestChat` 3 조건 동시 요구. AgentSelect 공유 modal 은 본인 작성 Agent 모두에 노출되지만 그 중 `IsPublic=false` 또는 `AllowGuestChat=false` Agent 는 외부 접근 시 404. 운영자에게 사전 가시성 부재 + 즉시 변경 경로 없음. 운영 진단: 본인 작성 Agent 중 외부 공유 불가 3건 (id 44/43/18).
+
+**Fix**:
+- `isShareReady` computed — `agent.isPublic && agent.allowGuestChat` 둘 다 true
+- 둘 중 하나라도 false 면 modal 상단에 노란 alert + 각 결함 안내 ("비공개 상태" / "게스트 채팅 비활성화")
+- "지금 공유 활성화" 버튼 — `PUT /api/agents/{id}` 으로 `isPublic + allowGuestChat` 한 번에 true 갱신 + modal/카드 목록 동기화
+- 복사 버튼 3개 + QR 이미지 + iframe input 모두 `:disabled="!isShareReady"`
+- QR placeholder ("공유 활성화 후 표시됩니다" + `bi-qr-code` 점선 박스)
+- CSS `.ag-share-section-disabled` (opacity 0.55), placeholder 스타일
+
+**파일**: `agenthub/ClientApp/src/views/agent/AgentSelect.vue`
+
+**검증** (Playwright 자동, "테스트" Agent — isPublic=false, allowGuestChat=false):
+- modal 노출 → 노란 경고 alert 2건 (비공개 + 게스트 비활성)
+- "지금 공유 활성화" 버튼 존재 + 활성
+- 복사 버튼 2개 모두 disabled
+- QR placeholder 노출
+- 사용자 운영 검증 PASS
+
+**커밋**: `4037f38`.
+
 ### 2026-05-29 (트랙 #133 — AgentSelect 공유 modal 신설 + 운영 HTTP 환경 clipboard fallback)
 
 **사용자 보고 (순차 2건)**:
