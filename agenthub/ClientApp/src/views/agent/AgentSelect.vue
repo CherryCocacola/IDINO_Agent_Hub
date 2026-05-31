@@ -188,34 +188,63 @@
           <button type="button" class="btn-close" @click="shareAgent = null"></button>
         </div>
         <div class="ag-share-modal-body">
-          <div class="ag-share-section">
+          <!-- 트랙 #133c (2026-05-29): 사전 조건 체크 — backend `/public/{code}/info` 가
+               IsActive && IsPublic && AllowGuestChat 3 조건 동시 요구. 하나라도 false 면
+               외부 사용자가 "챗봇을 찾을 수 없습니다" 표시. 운영자에게 즉시 활성화 버튼 제공. -->
+          <div v-if="!isShareReady" class="alert alert-warning d-flex align-items-start gap-2 mb-3">
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+            <div class="flex-grow-1">
+              <strong>이 Agent 는 현재 외부 공유가 불가능합니다.</strong>
+              <ul class="mb-2 mt-1 small">
+                <li v-if="!shareAgent.isPublic">비공개 상태 — 외부 사용자가 접근할 수 없습니다.</li>
+                <li v-if="!shareAgent.allowGuestChat">게스트 채팅이 비활성화 — 비로그인 사용자가 대화할 수 없습니다.</li>
+              </ul>
+              <button type="button" class="btn btn-warning btn-sm" :disabled="enablingShare" @click="enableShareNow">
+                <span v-if="enablingShare" class="spinner-border spinner-border-sm me-1"></span>
+                <i v-else class="bi bi-toggle-on me-1"></i>
+                {{ enablingShare ? '활성화 중...' : '지금 공유 활성화' }}
+              </button>
+              <small class="d-block text-muted mt-1">"공개" + "게스트 채팅" 두 설정을 한 번에 켭니다.</small>
+            </div>
+          </div>
+
+          <div class="ag-share-section" :class="{ 'ag-share-section-disabled': !isShareReady }">
             <label class="form-label small fw-semibold">공유 URL</label>
             <div class="ag-share-url-row">
               <input type="text" class="form-control form-control-sm" :value="shareUrl" readonly>
-              <button type="button" class="btn btn-primary btn-sm" @click="copyShareUrl">
+              <button type="button" class="btn btn-primary btn-sm" :disabled="!isShareReady" @click="copyShareUrl">
                 <i class="bi bi-copy"></i> 복사
               </button>
             </div>
             <small class="text-muted">외부 사용자가 인증 없이 이 Agent 와 대화할 수 있는 공개 링크입니다.</small>
           </div>
-          <div class="ag-share-section">
+          <div class="ag-share-section" :class="{ 'ag-share-section-disabled': !isShareReady }">
             <label class="form-label small fw-semibold">QR 코드</label>
             <div class="ag-share-qr">
-              <img :src="`/api/agents/public/${shareAgent.agentCode}/qr?size=160`" alt="QR" width="160" height="160" />
+              <img v-if="isShareReady"
+                :src="`/api/agents/public/${shareAgent.agentCode}/qr?size=160`"
+                alt="QR" width="160" height="160" />
+              <div v-else class="ag-share-qr-placeholder">
+                <i class="bi bi-qr-code"></i>
+                <small>공유 활성화 후 표시됩니다</small>
+              </div>
               <div class="d-flex flex-column gap-2">
                 <a :href="`/api/agents/public/${shareAgent.agentCode}/qr?size=400`"
-                   download="qr-code.png" class="btn btn-outline-secondary btn-sm">
+                   download="qr-code.png"
+                   class="btn btn-outline-secondary btn-sm"
+                   :class="{ disabled: !isShareReady }"
+                   :tabindex="isShareReady ? 0 : -1">
                   <i class="bi bi-download"></i> QR 이미지 다운로드
                 </a>
                 <small class="text-muted">QR 스캔 시 공유 URL 로 이동합니다.</small>
               </div>
             </div>
           </div>
-          <div class="ag-share-section">
+          <div class="ag-share-section" :class="{ 'ag-share-section-disabled': !isShareReady }">
             <label class="form-label small fw-semibold">iframe 임베드</label>
             <div class="ag-share-url-row">
               <input type="text" class="form-control form-control-sm" :value="embedUrl" readonly>
-              <button type="button" class="btn btn-secondary btn-sm" @click="copyEmbedUrl">
+              <button type="button" class="btn btn-secondary btn-sm" :disabled="!isShareReady" @click="copyEmbedUrl">
                 <i class="bi bi-copy"></i> 복사
               </button>
             </div>
@@ -374,6 +403,33 @@ const embedUrl = computed(() =>
 const openShareModal = (agent: AgentDto) => {
   shareAgent.value = agent
 }
+
+// 트랙 #133c (2026-05-29): 외부 공유 가능 여부 — backend public/{code}/info 가
+// IsActive && IsPublic && AllowGuestChat 모두 요구.
+const isShareReady = computed(() =>
+  !!shareAgent.value && shareAgent.value.isPublic === true && shareAgent.value.allowGuestChat === true
+)
+const enablingShare = ref(false)
+const enableShareNow = async () => {
+  if (!shareAgent.value) return
+  enablingShare.value = true
+  try {
+    const { data } = await api.put<AgentDto>(`/agents/${shareAgent.value.agentId}`, {
+      isPublic: true,
+      allowGuestChat: true
+    })
+    // 응답 반영 — modal 의 shareAgent + 목록 동기화
+    shareAgent.value = data
+    const idx = agents.value.findIndex(a => a.agentId === data.agentId)
+    if (idx >= 0) agents.value[idx] = data
+    alert('공유가 활성화되었습니다. 외부 사용자가 이 Agent 와 대화할 수 있습니다.')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { message?: string } }; message?: string }
+    alert(err.response?.data?.message || err.message || '공유 활성화에 실패했습니다. AgentBuilder 에서 직접 설정해 주세요.')
+  } finally {
+    enablingShare.value = false
+  }
+}
 // 트랙 #133b (2026-05-29): 운영 URL 이 HTTP (192.168.10.39:64005) 라 navigator.clipboard
 // 가 secure context 제약으로 동작 안 함. document.execCommand('copy') fallback +
 // 최종 실패 시 input 자동 선택 안내.
@@ -499,5 +555,13 @@ onMounted(() => {
 .ag-share-url-row input { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
 .ag-share-qr { display: flex; gap: 1rem; align-items: center; }
 .ag-share-qr img { border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px; background: #fff; }
+.ag-share-qr-placeholder {
+  width: 160px; height: 160px; border: 1px dashed #cbd5e1; border-radius: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
+  background: #f8fafc; color: #94a3b8;
+}
+.ag-share-qr-placeholder i { font-size: 2.5rem; }
+.ag-share-section-disabled { opacity: 0.55; }
+.ag-share-section-disabled input { background-color: #f1f5f9 !important; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
