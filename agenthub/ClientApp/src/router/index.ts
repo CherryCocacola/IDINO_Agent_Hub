@@ -228,6 +228,20 @@ const routes = [
         component: () => import('@/views/admin/AdminDocUtilFaq.vue'),
         meta: { requiresAuth: true, role: 'Admin' }
       },
+      // 트랙 #136 (2026-05-31): AgentHub 도움말 FAQ + 튜토리얼 운영자 관리 콘솔.
+      // backend FaqsController / TutorialsController 의 POST/PUT/DELETE Admin 가드 활용.
+      {
+        path: 'admin/faqs',
+        name: 'AdminFaqs',
+        component: () => import('@/views/admin/AdminFaqs.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
+      {
+        path: 'admin/tutorials',
+        name: 'AdminTutorials',
+        component: () => import('@/views/admin/AdminTutorials.vue'),
+        meta: { requiresAuth: true, role: 'Admin' }
+      },
       // Phase 10.2c (2026-05-11): DocUtil 보고서/템플릿 운영자 콘솔 (BFF 패턴)
       {
         path: 'admin/docutil-reports',

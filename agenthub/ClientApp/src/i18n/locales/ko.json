@@ -64,6 +64,8 @@
     "piiProtection": "개인정보 보호 설정",
     "systemHealth": "시스템 상태",
     "databaseBackup": "데이터베이스 백업",
+    "adminFaqs": "도움말 FAQ 관리",
+    "adminTutorials": "튜토리얼 관리",
     "presentationTemplateManagement": "프레젠테이션 템플릿 관리",
     "imageGeneration": "이미지 생성",
     "quickImageGeneration": "간편 이미지",

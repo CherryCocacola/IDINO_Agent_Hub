@@ -64,6 +64,8 @@
     "piiProtection": "Cài đặt bảo vệ thông tin cá nhân",
     "systemHealth": "Trạng thái hệ thống",
     "databaseBackup": "Sao lưu cơ sở dữ liệu",
+    "adminFaqs": "Quản lý FAQ trợ giúp",
+    "adminTutorials": "Quản lý hướng dẫn",
     "presentationTemplateManagement": "Quản lý mẫu bài thuyết trình",
     "imageGeneration": "Tạo hình ảnh",
     "quickImageGeneration": "Hình ảnh nhanh",

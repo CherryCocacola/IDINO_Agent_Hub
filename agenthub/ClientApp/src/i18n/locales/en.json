@@ -64,6 +64,8 @@
     "piiProtection": "PII Protection Settings",
     "systemHealth": "System Health",
     "databaseBackup": "Database Backup",
+    "adminFaqs": "FAQ Management",
+    "adminTutorials": "Tutorial Management",
     "presentationTemplateManagement": "Presentation Template Management",
     "imageGeneration": "Image Generation",
     "quickImageGeneration": "Quick Image",

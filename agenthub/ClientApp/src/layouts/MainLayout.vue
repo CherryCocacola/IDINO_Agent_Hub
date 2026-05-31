@@ -684,6 +684,19 @@ const allMenuCategories = computed<MenuCategory[]>(() => [
         path: '/database-backup',
         icon: 'bi bi-hdd-stack',
         roles: ['Admin']
+      },
+      // 트랙 #136 (2026-05-31): 도움말 콘텐츠 운영자 관리.
+      {
+        name: t('nav.adminFaqs'),
+        path: '/admin/faqs',
+        icon: 'bi bi-question-square',
+        roles: ['Admin']
+      },
+      {
+        name: t('nav.adminTutorials'),
+        path: '/admin/tutorials',
+        icon: 'bi bi-play-btn',
+        roles: ['Admin']
       }
     ]
   },
