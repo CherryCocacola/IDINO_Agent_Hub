@@ -174,10 +174,16 @@
 import { ref, computed, onMounted } from 'vue'
 import { getAgentDisplayColor, getAgentContrastTextColor } from '@/utils/agentUtils'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 import type { AgentDto } from '@/types'
 
 const router = useRouter()
+const authStore = useAuthStore()
+// 트랙 #134 (2026-05-29): 마켓플레이스 = "다른 사용자가 만든 Public Agent 둘러보고
+// 가져다 쓰는 곳" 정의 명확화. 본인 작성 Public Agent 는 /agents (선택) 에서
+// 이미 관리되므로 중복 표시 + UX 혼란 회피 위해 본인 작성 제외.
+const isOthersAgent = (a: AgentDto) => a.createdBy !== authStore.user?.userId
 const agents = ref<AgentDto[]>([])
 const loading = ref(false)
 const searchText = ref('')
@@ -189,7 +195,8 @@ const showDetailModal = ref(false)
 const selectedAgent = ref<AgentDto | null>(null)
 
 const filteredAgents = computed(() => {
-  let result = agents.value.filter(a => a.isPublic)
+  // 트랙 #134: isPublic && 본인 작성 아닌 것만 (마켓플레이스 = 타인 공유 Public Agent)
+  let result = agents.value.filter(a => a.isPublic && isOthersAgent(a))
 
   if (searchText.value) {
     const search = searchText.value.toLowerCase()
@@ -223,7 +230,8 @@ const filteredAgents = computed(() => {
 })
 
 const totalPages = computed(() => {
-  return Math.ceil(agents.value.filter(a => a.isPublic).length / itemsPerPage)
+  // 트랙 #134: filteredAgents 와 정합 — 본인 작성 제외
+  return Math.ceil(agents.value.filter(a => a.isPublic && isOthersAgent(a)).length / itemsPerPage)
 })
 
 const loadAgents = async () => {
