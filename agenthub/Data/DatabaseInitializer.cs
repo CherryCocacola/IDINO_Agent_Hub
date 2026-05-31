@@ -955,6 +955,18 @@ public static class DatabaseInitializer
     ///   - admin@example.com (DatabaseInitializer 자체가 생성하는 시스템 admin) FK 사용.
     ///   - admin 시드 부재 시 시드 전체 skip (Agents.CreatedBy 는 NOT NULL FK).
     /// </remarks>
+    /// <summary>
+    /// 트랙 #138 (2026-06-01) — Hybrid 라우팅 표준 정책 JSON.
+    /// .claude/rules/domain-model.md 의 RoutingPolicyJson 스키마 + 운영 현실 반영.
+    /// 운영자가 AgentBuilder UI 에서 개별 조정 가능 (본 시드는 NULL 폴백 회귀 차단용 기본값).
+    /// </summary>
+    private const string DefaultHybridRoutingPolicyJson =
+        "{\"piiThreshold\":\"block\",\"piiAction\":\"internal\"," +
+        "\"dataLabels\":{\"confidential\":\"internal\",\"internal\":\"internal\",\"public\":\"external\"}," +
+        "\"modelCapability\":{\"vision\":\"external\",\"longContext\":\"external\",\"longContextThreshold\":32000}," +
+        "\"costThreshold\":{\"perRequest\":0.10,\"exceedAction\":\"internal\"}," +
+        "\"default\":\"external\"}";
+
     private static async Task SeedAgentsAsync(AIAgentManagementDbContext context)
     {
         var adminUser = await context.Users
@@ -1219,7 +1231,11 @@ public static class DatabaseInitializer
                 PiiProtectionEnabled = s.PiiEnabled,
                 PiiProtectionMode = s.PiiMode,
                 LlmRouting = s.LlmRouting,
-                RoutingPolicyJson = null,                                  // External/Internal 은 NULL. Hybrid 는 운영자가 UI 에서 정의.
+                // 트랙 #138 (2026-06-01): Hybrid 시드 Agent 가 정책 NULL 상태에서 빈 폴백
+                // (Decision=external, Reason=empty_policy) → 운영자 의도(PII 보호 + 라벨 분기)
+                // 미반영. domain-model.md 의 표준 정책 JSON 을 시드에 포함하여 재배포 시
+                // 회귀 차단. External/Internal 은 정책 불필요 → NULL 유지.
+                RoutingPolicyJson = s.LlmRouting == "Hybrid" ? DefaultHybridRoutingPolicyJson : null,
                 KnowledgeBaseSource = s.EnableRag ? "DocUtil" : "AgentHub", // ADR-2: RAG 활성 시 DocUtil 위임
                 KnowledgeBaseRef = null,                                   // Phase 6 KB 마이그레이션 시 collection ID 매핑
                 ConsumerSystems = s.ConsumerSystems,
