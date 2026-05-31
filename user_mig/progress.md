@@ -170,6 +170,39 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-05-31 (트랙 #136 — 운영자 콘솔 FAQ + 튜토리얼 관리 UI 신설 + 도움말 보류 해제)
+
+**진행 배경**: 트랙 #126x 도움말 결함 (Faqs/Tutorials/ExamplePrompts 모두 0행 + 운영자 콘솔 CRUD UI 부재) 후순위 보류 해제. backend `FaqsController` / `TutorialsController` 의 POST/PUT/DELETE Admin 가드 기존 활용 — 별도 BFF 신설 불필요.
+
+**신설**:
+- `ClientApp/src/views/admin/AdminFaqs.vue` (11,839 bytes) — list 테이블 + 카테고리/활성/검색 필터 + 신규/수정 modal + 삭제 confirm. CATEGORIES = getting-started/agents/api/troubleshooting (Help.vue 와 동기화)
+- `ClientApp/src/views/admin/AdminTutorials.vue` (13,092 bytes) — 동일 구조 + Tutorial 필드 (videoUrl/thumbnailUrl/duration/viewCount/category)
+- `router/index.ts` 라우트 2건 (`/admin/faqs`, `/admin/tutorials`, role: Admin)
+- `MainLayout.vue` admin 카테고리 메뉴 2건 (`bi-question-square`, `bi-play-btn`)
+- i18n ko/en/vi `nav.adminFaqs` / `nav.adminTutorials` 라벨 6건
+
+**운영 시드** (FAQ 10건 INSERT):
+| 카테고리 | 건수 | 내용 |
+|---|---|---|
+| getting-started | 3 | 처음 시작 / AI Agent / 사용량 확인 |
+| agents | 2 | Agent 생성 / 멀티 채팅 |
+| api | 2 | API Key 발급 / OpenAI SDK 연동 |
+| troubleshooting | 3 | 응답 느림 / 비밀번호 재설정 / 할당량 초과 |
+
+운영 화면 (AI 서비스 / 내 계정) 기반 실제 안내문. 중복 방지: Category + SortOrder 조합 NOT EXISTS.
+
+**검증** (Playwright 자동):
+- AdminFaqs 진입 → 10건 list (시작하기 3/AI 에이전트 2/API 2/문제 해결 3)
+- 4 카테고리 모두 노출, 신규 FAQ modal 동작
+- 사이드바 admin 카테고리 펼침 후 메뉴 2건 노출
+- `/api/faqs?isActive=true` → HTTP 200 + 10건
+
+**부수 효과**: **`/help` 결함 해소 (트랙 #126x 보류 해제)** — 4 카테고리 카드 + 빠른 링크 "시작하기" 버튼 정상 동작 + FAQ accordion 콘텐츠 노출.
+
+**향후 트랙 후보**: `DatabaseInitializer.cs` 에 FAQ 시드 보강 (재배포 시 데이터 손실 방지).
+
+**커밋**: `1a86edb`.
+
 ### 2026-05-31 (트랙 #135 — Analytics `/usage-history` + `/usage-summary` 일반 사용자 접근 분기)
 
 **진행 배경**: 트랙 #132 의 점검 표에서 식별된 잠재 결함 선제 적용 — `Dashboard.vue:272` 와 `UsageHistory.vue:407/471` 이 호출하는 두 endpoint 가 `[Authorize(Roles="Admin")]` 가드. 일반 user 진입 시 UsageHistory 메뉴 (myAccount 카테고리) 403 발생 가능. 사용자 보고 전 선제 fix.
