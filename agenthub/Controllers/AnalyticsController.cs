@@ -146,10 +146,13 @@ public class AnalyticsController : ControllerBase
     }
 
     /// <summary>
-    /// 사용 내역 KPI 집계 — SQL aggregate(단일 쿼리)이므로 수만 건도 빠름
+    /// 사용 내역 KPI 집계 — SQL aggregate(단일 쿼리)이므로 수만 건도 빠름.
+    /// <para>
+    /// 트랙 #135 (2026-05-31): 트랙 #132 패턴 일관 — 일반 user 도 본인 KPI 조회 가능.
+    /// Admin 아니면 userId 강제 본인 필터. UsageHistory 메뉴 (myAccount 카테고리) 호환.
+    /// </para>
     /// </summary>
     [HttpGet("usage-summary")]
-    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<UsageHistorySummaryDto>> GetUsageHistorySummary(
         [FromQuery] DateTime? startDate,
         [FromQuery] DateTime? endDate,
@@ -159,6 +162,12 @@ public class AnalyticsController : ControllerBase
     {
         try
         {
+            if (!User.IsInRole("Admin"))
+            {
+                var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (int.TryParse(claim, out var currentUserId))
+                    userId = currentUserId;
+            }
             var summary = await _analyticsService.GetUsageHistorySummaryAsync(startDate, endDate, userId, serviceId, statusCode);
             return Ok(summary);
         }
@@ -306,8 +315,14 @@ public class AnalyticsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// 사용 내역 상세 목록 — Dashboard 와 UsageHistory 메뉴 (myAccount 카테고리) 호출.
+    /// <para>
+    /// 트랙 #135 (2026-05-31): 트랙 #132 패턴 일관 — 일반 user 도 본인 내역 조회 가능.
+    /// Admin 아니면 userId 강제 본인 필터.
+    /// </para>
+    /// </summary>
     [HttpGet("usage-history")]
-    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<object>> GetUsageHistory(
         [FromQuery] DateTime? startDate,
         [FromQuery] DateTime? endDate,
@@ -320,6 +335,12 @@ public class AnalyticsController : ControllerBase
     {
         try
         {
+            if (!User.IsInRole("Admin"))
+            {
+                var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (int.TryParse(claim, out var currentUserId))
+                    userId = currentUserId;
+            }
             var (items, totalCount) = await _analyticsService.GetUsageHistoryAsync(startDate, endDate, userId, serviceId, statusCode, search, skip, take);
             return Ok(new { items, totalCount });
         }
