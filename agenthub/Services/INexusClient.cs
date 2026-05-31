@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AIAgentManagement.Services;
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -70,17 +72,34 @@ public sealed record NexusChatResponse(
     object? ToolCalls,
     NexusUsage? Usage);
 
-/// <summary>토큰 사용량(Nexus 가 4-Tier 마지막에 집계).</summary>
-public sealed record NexusUsage(int PromptTokens, int CompletionTokens, int TotalTokens);
+/// <summary>
+/// 토큰 사용량 (Nexus 가 4-Tier 마지막에 집계).
+/// </summary>
+/// <remarks>
+/// Phase 5α 정합성 보강 (2026-06-01): 운영 Nexus 실측 schema 는 <c>input_tokens / output_tokens
+/// / total_tokens</c> 형식. 사전 record 의 PromptTokens/CompletionTokens 명명을 유지하되
+/// JsonPropertyName 으로 매핑하여 호출자(AiProxyService 등) 의 PromptTokens 참조 코드를 보존.
+/// total_tokens 누락 케이스(message_stop 이벤트 등) 대비 nullable 권장이지만 record 호환을 위해
+/// 0 fallback 으로 처리(필요 시 Phase 5+ 에 InputTokens+OutputTokens 합 계산).
+/// </remarks>
+public sealed record NexusUsage(
+    [property: JsonPropertyName("input_tokens")] int PromptTokens,
+    [property: JsonPropertyName("output_tokens")] int CompletionTokens,
+    [property: JsonPropertyName("total_tokens")] int TotalTokens);
 
 /// <summary>
 /// Nexus 스트리밍 이벤트(SSE 프레임 1개에 대응).
-/// Type 값:
-///   - "chunk": Text 에 부분 응답 누적
-///   - "usage": Usage 에 최종 토큰 카운트
-///   - "error": ErrorCode + ErrorMessage
-///   - "done": 스트림 종료 신호(Enumerable 도 함께 종료)
 /// </summary>
+/// <remarks>
+/// Phase 5α 실측 type 카탈로그 (2026-06-01):
+///   - <c>stream_request_start</c>: 스트림 시작 (session_id 포함)
+///   - <c>message_start</c>: 메시지 시작
+///   - <c>text_delta</c>: 부분 응답 청크 (Text 필드)
+///   - <c>message_stop</c>: 메시지 종료 (Usage 첫 회수 + stop_reason)
+///   - <c>usage_update</c>: 최종 토큰 카운트 (Usage)
+///   - <c>stream_request_end</c>: 스트림 종료 신호 (NexusClient 가 yield break)
+///   - (기타) <c>error</c>: ErrorCode + ErrorMessage
+/// </remarks>
 public sealed record NexusStreamEvent(
     string Type,
     string SessionId,

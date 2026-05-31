@@ -201,8 +201,10 @@ public class NexusClient : INexusClient
 
                 yield return streamEvent;
 
-                // type=done 이벤트도 종료 신호로 처리.
-                if (string.Equals(streamEvent.Type, "done", StringComparison.OrdinalIgnoreCase))
+                // 종료 신호 — Phase 5α 실측 (2026-06-01): Nexus 는 마지막 event 로
+                // type=stream_request_end 를 송신. 기존 type=done 도 호환 유지(레거시 가드).
+                if (string.Equals(streamEvent.Type, "stream_request_end", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(streamEvent.Type, "done", StringComparison.OrdinalIgnoreCase))
                 {
                     yield break;
                 }
