@@ -550,40 +550,70 @@ public class AdminDocUtilUsersController : ControllerBase
                 $"허용되지 않는 상태값입니다. (허용: {string.Join(", ", allowed)})"));
         }
 
+        // 트랙 A1 Phase C (2026-06-01) — AgentHub Users 직접 UPDATE refactor.
+        // 트랙 #122 의 UpdateUser 패턴 동일 적용. DocUtil 위임 폐기 → 단일 SOT = AgentHub.
         try
         {
-            var result = await _docUtilClient.UpdateUserStatusAsync(id, request.Status.ToLowerInvariant(), ct);
+            Models.User? user = null;
+            if (Guid.TryParse(id, out var idGuid))
+            {
+                user = await _db.Users.FirstOrDefaultAsync(u => u.OriginalDocutilUuid == idGuid && !u.IsDeleted, ct);
+            }
+            else if (int.TryParse(id, out var idInt))
+            {
+                user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == idInt && !u.IsDeleted, ct);
+            }
+            if (user is null)
+            {
+                return NotFound(ErrorResponseDto.NotFound("사용자를 찾을 수 없습니다."));
+            }
+
+            // DocUtil active/inactive/locked → AgentHub Active/Inactive/Pending 매핑 (UpdateUser 와 동일)
+            user.Status = request.Status.ToLowerInvariant() switch
+            {
+                "active" => "Active",
+                "inactive" => "Inactive",
+                "locked" or "pending" => "Pending",
+                _ => user.Status,
+            };
+            user.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
 
             _logger.LogInformation(
-                "운영자 DocUtil 사용자 상태 변경 성공 - UserId={UserId}, NewStatus={Status}",
-                id, request.Status);
+                "AgentHub 사용자 상태 변경 성공 (직접 update) - UserId={UserId}, NewStatus={Status}",
+                user.UserId, request.Status);
 
-            // 캐시 invalidate — 다음 목록 조회부터 즉시 반영.
             await InvalidateUsersCacheAsync();
 
-            return Ok(result);
+            // 응답: 갱신된 user 를 DocUtilUserDetail 형식으로 반환 (frontend 호환)
+            var roleName = await _db.UserRoles
+                .Where(ur => ur.UserId == user.UserId)
+                .Join(_db.Roles, ur => ur.RoleId, r => r.RoleId, (ur, r) => r.RoleName)
+                .OrderBy(rn => rn)
+                .FirstOrDefaultAsync(ct);
+            var resp = new DocUtilUserDetail(
+                Id: user.OriginalDocutilUuid?.ToString() ?? user.UserId.ToString(),
+                Username: !string.IsNullOrWhiteSpace(user.FullName)
+                    ? user.FullName!
+                    : (!string.IsNullOrWhiteSpace(user.DocutilUsername) ? user.DocutilUsername : user.Email),
+                Email: user.Email,
+                Role: (roleName ?? "member").ToLowerInvariant(),
+                Status: (user.Status ?? "Active").ToLowerInvariant(),
+                OrganizationId: user.OrganizationId?.ToString() ?? string.Empty,
+                DepartmentId: user.DepartmentId?.ToString(),
+                Language: user.Language,
+                LastLoginAt: user.LastLoginAt,
+                CreatedAt: user.CreatedAt);
+            return Ok(resp);
         }
-        catch (DocUtilUpstreamException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "DocUtil 사용자 상태 변경 실패 - errorCode={ErrorCode}, status={Status}, id={Id}, newStatus={NewStatus}",
-                ex.ErrorCode, (int)ex.StatusCode, id, request.Status);
-            // 실패 시에도 invalidate — DocUtil 측 상태가 부분 변경되었을 수 있어(예: 5xx 중간 단절),
-            // ghost 데이터가 GET 응답에 남는 일이 없도록 안전을 위해 캐시 무효화.
+            _logger.LogError(ex, "AgentHub 사용자 상태 변경 실패 (id={Id}, status={Status})", id, request.Status);
             await InvalidateUsersCacheAsync();
-            return StatusCode(
-                ErrorResponseDto.MapDocUtilUpstreamToStatusCode(ex),
-                ErrorResponseDto.FromDocUtilUpstream(ex,
-                    "사용자 상태 변경에 실패했습니다. " + ex.Message));
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogError(ex, "DocUtil 사용자 상태 변경 실패 (id={Id}, status={Status})", id, request.Status);
-            await InvalidateUsersCacheAsync();
-            return StatusCode(502, new ErrorResponseDto(
+            return StatusCode(500, new ErrorResponseDto(
                 "사용자 상태 변경에 실패했습니다.",
-                "DOCUTIL_UPSTREAM_ERROR",
-                new { upstream = ex.Message }));
+                "INTERNAL_ERROR",
+                new { error = ex.Message }));
         }
     }
 
@@ -599,37 +629,41 @@ public class AdminDocUtilUsersController : ControllerBase
             return BadRequest(ErrorResponseDto.BadRequest("사용자 식별자가 비어 있습니다."));
         }
 
+        // 트랙 A1 Phase C (2026-06-01) — AgentHub Users soft delete 직접.
+        // 트랙 #122 패턴 일관. IsDeleted=true + UpdatedAt 기록. 단일 SOT = AgentHub.
         try
         {
-            await _docUtilClient.DeleteUserAsync(id, ct);
-            _logger.LogInformation("운영자 DocUtil 사용자 삭제 성공 - UserId={UserId}", id);
+            Models.User? user = null;
+            if (Guid.TryParse(id, out var idGuid))
+            {
+                user = await _db.Users.FirstOrDefaultAsync(u => u.OriginalDocutilUuid == idGuid && !u.IsDeleted, ct);
+            }
+            else if (int.TryParse(id, out var idInt))
+            {
+                user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == idInt && !u.IsDeleted, ct);
+            }
+            if (user is null)
+            {
+                return NotFound(ErrorResponseDto.NotFound("사용자를 찾을 수 없습니다."));
+            }
 
-            // 캐시 invalidate — 다음 목록 조회부터 즉시 반영.
+            user.IsDeleted = true;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            _logger.LogInformation("AgentHub 사용자 soft delete 성공 (직접 update) - UserId={UserId}", user.UserId);
+
             await InvalidateUsersCacheAsync();
-
             return NoContent();
         }
-        catch (DocUtilUpstreamException ex)
+        catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "DocUtil 사용자 삭제 실패 - errorCode={ErrorCode}, status={Status}, id={Id}",
-                ex.ErrorCode, (int)ex.StatusCode, id);
-            // 실패 시에도 invalidate — 404(이미 DocUtil 측 삭제됨) / 5xx(부분 단절) 상황에서
-            // ghost 사용자가 GET 응답에 남는 일이 없도록 안전 차원에서 캐시 무효화.
+            _logger.LogError(ex, "AgentHub 사용자 삭제 실패 (id={Id})", id);
             await InvalidateUsersCacheAsync();
-            return StatusCode(
-                ErrorResponseDto.MapDocUtilUpstreamToStatusCode(ex),
-                ErrorResponseDto.FromDocUtilUpstream(ex,
-                    "사용자 삭제에 실패했습니다. " + ex.Message));
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogError(ex, "DocUtil 사용자 삭제 실패 (id={Id})", id);
-            await InvalidateUsersCacheAsync();
-            return StatusCode(502, new ErrorResponseDto(
+            return StatusCode(500, new ErrorResponseDto(
                 "사용자 삭제에 실패했습니다.",
-                "DOCUTIL_UPSTREAM_ERROR",
-                new { upstream = ex.Message }));
+                "INTERNAL_ERROR",
+                new { error = ex.Message }));
         }
     }
 
