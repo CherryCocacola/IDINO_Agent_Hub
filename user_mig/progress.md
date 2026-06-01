@@ -170,6 +170,29 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-06-01 (트랙 #145 — 외부 LLM 비-429 응답 한국어 변환 + Phase 5.7 매트릭스 정합)
+
+**진행 배경**: K1 Phase 5.7 매트릭스 시나리오 #4 (External 응답) 가 OpenAI 401/403 시 BadRequest 400 + 영문 raw 노출 — 트랙 #141~#143 의 한국어 정합과 불일치, "후속 트랙 후보" 라벨 검출.
+
+**Fix** (AiProxyService.CallOpenAiAsync):
+- **401/403** → HttpRequestException + ApiKeyPool 쿨다운 + "외부 LLM(OpenAI) 인증에 실패했습니다. API key 가 유효하지 않거나 만료되었습니다. 운영자에게 키 갱신을 요청하세요."
+- **5xx** → "외부 LLM(OpenAI) 서버 오류 (HTTP {code}). 잠시 후 다시 시도해 주세요."
+- **4xx 일반** → "외부 LLM(OpenAI) 호출 거부 (HTTP {code}). 요청 형식을 확인해 주세요. (요약: ...)" — responseJson 200자 truncate
+
+GlobalExceptionHandlerMiddleware (트랙 #143) 가 모든 HttpRequestException 을 EXTERNAL_LLM_UPSTREAM_ERROR + 502 로 매핑 (429 → 503).
+
+**매트릭스 보강** (`tools/integration/phase5_routing_matrix.py`): 502 + 한국어 메시지 분기 ("auth 502" / "upstream 502" / "request 502") PASS 인정 + 라벨 명시.
+
+**파일**: `agenthub/Services/AiProxyService.cs`, `tools/integration/phase5_routing_matrix.py`
+
+**검증**:
+- 운영 e2e: id=43 → HTTP 502 + "외부 LLM(OpenAI) 인증에 실패했습니다..." (이전 400 영문 raw 결함 해소)
+- 매트릭스: **4/4 PASS**
+
+**후속**: Claude / Gemini / Perplexity / Mistral / Azure OpenAI 의 비-429 결함 동일 패턴 적용 (트랙 #142 의 후속).
+
+**커밋**: `e0657f4`.
+
 ### 2026-06-01 (K1 + K3 + K4 — Phase 5.7 매트릭스 / 트랙 #144 locale + legacy DROP / Phase 7.5 SSE 운영 검증)
 
 **진행 배경** (사용자 결정 K1+K2+K3+K4): Phase 5 + Phase 7 후속 안정성/회귀 차단.
