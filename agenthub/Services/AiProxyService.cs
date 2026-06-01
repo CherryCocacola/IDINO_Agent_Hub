@@ -398,7 +398,10 @@ You are a professional and helpful AI assistant.
             if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
                 _apiKeyPool?.MarkAsCoolingDown("openai", apiKey ?? string.Empty);
-                throw new HttpRequestException($"OpenAI API 429 Too Many Requests - {errorBody}", null, response.StatusCode);
+                // 트랙 #142 (2026-06-01): OpenAI 스트리밍 경로도 한국어 메시지 변환 (#141 비스트리밍 패턴 일관).
+                throw new HttpRequestException(
+                    "외부 LLM(OpenAI) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
+                    null, response.StatusCode);
             }
 
             throw new InvalidOperationException($"OpenAI streaming API error: {response.StatusCode} - {errorBody}");
@@ -1057,7 +1060,10 @@ You are a professional and helpful AI assistant.
             if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
                 _apiKeyPool?.MarkAsCoolingDown("claude", apiKey ?? "");
-                throw new HttpRequestException($"Claude API 429 Too Many Requests - {responseJson}", null, response.StatusCode);
+                // 트랙 #142 (2026-06-01): Claude quota — 한국어 메시지 + Controller 503 매핑.
+                throw new HttpRequestException(
+                    "외부 LLM(Claude) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
+                    null, response.StatusCode);
             }
             throw new InvalidOperationException($"Claude API error: {response.StatusCode} - {responseJson}");
         }
@@ -1389,7 +1395,9 @@ You are a professional and helpful AI assistant.
             if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
                 _apiKeyPool?.MarkAsCoolingDown("gemini", apiKey ?? "");
-                throw new HttpRequestException($"Gemini API 429 Too Many Requests - {responseJson}", null, response.StatusCode);
+                throw new HttpRequestException(
+                    "외부 LLM(Gemini) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
+                    null, response.StatusCode);
             }
             throw new InvalidOperationException($"Gemini API error: {response.StatusCode} - {responseJson}");
         }
@@ -1567,7 +1575,9 @@ You are a professional and helpful AI assistant.
             if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
                 _apiKeyPool?.MarkAsCoolingDown("perplexity", apiKey ?? "");
-                throw new HttpRequestException($"Perplexity API 429 Too Many Requests - {responseJson}", null, response.StatusCode);
+                throw new HttpRequestException(
+                    "외부 LLM(Perplexity) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
+                    null, response.StatusCode);
             }
             throw new InvalidOperationException($"Perplexity API error: {response.StatusCode} - {responseJson}");
         }
@@ -1708,7 +1718,9 @@ You are a professional and helpful AI assistant.
             if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
                 _apiKeyPool?.MarkAsCoolingDown("mistral", apiKey ?? "");
-                throw new HttpRequestException($"Mistral API 429 Too Many Requests - {responseJson}", null, response.StatusCode);
+                throw new HttpRequestException(
+                    "외부 LLM(Mistral) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
+                    null, response.StatusCode);
             }
             throw new InvalidOperationException($"Mistral API error: {response.StatusCode} - {responseJson}");
         }
@@ -2082,7 +2094,9 @@ You are a professional and helpful AI assistant.
             if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
                 _apiKeyPool?.MarkAsCoolingDown("azureopenai", apiKey ?? "");
-                throw new HttpRequestException($"Azure OpenAI API 429 Too Many Requests - {responseJson}", null, response.StatusCode);
+                throw new HttpRequestException(
+                    "외부 LLM(Azure OpenAI) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
+                    null, response.StatusCode);
             }
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||

@@ -376,15 +376,9 @@ public class AgentsController : ControllerBase
         }
         catch (HttpRequestException ex)
         {
-            // 트랙 #141 (2026-06-01): 외부 LLM upstream 결함(429 quota / 503 등) 의
-            // 메시지를 502 로 전파. AiProxyService 가 한국어 메시지 부착하므로 그대로 사용.
-            // ApiKeyPool 쿨다운은 AiProxyService 가 이미 수행.
+            // 트랙 #141 + #142 일관 처리 — helper 메서드 호출.
             _logger.LogWarning(ex, "External LLM upstream error in ChatWithAgent for AgentId {AgentId} (Status={Status})", id, ex.StatusCode);
-            var statusCode = ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests ? 503 : 502;
-            return StatusCode(statusCode, new ErrorResponseDto(
-                string.IsNullOrWhiteSpace(ex.Message) ? "외부 LLM 호출에 실패했습니다. 잠시 후 다시 시도해 주세요." : ex.Message,
-                "EXTERNAL_LLM_UPSTREAM_ERROR",
-                new { agentId = id, upstreamStatus = ex.StatusCode?.ToString() }));
+            return MapUpstreamHttpError(ex, agentRef: id);
         }
         catch (Exception ex)
         {
@@ -516,11 +510,31 @@ public class AgentsController : ControllerBase
             _logger.LogWarning(ex, "Invalid operation in ChatWithAgentByCode for AgentCode {AgentCode}", code);
             return BadRequest(ErrorResponseDto.BadRequest(ex.Message));
         }
+        catch (HttpRequestException ex)
+        {
+            // 트랙 #142 (2026-06-01): 외부 LLM upstream 결함 일관 처리 (#141 패턴).
+            _logger.LogWarning(ex, "External LLM upstream error in ChatWithAgentByCode for AgentCode {AgentCode} (Status={Status})", code, ex.StatusCode);
+            return MapUpstreamHttpError(ex, agentRef: code);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in ChatWithAgentByCode for AgentCode {AgentCode}", code);
             return StatusCode(500, ErrorResponseDto.InternalError("An error occurred"));
         }
+    }
+
+    /// <summary>
+    /// 트랙 #142 (2026-06-01) — 외부 LLM HttpRequestException → 한국어 ErrorResponse 매핑 헬퍼.
+    /// 429 (TooManyRequests) → 503 (Service Unavailable), 그 외 → 502 (Bad Gateway).
+    /// AiProxyService 가 이미 한국어 메시지를 부착하므로 그대로 사용.
+    /// </summary>
+    private ActionResult MapUpstreamHttpError(HttpRequestException ex, object? agentRef = null)
+    {
+        var statusCode = ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests ? 503 : 502;
+        return StatusCode(statusCode, new ErrorResponseDto(
+            string.IsNullOrWhiteSpace(ex.Message) ? "외부 LLM 호출에 실패했습니다. 잠시 후 다시 시도해 주세요." : ex.Message,
+            "EXTERNAL_LLM_UPSTREAM_ERROR",
+            new { agent = agentRef, upstreamStatus = ex.StatusCode?.ToString() }));
     }
 
     [HttpPost("{id}/api-keys")]
@@ -910,6 +924,12 @@ public class AgentsController : ControllerBase
                 model    = response.Model,
                 tokensUsed = response.TokensUsed
             });
+        }
+        catch (HttpRequestException ex)
+        {
+            // 트랙 #142 (2026-06-01): 게스트 공개 채팅도 외부 LLM upstream 결함 일관 처리.
+            _logger.LogWarning(ex, "External LLM upstream error in PublicChat. AgentCode={Code}, Status={Status}", code, ex.StatusCode);
+            return MapUpstreamHttpError(ex, agentRef: code);
         }
         catch (Exception ex)
         {
