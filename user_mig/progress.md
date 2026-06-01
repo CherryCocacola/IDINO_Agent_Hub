@@ -170,6 +170,60 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-06-01 (트랙 #141 — OpenAI 429 quota → 503 한국어 친화 메시지 변환)
+
+**사용자 보고** (H1 진단): External / Hybrid (capability 룰 적용 시) Agent 호출이 HTTP 500 + null details + 영문 stack trace.
+
+**Root cause**: OpenAI API key **quota 초과** (429 Too Many Requests). 트랙 #106 의 결함 재발. `ApiKeyPool` 쿨다운 패턴은 정상이나 모든 키 소진 시 폴백 부재 → `AiProxyService` HttpRequestException → Controller `catch (Exception)` 일반 500.
+
+**Fix**:
+- `AiProxyService.cs:938` — HttpRequestException 메시지 한국어: "외부 LLM(OpenAI) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요."
+- `AgentsController.ChatWithAgent` — `catch (HttpRequestException ex)` 분기 추가, 429 → **503**, 그 외 → 502. `errorCode: EXTERNAL_LLM_UPSTREAM_ERROR` + `details: {agentId, upstreamStatus}`
+
+**파일**: `agenthub/Services/AiProxyService.cs`, `agenthub/Controllers/AgentsController.cs`
+
+**검증**: External Agent (id=43) `POST /api/agents/43/chat` → **HTTP 503** + 한국어 메시지 + EXTERNAL_LLM_UPSTREAM_ERROR + upstreamStatus="TooManyRequests".
+
+**근본 해결 (사용자 작업)**: 운영 OpenAI API billing 충전 또는 신규 key 발급/회전. Phase 5 Internal Nexus 라우팅은 quota 무관 — 정상 작동.
+
+**후속 트랙 후보**: `ChatWithAgentByCode` / `SendMessageAsync` / `OpenAICompatController` 의 `catch (HttpRequestException)` 일관 적용. `GlobalExceptionHandlerMiddleware` 보강. Hybrid 정책 변경 (모든 External → Internal 폴백) 운영 회피책.
+
+**커밋**: `c4b5c90`.
+
+### 2026-06-01 (트랙 #138 + #139 — Hybrid 라우팅 정책 운영 보강 + HybridRouter PII 룰 e2e 검증)
+
+**진행 배경** (G1 후속): Phase 5γ 발견된 잔존 결함 보강.
+
+**트랙 #138 — RoutingPolicyJson 운영 보강 + DatabaseInitializer 시드**:
+- 진단: 운영 Hybrid Agent **10건 모두 NULL** → HybridRouter 빈 폴백 (`Decision=external, Reason=empty_policy`) → 운영자 의도 (PII 보호 + 라벨 분기) 미반영
+- 표준 정책 JSON (`.claude/rules/domain-model.md` 스키마):
+  - `piiThreshold=block`, `piiAction=internal`
+  - `dataLabels: confidential/internal → internal, public → external`
+  - `modelCapability: vision/longContext → external, longContextThreshold=32000`
+  - `costThreshold: perRequest=$0.10, exceedAction=internal`
+  - `default=external`
+- 조치: (1) 운영 DB UPDATE 10건 일괄 적용 (2) `DatabaseInitializer.SeedAgentsAsync` 의 `RoutingPolicyJson` 분기 — Hybrid 시 표준 정책 자동 시드 (재배포 회귀 차단)
+- 파일: `agenthub/Data/DatabaseInitializer.cs`
+- 검증: 10건 모두 306자 OK, HybridRouter 결정 로그 정상 (`Agent 22 — vision 모델 'gpt-4o' → external` / `Decision=external, Reason=capability_required, Detail=vision:gpt-4o`)
+- 커밋: `a667dda`
+
+**트랙 #139 — HybridRouter PII 룰 운영 e2e**:
+- 검증 시나리오: 주민번호 포함 메시지 "주민번호는 901225-1234567" → Hybrid Agent (id=29) 호출
+- 결과:
+  - HTTP 200 + 3.34초 + Nexus 27B 안전 안내 응답 ("주민번호는 개인정보이므로 공개적으로 입력하지 마시고...")
+  - HybridRouter 결정: `Decision=internal, Reason=pii_detected, Detail=PhoneNumber,ResidentNumber,AccountNumber`
+  - 라우팅 적용: `ServiceId 17 → 32 (ServiceCode=nexus)` ✓
+- 대조군 (PII 없음) → `Decision=external, Reason=capability_required, Detail=vision:gpt-4o-mini` (룰 3 capability 정상 동작)
+- 코드 변경 없음 (운영 e2e 검증) — commit 없음
+
+**HybridRouter 4 룰 진행도** (Phase 5γ + 트랙 #139):
+| 룰 | 검증 | 상태 |
+|---|---|---|
+| 1. PII 감지 | 주민번호 → Nexus 라우팅 | ✓ |
+| 2. 데이터 라벨 | X-Data-Label 헤더 (별도 트랙) | 미진행 |
+| 3. 모델 capability | vision:gpt-4o → External | ✓ |
+| 4. 비용 임계치 | 큰 메시지 trigger (별도 트랙) | 미진행 |
+
 ### 2026-06-01 (Phase 5α + 5γ — Nexus 클라이언트 정합성 fix + 운영 e2e 검증)
 
 **진행 배경** (사용자 결정 D3 → E3 → F1): Phase 5 (AgentHub Nexus provider + LlmRouting + 진짜 SSE) 진입. 5.0 운영 가용성 확인 시 **Phase 5.1~5.6 인프라가 이미 사전 완료** 상태 발견 (트랙 #92 추정). 5α (정합성 fix) + 5γ (e2e) 만 남음.
