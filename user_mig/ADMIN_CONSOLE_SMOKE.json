@@ -1,0 +1,231 @@
+{
+  "started_at": "2026-06-01T03:09:00.467196+00:00",
+  "finished_at": "2026-06-01T03:09:51.508105+00:00",
+  "host": "http://192.168.10.39:64005",
+  "passed": 18,
+  "failed": 0,
+  "total": 18,
+  "results": [
+    {
+      "path": "/",
+      "name": "대시보드",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": [
+          "http://192.168.10.39:64005/api/analytics/dashboard?_t=1780283351151 | net::ERR_ABORTED",
+          "https://fonts.gstatic.com/s/notosanskr/v39/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.18.woff2 | net::ERR_ABORTED",
+          "https://fonts.gstatic.com/s/notosanskr/v39/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.111.woff2 | net::ERR_ABORTED",
+          "https://fonts.gstatic.com/s/notosanskr/v39/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.112.woff2 | net::ERR_ABORTED"
+        ]
+      }
+    },
+    {
+      "path": "/users",
+      "name": "사용자 관리",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/agents",
+      "name": "Agent 선택",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/agents/marketplace",
+      "name": "Agent 마켓플레이스",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/analytics",
+      "name": "통계",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/usage-history",
+      "name": "사용 기록",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/quota",
+      "name": "할당량 관리",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/api-keys",
+      "name": "API Key 관리",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/reports",
+      "name": "리포트 (트랙 #147 M1)",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/settings",
+      "name": "설정 (M2 프로필 사진)",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/help",
+      "name": "도움말 (트랙 #136 FAQ)",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/team",
+      "name": "팀 관리",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/admin/docutil-users",
+      "name": "DocUtil 사용자 관리",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/admin/docutil-departments",
+      "name": "DocUtil 부서 관리",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/admin/faqs",
+      "name": "도움말 FAQ 관리 (#136)",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/admin/tutorials",
+      "name": "튜토리얼 관리 (#136)",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/workflows",
+      "name": "워크플로우",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    },
+    {
+      "path": "/tools",
+      "name": "도구",
+      "status": "PASS",
+      "details": {
+        "selector_found": true,
+        "console_errors": [],
+        "page_errors": [],
+        "api_errors": [],
+        "network_failures": []
+      }
+    }
+  ]
+}
