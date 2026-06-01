@@ -1086,7 +1086,16 @@ You are a professional and helpful AI assistant.
                     "외부 LLM(Claude) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
                     null, response.StatusCode);
             }
-            throw new InvalidOperationException($"Claude API error: {response.StatusCode} - {responseJson}");
+            // 트랙 #146 (2026-06-01): Claude 비-429 한국어 변환 (OpenAI 트랙 #145 패턴 일관).
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                _apiKeyPool?.MarkAsCoolingDown("claude", apiKey ?? "");
+                throw new HttpRequestException("외부 LLM(Claude) 인증에 실패했습니다. API key 가 유효하지 않거나 만료되었습니다. 운영자에게 키 갱신을 요청하세요.", null, response.StatusCode);
+            }
+            if ((int)response.StatusCode >= 500)
+                throw new HttpRequestException($"외부 LLM(Claude) 서버 오류 (HTTP {(int)response.StatusCode}). 잠시 후 다시 시도해 주세요.", null, response.StatusCode);
+            var briefClaude = responseJson.Length > 200 ? responseJson.Substring(0, 200) + "..." : responseJson;
+            throw new HttpRequestException($"외부 LLM(Claude) 호출 거부 (HTTP {(int)response.StatusCode}). 요청 형식을 확인해 주세요. (요약: {briefClaude})", null, response.StatusCode);
         }
 
         var claudeResponse = JsonSerializer.Deserialize<ClaudeResponse>(responseJson);
@@ -1420,7 +1429,16 @@ You are a professional and helpful AI assistant.
                     "외부 LLM(Gemini) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
                     null, response.StatusCode);
             }
-            throw new InvalidOperationException($"Gemini API error: {response.StatusCode} - {responseJson}");
+            // 트랙 #146: Gemini 비-429 한국어 변환.
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                _apiKeyPool?.MarkAsCoolingDown("gemini", apiKey ?? "");
+                throw new HttpRequestException("외부 LLM(Gemini) 인증에 실패했습니다. API key 가 유효하지 않거나 만료되었습니다. 운영자에게 키 갱신을 요청하세요.", null, response.StatusCode);
+            }
+            if ((int)response.StatusCode >= 500)
+                throw new HttpRequestException($"외부 LLM(Gemini) 서버 오류 (HTTP {(int)response.StatusCode}). 잠시 후 다시 시도해 주세요.", null, response.StatusCode);
+            var briefGemini = responseJson.Length > 200 ? responseJson.Substring(0, 200) + "..." : responseJson;
+            throw new HttpRequestException($"외부 LLM(Gemini) 호출 거부 (HTTP {(int)response.StatusCode}). 요청 형식을 확인해 주세요. (요약: {briefGemini})", null, response.StatusCode);
         }
 
         try
@@ -1600,7 +1618,16 @@ You are a professional and helpful AI assistant.
                     "외부 LLM(Perplexity) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
                     null, response.StatusCode);
             }
-            throw new InvalidOperationException($"Perplexity API error: {response.StatusCode} - {responseJson}");
+            // 트랙 #146: Perplexity 비-429 한국어 변환.
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                _apiKeyPool?.MarkAsCoolingDown("perplexity", apiKey ?? "");
+                throw new HttpRequestException("외부 LLM(Perplexity) 인증에 실패했습니다. API key 가 유효하지 않거나 만료되었습니다. 운영자에게 키 갱신을 요청하세요.", null, response.StatusCode);
+            }
+            if ((int)response.StatusCode >= 500)
+                throw new HttpRequestException($"외부 LLM(Perplexity) 서버 오류 (HTTP {(int)response.StatusCode}). 잠시 후 다시 시도해 주세요.", null, response.StatusCode);
+            var briefPx = responseJson.Length > 200 ? responseJson.Substring(0, 200) + "..." : responseJson;
+            throw new HttpRequestException($"외부 LLM(Perplexity) 호출 거부 (HTTP {(int)response.StatusCode}). 요청 형식을 확인해 주세요. (요약: {briefPx})", null, response.StatusCode);
         }
 
         try
@@ -1743,7 +1770,16 @@ You are a professional and helpful AI assistant.
                     "외부 LLM(Mistral) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
                     null, response.StatusCode);
             }
-            throw new InvalidOperationException($"Mistral API error: {response.StatusCode} - {responseJson}");
+            // 트랙 #146: Mistral 비-429 한국어 변환.
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                _apiKeyPool?.MarkAsCoolingDown("mistral", apiKey ?? "");
+                throw new HttpRequestException("외부 LLM(Mistral) 인증에 실패했습니다. API key 가 유효하지 않거나 만료되었습니다. 운영자에게 키 갱신을 요청하세요.", null, response.StatusCode);
+            }
+            if ((int)response.StatusCode >= 500)
+                throw new HttpRequestException($"외부 LLM(Mistral) 서버 오류 (HTTP {(int)response.StatusCode}). 잠시 후 다시 시도해 주세요.", null, response.StatusCode);
+            var briefMistral = responseJson.Length > 200 ? responseJson.Substring(0, 200) + "..." : responseJson;
+            throw new HttpRequestException($"외부 LLM(Mistral) 호출 거부 (HTTP {(int)response.StatusCode}). 요청 형식을 확인해 주세요. (요약: {briefMistral})", null, response.StatusCode);
         }
 
         try
@@ -2130,7 +2166,16 @@ You are a professional and helpful AI assistant.
                 );
             }
 
-            throw new HttpRequestException($"Azure OpenAI API returned {response.StatusCode}: {responseJson}");
+            // 트랙 #146: Azure OpenAI 비-429 한국어 변환.
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                _apiKeyPool?.MarkAsCoolingDown("azureopenai", apiKey ?? "");
+                throw new HttpRequestException("외부 LLM(Azure OpenAI) 인증에 실패했습니다. API key 가 유효하지 않거나 만료되었습니다. 운영자에게 키 갱신을 요청하세요.", null, response.StatusCode);
+            }
+            if ((int)response.StatusCode >= 500)
+                throw new HttpRequestException($"외부 LLM(Azure OpenAI) 서버 오류 (HTTP {(int)response.StatusCode}). 잠시 후 다시 시도해 주세요.", null, response.StatusCode);
+            var briefAzure = responseJson.Length > 200 ? responseJson.Substring(0, 200) + "..." : responseJson;
+            throw new HttpRequestException($"외부 LLM(Azure OpenAI) 호출 거부 (HTTP {(int)response.StatusCode}). 요청 형식을 확인해 주세요. (요약: {briefAzure})", null, response.StatusCode);
         }
 
         try
