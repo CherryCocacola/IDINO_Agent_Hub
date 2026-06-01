@@ -401,6 +401,8 @@ builder.Services.AddSingleton<IRagMetrics, RagMetrics>();
 builder.Services.AddScoped<IHybridRouter, HybridRouter>(); // Phase 5.2 — Hybrid 라우팅 결정 엔진(PII/라벨/capability/cost)
 builder.Services.AddScoped<IAiProxyService, AiProxyService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
+// 트랙 #147 M1 (2026-06-01) — 운영자 보고서 정식 구현.
+builder.Services.AddScoped<IReportsService, ReportsService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();

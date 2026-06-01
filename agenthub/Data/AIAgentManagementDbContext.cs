@@ -31,6 +31,8 @@ public class AIAgentManagementDbContext : DbContext
     public DbSet<Faq> Faqs { get; set; }
     public DbSet<Tutorial> Tutorials { get; set; }
     public DbSet<ExamplePrompt> ExamplePrompts { get; set; }
+    // 트랙 #147 M1 (2026-06-01): 운영자 보고서.
+    public DbSet<GeneratedReport> GeneratedReports { get; set; }
     public DbSet<Presentation> Presentations { get; set; }
     public DbSet<PresentationSlide> PresentationSlides { get; set; }
     public DbSet<PresentationTemplate> PresentationTemplates { get; set; }

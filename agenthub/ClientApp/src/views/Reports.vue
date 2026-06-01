@@ -2,11 +2,8 @@
   <div class="page-content-wrap">
     <div class="page-header">
       <div>
-        <h1 class="page-heading">
-          리포트 생성
-          <span class="badge bg-warning text-dark ms-2">준비 중</span>
-        </h1>
-        <p class="page-desc">자동 리포트 생성 및 예약 관리 — 정식 구현 대기 상태입니다.</p>
+        <h1 class="page-heading">리포트 생성</h1>
+        <p class="page-desc">사용량·비용 집계 Excel 보고서 — 운영자/사용자 본인 기준</p>
       </div>
       <div class="page-actions">
         <button class="btn btn-primary btn-sm" @click="showCreateModal = true">
@@ -14,22 +11,9 @@
         </button>
       </div>
     </div>
-    <!-- 트랙 #147 M1 (2026-06-01): 정식 구현 대기 안내. backend ReportsController /
-         GeneratedReport 엔티티 미신설. 대체 메뉴 안내. -->
-    <div class="alert alert-warning d-flex align-items-start gap-2 mb-4">
-      <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
-      <div>
-        <strong>본 화면은 정식 구현 대기 상태입니다.</strong>
-        <div class="small mt-1">
-          백엔드 ReportsController / Hangfire 백그라운드 작업 (사용량·비용 집계 → PDF/Excel 생성) 구현 예정.
-          현재 운영 가능한 대체 메뉴:
-          <ul class="mb-0 mt-1">
-            <li><router-link to="/analytics">통계 (사용량 분석)</router-link></li>
-            <li><router-link to="/usage-history">사용 기록</router-link></li>
-            <li><router-link to="/admin/docutil-reports">DocUtil 보고서</router-link> — 문서 기반 보고서</li>
-          </ul>
-        </div>
-      </div>
+    <div v-if="alertMessage" class="alert" :class="`alert-${alertType}`">
+      {{ alertMessage }}
+      <button type="button" class="btn-close float-end" @click="alertMessage = ''"></button>
     </div>
 
     <div class="row g-4 mb-4">
@@ -204,6 +188,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import api from '@/services/api'
 
 interface ReportTemplate {
   id: string
@@ -228,6 +213,12 @@ interface GeneratedReport {
   name: string
   createdAt: string
   filePath?: string
+  // 트랙 #147 M1 — backend 응답 매핑
+  status?: string
+  downloadUrl?: string
+  reportType?: string
+  fileSizeBytes?: number | null
+  errorMessage?: string | null
 }
 
 interface ReportForm {
@@ -303,17 +294,55 @@ const selectTemplate = (template: ReportTemplate) => {
   showCreateModal.value = true
 }
 
+const alertMessage = ref('')
+const alertType = ref<'success' | 'danger'>('success')
+function notify(type: 'success' | 'danger', msg: string) {
+  alertType.value = type
+  alertMessage.value = msg
+  if (type === 'success') setTimeout(() => (alertMessage.value = ''), 3500)
+}
+
+const loadGeneratedReports = async () => {
+  try {
+    const res = await api.get<any[]>('/reports')
+    generatedReports.value = (res.data || []).map(r => ({
+      id: String(r.reportId),
+      name: r.name,
+      createdAt: r.createdAt,
+      status: r.status,
+      downloadUrl: r.downloadUrl,
+      reportType: r.reportType,
+      fileSizeBytes: r.fileSizeBytes,
+      errorMessage: r.errorMessage
+    }))
+  } catch (e: any) {
+    notify('danger', e.response?.data?.message || '보고서 목록을 불러오지 못했습니다.')
+  }
+}
+
 const generateReport = async () => {
-  // 트랙 #147 M1 (2026-06-01): 정식 구현 대기 — 명시적 안내.
-  alert(
-    '[안내] 운영자 보고서 생성은 정식 구현 대기 상태입니다.\n\n' +
-    '백엔드 ReportsController / ReportsService / GeneratedReport 엔티티 + ' +
-    'Hangfire 백그라운드 작업 (사용량/비용 집계 → PDF/Excel) 구현 예정.\n\n' +
-    '대체 안내:\n' +
-    '• 사용량 분석: /analytics\n' +
-    '• 사용 기록: /usage-history\n' +
-    '• DocUtil 보고서: /admin/docutil-reports'
-  )
+  if (!reportForm.value.name || !reportForm.value.template) {
+    notify('danger', '필수 항목을 입력하세요.')
+    return
+  }
+  try {
+    const payload: any = {
+      name: reportForm.value.name,
+      reportType: reportForm.value.template,  // 'daily'/'weekly'/'monthly'/'custom'
+      format: 'xlsx'
+    }
+    if (reportForm.value.template === 'custom') {
+      payload.startDate = reportForm.value.startDate
+      payload.endDate = reportForm.value.endDate
+    }
+    await api.post('/reports', payload)
+    notify('success', '보고서가 생성되었습니다.')
+    await loadGeneratedReports()
+    showCreateModal.value = false
+    reportForm.value = { name: '', template: '', startDate: '', endDate: '', formats: { pdf: false, excel: true }, isScheduled: false, schedule: 'daily' }
+  } catch (e: any) {
+    notify('danger', e.response?.data?.message || '보고서 생성에 실패했습니다.')
+  }
   return
   // eslint-disable-next-line no-unreachable
   if (!reportForm.value.name || !reportForm.value.template) {
@@ -373,19 +402,37 @@ const deleteReport = (report: ScheduledReport) => {
   }
 }
 
-const downloadReport = (report: GeneratedReport, format: string) => {
-  // 트랙 #147 M1 (2026-06-01): /reports 화면은 운영자 보고서 정식 구현 대기 상태.
-  // backend ReportsController / ReportsService / GeneratedReport 엔티티 모두 미신설.
-  // 진짜 다운로드는 별도 트랙 (Hangfire 작업 + ApiUsages 집계 기반 PDF/Excel 생성)
-  // 에서 구현 예정. 현재는 운영자에게 명확히 미구현 안내.
-  alert(
-    `[안내] 운영자 보고서 화면은 정식 구현 대기 상태입니다.\n` +
-    `현재 [${report.name}] 의 ${format.toUpperCase()} 다운로드는 미구현입니다.\n\n` +
-    `대체 안내:\n` +
-    `• 사용량 분석: /analytics 메뉴\n` +
-    `• 사용 기록: /usage-history 메뉴\n` +
-    `• DocUtil 보고서: /admin/docutil-reports 메뉴`
-  )
+const downloadReport = async (report: GeneratedReport, format: string) => {
+  // 트랙 #147 M1 정식 구현 — backend /api/reports/{id}/download 호출 → Blob → 브라우저 다운로드
+  if (format !== 'excel' && format !== 'xlsx') {
+    notify('danger', '현재 Excel(xlsx) 형식만 지원됩니다. PDF 는 후속 트랙입니다.')
+    return
+  }
+  try {
+    const res = await api.get(`/reports/${report.id}/download`, { responseType: 'blob' })
+    const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${report.name}.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  } catch (e: any) {
+    notify('danger', e.response?.data?.message || '보고서 다운로드에 실패했습니다.')
+  }
+}
+
+const deleteGeneratedReport = async (report: GeneratedReport) => {
+  if (!confirm(`"${report.name}" 보고서를 삭제하시겠습니까?`)) return
+  try {
+    await api.delete(`/reports/${report.id}`)
+    notify('success', '보고서가 삭제되었습니다.')
+    await loadGeneratedReports()
+  } catch (e: any) {
+    notify('danger', e.response?.data?.message || '보고서 삭제에 실패했습니다.')
+  }
 }
 
 const getTypeBadgeClass = (type: string): string => {
@@ -407,9 +454,12 @@ onMounted(() => {
   const today = new Date()
   const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
   const lastDay = new Date(today.getFullYear(), today.getMonth(), 0)
-  
+
   reportForm.value.startDate = lastMonth.toISOString().split('T')[0]
   reportForm.value.endDate = lastDay.toISOString().split('T')[0]
+
+  // 트랙 #147 M1 — 진입 시 백엔드 목록 로드.
+  loadGeneratedReports()
 })
 </script>
 
