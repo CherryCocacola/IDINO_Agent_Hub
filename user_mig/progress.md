@@ -170,6 +170,37 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-06-01 (트랙 #142 — 외부 LLM 6 provider 한국어 메시지 + chat endpoint catch 일관 적용)
+
+**진행 배경** (I1 후속): 트랙 #141 의 OpenAI 429 → 한국어 503 패턴을 다른 LLM provider + 다른 chat endpoint 에도 일관 적용.
+
+**Fix 1 — AiProxyService 의 6 provider 429 한국어**:
+- OpenAI 스트리밍 (line 401) / Claude (1060) / Gemini (1392) / Perplexity (1570) / Mistral (1711) / Azure OpenAI (2085)
+- 통일: "외부 LLM({Provider명}) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요."
+
+**Fix 2 — `AgentsController.MapUpstreamHttpError()` 헬퍼 신설**:
+- 429 → HTTP **503**, 그 외 upstream → HTTP **502**
+- `errorCode: EXTERNAL_LLM_UPSTREAM_ERROR`, `details: { agent, upstreamStatus }`
+
+**Fix 3 — 적용 endpoint**:
+- `ChatWithAgent` (#141 inline catch → 헬퍼 호출 통일)
+- `ChatWithAgentByCode` (catch (HttpRequestException) 신규)
+- `PublicChat` (catch (HttpRequestException) 신규)
+
+**미적용 (별개)**:
+- `ChatWithAgentStream` / `PublicStream` — SSE 응답이라 status 변경 불가 (이미 한국어 error chunk + [DONE] 종료)
+- `OpenAICompatController` — 이미 한국어 502 패치 적용 (chat/embeddings/images)
+
+**파일**: `agenthub/Services/AiProxyService.cs`, `agenthub/Controllers/AgentsController.cs`
+
+**검증**:
+- `POST /api/agents/43/chat` → **503** + "외부 LLM(OpenAI) 사용량 한도가 초과되었습니다..." + `details.agent=43`
+- `POST /api/agents/code/{code}/chat` → 동일 메시지 + `details.agent="테스트"`
+
+**후속 트랙 후보**: `GlobalExceptionHandlerMiddleware` 의 HttpRequestException 분기 — 모든 controller 공통 적용.
+
+**커밋**: `b0be0f4`.
+
 ### 2026-06-01 (트랙 #141 — OpenAI 429 quota → 503 한국어 친화 메시지 변환)
 
 **사용자 보고** (H1 진단): External / Hybrid (capability 룰 적용 시) Agent 호출이 HTTP 500 + null details + 영문 stack trace.
