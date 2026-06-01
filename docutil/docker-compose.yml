@@ -249,10 +249,17 @@ services:
       start_period: 20s
 
   # -------------------------------------------------------------------------
-  # PostgreSQL 17
+  # PostgreSQL 17 (+ pgvector + ko_KR.UTF-8 locale)
+  #
+  # 트랙 #144 (2026-06-01): 운영 환경(`pgvector/pgvector:pg17` 베이스)의
+  # ko_KR.UTF-8 locale 미인식 결함 영구 fix — Dockerfile.postgres 빌드 사용.
+  # 본 로컬 compose 도 일관 적용. 외부 베이스 이미지 변경 또는 컨테이너 재생성
+  # 시 회귀 차단.
   # -------------------------------------------------------------------------
   postgres:
-    image: postgres:17-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
     container_name: docutil-postgres
     restart: unless-stopped
     ports:
