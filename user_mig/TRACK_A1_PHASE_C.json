@@ -1,0 +1,43 @@
+{
+  "summary": {
+    "pass": 7,
+    "fail": 0
+  },
+  "results": [
+    {
+      "step": "1. SuperAdmin 로그인",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "step": "2. 검증 대상 사용자 탐색",
+      "status": "PASS",
+      "detail": "id=859f9bc4-9116-4b04-9176-0a0d08916e58 status=active"
+    },
+    {
+      "step": "3. PUT status=inactive (직접 update)",
+      "status": "PASS",
+      "detail": "http=200 body[:200]={\"id\":\"859f9bc4-9116-4b04-9176-0a0d08916e58\",\"username\":\"developer@example.com\",\"email\":\"developer@example.com\",\"role\":\"developer\",\"status\":\"inactive\",\"organizationId\":\"00000000-0000-4000-a000-0000000"
+    },
+    {
+      "step": "4. PUT status 원복 (직접 update)",
+      "status": "PASS",
+      "detail": "http=200 → status=active"
+    },
+    {
+      "step": "6. DocUtil PUT /api/v1/users 410 차단",
+      "status": "PASS",
+      "detail": "http=410 body[:200]={\"detail\":\"DocUtil 사용자/부서 mutation 은 AgentHub 운영자 콘솔로 통합되었습니다. AgentHub `/admin/docutil-users` 또는 `/admin/docutil-departments` 를 사용해 주세요.\"}"
+    },
+    {
+      "step": "7. DocUtil DELETE /api/v1/users 410 차단",
+      "status": "PASS",
+      "detail": "http=410 body[:200]={\"detail\":\"DocUtil 사용자/부서 mutation 은 AgentHub 운영자 콘솔로 통합되었습니다. AgentHub `/admin/docutil-users` 또는 `/admin/docutil-departments` 를 사용해 주세요.\"}"
+    },
+    {
+      "step": "8. DocUtil POST /organizations/{org}/departments 410",
+      "status": "PASS",
+      "detail": "http=410"
+    }
+  ]
+}
