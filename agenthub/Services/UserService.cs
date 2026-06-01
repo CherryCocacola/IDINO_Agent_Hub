@@ -181,6 +181,11 @@ public class UserService : IUserService
         user.Department = request.Department ?? user.Department;
         user.Bio = request.Bio ?? user.Bio;
         user.Status = request.Status ?? user.Status;
+        // 트랙 #147 (2026-06-01) M2 — 프로필 사진. 빈 문자열 = 제거(null), null = 기존 유지.
+        if (request.ProfileImageUrl is not null)
+        {
+            user.ProfileImageUrl = string.IsNullOrWhiteSpace(request.ProfileImageUrl) ? null : request.ProfileImageUrl;
+        }
         user.UpdatedAt = DateTime.UtcNow;
 
         if (!string.IsNullOrEmpty(request.Password))

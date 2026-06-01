@@ -68,14 +68,28 @@
               </div>
 
               <div v-else class="row mb-4">
+                <!-- 트랙 #147 (2026-06-01) M2 — 프로필 사진 업로드 정식 구현.
+                     파일 선택 → FileReader base64 변환 → PUT /users/{id} body 의 ProfileImageUrl 필드 -->
                 <div class="col-md-3 text-center">
-                  <div class="avatar-large mb-3">
-                    <i class="bi bi-person-circle" style="font-size: 4rem;"></i>
+                  <div class="avatar-large mb-3 position-relative">
+                    <img v-if="profile.profileImageUrl"
+                         :src="profile.profileImageUrl"
+                         alt="프로필 사진"
+                         class="rounded-circle"
+                         style="width: 8rem; height: 8rem; object-fit: cover; border: 2px solid var(--bs-border-color);">
+                    <i v-else class="bi bi-person-circle" style="font-size: 8rem; color: var(--bs-secondary, #6c757d);"></i>
                   </div>
-                  <button type="button" class="btn btn-sm btn-outline-primary" disabled>
-                    사진 변경
-                  </button>
-                  <small class="text-muted d-block mt-2">준비 중</small>
+                  <input ref="profileImageInput" type="file" accept="image/png,image/jpeg,image/jpg,image/webp" class="d-none" @change="onProfileImageSelected">
+                  <div class="d-flex flex-column gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-primary" :disabled="profileImageUploading" @click="profileImageInput?.click()">
+                      <span v-if="profileImageUploading" class="spinner-border spinner-border-sm me-1"></span>
+                      {{ profileImageUploading ? '업로드 중...' : '사진 변경' }}
+                    </button>
+                    <button v-if="profile.profileImageUrl" type="button" class="btn btn-sm btn-outline-danger" :disabled="profileImageUploading" @click="onProfileImageRemove">
+                      <i class="bi bi-trash me-1"></i>제거
+                    </button>
+                  </div>
+                  <small class="text-muted d-block mt-2">PNG/JPG/WebP (최대 200KB)</small>
                 </div>
                 <div class="col-md-9">
                   <form @submit.prevent="handleUpdateProfile">
@@ -391,8 +405,72 @@ const profile = ref({
   email: '',
   phoneNumber: '',
   department: '',
-  bio: ''
+  bio: '',
+  profileImageUrl: ''  // 트랙 #147 M2 — base64 data URL
 })
+
+// 트랙 #147 M2 — 프로필 사진 업로드 핸들러.
+const profileImageInput = ref<HTMLInputElement | null>(null)
+const profileImageUploading = ref(false)
+const PROFILE_IMAGE_MAX_BYTES = 200 * 1024  // 200KB (인코딩 전 원본)
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
+    reader.onerror = () => reject(reader.error ?? new Error('파일 읽기 실패'))
+    reader.readAsDataURL(file)
+  })
+}
+
+const onProfileImageSelected = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (file.size > PROFILE_IMAGE_MAX_BYTES) {
+    setStatus(profileStatus.value, 'danger', `이미지 크기는 ${(PROFILE_IMAGE_MAX_BYTES / 1024).toFixed(0)}KB 이하만 허용됩니다.`)
+    input.value = ''
+    return
+  }
+  if (!profile.value.userId) {
+    setStatus(profileStatus.value, 'danger', '사용자 정보를 확인할 수 없습니다.')
+    return
+  }
+  profileImageUploading.value = true
+  try {
+    const dataUrl = await readFileAsDataUrl(file)
+    await api.put(`/users/${profile.value.userId}`, { profileImageUrl: dataUrl })
+    profile.value.profileImageUrl = dataUrl
+    await authStore.loadUser()
+    setStatus(profileStatus.value, 'success', '프로필 사진이 업데이트되었습니다.')
+  } catch (error: unknown) {
+    const e2 = error as { response?: { data?: { message?: string } }; message?: string }
+    setStatus(
+      profileStatus.value, 'danger',
+      e2.response?.data?.message || e2.message || '프로필 사진 업로드 중 오류가 발생했습니다.'
+    )
+  } finally {
+    profileImageUploading.value = false
+    input.value = ''
+  }
+}
+
+const onProfileImageRemove = async () => {
+  if (!profile.value.userId) return
+  if (!confirm('프로필 사진을 제거하시겠습니까?')) return
+  profileImageUploading.value = true
+  try {
+    await api.put(`/users/${profile.value.userId}`, { profileImageUrl: '' })
+    profile.value.profileImageUrl = ''
+    await authStore.loadUser()
+    setStatus(profileStatus.value, 'success', '프로필 사진이 제거되었습니다.')
+  } catch (error: unknown) {
+    const e2 = error as { response?: { data?: { message?: string } }; message?: string }
+    setStatus(profileStatus.value, 'danger', e2.response?.data?.message || e2.message || '프로필 사진 제거 중 오류가 발생했습니다.')
+  } finally {
+    profileImageUploading.value = false
+  }
+}
 
 // 트랙 #97-pre2-2 (2026-05-15) — Root cause fix:
 //   종전 초기값을 'ko' 로 하드코딩했더니 Settings 진입 onMounted → loadPreferences() 가
@@ -449,7 +527,8 @@ const loadProfile = async () => {
         email: response.data.email || '',
         phoneNumber: response.data.phoneNumber || '',
         department: response.data.department || '',
-        bio: response.data.bio || ''
+        bio: response.data.bio || '',
+        profileImageUrl: response.data.profileImageUrl || ''
       }
     }
   } catch (error) {
@@ -462,7 +541,8 @@ const loadProfile = async () => {
         email: authStore.user.email || '',
         phoneNumber: authStore.user.phoneNumber || '',
         department: authStore.user.department || '',
-        bio: authStore.user.bio || ''
+        bio: authStore.user.bio || '',
+        profileImageUrl: (authStore.user as { profileImageUrl?: string }).profileImageUrl || ''
       }
     } else {
       setStatus(profileStatus.value, 'danger', '프로필 정보를 불러올 수 없습니다. 다시 로그인해 주세요.')
