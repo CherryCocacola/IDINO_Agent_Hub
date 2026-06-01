@@ -1,0 +1,99 @@
+{
+  "summary": {
+    "pass": 15,
+    "fail": 0,
+    "total": 15
+  },
+  "results": [
+    {
+      "path": "/admin-accounts",
+      "expected_destination": "/admin/docutil-users",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-users"
+    },
+    {
+      "path": "/departments",
+      "expected_destination": "/admin/docutil-departments",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-departments"
+    },
+    {
+      "path": "/projects",
+      "expected_destination": "/admin/docutil-projects",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-projects"
+    },
+    {
+      "path": "/dashboard",
+      "expected_destination": "/admin/docutil-dashboard",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-dashboard"
+    },
+    {
+      "path": "/api-keys",
+      "expected_destination": "/admin/docutil-api-keys",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-api-keys"
+    },
+    {
+      "path": "/agents",
+      "expected_destination": "/admin/docutil-doc-agents",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-doc-agents"
+    },
+    {
+      "path": "/documents",
+      "expected_destination": "/admin/docutil-documents-v2",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-documents-v2"
+    },
+    {
+      "path": "/templates",
+      "expected_destination": "/admin/docutil-templates",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-templates"
+    },
+    {
+      "path": "/search-scopes",
+      "expected_destination": "/admin/docutil-search-scopes",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-search-scopes"
+    },
+    {
+      "path": "/evaluation",
+      "expected_destination": "/admin/docutil-evaluation",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-evaluation"
+    },
+    {
+      "path": "/help",
+      "expected_destination": "/admin/docutil-faq",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-faq"
+    },
+    {
+      "path": "/settings",
+      "expected_destination": "/admin/docutil-settings",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-settings"
+    },
+    {
+      "path": "/quick-guide",
+      "expected_destination": "/admin/docutil-quick-guide",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-quick-guide"
+    },
+    {
+      "path": "/search-test",
+      "expected_destination": "/admin/docutil-search-test",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-search-test"
+    },
+    {
+      "path": "/quotas",
+      "expected_destination": "/admin/docutil-departments",
+      "status": "PASS",
+      "detail": "http=307 location=http://192.168.10.39:64005/admin/docutil-departments"
+    }
+  ]
+}
