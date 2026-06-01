@@ -1967,6 +1967,25 @@ body {
 .ag-grid.list-view .ag-add-body { padding: 20px; flex-direction: row; }
 .ag-grid.list-view .ag-add-icon { margin-bottom: 0; margin-right: 12px; width: 44px; height: 44px; }
 
+/* 트랙 #153 (2026-06-01): 리스트 보기에서 ribbon 이 우측 상단 absolute → footer
+   실행/수정/삭제/공유 버튼들을 가리던 결함 fix. position 해제 + flex 첫 자식
+   위치(카드 좌측 세로 라벨) + border-radius 통일. 운영자 한눈에 owner/public
+   구분 + 버튼 미가림. */
+.ag-grid.list-view .ag-card-ribbon {
+  position: static;
+  top: auto;
+  right: auto;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 9px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
 @media (max-width: 900px) {
   .ag-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 }
