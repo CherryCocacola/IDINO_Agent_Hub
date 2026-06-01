@@ -170,6 +170,41 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-06-01 (Phase 7 — DocUtil/career AI 호출 AgentHub 위임 + 옵션 A:c 운영 적용)
+
+**진행 배경** (사용자 결정 J3 + A:c + B:b + C:b): Phase 7 진입. 7.0 AI 인벤토리 결과 **7.0~7.4 코드 + Agent 정의 + 위임 흐름 모두 사전 완료** 상태 (Phase 5 패턴 일관).
+
+**사전 완료 흔적**:
+| 영역 | 사전 작업 |
+|---|---|
+| DocUtil | `app/integrations/llm/client.py` 의 `AgentHubLLMWrapper` 클래스 (Phase 7.3 명시) + 15 파일 위임 적용 |
+| career | `shared/common/agenthub_client.py` + `ai-service/llm_service.py` (Phase 7.4 명시) — career-action-recommender / career-competency-analyzer / career-chatbot 6+ Agent 위임 |
+| AgentHub | Hybrid 10 + Internal 1 Agent = Phase 7 사용처 Agent 정합 |
+
+**옵션 A:c — Hybrid Internal 폴백** (OpenAI quota 우회):
+- `dataLabels.public`: external → internal
+- `modelCapability.vision`: external → internal
+- `modelCapability.longContext`: external → internal
+- `default`: external → internal
+
+**조치**:
+1. 운영 DB UPDATE — Hybrid Agent 10건 RoutingPolicyJson 일괄 적용
+2. `DatabaseInitializer.DefaultHybridRoutingPolicyJson` 동기화 (재배포 시 자동 시드)
+
+**파일**: `agenthub/Data/DatabaseInitializer.cs` (운영 DB UPDATE 별도 SQL)
+
+**검증 (운영 e2e)**:
+- **docutil-rag-chat** (id=22, gpt-4o, Hybrid) → HTTP **200** + Nexus 응답 + 2702 tokens / $0
+- **career-action-recommender** (id=29, gpt-4o-mini, Hybrid) → HTTP **200** + Nexus 응답 + 2113 tokens / $0
+- HybridRouter: `Reason=capability_required, ServiceId 17 → 32 (nexus)` ✓
+- Nexus fallback: "gpt-4o-mini → 'primary' 로 폴백" 정상
+
+**B (2단계 PII 방어)** + **C (일괄 진행)** 도 적용 완료.
+
+**운영 정책 후속 (사용자 작업)**: OpenAI billing 충전 완료 시 운영자가 정책 일부 external 복원 또는 그대로 유지 결정.
+
+**커밋**: `ab2897b`.
+
 ### 2026-06-01 (트랙 #143 — GlobalExceptionHandlerMiddleware HttpRequestException 공통 분기)
 
 **진행 배경** (J1): 트랙 #141/#142 의 외부 LLM upstream 처리를 AgentsController 한정으로 적용 → 다른 controller 에서 catch 누락 시 영문 500 잔존 위험. 전역 middleware 안전망 추가.
