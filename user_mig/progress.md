@@ -170,6 +170,22 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-06-01 (트랙 #143 — GlobalExceptionHandlerMiddleware HttpRequestException 공통 분기)
+
+**진행 배경** (J1): 트랙 #141/#142 의 외부 LLM upstream 처리를 AgentsController 한정으로 적용 → 다른 controller 에서 catch 누락 시 영문 500 잔존 위험. 전역 middleware 안전망 추가.
+
+**Fix** (`GlobalExceptionHandlerMiddleware.HandleExceptionAsync` 의 `ex switch`):
+- `HttpRequestException hre` 추가
+- 429 → 503, 그 외 → 502
+- `errorCode: EXTERNAL_LLM_UPSTREAM_ERROR`
+- AiProxyService 한국어 메시지 그대로 전파 + 폴백 메시지
+
+**파일**: `agenthub/Middleware/GlobalExceptionHandlerMiddleware.cs`
+
+**검증**: ChatWithAgent 회귀 차단 — controller catch 가 먼저 503 응답, middleware 는 fallback.
+
+**커밋**: `46ee066`.
+
 ### 2026-06-01 (트랙 #142 — 외부 LLM 6 provider 한국어 메시지 + chat endpoint catch 일관 적용)
 
 **진행 배경** (I1 후속): 트랙 #141 의 OpenAI 429 → 한국어 503 패턴을 다른 LLM provider + 다른 chat endpoint 에도 일관 적용.
