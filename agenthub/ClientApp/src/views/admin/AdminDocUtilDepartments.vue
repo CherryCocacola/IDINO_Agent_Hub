@@ -1182,7 +1182,11 @@ onMounted(() => {
   transition: background-color 0.15s ease-in-out;
 }
 
-.list-group-item:hover {
+/* 트랙 #151 (2026-06-01): active 일 때는 hover 회색이 우선되지 않도록 :not(.active) 한정.
+   원인: Vue scoped style 이 Bootstrap CSS 보다 늦게 cascade 되어 동일 specificity 의
+   `.list-group-item:hover` 가 `.list-group-item.active` 의 파란 배경을 가렸음.
+   결과: 사용자가 행 클릭 후 호버 해제 시 active 배경이 안 보이는 결함. */
+.list-group-item:not(.active):hover {
   background-color: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.04));
 }
 
