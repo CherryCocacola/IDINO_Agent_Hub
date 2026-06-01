@@ -1,0 +1,30 @@
+{
+  "started_at": "2026-06-01T01:53:27.071064+00:00",
+  "finished_at": "2026-06-01T01:53:31.532208+00:00",
+  "host": "192.168.10.39",
+  "passed": 4,
+  "failed": 0,
+  "total": 4,
+  "results": [
+    {
+      "name": "internal_nexus_direct",
+      "status": "PASS",
+      "detail": "HTTP=200 time=0.031911s content='안녕하세요! 저는 학생 진로 코칭 챗봇입니다. 진로 고민이나 감정적 어려움을 함께 나누고 해결 방향을 모색해'"
+    },
+    {
+      "name": "hybrid_pii_to_internal",
+      "status": "PASS",
+      "detail": "HTTP=200 pii_log=True nexus_route=True"
+    },
+    {
+      "name": "hybrid_capability_branch",
+      "status": "PASS",
+      "detail": "HTTP=200 capability_log=True"
+    },
+    {
+      "name": "external_openai_uniform_response",
+      "status": "PASS",
+      "detail": "HTTP=400 (key error 400 — 후속 트랙 후보)"
+    }
+  ]
+}
