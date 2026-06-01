@@ -61,6 +61,109 @@
   --ai-shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+ * 트랙 #149 (2026-06-01) P1 — 다크모드 정식 구현.
+ * Bootstrap 5.3 의 data-bs-theme 표준 활용 + 자체 CSS 변수 다크 페어 정의.
+ * 적용 위치: <html data-bs-theme="dark"> 또는 <html data-bs-theme="light">.
+ * Settings.vue 의 환경설정 탭 theme select 가 localStorage + DOM attribute 갱신.
+ * ════════════════════════════════════════════════════════════════════════════ */
+:root[data-bs-theme="dark"] {
+  /* 사이드바 — 라이트 모드와 동일 톤 유지 (이미 다크 indigo 계열). */
+  --main-bg: #0F172A;
+  --border-light: #334155;
+  --text-primary: #F1F5F9;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+
+  /* aiuiux 톤 다크 페어. */
+  --ai-text-primary: #F1F5F9;
+  --ai-text-secondary: #CBD5E1;
+  --ai-text-muted: #94A3B8;
+  --ai-bg-page: #0F172A;
+  --ai-bg-card: #1E293B;
+  --ai-bg-light: #1E293B;
+  --ai-border: #334155;
+  --ai-border-light: #475569;
+  --ai-primary-light: #312E81;
+
+  /* Bootstrap 컴포넌트 다크 오버라이드 — bs- 변수 활용. */
+  --bs-body-bg: #0F172A;
+  --bs-body-color: #F1F5F9;
+  --bs-card-bg: #1E293B;
+  --bs-card-border-color: #334155;
+  --bs-border-color: #334155;
+  --bs-border-color-translucent: rgba(255,255,255,0.12);
+  --bs-secondary-bg: #1E293B;
+  --bs-tertiary-bg: #0F172A;
+  --bs-light: #1E293B;
+  --bs-light-rgb: 30, 41, 59;
+
+  /* Form / table 톤. */
+  --bs-form-control-bg: #0F172A;
+  --bs-form-select-bg: #0F172A;
+  --bs-table-bg: #1E293B;
+  --bs-table-color: #F1F5F9;
+  --bs-table-border-color: #334155;
+  --bs-table-striped-bg: rgba(255,255,255,0.04);
+  --bs-table-hover-bg: rgba(255,255,255,0.07);
+
+  /* Primary tint 보정 — 다크 배경에서 가독성 위해 약간 밝게. */
+  --ai-primary-bg-subtle: #1E1B4B;
+
+  --ai-shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+  --ai-shadow-md: 0 4px 6px rgba(0,0,0,0.45);
+  --ai-shadow-lg: 0 10px 25px rgba(0,0,0,0.55);
+}
+
+/* 다크 모드에서 본문 배경 강제 적용. */
+:root[data-bs-theme="dark"] body {
+  background-color: var(--bs-body-bg) !important;
+  color: var(--bs-body-color);
+}
+
+/* 페이지 컨텐츠 래퍼/카드 다크 보강. */
+:root[data-bs-theme="dark"] .page-content-wrap,
+:root[data-bs-theme="dark"] .aiuiux-card,
+:root[data-bs-theme="dark"] .card.aiuiux-card,
+:root[data-bs-theme="dark"] .aiuiux-modal {
+  background-color: var(--ai-bg-card);
+  color: var(--ai-text-primary);
+  border-color: var(--ai-border);
+}
+:root[data-bs-theme="dark"] .aiuiux-modal .modal-header,
+:root[data-bs-theme="dark"] .card-header.bg-white {
+  background-color: var(--ai-bg-card) !important;
+  border-color: var(--ai-border);
+  color: var(--ai-text-primary);
+}
+:root[data-bs-theme="dark"] .table-light,
+:root[data-bs-theme="dark"] .table > :not(caption) > * > * {
+  background-color: var(--bs-table-bg);
+  color: var(--bs-table-color);
+}
+:root[data-bs-theme="dark"] .text-muted {
+  color: var(--ai-text-muted) !important;
+}
+:root[data-bs-theme="dark"] .alert-success {
+  background-color: rgba(16,185,129,0.12);
+  border-color: rgba(16,185,129,0.4);
+  color: #6EE7B7;
+}
+:root[data-bs-theme="dark"] .alert-danger {
+  background-color: rgba(239,68,68,0.12);
+  border-color: rgba(239,68,68,0.4);
+  color: #FCA5A5;
+}
+:root[data-bs-theme="dark"] .alert-warning {
+  background-color: rgba(245,158,11,0.12);
+  border-color: rgba(245,158,11,0.4);
+  color: #FCD34D;
+}
+:root[data-bs-theme="dark"] .badge.bg-light {
+  background-color: #334155 !important;
+  color: #F1F5F9 !important;
+}
+
 /* 전역 글꼴 적용 (테마 우선) */
 body {
   font-family: var(--font-sans) !important;

@@ -234,21 +234,20 @@
                      정식 다크모드 구현은 별도 트랙 (aiuiux-theme.css 의 300+ CSS 변수
                      다크 페어 정의 + Bootstrap data-bs-theme + prefers-color-scheme
                      auto 감지 + 전체 페이지 검증) 으로 후순위. -->
+                <!-- 트랙 #149 (2026-06-01) P1: 다크모드 정식 구현 — disable 해제 + 즉시 DOM 적용. -->
                 <div class="mb-3">
-                  <label class="form-label">
-                    테마
-                    <span class="badge bg-secondary ms-1">준비 중</span>
-                  </label>
+                  <label class="form-label">테마</label>
                   <select
                     class="form-select"
                     v-model="preferences.theme"
-                    disabled
+                    @change="handleThemeChange"
+                    :disabled="preferencesSaving"
                   >
                     <option value="light">라이트</option>
                     <option value="dark">다크</option>
-                    <option value="auto">시스템 설정</option>
+                    <option value="auto">시스템 설정 (OS prefers-color-scheme)</option>
                   </select>
-                  <small class="text-muted">다크모드는 정식 구현 예정입니다. 현재 라이트 모드로 고정됩니다.</small>
+                  <small class="text-muted">테마 변경은 즉시 화면에 적용됩니다.</small>
                 </div>
                 <div class="text-end">
                   <button
@@ -671,6 +670,22 @@ const loadPreferences = async () => {
  * 트랙 #97-pre2-2 (2026-05-15): SUPPORTED_LOCALES (ko/en/vi) 검증 + localStorage 영구 저장.
  * 즉시 vue-i18n locale 갱신 → MainLayout 의 computed menuCategories 가 reactive 하게 재평가됨.
  */
+// 트랙 #149 P1 (2026-06-01): 다크모드 정식 구현 — DOM 적용 + localStorage + auto 감지.
+function applyTheme(theme: 'light' | 'dark' | 'auto') {
+  let effective: 'light' | 'dark' = theme as 'light' | 'dark'
+  if (theme === 'auto') {
+    const mql = window.matchMedia('(prefers-color-scheme: dark)')
+    effective = mql.matches ? 'dark' : 'light'
+  }
+  document.documentElement.setAttribute('data-bs-theme', effective)
+  safeSetLocalStorage('theme', theme)
+}
+
+const handleThemeChange = () => {
+  const t = preferences.value.theme as 'light' | 'dark' | 'auto'
+  applyTheme(t)
+}
+
 const handleLanguageChange = () => {
   const next = preferences.value.language
   if (!isSupportedLocale(next)) {
