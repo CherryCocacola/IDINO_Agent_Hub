@@ -208,6 +208,19 @@ public class ChatController : ControllerBase
         {
             return BadRequest(ErrorResponseDto.BadRequest(ex.Message));
         }
+        catch (HttpRequestException ex)
+        {
+            // 트랙 #150 (2026-06-01): 외부 LLM 결함(인증/429/4xx/5xx) 을 ChatController 에서도
+            // 한국어 그대로 전달. AiProxyService 의 throw 메시지 ("외부 LLM(OpenAI) 인증 실패..." 등)
+            // 가 catch(Exception) 의 영문 "An error occurred" 로 swallow 되던 결함 fix.
+            // 트랙 #141/#145/#146 의 OpenAICompatController/AgentsController 패턴과 일관.
+            var statusCode = ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests ? 503 : 502;
+            var errorCode = ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests
+                ? "EXTERNAL_LLM_RATE_LIMITED"
+                : "EXTERNAL_LLM_UPSTREAM_ERROR";
+            _logger.LogWarning(ex, "외부 LLM 호출 실패 (conversation {ConversationId}, HTTP={Status})", id, ex.StatusCode);
+            return StatusCode(statusCode, new ErrorResponseDto(ex.Message, errorCode, null));
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending message to conversation {ConversationId}", id);
@@ -370,6 +383,16 @@ public class ChatController : ControllerBase
         {
             _logger.LogWarning(ex, "Invalid operation: {Message}", ex.Message);
             return BadRequest(ErrorResponseDto.BadRequest(ex.Message));
+        }
+        catch (HttpRequestException ex)
+        {
+            // 트랙 #150 — 외부 LLM HttpRequestException 한국어 메시지 보존 (위 SendMessage 와 동일 패턴).
+            var statusCode = ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests ? 503 : 502;
+            var errorCode = ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests
+                ? "EXTERNAL_LLM_RATE_LIMITED"
+                : "EXTERNAL_LLM_UPSTREAM_ERROR";
+            _logger.LogWarning(ex, "외부 LLM 호출 실패 (SendDirectMessage, HTTP={Status})", ex.StatusCode);
+            return StatusCode(statusCode, new ErrorResponseDto(ex.Message, errorCode, null));
         }
         catch (Exception ex)
         {
