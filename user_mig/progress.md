@@ -170,6 +170,35 @@
 
 ## 6. 작업 로그 (Append-only, 시간 역순)
 
+### 2026-06-01 (K1 + K3 + K4 — Phase 5.7 매트릭스 / 트랙 #144 locale + legacy DROP / Phase 7.5 SSE 운영 검증)
+
+**진행 배경** (사용자 결정 K1+K2+K3+K4): Phase 5 + Phase 7 후속 안정성/회귀 차단.
+
+**K3 + 트랙 #144 — docutil-postgres locale 영구 fix + legacy DROP**:
+- **중대 결함 발견**: docutil-postgres 컨테이너 restart 후 신규 connection 모두 fail (`FATAL: database locale is incompatible with operating system, DETAIL: LC_COLLATE "ko_KR.UTF-8" 인식 못함`). AgentHub 로그인도 500. 운영 전반 다운 직전.
+- Root cause: `pgvector/pgvector:pg17` (Debian bookworm) minimal 이미지가 `locales-all` 미포함.
+- 즉시 fix: `docker exec apt-get install locales-all` + restart → 정상화 (HTTP 200)
+- 영구 fix: `docutil/Dockerfile.postgres` 신설 (FROM pgvector/pgvector:pg17 + locales-all) + `docutil/docker-compose.yml` 의 postgres `image` → `build` 변경
+- K3 legacy DROP: `tb_departments_legacy_20260526` (9 rows, 80kB) 참조 0건 확인 후 DROP. `tb_users_legacy_20260518` 보존.
+- 운영자 후속: 운영 `/home/idino/docutil/docker-compose.yml` 도 동일 build 전환 (다음 deploy 시 영구 적용)
+- 커밋: `c1f1d0b`
+
+**K1 — Phase 5.7 자동 검증 매트릭스 신설**:
+- `tools/integration/phase5_routing_matrix.py` — 4 시나리오 (Internal / Hybrid PII / Hybrid capability / External 응답)
+- paramiko SSH → curl + AgentHub 로그 grep + JSON 결과 저장 (`user_mig/PHASE5_VALIDATION.json`)
+- CI 호환: 전체 PASS → exit 0
+- 실행 결과: **4/4 PASS** (옵션 A:c 정책 적용 상태에서 안정 동작)
+- 커밋: `e954459`
+
+**K4 — Phase 7.5 chat_stream + 진짜 SSE 운영 검증**:
+- 사전 발견: `career/shared/common/agenthub_client.py:178` + `docutil/backend/app/integrations/agenthub_client.py:178` 의 `async def chat_stream` 메서드 사전 구현 완료
+- 운영 e2e: `POST /api/agents/30/chat/stream` (Internal Nexus) → HTTP **200** + `text/event-stream` + `Transfer-Encoding: chunked` + 실시간 chunk ("안녕! 진로 ...") ✓
+- 코드 변경 없음 (운영 검증만)
+
+**K2 — Nexus:SharedSecret 운영 설정** (사용자 작업 영역):
+- 코드 변경 없음. 운영 appsettings 의 `Nexus.SharedSecret` 빈 값에 secret 입력 (운영자 작업)
+- NexusClient 의 미설정 경고는 트랙 #92 부터 이미 출력 중
+
 ### 2026-06-01 (Phase 7 — DocUtil/career AI 호출 AgentHub 위임 + 옵션 A:c 운영 적용)
 
 **진행 배경** (사용자 결정 J3 + A:c + B:b + C:b): Phase 7 진입. 7.0 AI 인벤토리 결과 **7.0~7.4 코드 + Agent 정의 + 위임 흐름 모두 사전 완료** 상태 (Phase 5 패턴 일관).
