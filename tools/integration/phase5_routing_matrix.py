@@ -144,15 +144,20 @@ def main() -> int:
     msg4 = (body4.get("message") if isinstance(body4, dict) else "") or ""
     is_200 = r4["http"] == "200"
     is_quota_503 = r4["http"] == "503" and "사용량 한도" in msg4
-    # OpenAI key 결함(invalid/expired) 시 400 + "OpenAI API error" 영문 — 트랙 #141~#143 의
-    # 한국어 변환 외 케이스. 향후 트랙으로 보강 가능 (현재 PASS 인정).
-    is_key_error = r4["http"] == "400" and ("OpenAI" in msg4 or "API key" in msg4.lower() or "Unauthorized" in msg4)
-    ok4 = is_200 or is_quota_503 or is_key_error
+    # 트랙 #145 (2026-06-01): 비-429 외부 LLM 결함도 한국어 변환. 401/403 → 502 + "인증에 실패".
+    is_auth_502 = r4["http"] == "502" and ("인증에 실패" in msg4 or "API key" in msg4)
+    # 5xx upstream 다운 → 502 + "서버 오류"
+    is_upstream_502 = r4["http"] == "502" and "서버 오류" in msg4
+    # 4xx 요청 결함 → 502 + "호출 거부"
+    is_request_502 = r4["http"] == "502" and "호출 거부" in msg4
+    ok4 = is_200 or is_quota_503 or is_auth_502 or is_upstream_502 or is_request_502
     label = (
         "(정상 200)" if is_200 else
         "(quota 503 한국어)" if is_quota_503 else
-        "(key error 400 — 후속 트랙 후보)" if is_key_error else
-        "(기타)"
+        "(auth 502 한국어 #145)" if is_auth_502 else
+        "(upstream 502 한국어 #145)" if is_upstream_502 else
+        "(request 502 한국어 #145)" if is_request_502 else
+        "(기타 — 후속 트랙 후보)"
     )
     results.append(assert_case(
         "external_openai_uniform_response",

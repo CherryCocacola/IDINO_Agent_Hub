@@ -944,7 +944,28 @@ You are a professional and helpful AI assistant.
                     "외부 LLM(OpenAI) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
                     null, response.StatusCode);
             }
-            throw new InvalidOperationException($"OpenAI API error: {response.StatusCode} - {responseJson}");
+            // 트랙 #145 (2026-06-01): 비-429 외부 LLM 결함도 한국어 변환 + HttpRequestException
+            // 으로 통일 (AgentsController.MapUpstreamHttpError + GlobalExceptionHandlerMiddleware 의
+            // 외부 LLM 분기 활용). 401/403 = key 결함, 4xx 일반 = 요청 결함, 5xx = upstream 다운.
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                _apiKeyPool?.MarkAsCoolingDown("openai", apiKey ?? "");
+                throw new HttpRequestException(
+                    "외부 LLM(OpenAI) 인증에 실패했습니다. API key 가 유효하지 않거나 만료되었습니다. 운영자에게 키 갱신을 요청하세요.",
+                    null, response.StatusCode);
+            }
+            if ((int)response.StatusCode >= 500)
+            {
+                throw new HttpRequestException(
+                    $"외부 LLM(OpenAI) 서버 오류 (HTTP {(int)response.StatusCode}). 잠시 후 다시 시도해 주세요.",
+                    null, response.StatusCode);
+            }
+            // 4xx 일반 (BadRequest 등) — 요청 본문 결함. 디버그용 일부 정보만 노출.
+            var briefError = responseJson.Length > 200 ? responseJson.Substring(0, 200) + "..." : responseJson;
+            throw new HttpRequestException(
+                $"외부 LLM(OpenAI) 호출 거부 (HTTP {(int)response.StatusCode}). 요청 형식을 확인해 주세요. (요약: {briefError})",
+                null, response.StatusCode);
         }
 
         try

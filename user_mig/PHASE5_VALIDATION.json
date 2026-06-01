@@ -1,6 +1,6 @@
 {
-  "started_at": "2026-06-01T01:53:27.071064+00:00",
-  "finished_at": "2026-06-01T01:53:31.532208+00:00",
+  "started_at": "2026-06-01T02:20:16.591708+00:00",
+  "finished_at": "2026-06-01T02:20:20.634267+00:00",
   "host": "192.168.10.39",
   "passed": 4,
   "failed": 0,
@@ -9,7 +9,7 @@
     {
       "name": "internal_nexus_direct",
       "status": "PASS",
-      "detail": "HTTP=200 time=0.031911s content='안녕하세요! 저는 학생 진로 코칭 챗봇입니다. 진로 고민이나 감정적 어려움을 함께 나누고 해결 방향을 모색해'"
+      "detail": "HTTP=200 time=0.031208s content='안녕! 저는 진로 코칭 챗봇 Nexus입니다. 진로 고민이나 감정적 어려움을 함께 나누고, 구체적인 다음 단'"
     },
     {
       "name": "hybrid_pii_to_internal",
@@ -24,7 +24,7 @@
     {
       "name": "external_openai_uniform_response",
       "status": "PASS",
-      "detail": "HTTP=400 (key error 400 — 후속 트랙 후보)"
+      "detail": "HTTP=502 (auth 502 한국어 #145)"
     }
   ]
 }
