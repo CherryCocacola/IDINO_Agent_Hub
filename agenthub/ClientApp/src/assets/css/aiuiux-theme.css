@@ -1968,9 +1968,9 @@ body {
 .ag-grid.list-view .ag-add-icon { margin-bottom: 0; margin-right: 12px; width: 44px; height: 44px; }
 
 /* 트랙 #153 (2026-06-01): 리스트 보기에서 ribbon 이 우측 상단 absolute → footer
-   실행/수정/삭제/공유 버튼들을 가리던 결함 fix. position 해제 + flex 첫 자식
-   위치(카드 좌측 세로 라벨) + border-radius 통일. 운영자 한눈에 owner/public
-   구분 + 버튼 미가림. */
+   실행/수정/삭제/공유 버튼들을 가리던 결함 fix. position 해제 + flex item 으로
+   변환. 트랙 #154 후속: 좌측이 아니라 카드 가장 뒤(오른쪽 끝) 로 order 변경 —
+   운영자 보고: "기존 리본을 가장 뒤로". 버튼 미가림 유지(footer 이전 위치). */
 .ag-grid.list-view .ag-card-ribbon {
   position: static;
   top: auto;
@@ -1984,6 +1984,7 @@ body {
   text-transform: uppercase;
   border-radius: 0;
   flex-shrink: 0;
+  order: 99;
 }
 
 @media (max-width: 900px) {
