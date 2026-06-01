@@ -956,16 +956,19 @@ public static class DatabaseInitializer
     ///   - admin 시드 부재 시 시드 전체 skip (Agents.CreatedBy 는 NOT NULL FK).
     /// </remarks>
     /// <summary>
-    /// 트랙 #138 (2026-06-01) — Hybrid 라우팅 표준 정책 JSON.
-    /// .claude/rules/domain-model.md 의 RoutingPolicyJson 스키마 + 운영 현실 반영.
-    /// 운영자가 AgentBuilder UI 에서 개별 조정 가능 (본 시드는 NULL 폴백 회귀 차단용 기본값).
+    /// Phase 7 옵션 A:c (2026-06-01) — Hybrid 라우팅 표준 정책 JSON.
+    /// OpenAI quota 초과 상태 우회 — dataLabels.public + modelCapability.vision/longContext
+    /// + default 모두 internal 폴백. OpenAI 충전 완료 시 운영자가 vision/public/default 의
+    /// 일부를 external 로 복원하거나 그대로 유지 가능 (운영 정책 결정).
+    /// 트랙 #138 의 표준 정책에서 진화 — Phase 7 위임 호출이 OpenAI 의존 없이 Nexus 만으로
+    /// 정상 작동하도록 보강 (DocUtil RAG / career coaching 모두 운영 검증 완료).
     /// </summary>
     private const string DefaultHybridRoutingPolicyJson =
         "{\"piiThreshold\":\"block\",\"piiAction\":\"internal\"," +
-        "\"dataLabels\":{\"confidential\":\"internal\",\"internal\":\"internal\",\"public\":\"external\"}," +
-        "\"modelCapability\":{\"vision\":\"external\",\"longContext\":\"external\",\"longContextThreshold\":32000}," +
+        "\"dataLabels\":{\"confidential\":\"internal\",\"internal\":\"internal\",\"public\":\"internal\"}," +
+        "\"modelCapability\":{\"vision\":\"internal\",\"longContext\":\"internal\",\"longContextThreshold\":32000}," +
         "\"costThreshold\":{\"perRequest\":0.10,\"exceedAction\":\"internal\"}," +
-        "\"default\":\"external\"}";
+        "\"default\":\"internal\"}";
 
     private static async Task SeedAgentsAsync(AIAgentManagementDbContext context)
     {
