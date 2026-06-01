@@ -374,6 +374,18 @@ public class AgentsController : ControllerBase
             _logger.LogWarning(ex, "Invalid operation in ChatWithAgent for AgentId {AgentId}", id);
             return BadRequest(ErrorResponseDto.BadRequest(ex.Message));
         }
+        catch (HttpRequestException ex)
+        {
+            // 트랙 #141 (2026-06-01): 외부 LLM upstream 결함(429 quota / 503 등) 의
+            // 메시지를 502 로 전파. AiProxyService 가 한국어 메시지 부착하므로 그대로 사용.
+            // ApiKeyPool 쿨다운은 AiProxyService 가 이미 수행.
+            _logger.LogWarning(ex, "External LLM upstream error in ChatWithAgent for AgentId {AgentId} (Status={Status})", id, ex.StatusCode);
+            var statusCode = ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests ? 503 : 502;
+            return StatusCode(statusCode, new ErrorResponseDto(
+                string.IsNullOrWhiteSpace(ex.Message) ? "외부 LLM 호출에 실패했습니다. 잠시 후 다시 시도해 주세요." : ex.Message,
+                "EXTERNAL_LLM_UPSTREAM_ERROR",
+                new { agentId = id, upstreamStatus = ex.StatusCode?.ToString() }));
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in ChatWithAgent for AgentId {AgentId}", id);

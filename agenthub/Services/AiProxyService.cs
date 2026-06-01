@@ -935,7 +935,11 @@ You are a professional and helpful AI assistant.
             if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
                 _apiKeyPool?.MarkAsCoolingDown("openai", apiKey ?? "");
-                throw new HttpRequestException($"OpenAI API 429 Too Many Requests - {responseJson}", null, response.StatusCode);
+                // 트랙 #141 (2026-06-01): 운영자/사용자 친화 한국어 메시지. 호출자
+                // (AgentsController catch (HttpRequestException)) 가 503 + 본 메시지 그대로 전달.
+                throw new HttpRequestException(
+                    "외부 LLM(OpenAI) 사용량 한도가 초과되었습니다. 운영자에게 API key 충전 또는 회전을 요청하세요.",
+                    null, response.StatusCode);
             }
             throw new InvalidOperationException($"OpenAI API error: {response.StatusCode} - {responseJson}");
         }
