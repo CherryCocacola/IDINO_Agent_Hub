@@ -83,12 +83,17 @@
               <td class="text-center">{{ faq.sortOrder }}</td>
               <td class="small text-muted">{{ formatDate(faq.updatedAt) }}</td>
               <td class="text-end">
-                <button type="button" class="btn btn-sm btn-outline-primary me-1" @click="openEditModal(faq)" title="수정">
-                  <i class="bi bi-pencil"></i>
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-danger" @click="onDelete(faq)" title="삭제">
-                  <i class="bi bi-trash"></i>
-                </button>
+                <!-- 트랙 #152 (2026-06-01): td 폭(110px) - padding(16px) = 94px 가용,
+                     두 버튼(50+4+50=104px) 초과로 줄바꿈 발생. d-inline-flex + gap-1 +
+                     flex-nowrap wrapper 로 항상 같은 줄 + 균등 간격 보장. -->
+                <div class="d-inline-flex gap-1 flex-nowrap">
+                  <button type="button" class="btn btn-sm btn-outline-primary" @click="openEditModal(faq)" title="수정">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" @click="onDelete(faq)" title="삭제">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>

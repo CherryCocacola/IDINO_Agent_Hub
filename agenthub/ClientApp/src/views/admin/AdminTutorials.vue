@@ -83,15 +83,18 @@
               <td class="text-center">{{ t.sortOrder }}</td>
               <td class="small text-muted">{{ formatDate(t.updatedAt) }}</td>
               <td class="text-end">
-                <a v-if="t.videoUrl" :href="t.videoUrl" target="_blank" class="btn btn-sm btn-outline-secondary me-1" title="영상 열기">
-                  <i class="bi bi-play-circle"></i>
-                </a>
-                <button type="button" class="btn btn-sm btn-outline-primary me-1" @click="openEditModal(t)" title="수정">
-                  <i class="bi bi-pencil"></i>
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-danger" @click="onDelete(t)" title="삭제">
-                  <i class="bi bi-trash"></i>
-                </button>
+                <!-- 트랙 #152 (2026-06-01): 좁은 actions td 에서 버튼 줄바꿈 차단. -->
+                <div class="d-inline-flex gap-1 flex-nowrap">
+                  <a v-if="t.videoUrl" :href="t.videoUrl" target="_blank" class="btn btn-sm btn-outline-secondary" title="영상 열기">
+                    <i class="bi bi-play-circle"></i>
+                  </a>
+                  <button type="button" class="btn btn-sm btn-outline-primary" @click="openEditModal(t)" title="수정">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" @click="onDelete(t)" title="삭제">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
